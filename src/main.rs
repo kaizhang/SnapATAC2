@@ -1,7 +1,7 @@
 extern crate ProjectA;
 
 use std::env;
-use ProjectA::tss_enrichment::*;
+use ProjectA::qc::*;
 use std::fs::File;
 use flate2::read::GzDecoder;
 use itertools::Itertools;
