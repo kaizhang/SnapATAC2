@@ -1,7 +1,7 @@
-extern crate ProjectA;
+extern crate project_a;
 
 use std::env;
-use ProjectA::qc::*;
+use project_a::qc::*;
 use std::fs::File;
 use flate2::read::GzDecoder;
 use itertools::Itertools;

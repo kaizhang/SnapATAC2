@@ -1,5 +1,5 @@
 [package]
-name = "ProjectA"
+name = "project_a"
 version = "0.1.0"
 edition = "2021"
 authors = ["Kai Zhang <kai@kzhang.org>"]
@@ -16,3 +16,10 @@ bio = { git = "https://github.com/kaizhang/rust-bio.git", rev = "33c6db389c03fff
 itertools = "0.8"
 csv = "1.1.6"
 intervaltree = "0.2"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "benchmark"
+harness = false
