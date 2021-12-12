@@ -1,10 +1,7 @@
 use std::io;
 use std::io::prelude::*;
-use std::fs::File;
 use bio::io::bed;
 use std::io::BufReader;                                                                                                                                           
-use itertools::Itertools;
-use flate2::read::GzDecoder;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use bio::data_structures::interval_tree;
@@ -91,17 +88,26 @@ for i in 0 .. 4001 {
 }
 
 #[cfg(test)]
-#[test]
-fn it_works() {
-    let f = GzDecoder::new(File::open("data/fragments.bed.gz").expect("xx"));
-    let gencode = File::open("data/gencode.gtf.gz").expect("xx");
-    let promoter = make_promoter_map(read_tss(GzDecoder::new(gencode)));
-    let expected = vec![12.834224598930483, 1.8181818181818181,6.583072100313481,
-            1.8181818181818181,0.0,0.0, 1.8181818181818181,5.956112852664577,
-            0.9090909090909091, 5.896805896805896,5.965909090909091,
-            6.734006734006734,9.312638580931264];
-    let result: Vec<f64> = read_fragments(f).group_by(|x| x.name().unwrap().to_string()).into_iter()
-            .map(|(_, fragments)| tsse(&promoter, fragments.map(get_insertions).flatten()))
-            .collect();
-    assert_eq!(expected, result);
+mod tests {
+    use super::*;
+
+    use flate2::read::GzDecoder;
+    use std::fs::File;
+    use itertools::Itertools;
+
+    #[test]
+    fn test_tsse() {
+        let f = GzDecoder::new(File::open("data/fragments.bed.gz").expect("xx"));
+        let gencode = File::open("data/gencode.gtf.gz").expect("xx");
+        let promoter = make_promoter_map(read_tss(GzDecoder::new(gencode)));
+        let expected = vec![11.857707509881424, 2.727272727272727, 6.583072100313478
+                , 2.727272727272727, 0.0, 0.0, 1.8181818181818181, 6.1633281972265
+                , 0.9090909090909091, 6.220095693779905, 5.965909090909091
+                , 7.204116638078901, 9.312638580931262];
+        let result: Vec<f64> = read_fragments(f).group_by(|x| x.name().unwrap().to_string()).into_iter()
+                .map(|(_, fragments)| tsse(&promoter, fragments.map(get_insertions).flatten()))
+                .collect();
+        assert_eq!(expected, result);
+    }
+
 }
