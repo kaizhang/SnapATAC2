@@ -1,0 +1,25 @@
+[package]
+name = "project_a"
+version = "0.1.0"
+edition = "2021"
+authors = ["Kai Zhang <kai@kzhang.org>"]
+description = "Rust APIs"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/"
+homepage = "https://github.com/"
+keywords = ["single-cell", "biology"]
+
+[dependencies]
+flate2 = "1.0"
+bio = { git = "https://github.com/kaizhang/rust-bio.git", rev = "33c6db389c03fff9a5f9571bbb5235957bdda7c8" }
+itertools = "0.8"
+csv = "1.1.6"
+intervaltree = "0.2"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "benchmark"
+harness = false
