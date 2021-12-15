@@ -6,5 +6,4 @@ authors = ["Kai Zhang <kai@kzhang.org>"]
 
 [dependencies]
 noodles = { version = "0.15.0", features = ["bam"] }
-noodles-bed = { git = "https://github.com/zaeleus/noodles.git", rev = "c6d4c4421bc5b1b2f31dfd6e7893c8f4c1d6c37a", package = "noodles-bed"}
 bio = "0.39.0"
