@@ -4,15 +4,16 @@ use project_a::qc::*;
 use std::fs::File;
 use flate2::read::GzDecoder;
 use itertools::Itertools;
+use bed_utils::bed::{BED, BEDLike, tree::BedTree, io::Reader};
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let gencode = File::open("data/gencode.gtf.gz").expect("xx");
-    let input = ( "data/fragments.bed.gz"
+    let gencode = File::open("../data/gencode.gtf.gz").expect("xx");
+    let input = ( "../data/fragments.bed.gz"
                 , make_promoter_map(read_tss(GzDecoder::new(gencode))));
     c.bench_with_input(BenchmarkId::new("TSSe", ""), &input, |b, i| {
         b.iter(|| {
             let f = GzDecoder::new(File::open(i.0).expect("xx"));
-            for (bc, fragments) in read_fragments(f).group_by(|x| x.name().unwrap().to_string()).into_iter() {
+            for (bc, fragments) in Reader::new(f).records::<BED<4>>().map(Result::unwrap).group_by(|x| x.name().unwrap().to_string()).into_iter() {
                 tsse(&i.1, fragments.map(get_insertions).flatten());
             }
         });

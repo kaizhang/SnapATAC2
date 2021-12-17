@@ -7,6 +7,7 @@ use flate2::read::GzDecoder;
 use itertools::Itertools;
 
 fn main() {
+    /*
     let args: Vec<String> = env::args().collect();
     let gencode = GzDecoder::new(File::open(&args[1]).expect("xx"));
     let f = GzDecoder::new(File::open(&args[2]).expect("xx"));
@@ -15,4 +16,5 @@ fn main() {
         let t: f64 = tsse(&promoter, fragments.map(get_insertions).flatten());
         println!("{}\t{}", bc, t);
     }
+    */
 }
