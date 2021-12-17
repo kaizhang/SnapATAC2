@@ -1,10 +1,7 @@
 use std::io;
 use std::io::prelude::*;
-use bio::io::bed;
 use std::io::BufReader;                                                                                                                                           
-use std::collections::HashMap;
-use std::collections::HashSet;
-use bio::data_structures::interval_tree;
+use bed_utils::bed::{BED, BEDLike, tree::BedTree, io::Reader};
 
 fn moving_average(half_window: usize, arr: &[f64]) -> Vec<f64> {
     let n = arr.len();
@@ -46,45 +43,38 @@ pub fn read_tss<R: Read>(file: R) -> impl Iterator<Item = (String, u64, bool)> {
     reader.lines().filter_map(parse_line)
 }
 
-type PromoterMap = HashMap<String, interval_tree::IntervalTree<u64, bool>>;
 
-pub fn make_promoter_map<I: Iterator<Item = (String, u64, bool)>>(iter: I) -> PromoterMap {
-    let mut hmap: HashMap<String, HashSet<(std::ops::Range<u64>, bool)>> = HashMap::new();
-    for (chr, tss, is_fwd) in iter {
-        let set = hmap.entry(chr).or_insert(HashSet::new());
-        set.insert((tss.saturating_sub(2000) .. tss + 2001, is_fwd));
-    }
-    hmap.into_iter().map(|(chr, set)| (chr, interval_tree::IntervalTree::from_iter(set))).collect()
+pub fn make_promoter_map<I: Iterator<Item = (String, u64, bool)>>(iter: I) -> BedTree<bool> {
+    iter
+        .map( |(chr, tss, is_fwd)| {
+            let b: BED<3> = BED::new_bed3(chr, tss.saturating_sub(2000), tss + 2001);
+            (b, is_fwd)
+        }).collect()
 }
 
-pub fn get_insertions(rec: bed::Record) -> [(String, u64); 2] {
-    [(rec.chrom().to_string(), rec.start() + 75), (rec.chrom().to_string(), rec.end() - 76)]
+pub fn get_insertions(rec: BED<4>) -> [BED<3>; 2] {
+    [ BED::new_bed3(rec.chrom().to_string(), rec.chrom_start() + 75, rec.chrom_start() + 76)
+    , BED::new_bed3(rec.chrom().to_string(), rec.chrom_end() - 76, rec.chrom_end() - 75) ]
 }
 
-pub fn read_fragments<R: Read>(file: R) -> impl Iterator<Item = bed::Record> {
-    bed::Reader::new(file).into_records().map(Result::unwrap)
-}
-
-pub fn tsse<I: Iterator<Item = (String, u64)>>(promoter: &PromoterMap, insertions: I) -> f64 {
+pub fn tsse<I: Iterator<Item = BED<3>>>(promoter: &BedTree<bool>, insertions: I) -> f64 {
     let mut counts: [f64; 4001] = [0.0; 4001];
-    for (chr, ins) in insertions {
-        if (*promoter).contains_key(&chr) {
-            for entry in (*promoter)[&chr].find(ins .. ins+1) {
-                let pos: u64 =
-                    if *entry.data() {
-                        ins - entry.interval().start
-                    } else {
-                        4000 - (entry.interval().end - 1 - ins)
-                    };
-                counts[pos as usize] += 1.0;
-            }
+    for ins in insertions {
+        for (entry, data) in promoter.find(&ins) {
+            let pos: u64 =
+                if *data {
+                    ins.chrom_start() - entry.chrom_start()
+                } else {
+                    4000 - (entry.chrom_end() - 1 - ins.chrom_start())
+                };
+            counts[pos as usize] += 1.0;
         }
-}
-let bg_count: f64 = (counts[ .. 100].iter().sum::<f64>() + counts[3901 .. 4001].iter().sum::<f64>()) / 200.0 + 0.1;
-for i in 0 .. 4001 {
-    counts[i] /= bg_count;
-}
-*moving_average(5, &counts).iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap()
+    }
+    let bg_count: f64 = (counts[ .. 100].iter().sum::<f64>() + counts[3901 .. 4001].iter().sum::<f64>()) / 200.0 + 0.1;
+    for i in 0 .. 4001 {
+        counts[i] /= bg_count;
+    }
+    *moving_average(5, &counts).iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap()
 }
 
 #[cfg(test)]
@@ -97,14 +87,17 @@ mod tests {
 
     #[test]
     fn test_tsse() {
-        let f = GzDecoder::new(File::open("data/fragments.bed.gz").expect("xx"));
-        let gencode = File::open("data/gencode.gtf.gz").expect("xx");
+        let f = GzDecoder::new(File::open("../data/fragments.bed.gz").expect("xx"));
+        let gencode = File::open("../data/gencode.gtf.gz").expect("xx");
         let promoter = make_promoter_map(read_tss(GzDecoder::new(gencode)));
         let expected = vec![11.857707509881424, 2.727272727272727, 6.583072100313478
                 , 2.727272727272727, 0.0, 0.0, 1.8181818181818181, 6.1633281972265
                 , 0.9090909090909091, 6.220095693779905, 5.965909090909091
                 , 7.204116638078901, 9.312638580931262];
-        let result: Vec<f64> = read_fragments(f).group_by(|x| x.name().unwrap().to_string()).into_iter()
+
+        let result: Vec<f64> = Reader::new(f).records::<BED<4>>().map(Result::unwrap)
+                .group_by(|x| { x.name().unwrap().to_string() })
+                .into_iter()
                 .map(|(_, fragments)| tsse(&promoter, fragments.map(get_insertions).flatten()))
                 .collect();
         assert_eq!(expected, result);

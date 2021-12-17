@@ -7,3 +7,4 @@ authors = ["Kai Zhang <kai@kzhang.org>"]
 [dependencies]
 noodles = { version = "0.15.0", features = ["bam"] }
 bio = "0.39.0"
+itertools = "0.8"

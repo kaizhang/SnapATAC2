@@ -1,6 +1,8 @@
 use std::ops::Range;
 use bio::data_structures::interval_tree::*;
 use std::collections::HashMap;
+use itertools::Itertools;
+use std::hash::Hash;
 
 use super::{BED, BEDLike};
 
@@ -12,7 +14,7 @@ impl<D> Default for BedTree<D> {
     }
 }
 
-impl<D, B: BEDLike> FromIterator<(B, D)> for BedTree<D> {
+impl<D: Clone + Eq + Hash, B: BEDLike> FromIterator<(B, D)> for BedTree<D> {
     fn from_iter<I: IntoIterator<Item = (B, D)>>(iter: I) -> Self {
         let mut hmap: HashMap<String, Vec<(Range<u64>, D)>> = HashMap::new();
         for (bed, data) in iter {
@@ -21,7 +23,7 @@ impl<D, B: BEDLike> FromIterator<(B, D)> for BedTree<D> {
             let vec = hmap.entry(chr.to_string()).or_insert(Vec::new());
             vec.push((interval, data));
         }
-        let hm = hmap.into_iter().map(|(chr, vec)| (chr, vec.into_iter().collect())).collect();
+        let hm = hmap.into_iter().map(|(chr, vec)| (chr, vec.into_iter().unique().collect())).collect();
         BedTree(hm)
     }
 }

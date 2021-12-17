@@ -41,13 +41,13 @@ pub struct BED<const N: u8> {
 }
 
 impl<const N: u8> BED<N> {
-    fn new<C>(chrom: C, chrom_start: u64, chrom_end: u64, name: Option<String>,
+    pub fn new<C>(chrom: C, chrom_start: u64, chrom_end: u64, name: Option<String>,
         score: Option<Score>, strand: Option<Strand>, optional_fields: OptionalFields) -> Self
     where
         C: Into<String>,
     { Self { chrom: chrom.into(), chrom_start, chrom_end, name, score, strand, optional_fields } }
 
-    fn new_bed3<C>(chrom: C, chrom_start: u64, chrom_end: u64) -> Self
+    pub fn new_bed3<C>(chrom: C, chrom_start: u64, chrom_end: u64) -> Self
     where
         C: Into<String>,
     { Self { chrom: chrom.into(), chrom_start, chrom_end, name: None, score: None, strand: None, optional_fields: OptionalFields(Vec::new()) } }

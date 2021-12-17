@@ -1,4 +1,4 @@
-use std::io::{self, BufRead};
+use std::io::{self, Read, BufRead, BufReader};
 use std::str::FromStr;
 use std::marker::PhantomData;
 
@@ -15,7 +15,7 @@ pub struct Records<'a, B, R> {
 
 impl<'a, B, R> Records<'a, B, R>
 where
-    R: BufRead,
+    R: Read,
     B: FromStr,
 {
     pub fn new(inner: &'a mut Reader<R>) -> Self {
@@ -29,7 +29,7 @@ where
 
 impl<'a, B, R> Iterator for Records<'a, B, R>
 where
-    R: BufRead,
+    R: Read,
     B: FromStr,
 {
     type Item = io::Result<B>;
@@ -47,16 +47,16 @@ where
 
 /// A BED reader.
 pub struct Reader<R> {
-    inner: R,
+    inner: BufReader<R>,
 }
 
 impl<R> Reader<R>
 where
-    R: BufRead,
+    R: Read,
 {
     /// Creates a BED reader.
     pub fn new(inner: R) -> Self {
-        Self { inner }
+        Self { inner: BufReader::new(inner) }
     }
 
     /// Reads a single raw BED record.
