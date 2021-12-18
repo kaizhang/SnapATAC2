@@ -1,9 +1,9 @@
-pub mod score;
-pub mod strand;
 pub mod io;
 pub mod tree;
 
 pub use self::{score::Score, strand::Strand};
+mod score;
+mod strand;
 
 use std::{
     fmt::{self, Write},
@@ -21,10 +21,10 @@ const MISSING_ITEM : &str = ".";
 pub struct BED3(String, u64, u64);
 
 impl BED3 {
-    fn new<C>(chrom: C, chrom_start: u64, chrom_end: u64) -> Self
+    fn new<C>(chrom: C, start: u64, end: u64) -> Self
     where
         C: Into<String>,
-    { Self(chrom.into(), chrom_start, chrom_end) }
+    { Self(chrom.into(), start, end) }
 }
 */
 
@@ -32,8 +32,8 @@ impl BED3 {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BED<const N: u8> {
     chrom: String,
-    chrom_start: u64,
-    chrom_end: u64,
+    start: u64,
+    end: u64,
     name: Option<String>,
     score: Option<Score>,
     strand: Option<Strand>,
@@ -41,23 +41,23 @@ pub struct BED<const N: u8> {
 }
 
 impl<const N: u8> BED<N> {
-    pub fn new<C>(chrom: C, chrom_start: u64, chrom_end: u64, name: Option<String>,
+    pub fn new<C>(chrom: C, start: u64, end: u64, name: Option<String>,
         score: Option<Score>, strand: Option<Strand>, optional_fields: OptionalFields) -> Self
     where
         C: Into<String>,
-    { Self { chrom: chrom.into(), chrom_start, chrom_end, name, score, strand, optional_fields } }
+    { Self { chrom: chrom.into(), start, end, name, score, strand, optional_fields } }
 
-    pub fn new_bed3<C>(chrom: C, chrom_start: u64, chrom_end: u64) -> Self
+    pub fn new_bed3<C>(chrom: C, start: u64, end: u64) -> Self
     where
         C: Into<String>,
-    { Self { chrom: chrom.into(), chrom_start, chrom_end, name: None, score: None, strand: None, optional_fields: OptionalFields(Vec::new()) } }
+    { Self { chrom: chrom.into(), start, end, name: None, score: None, strand: None, optional_fields: OptionalFields(Vec::new()) } }
 }
 
 /// Common BED fields
 pub trait BEDLike {
     fn chrom(&self) -> &str;
-    fn chrom_start(&self) -> u64;
-    fn chrom_end(&self) -> u64;
+    fn start(&self) -> u64;
+    fn end(&self) -> u64;
     fn name(&self) -> Option<&str> { None }
     fn score(&self) -> Option<Score> { None }
     fn strand(&self) -> Option<Strand> { None }
@@ -66,8 +66,8 @@ pub trait BEDLike {
 /*
 impl BEDLike for BED3 {
     fn chrom(&self) -> &str { &self.0 }
-    fn chrom_start(&self) -> u64 { self.1 }
-    fn chrom_end(&self) -> u64 { self.2 }
+    fn start(&self) -> u64 { self.1 }
+    fn end(&self) -> u64 { self.2 }
     fn name(&self) -> Option<&str> { None }
     fn score(&self) -> Option<Score> { None }
     fn strand(&self) -> Option<Strand> { None }
@@ -76,8 +76,8 @@ impl BEDLike for BED3 {
 
 impl<const N: u8> BEDLike for BED<N> {
     fn chrom(&self) -> &str { &self.chrom }
-    fn chrom_start(&self) -> u64 { self.chrom_start }
-    fn chrom_end(&self) -> u64 { self.chrom_end }
+    fn start(&self) -> u64 { self.start }
+    fn end(&self) -> u64 { self.end }
     fn name(&self) -> Option<&str> { self.name.as_deref() }
     fn score(&self) -> Option<Score> { self.score }
     fn strand(&self) -> Option<Strand> { self.strand }
@@ -91,9 +91,9 @@ impl<const N: u8> fmt::Display for BED<N> {
             "{}{}{}{}{}",
             self.chrom(),
             DELIMITER,
-            self.chrom_start(),
+            self.start(),
             DELIMITER,
-            self.chrom_end()
+            self.end()
         )?;
         if N > 3 {
             write!(f, "{}{}", DELIMITER, self.name().unwrap_or(MISSING_ITEM))?;
@@ -121,12 +121,12 @@ impl<const N: u8> FromStr for BED<N> {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut fields = s.split(DELIMITER);
         let chrom = parse_chrom(&mut fields)?;
-        let chrom_start = parse_chrom_start(&mut fields)?;
-        let chrom_end = parse_chrom_end(&mut fields)?;
+        let start = parse_start(&mut fields)?;
+        let end = parse_end(&mut fields)?;
         let name = if N > 3 { parse_name(&mut fields)? } else { None };
         let score = if N > 4 { parse_score(&mut fields)? } else { None };
         let strand = if N > 5 { parse_strand(&mut fields)? } else { None };
-        Ok(BED::new(chrom, chrom_start, chrom_end, name, score, strand, OptionalFields::default()))
+        Ok(BED::new(chrom, start, end, name, score, strand, OptionalFields::default()))
     }
 }
 
@@ -139,7 +139,7 @@ where
         .ok_or(ParseError::MissingReferenceSequenceName)
 }
 
-fn parse_chrom_start<'a, I>(fields: &mut I) -> Result<u64, ParseError>
+fn parse_start<'a, I>(fields: &mut I) -> Result<u64, ParseError>
 where
     I: Iterator<Item = &'a str>,
 {
@@ -149,7 +149,7 @@ where
         .and_then(|s| s.parse().map_err(ParseError::InvalidStartPosition))
 }
 
-fn parse_chrom_end<'a, I>(fields: &mut I) -> Result<u64, ParseError>
+fn parse_end<'a, I>(fields: &mut I) -> Result<u64, ParseError>
 where
     I: Iterator<Item = &'a str>,
 {
