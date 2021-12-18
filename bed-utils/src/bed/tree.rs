@@ -19,7 +19,7 @@ impl<D: Clone + Eq + Hash, B: BEDLike> FromIterator<(B, D)> for BedTree<D> {
         let mut hmap: HashMap<String, Vec<(Range<u64>, D)>> = HashMap::new();
         for (bed, data) in iter {
             let chr = bed.chrom();
-            let interval = bed.chrom_start() .. bed.chrom_end();
+            let interval = bed.start() .. bed.end();
             let vec = hmap.entry(chr.to_string()).or_insert(Vec::new());
             vec.push((interval, data));
         }
@@ -56,7 +56,7 @@ impl<'a, D: 'a> Iterator for BedTreeIterator<'a, D> {
 impl<D> BedTree<D> {
     pub fn find<B: BEDLike>(&self, bed: &B) -> BedTreeIterator<'_, D> {
         let chr = bed.chrom().to_string();
-        let interval = bed.chrom_start() .. bed.chrom_end();
+        let interval = bed.start() .. bed.end();
         match self.0.get(&chr) {
             None => BedTreeIterator { chrom: chr, interval_tree_iterator: None },
             Some(tree) => BedTreeIterator { chrom: chr, interval_tree_iterator: Some(tree.find(interval)) }

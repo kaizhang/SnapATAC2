@@ -1,5 +1,5 @@
-
 pub mod bed;
+pub mod bam;
 
 #[cfg(test)]
 mod tests {

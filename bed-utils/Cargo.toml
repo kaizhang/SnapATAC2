@@ -5,6 +5,7 @@ edition = "2021"
 authors = ["Kai Zhang <kai@kzhang.org>"]
 
 [dependencies]
-noodles = { version = "0.15.0", features = ["bam"] }
+noodles = { version = "0.15.0", features = ["bam", "sam"] }
 bio = "0.39.0"
 itertools = "0.8"
+indexmap = "1.7"
