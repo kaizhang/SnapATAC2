@@ -15,18 +15,16 @@ use std::{
 const DELIMITER: char = '\t';
 const MISSING_ITEM : &str = ".";
 
-/*
 /// A minimal BED record with only 3 fields.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct BED3(String, u64, u64);
+pub struct GenomicRange(String, u64, u64);
 
-impl BED3 {
+impl GenomicRange {
     fn new<C>(chrom: C, start: u64, end: u64) -> Self
     where
         C: Into<String>,
     { Self(chrom.into(), start, end) }
 }
-*/
 
 /// A standard BED record.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -61,10 +59,13 @@ pub trait BEDLike {
     fn name(&self) -> Option<&str> { None }
     fn score(&self) -> Option<Score> { None }
     fn strand(&self) -> Option<Strand> { None }
+    fn len(&self) -> u64 { self.end() - self.start() }
+    fn to_genomic_range(&self) -> GenomicRange {
+        GenomicRange::new(self.chrom(), self.start(), self.end())
+    }
 }
 
-/*
-impl BEDLike for BED3 {
+impl BEDLike for GenomicRange {
     fn chrom(&self) -> &str { &self.0 }
     fn start(&self) -> u64 { self.1 }
     fn end(&self) -> u64 { self.2 }
@@ -72,7 +73,6 @@ impl BEDLike for BED3 {
     fn score(&self) -> Option<Score> { None }
     fn strand(&self) -> Option<Strand> { None }
 }
-*/
 
 impl<const N: u8> BEDLike for BED<N> {
     fn chrom(&self) -> &str { &self.chrom }
