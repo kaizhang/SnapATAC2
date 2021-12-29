@@ -1,6 +1,7 @@
 //! BED record score.
 
 use std::{error, fmt, num, str::FromStr};
+use std::ops::Deref;
 
 /// A BED record score.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -10,6 +11,11 @@ impl fmt::Display for Score {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
+}
+
+impl Deref for Score {
+    type Target = u16;
+    fn deref(&self) -> &Self::Target { &self.0 }
 }
 
 /// An error returned when a raw BED record score fails to parse.

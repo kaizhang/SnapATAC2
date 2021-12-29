@@ -1,11 +1,11 @@
 use std::{
     fmt,
-    io::{self, Write, Read, BufRead, BufReader},
+    io::{self, Error, ErrorKind, Write, Read, BufRead, BufReader},
 };
 use std::str::FromStr;
 use std::marker::PhantomData;
 
-use super::{BED};
+use super::{BED, ParseError};
 
 /// An iterator over records of a FASTQ reader.
 ///
@@ -33,16 +33,55 @@ where
 impl<'a, B, R> Iterator for Records<'a, B, R>
 where
     R: Read,
-    B: FromStr,
+    B: FromStr<Err = ParseError>,
 {
     type Item = io::Result<B>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.buf.clear();
-
         match self.inner.read_record(&mut self.buf) {
             Ok(0) => None,
-            Ok(_) => Some(Ok(self.buf.parse().ok()?)),
+            Ok(_) => Some(self.buf.parse().map_err(
+                |e| Error::new(ErrorKind::Other, format!("{:?}: {}", e, &self.buf))
+            )),
+            Err(e) => Some(Err(e)),
+        }
+    }
+}
+
+/// An iterator over records of a FASTQ reader.
+///
+/// This is created by calling [`Reader::records`].
+pub struct IntoRecords<B, R> {
+    inner: Reader<R>,
+    buf: String,
+    phantom: PhantomData<B>,
+}
+
+impl<B, R> IntoRecords<B, R>
+where
+    R: Read,
+    B: FromStr,
+{
+    pub fn new(inner: Reader<R>) -> Self {
+        Self { inner, buf: String::new(), phantom: PhantomData }
+    }
+}
+
+impl<B, R> Iterator for IntoRecords<B, R>
+where
+    R: Read,
+    B: FromStr<Err = ParseError>,
+{
+    type Item = io::Result<B>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.buf.clear();
+        match self.inner.read_record(&mut self.buf) {
+            Ok(0) => None,
+            Ok(_) => Some(self.buf.parse().map_err(
+                |e| Error::new(ErrorKind::Other, format!("{:?}: {}", e, &self.buf))
+            )),
             Err(e) => Some(Err(e)),
         }
     }
@@ -73,6 +112,10 @@ where
     ///
     pub fn records<B: FromStr>(&mut self) -> Records<'_, B, R> {
         Records::new(self)
+    }
+
+    pub fn into_records<B: FromStr>(self) -> IntoRecords<B, R> {
+        IntoRecords::new(self)
     }
 }
 
