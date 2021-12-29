@@ -13,7 +13,6 @@ keywords = ["single-cell", "biology"]
 [dependencies]
 flate2 = "1.0"
 itertools = "0.8"
-csv = "1.1.6"
 bed-utils = { path = "../bed-utils" }
 
 [dev-dependencies]

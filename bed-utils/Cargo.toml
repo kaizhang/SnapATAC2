@@ -6,6 +6,7 @@ authors = ["Kai Zhang <kai@kzhang.org>"]
 
 [dependencies]
 noodles = { version = "0.15.0", features = ["bam", "sam"] }
+noodles-bgzf = { version = "0.7.0", features = ["libdeflate"] }
 bio = "0.39.0"
 itertools = "0.8"
 indexmap = "1.7"
