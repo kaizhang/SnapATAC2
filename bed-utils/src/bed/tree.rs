@@ -3,6 +3,7 @@ use bio::data_structures::interval_tree::*;
 use std::collections::HashMap;
 use itertools::Itertools;
 use std::hash::Hash;
+use num::Integer;
 
 use super::{BED, BEDLike};
 
@@ -81,5 +82,60 @@ mod bed_intersect_tests {
         let result: Vec<BED<3>> = bed_set2.into_iter().filter(|x| tree.is_overlapped(x)).collect();
         let expected = vec![BED::new_bed3("chr1".to_string(), 100, 210)];
         assert_eq!(result, expected);
+    }
+}
+
+pub struct GenomeRegions<B> {
+    regions: Vec<B>,
+    indices: BedTree<usize>,
+}
+
+// TODO: add tests.
+impl<B: BEDLike> GenomeRegions<B> {
+    /// Calculate coverage on a set of (not necessarily unique) genomic regions.
+    /// Regions would be allocated.
+    pub fn get_coverage<'a, R, I>(&self, tags: R) -> (Vec<u64>, u64)
+    where
+        R: Iterator<Item = &'a I>,
+        I: BEDLike + 'a,
+    {
+        let mut coverage = vec![0; self.regions.len()];
+        let mut num_tag = 0;
+        for tag in tags {
+            num_tag += 1;
+            self.indices.find(tag).for_each(|(_, idx)| coverage[*idx] += 1);
+        }
+        (coverage, num_tag)
+    }
+
+    pub fn get_binned_coverage<'a, R, I>(&self,
+                                         bin_size: u64,
+                                         tags: R) -> (Vec<Vec<u64>>, u64)
+    where
+        R: Iterator<Item = &'a I>,
+        I: BEDLike + 'a,
+    {
+        let mut coverage: Vec<Vec<u64>> = self.regions.iter()
+            .map(|x| vec![0; x.len().div_ceil(&bin_size) as usize]).collect();
+        let mut num_tag = 0;
+        for tag in tags {
+            num_tag += 1;
+            self.indices.find(tag)
+                .for_each(|(region, out_idx)| {
+                    let i = tag.start().saturating_sub(region.start()).div_floor(&bin_size);
+                    let j = (tag.end() - 1 - region.start())
+                        .min(region.len() - 1).div_floor(&bin_size);
+                    (i..=j).for_each(|in_idx| coverage[*out_idx][in_idx as usize] += 1);
+                });
+        }
+        (coverage, num_tag)
+    }
+}
+
+impl<B: BEDLike> FromIterator<B> for GenomeRegions<B> {
+    fn from_iter<I: IntoIterator<Item = B>>(iter: I) -> Self {
+        let regions: Vec<B> = iter.into_iter().collect();
+        let indices = regions.iter().enumerate().map(|(i, b)| (b.to_genomic_range(), i)).collect();
+        GenomeRegions { regions, indices }
     }
 }

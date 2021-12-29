@@ -5,6 +5,7 @@ edition = "2021"
 authors = ["Kai Zhang <kai@kzhang.org>"]
 
 [dependencies]
+num = "0.4.0"
 noodles = { version = "0.15.0", features = ["bam", "sam"] }
 noodles-bgzf = { version = "0.7.0", features = ["libdeflate"] }
 bio = "0.39.0"
