@@ -94,33 +94,33 @@ pub struct GenomeRegions<B> {
 impl<B: BEDLike> GenomeRegions<B> {
     /// Calculate coverage on a set of (not necessarily unique) genomic regions.
     /// Regions would be allocated.
-    pub fn get_coverage<'a, R, I>(&self, tags: R) -> (Vec<u64>, u64)
+    pub fn get_coverage<R, I>(&self, tags: R) -> (Vec<u64>, u64)
     where
-        R: Iterator<Item = &'a I>,
-        I: BEDLike + 'a,
+        R: Iterator<Item = I>,
+        I: BEDLike,
     {
         let mut coverage = vec![0; self.regions.len()];
         let mut num_tag = 0;
         for tag in tags {
             num_tag += 1;
-            self.indices.find(tag).for_each(|(_, idx)| coverage[*idx] += 1);
+            self.indices.find(&tag).for_each(|(_, idx)| coverage[*idx] += 1);
         }
         (coverage, num_tag)
     }
 
-    pub fn get_binned_coverage<'a, R, I>(&self,
+    pub fn get_binned_coverage<R, I>(&self,
                                          bin_size: u64,
                                          tags: R) -> (Vec<Vec<u64>>, u64)
     where
-        R: Iterator<Item = &'a I>,
-        I: BEDLike + 'a,
+        R: Iterator<Item = I>,
+        I: BEDLike,
     {
         let mut coverage: Vec<Vec<u64>> = self.regions.iter()
             .map(|x| vec![0; x.len().div_ceil(&bin_size) as usize]).collect();
         let mut num_tag = 0;
         for tag in tags {
             num_tag += 1;
-            self.indices.find(tag)
+            self.indices.find(&tag)
                 .for_each(|(region, out_idx)| {
                     let i = tag.start().saturating_sub(region.start()).div_floor(&bin_size);
                     let j = (tag.end() - 1 - region.start())

@@ -20,7 +20,7 @@ const MISSING_ITEM : &str = ".";
 pub struct GenomicRange(String, u64, u64);
 
 impl GenomicRange {
-    fn new<C>(chrom: C, start: u64, end: u64) -> Self
+    pub fn new<C>(chrom: C, start: u64, end: u64) -> Self
     where
         C: Into<String>,
     { Self(chrom.into(), start, end) }
