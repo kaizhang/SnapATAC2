@@ -2,10 +2,26 @@ pub mod qc;
 pub mod utils;
 use utils::hdf5::*;
 use ndarray::{Array};
+use std::path::Path;
+use qc::read_fragments;
+use flate2::read::GzDecoder;
 
-use hdf5::{Error, Selection, H5Type, Result, Extent, Group};
+use hdf5::{File, Error, Selection, H5Type, Result, Extent, Group};
 use bed_utils::bed::{BED, BEDLike, GenomicRange, tree::GenomeRegions};
 use itertools::Itertools;
+
+pub fn create_count_matrix<B>(output_file: &str,
+                              fragment_file: &str,
+                              regions: &GenomeRegions<B>,
+                              bin_size: Option<u64>)
+where
+    B: BEDLike,
+{
+    let file = GzDecoder::new(std::fs::File::open(fragment_file).unwrap());
+    let output = File::create(output_file).unwrap();
+    let group = output.create_group("X").unwrap();
+    save_count(&group, read_fragments(file).into_iter().map(|(k, iter)| get_insertion_counts(regions, bin_size, iter))).unwrap()
+}
 
 /// Compressed Row Storage (CRS) stores the sparse matrix in 3 vectors:
 /// one for floating-point numbers (data), and the other two for integers (indices, indptr).
@@ -39,9 +55,9 @@ where
     Ok(())
 }
 
-pub fn get_insertion_counts<B, I>(regions: GenomeRegions<B>,
-                                  bin_size: Option<u64>,
-                                  fragments: I) -> Vec<(usize, u64)>
+fn get_insertion_counts<B, I>(regions: &GenomeRegions<B>,
+                             bin_size: Option<u64>,
+                             fragments: I) -> Vec<(usize, u64)>
 where
     B: BEDLike,
     I: Iterator<Item = BED<5>>,
