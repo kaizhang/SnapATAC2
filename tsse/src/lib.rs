@@ -1,26 +1,36 @@
 pub mod qc;
 pub mod utils;
 use utils::hdf5::*;
-use ndarray::{Array};
+use ndarray::{Array, arr1};
 use std::path::Path;
-use qc::read_fragments;
+use qc::{CellBarcode, read_fragments};
 use flate2::read::GzDecoder;
 
 use hdf5::{File, Error, Selection, H5Type, Result, Extent, Group};
 use bed_utils::bed::{BED, BEDLike, GenomicRange, tree::GenomeRegions};
-use itertools::Itertools;
+use itertools::{Itertools, GroupBy};
 
-pub fn create_count_matrix<B>(output_file: &str,
-                              fragment_file: &str,
-                              regions: &GenomeRegions<B>,
-                              bin_size: Option<u64>)
+///
+pub fn create_count_matrix<B, I>(
+    file: File,
+    fragments: GroupBy<CellBarcode, I, impl FnMut(&BED<5>) -> CellBarcode>,
+    regions: &GenomeRegions<B>,
+    bin_size: Option<u64>) -> Result<()>
 where
     B: BEDLike,
+    I: Iterator<Item = BED<5>>,
 {
-    let file = GzDecoder::new(std::fs::File::open(fragment_file).unwrap());
-    let output = File::create(output_file).unwrap();
-    let group = output.create_group("X").unwrap();
-    save_count(&group, read_fragments(file).into_iter().map(|(k, iter)| get_insertion_counts(regions, bin_size, iter))).unwrap()
+    let group = file.create_group("X")?;
+    let mut list_of_barcodes = Vec::new();
+    save_sparse_matrix(
+        &group,
+        fragments.into_iter().map(|(barcode, iter)| {
+            list_of_barcodes.push(barcode);
+            get_insertion_counts(regions, bin_size, iter)
+        }),
+        regions.len()
+    )?;
+    Ok(())
 }
 
 /// Compressed Row Storage (CRS) stores the sparse matrix in 3 vectors:
@@ -30,10 +40,13 @@ where
 /// The `indices` vector stores the column indexes of the elements in the `data` vector.
 /// The `indptr` vector stores the locations in the `data` vector that start a row,
 /// The last element is NNZ.
-fn save_count<I>(group: &Group, iter: I) -> Result<()>
+fn save_sparse_matrix<I>(group: &Group, iter: I, num_col: usize) -> Result<()>
 where
     I: Iterator<Item = Vec<(usize, u64)>>,
 {
+    create_str_attr(group, "encoding-type", "csr_matrix")?;
+    create_str_attr(group, "encoding-version", "0.1.0")?;
+
     let data: ResizableVectorData<u32> = ResizableVectorData::new(group, "data", 100000)?;
     let indices: ResizableVectorData<u32> = ResizableVectorData::new(group, "indices", 100000)?;
     let mut indptr: Vec<u32> = vec![0];
@@ -50,7 +63,11 @@ where
         indices.extend(a.into_iter())?;
         data.extend(b.into_iter())?;
     }
-    let dataset = group.new_dataset_builder().deflate(9)
+    group.new_attr_builder()
+        .with_data(&arr1(&[indptr.len() - 1, num_col]))
+        .create("shape")?;
+
+    group.new_dataset_builder().deflate(9)
         .with_data(&Array::from_vec(indptr)).create("indptr")?;
     Ok(())
 }

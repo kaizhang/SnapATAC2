@@ -4,7 +4,7 @@ use std::io::BufReader;
 use bed_utils::bed::{BED, BEDLike, tree::BedTree, io::Reader};
 use itertools::{Itertools, GroupBy};
 
-type CellBarcode = String;
+pub type CellBarcode = String;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct QualityControl {

@@ -1,8 +1,19 @@
-use hdf5::{Error, Selection, H5Type, Result, Extent, Group};
+use hdf5::{Location, Error, Selection, H5Type, Result, Extent, Group};
 use hdf5::dataset::Dataset;
 use std::marker::PhantomData;
 use ndarray::{Dimension, Array, ArrayView};
 use itertools::Itertools;
+use std::ops::Deref; 
+
+pub fn create_str_attr<T>(location: &T, name: &str, value: &str) -> Result<()>
+where
+    T: Deref<Target = Location>,
+{
+    let attr = location.new_attr::<hdf5::types::VarLenUnicode>().create(name)?;
+    let value_: hdf5::types::VarLenUnicode = value.parse().unwrap();
+    attr.write_scalar(&value_)
+}
+    
 
 pub struct ResizableVectorData<T> {
     dataset: Dataset,

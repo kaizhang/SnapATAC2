@@ -92,6 +92,8 @@ pub struct GenomeRegions<B> {
 
 // TODO: add tests.
 impl<B: BEDLike> GenomeRegions<B> {
+    pub fn len(&self) -> usize { self.regions.len() }
+
     /// Calculate coverage on a set of (not necessarily unique) genomic regions.
     /// Regions would be allocated.
     pub fn get_coverage<R, I>(&self, tags: R) -> (Vec<u64>, u64)
