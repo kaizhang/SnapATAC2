@@ -2,7 +2,7 @@ use crate::{ResizableVectorData, create_str_attr};
 
 use hdf5::{File, Location, Error, Selection, H5Type, Result, Extent, Group};
 use std::ops::Deref; 
-use ndarray::{arr1, Array};
+use ndarray::{arr1, Array, Dimension};
 use itertools::Itertools;
 
 pub struct SparseRowIter<I> {
@@ -19,12 +19,34 @@ where
 }
 
 pub trait AnnData {
-    type Parent;
     type Container;
 
     const VERSION: &'static str;
 
-    fn create(self, location: &Self::Parent, name: &str) -> Result<Self::Container>;
+    fn create<T>(self, location: &T, name: &str) -> Result<Self::Container>
+    where T: Deref<Target = Group>;
+}
+
+impl<A, D> AnnData for Array<A, D>
+where
+    A: H5Type,
+    D: Dimension,
+{
+    type Container = hdf5::Dataset;
+    const VERSION: &'static str = "0.2.0";
+
+    fn create<T>(self, location: &T, name: &str) -> Result<Self::Container>
+    where T: Deref<Target = Group>,
+    {
+        let dataset = location.new_dataset_builder().deflate(9)
+            .with_data(&self).create(name)?;
+
+        create_str_attr(&*dataset, "encoding-type", "array")?;
+        create_str_attr(&*dataset, "encoding-version", Self::VERSION)?;
+
+        Ok(dataset)
+    }
+
 }
 
 impl<I, D> AnnData for SparseRowIter<I>
@@ -32,9 +54,7 @@ where
     I: Iterator<Item = Vec<(usize, D)>>,
     D: H5Type,
 {
-    type Parent = File;
     type Container = Group;
-
     const VERSION: &'static str = "0.1.0";
 
     /// Compressed Row Storage (CRS) stores the sparse matrix in 3 vectors:
@@ -44,7 +64,8 @@ where
     /// The `indices` vector stores the column indexes of the elements in the `data` vector.
     /// The `indptr` vector stores the locations in the `data` vector that start a row,
     /// The last element is NNZ.
-    fn create(self, location: &Self::Parent, name: &str) -> Result<Self::Container>
+    fn create<T>(self, location: &T, name: &str) -> Result<Self::Container>
+    where T: Deref<Target = Group>,
     {
         let group = location.create_group(name)?;
         create_str_attr(&group, "encoding-type", "csr_matrix")?;
