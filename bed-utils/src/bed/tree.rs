@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use itertools::Itertools;
 use std::hash::Hash;
 use num::Integer;
+use num_traits::{Num, NumAssignOps, Zero, One};
 
 use super::{BED, BEDLike};
 
@@ -98,29 +99,31 @@ impl<B: BEDLike> GenomeRegions<B> {
 
     /// Calculate coverage on a set of (not necessarily unique) genomic regions.
     /// Regions would be allocated.
-    pub fn get_coverage<R, I>(&self, tags: R) -> (Vec<u64>, u64)
+    pub fn get_coverage<R, I, N>(&self, tags: R) -> (Vec<N>, u64)
     where
         R: Iterator<Item = I>,
         I: BEDLike,
+        N: Num + NumAssignOps + Copy,
     {
-        let mut coverage = vec![0; self.regions.len()];
+        let mut coverage = vec![N::zero(); self.regions.len()];
         let mut num_tag = 0;
         for tag in tags {
             num_tag += 1;
-            self.indices.find(&tag).for_each(|(_, idx)| coverage[*idx] += 1);
+            self.indices.find(&tag).for_each(|(_, idx)| coverage[*idx] += N::one());
         }
         (coverage, num_tag)
     }
 
-    pub fn get_binned_coverage<R, I>(&self,
+    pub fn get_binned_coverage<R, I, N>(&self,
                                          bin_size: u64,
-                                         tags: R) -> (Vec<Vec<u64>>, u64)
+                                         tags: R) -> (Vec<Vec<N>>, u64)
     where
         R: Iterator<Item = I>,
         I: BEDLike,
+        N: Num + NumAssignOps + Copy,
     {
-        let mut coverage: Vec<Vec<u64>> = self.regions.iter()
-            .map(|x| vec![0; x.len().div_ceil(&bin_size) as usize]).collect();
+        let mut coverage: Vec<Vec<N>> = self.regions.iter()
+            .map(|x| vec![N::zero(); x.len().div_ceil(&bin_size) as usize]).collect();
         let mut num_tag = 0;
         for tag in tags {
             num_tag += 1;
@@ -129,7 +132,7 @@ impl<B: BEDLike> GenomeRegions<B> {
                     let i = tag.start().saturating_sub(region.start()).div_floor(&bin_size);
                     let j = (tag.end() - 1 - region.start())
                         .min(region.len() - 1).div_floor(&bin_size);
-                    (i..=j).for_each(|in_idx| coverage[*out_idx][in_idx as usize] += 1);
+                    (i..=j).for_each(|in_idx| coverage[*out_idx][in_idx as usize] += N::one());
                 });
         }
         (coverage, num_tag)
