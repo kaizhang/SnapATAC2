@@ -43,7 +43,7 @@ where
 
 fn get_insertion_counts<B, I>(regions: &GenomeRegions<B>,
                              bin_size: Option<u64>,
-                             fragments: I) -> Vec<(usize, u64)>
+                             fragments: I) -> Vec<(usize, u32)>
 where
     B: BEDLike,
     I: Iterator<Item = BED<5>>,
