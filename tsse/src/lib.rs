@@ -1,13 +1,15 @@
 pub mod qc;
 pub mod utils;
 use utils::hdf5::*;
+use utils::anndata::*;
+
 use ndarray::{Array, arr1};
 use std::path::Path;
 use qc::{CellBarcode, read_fragments};
 use flate2::read::GzDecoder;
 
 use hdf5::{File, Error, Selection, H5Type, Result, Extent, Group};
-use bed_utils::bed::{BED, BEDLike, GenomicRange, tree::GenomeRegions};
+use bed_utils::bed::{BED, BEDLike, GenomicRange, split_by_len, tree::GenomeRegions};
 use itertools::{Itertools, GroupBy};
 
 ///
@@ -17,58 +19,25 @@ pub fn create_count_matrix<B, I>(
     regions: &GenomeRegions<B>,
     bin_size: Option<u64>) -> Result<()>
 where
-    B: BEDLike,
+    B: BEDLike + Clone,
     I: Iterator<Item = BED<5>>,
 {
-    let group = file.create_group("X")?;
+    let features: Vec<String> = match bin_size {
+        None => regions.get_regions().iter().map(BEDLike::to_string).collect(),
+        Some(k) => regions.get_regions().iter()
+            .flat_map(|x| split_by_len(x, k))
+            .map(|x| x.to_string()).collect(),
+    };
     let mut list_of_barcodes = Vec::new();
-    save_sparse_matrix(
-        &group,
+    let sp_row_iter = SparseRowIter::new(
         fragments.into_iter().map(|(barcode, iter)| {
             list_of_barcodes.push(barcode);
             get_insertion_counts(regions, bin_size, iter)
         }),
-        regions.len()
-    )?;
-    Ok(())
-}
+        features.len()
+    );
+    sp_row_iter.create(&file, "X")?;
 
-/// Compressed Row Storage (CRS) stores the sparse matrix in 3 vectors:
-/// one for floating-point numbers (data), and the other two for integers (indices, indptr).
-/// The `data` vector stores the values of the nonzero elements of the matrix,
-/// as they are traversed in a row-wise fashion.
-/// The `indices` vector stores the column indexes of the elements in the `data` vector.
-/// The `indptr` vector stores the locations in the `data` vector that start a row,
-/// The last element is NNZ.
-fn save_sparse_matrix<I>(group: &Group, iter: I, num_col: usize) -> Result<()>
-where
-    I: Iterator<Item = Vec<(usize, u64)>>,
-{
-    create_str_attr(group, "encoding-type", "csr_matrix")?;
-    create_str_attr(group, "encoding-version", "0.1.0")?;
-
-    let data: ResizableVectorData<u32> = ResizableVectorData::new(group, "data", 100000)?;
-    let indices: ResizableVectorData<u32> = ResizableVectorData::new(group, "indices", 100000)?;
-    let mut indptr: Vec<u32> = vec![0];
-    let iter = iter.scan(0, |state, x| {
-        *state = *state + x.len();
-        Some((*state, x))
-    });
-    for chunk in &iter.chunks(1000) {
-        let (a, b): (Vec<u32>, Vec<u32>) = chunk.map(|(x, vec)| {
-            indptr.push(x.try_into().unwrap());
-            vec
-        }).flatten().map(|(x, y)| -> (u32, u32) {
-            (x.try_into().unwrap(), y.try_into().unwrap()) }).unzip();
-        indices.extend(a.into_iter())?;
-        data.extend(b.into_iter())?;
-    }
-    group.new_attr_builder()
-        .with_data(&arr1(&[indptr.len() - 1, num_col]))
-        .create("shape")?;
-
-    group.new_dataset_builder().deflate(9)
-        .with_data(&Array::from_vec(indptr)).create("indptr")?;
     Ok(())
 }
 
