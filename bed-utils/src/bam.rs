@@ -18,20 +18,3 @@ pub fn bam_to_bed(refs: &IndexMap<String, ReferenceSequence, RandomState>,
     Some(BED::new(chr, (start_loc - 1) as u64, end_loc as u64,
                   Some(name), score, Some(strand), Default::default()))
 }
-
-#[cfg(test)]
-mod bam_to_bed_tests {
-    use super::*;
-
-    #[test]
-    fn test_fmt() {
-        let fields = OptionalFields::default();
-        assert_eq!(fields.to_string(), "");
-
-        let fields = OptionalFields::from(vec![String::from("n")]);
-        assert_eq!(fields.to_string(), "n");
-
-        let fields = OptionalFields::from(vec![String::from("n"), String::from("d")]);
-        assert_eq!(fields.to_string(), "n\td");
-    }
-}
