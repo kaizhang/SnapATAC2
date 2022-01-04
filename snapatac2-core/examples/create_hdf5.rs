@@ -3,7 +3,7 @@ use hdf5::filters::blosc_set_nthreads;
 use std::env;
 use hdf5::{File, H5Type, Result, Extent};
 use ndarray::{arr1, s};
-use project_a::utils::hdf5::*;
+use snapatac2_core::utils::hdf5::*;
 
 fn main() -> Result<()> {
     let vec = vec![10; 20];

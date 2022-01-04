@@ -1,5 +1,5 @@
 use std::env;
-use project_a::qc::*;
+use snapatac2_core::qc::*;
 use std::fs::File;
 use flate2::read::GzDecoder;
 use itertools::Itertools;
