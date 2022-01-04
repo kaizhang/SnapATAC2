@@ -1,9 +1,9 @@
 use std::env;
 use hdf5::{File, H5Type, Result, Extent};
-use project_a::utils::hdf5::*;
+use snapatac2_core::utils::hdf5::*;
 use flate2::read::GzDecoder;
-use project_a::qc::*;
-use project_a::create_count_matrix;
+use snapatac2_core::qc::*;
+use snapatac2_core::create_count_matrix;
 use bed_utils::bed::{GenomicRange};
 
 fn main() -> Result<()> {
