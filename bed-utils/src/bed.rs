@@ -44,11 +44,6 @@ impl<const N: u8> BED<N> {
     where
         C: Into<String>,
     { Self { chrom: chrom.into(), start, end, name, score, strand, optional_fields } }
-
-    pub fn new_bed3<C>(chrom: C, start: u64, end: u64) -> Self
-    where
-        C: Into<String>,
-    { Self { chrom: chrom.into(), start, end, name: None, score: None, strand: None, optional_fields: OptionalFields(Vec::new()) } }
 }
 
 /// Common BED fields
@@ -331,7 +326,7 @@ mod bed_tests {
 
     #[test]
     fn test_split() {
-        let beds: Vec<GenomicRange> = split_by_len(GenomicRange::new("chr1", 0, 1230), 500).collect();
+        let beds: Vec<GenomicRange> = split_by_len(&GenomicRange::new("chr1", 0, 1230), 500).collect();
         let expected = vec![
             GenomicRange::new("chr1", 0, 500),
             GenomicRange::new("chr1", 500, 1000),

@@ -3,14 +3,11 @@ pub mod utils;
 use utils::hdf5::*;
 use utils::anndata::*;
 
-use ndarray::{Array, arr1};
-use std::path::Path;
-use qc::{CellBarcode, read_fragments};
-use flate2::read::GzDecoder;
+use qc::CellBarcode;
 
-use hdf5::{File, Error, Selection, H5Type, Result, Extent, Group};
+use hdf5::{File, Result};
 use bed_utils::bed::{BED, BEDLike, GenomicRange, split_by_len, tree::GenomeRegions};
-use itertools::{Itertools, GroupBy};
+use itertools::GroupBy;
 
 ///
 pub fn create_count_matrix<B, I>(

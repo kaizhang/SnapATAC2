@@ -1,7 +1,7 @@
 use std::io;
 use std::io::prelude::*;
 use std::io::BufReader;                                                                                                                                           
-use bed_utils::bed::{BED, BEDLike, tree::BedTree, io::Reader};
+use bed_utils::bed::{GenomicRange, BED, BEDLike, tree::BedTree, io::Reader};
 use itertools::{Itertools, GroupBy};
 
 pub type CellBarcode = String;
@@ -23,7 +23,7 @@ where
     let mut num_unique_fragment: u64 = 0;
     let mut num_total_fragment: u64 = 0;
     let mut num_mitochondrial : u64 = 0;
-    let mut update_tss_insertion_count = |ins: BED<3>| {
+    let mut update_tss_insertion_count = |ins: GenomicRange| {
         for (entry, data) in promoter.find(&ins) {
             let pos: u64 =
                 if *data {
@@ -91,14 +91,14 @@ pub fn read_tss<R: Read>(file: R) -> impl Iterator<Item = (String, u64, bool)> {
 pub fn make_promoter_map<I: Iterator<Item = (String, u64, bool)>>(iter: I) -> BedTree<bool> {
     iter
         .map( |(chr, tss, is_fwd)| {
-            let b: BED<3> = BED::new_bed3(chr, tss.saturating_sub(2000), tss + 2001);
+            let b = GenomicRange::new(chr, tss.saturating_sub(2000), tss + 2001);
             (b, is_fwd)
         }).collect()
 }
 
-fn get_insertions(rec: &BED<5>) -> (BED<3>, BED<3>) {
-    ( BED::new_bed3(rec.chrom().to_string(), rec.start() + 75, rec.start() + 76)
-    , BED::new_bed3(rec.chrom().to_string(), rec.end() - 76, rec.end() - 75) )
+fn get_insertions(rec: &BED<5>) -> (GenomicRange, GenomicRange) {
+    ( GenomicRange::new(rec.chrom().to_string(), rec.start() + 75, rec.start() + 76)
+    , GenomicRange::new(rec.chrom().to_string(), rec.end() - 76, rec.end() - 75) )
 }
 
 fn moving_average(half_window: usize, arr: &[f64]) -> Vec<f64> {

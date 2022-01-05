@@ -1,6 +1,6 @@
 use crate::{ResizableVectorData, create_str_attr};
 
-use hdf5::{File, Location, Error, Selection, H5Type, Result, Extent, Group};
+use hdf5::{H5Type, Result, Group};
 use std::ops::Deref; 
 use ndarray::{arr1, Array, Dimension};
 use itertools::Itertools;
