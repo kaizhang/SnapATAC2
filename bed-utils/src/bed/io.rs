@@ -1,11 +1,10 @@
 use std::{
-    fmt,
-    io::{self, Error, ErrorKind, Write, Read, BufRead, BufReader},
+    io::{self, Error, ErrorKind, Read, BufRead, BufReader},
 };
 use std::str::FromStr;
 use std::marker::PhantomData;
 
-use super::{BED, ParseError};
+use super::ParseError;
 
 /// An iterator over records of a FASTQ reader.
 ///
@@ -145,12 +144,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::super::BED;
 
     #[test]
     fn test_read_line() {
         fn t(buf: &mut String, mut reader: &[u8], expected: &str) {
             buf.clear();
-            read_line(&mut reader, buf);
+            read_line(&mut reader, buf).unwrap();
             assert_eq!(buf, expected);
         }
 
