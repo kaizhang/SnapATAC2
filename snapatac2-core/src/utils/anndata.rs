@@ -1,9 +1,9 @@
 use crate::{ResizableVectorData, create_str_attr};
 
-use hdf5::{H5Type, Result, Group};
-use std::ops::Deref; 
-use ndarray::{arr1, Array, Dimension};
+use hdf5::{H5Type, Result, Group, types::VarLenUnicode};
+use ndarray::{arr1, Array1, Array, Dimension};
 use itertools::Itertools;
+use polars::prelude::*;
 
 pub struct SparseRowIter<I> {
     iter: I,
@@ -23,8 +23,7 @@ pub trait AnnData {
 
     const VERSION: &'static str;
 
-    fn create<T>(self, location: &T, name: &str) -> Result<Self::Container>
-    where T: Deref<Target = Group>;
+    fn create(self, location: &Group, name: &str) -> Result<Self::Container>;
 }
 
 impl<A, D> AnnData for Array<A, D>
@@ -35,8 +34,7 @@ where
     type Container = hdf5::Dataset;
     const VERSION: &'static str = "0.2.0";
 
-    fn create<T>(self, location: &T, name: &str) -> Result<Self::Container>
-    where T: Deref<Target = Group>,
+    fn create(self, location: &Group, name: &str) -> Result<Self::Container>
     {
         let dataset = location.new_dataset_builder().deflate(9)
             .with_data(&self).create(name)?;
@@ -64,8 +62,7 @@ where
     /// The `indices` vector stores the column indexes of the elements in the `data` vector.
     /// The `indptr` vector stores the locations in the `data` vector that start a row,
     /// The last element is NNZ.
-    fn create<T>(self, location: &T, name: &str) -> Result<Self::Container>
-    where T: Deref<Target = Group>,
+    fn create(self, location: &Group, name: &str) -> Result<Self::Container>
     {
         let group = location.create_group(name)?;
         create_str_attr(&group, "encoding-type", "csr_matrix")?;
@@ -93,6 +90,46 @@ where
 
         group.new_dataset_builder().deflate(9)
             .with_data(&Array::from_vec(indptr)).create("indptr")?;
+        Ok(group)
+    }
+}
+
+/// Polars DataFrame does not have an index. So the first column will be treat as the index.
+impl AnnData for DataFrame {
+    type Container = Group;
+    const VERSION: &'static str = "0.2.0";
+
+    fn create(self, location: &Group, name: &str) -> Result<Self::Container>
+    {
+        let group = location.create_group(name)?;
+        let attr = group.new_attr::<VarLenUnicode>().create(name)?;
+        let field_names: Array1<VarLenUnicode> = self.fields().into_iter()
+            .map(|x| x.name().parse::<VarLenUnicode>().unwrap()).collect();
+        attr.write(&field_names)?;
+
+        for col in self.get_columns() {
+            let name = col.name();
+            match col.dtype().to_physical() {
+                DataType::UInt8 => col.u8().unwrap().into_iter().map(|x| x.unwrap())
+                    .collect::<Array1<u8>>().create(&group, name),
+                DataType::UInt16 => col.u16().unwrap().into_iter().map(|x| x.unwrap())
+                    .collect::<Array1<u16>>().create(&group, name),
+                DataType::UInt32 => col.u32().unwrap().into_iter().map(|x| x.unwrap())
+                    .collect::<Array1<u32>>().create(&group, name),
+                DataType::UInt64 => col.u64().unwrap().into_iter().map(|x| x.unwrap())
+                    .collect::<Array1<u64>>().create(&group, name),
+                DataType::Int8 => col.i8().unwrap().into_iter().map(|x| x.unwrap())
+                    .collect::<Array1<i8>>().create(&group, name),
+                DataType::Int16 => col.i16().unwrap().into_iter().map(|x| x.unwrap())
+                    .collect::<Array1<i16>>().create(&group, name),
+                DataType::Int32 => col.i32().unwrap().into_iter().map(|x| x.unwrap())
+                    .collect::<Array1<i32>>().create(&group, name),
+                DataType::Int64 => col.i64().unwrap().into_iter().map(|x| x.unwrap())
+                    .collect::<Array1<i64>>().create(&group, name),
+                _ => todo!(),
+            }?;
+        }
+
         Ok(group)
     }
 }
