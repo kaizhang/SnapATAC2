@@ -3,11 +3,8 @@ use hdf5::dataset::Dataset;
 use std::marker::PhantomData;
 use ndarray::{Dimension, Array, ArrayView};
 use itertools::Itertools;
-use std::ops::Deref; 
 
-pub fn create_str_attr<T>(location: &T, name: &str, value: &str) -> Result<()>
-where
-    T: Deref<Target = Location>,
+pub fn create_str_attr(location: &Location, name: &str, value: &str) -> Result<()>
 {
     let attr = location.new_attr::<hdf5::types::VarLenUnicode>().create(name)?;
     let value_: hdf5::types::VarLenUnicode = value.parse().unwrap();

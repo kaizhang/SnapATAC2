@@ -2,6 +2,7 @@ pub mod qc;
 pub mod utils;
 use utils::hdf5::*;
 use utils::anndata::*;
+use std::collections::HashSet;
 
 use qc::CellBarcode;
 
@@ -14,7 +15,9 @@ pub fn create_count_matrix<B, I>(
     file: File,
     fragments: GroupBy<CellBarcode, I, impl FnMut(&BED<5>) -> CellBarcode>,
     regions: &GenomeRegions<B>,
-    bin_size: Option<u64>) -> Result<()>
+    bin_size: Option<u64>,
+    selected_cells: Option<&HashSet<CellBarcode>>
+    ) -> Result<(Vec<CellBarcode>, Vec<String>)>
 where
     B: BEDLike + Clone,
     I: Iterator<Item = BED<5>>,
@@ -27,15 +30,19 @@ where
     };
     let mut list_of_barcodes = Vec::new();
     let sp_row_iter = SparseRowIter::new(
-        fragments.into_iter().map(|(barcode, iter)| {
-            list_of_barcodes.push(barcode);
-            get_insertion_counts(regions, bin_size, iter)
+        fragments.into_iter().filter_map(|(barcode, iter)| {
+            if selected_cells.map_or(true, |x| x.contains(&barcode)) {
+                list_of_barcodes.push(barcode);
+                Some(get_insertion_counts(regions, bin_size, iter))
+            } else {
+                None
+            }
         }),
         features.len()
     );
     sp_row_iter.create(&file, "X")?;
 
-    Ok(())
+    Ok((list_of_barcodes, features))
 }
 
 fn get_insertion_counts<B, I>(regions: &GenomeRegions<B>,
