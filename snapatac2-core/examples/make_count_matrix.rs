@@ -14,5 +14,6 @@ fn main() -> Result<()> {
         [ GenomicRange::new("chr1", 0, 248956422)
         , GenomicRange::new("chr2", 0, 242193529)
         , GenomicRange::new("chr3", 0, 198295559) ];
-    create_count_matrix(file, read_fragments(frag), &chr_size.into_iter().collect(), Some(5000))
+    create_count_matrix(file, read_fragments(frag), &chr_size.into_iter().collect(), Some(5000), None)?;
+    Ok(())
 }

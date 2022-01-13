@@ -1,12 +1,14 @@
 use pyo3::prelude::*;
 
-use bed_utils::bed::{BED, BEDLike, tree::BedTree, io::Reader};
+use bed_utils::bed::{BED, GenomicRange, BEDLike, tree::BedTree, io::Reader};
 use itertools::{Itertools, GroupBy};
 use std::fs::File;
 use std::io::{BufWriter, Write};
+use std::collections::HashMap;
 use flate2::read::GzDecoder;
+use hdf5;
 
-use snapatac2_core::qc;
+use snapatac2_core::{create_count_matrix, qc};
 
 #[pyfunction]
 fn get_qc(output_file: &str, gtf_file: &str, fragment_file: &str) -> PyResult<()> {
@@ -24,9 +26,27 @@ fn get_qc(output_file: &str, gtf_file: &str, fragment_file: &str) -> PyResult<()
     Ok(())
 }
 
+#[pyfunction]
+fn mk_cell_by_window_matrix(output_file: &str,
+                            fragment_file: &str,
+                            chrom_size: HashMap<&str, u64>,
+                            bin_size: u64,
+                            ) -> PyResult<(Vec<qc::CellBarcode>, Vec<String>)> {
+    let file = hdf5::File::create(output_file).unwrap();
+    let frag = GzDecoder::new(File::open(fragment_file).expect("Unable to open fragment file"));
+    Ok(create_count_matrix(
+        file,
+        qc::read_fragments(frag),
+        &chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect(),
+        Some(bin_size),
+        None,
+    ).unwrap())
+} 
+
 #[pymodule]
 fn snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(get_qc, m)?)?;
+    m.add_function(wrap_pyfunction!(mk_cell_by_window_matrix, m)?)?;
 
     Ok(())
 }
