@@ -15,6 +15,7 @@ snapatac2-core = { path = "../snapatac2-core" }
 bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "3e3b5485d068b95106da2bdb1f9376bc9a3a433d" }
 itertools = "0.8"
 flate2 = "1.0"
+hdf5 = "0.8.1"
 
 [dependencies.pyo3]
 version = "0.15.1"
