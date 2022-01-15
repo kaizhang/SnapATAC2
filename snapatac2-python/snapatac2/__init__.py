@@ -1,3 +1,7 @@
+import pandas as pd
+import numpy as np
+import anndata as ad
+
 from .snapatac2 import *
 
 hg38 = {
@@ -27,5 +31,5 @@ hg38 = {
     "chrY": 57227415
 }
 
-def make_tile_matrix(output, fragment_file, chrom_size):
-    barcodes, features = mk_cell_by_window_matrix(output, fragment_file, chrom_size, 500)
+def make_tile_matrix(output, fragment_file, gtf_file, chrom_size, min_num_fragments=100):
+    mk_tile_matrix(output, fragment_file, gtf_file, chrom_size, 500, min_num_fragments)

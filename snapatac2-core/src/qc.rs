@@ -3,6 +3,7 @@ use std::io::prelude::*;
 use std::io::BufReader;                                                                                                                                           
 use bed_utils::bed::{GenomicRange, BED, BEDLike, tree::BedTree, io::Reader};
 use itertools::{Itertools, GroupBy};
+use std::ops::Div;
 
 pub type CellBarcode = String;
 
@@ -14,46 +15,79 @@ pub struct QualityControl {
     pub frac_duplicated: f64,
 }
 
+pub(crate) struct FragmentSummary {
+    promoter_insertion_count: [u64; 4001],
+    pub(crate) num_unique_fragment: u64,
+    num_total_fragment: u64, 
+    num_mitochondrial : u64,
+}
+
+impl FragmentSummary {
+    pub(crate) fn new() -> Self { FragmentSummary {
+        promoter_insertion_count: [0; 4001],
+        num_unique_fragment: 0,
+        num_total_fragment: 0,
+        num_mitochondrial: 0 }
+    }
+
+    pub(crate) fn update(&mut self, promoter: &BedTree<bool>, fragment: &BED<5>) {
+        self.num_unique_fragment += 1;
+        self.num_total_fragment += *fragment.score().unwrap() as u64;
+        if fragment.chrom() == "chrM" || fragment.chrom() == "M" {
+            self.num_mitochondrial += 1;
+        }
+        for ins in get_insertions(fragment) {
+            for (entry, data) in promoter.find(&ins) {
+                let pos: u64 =
+                    if *data {
+                        ins.start() - entry.start()
+                    } else {
+                        4000 - (entry.end() - 1 - ins.start())
+                    };
+                self.promoter_insertion_count[pos as usize] += 1;
+            }
+        }
+    }
+
+    pub(crate) fn get_qc(self) -> QualityControl {
+        let bg_count: f64 =
+            ( self.promoter_insertion_count[ .. 100].iter().sum::<u64>() +
+            self.promoter_insertion_count[3901 .. 4001].iter().sum::<u64>() ) as f64 /
+            200.0 + 0.1;
+        let tss_enrichment = moving_average(5, &self.promoter_insertion_count)
+            .max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap().div(bg_count);
+        let frac_duplicated = 1.0 -
+            self.num_unique_fragment as f64 / self.num_total_fragment as f64;
+        let frac_mitochondrial = self.num_mitochondrial as f64 /
+            self.num_unique_fragment as f64;
+        QualityControl {
+            tss_enrichment,
+            num_unique_fragment: self.num_unique_fragment,
+            frac_mitochondrial,
+            frac_duplicated,
+        }
+    }
+}
+
+fn moving_average(half_window: usize, arr: &[u64]) -> impl Iterator<Item = f64> + '_ {
+    let n = arr.len();
+    (0 .. n).map(move |i| {
+        let r = i.saturating_sub(half_window) .. std::cmp::min(i + half_window + 1, n);
+        let l = r.len() as f64;
+        arr[r].iter().sum::<u64>() as f64 / l
+    })
+}
+
+
 /// Compute QC metrics.
 pub fn get_qc<I>(promoter: &BedTree<bool>, fragments: I) -> QualityControl
 where
     I: Iterator<Item = BED<5>>,
 {
-    let mut tss_insertion_count: [f64; 4001] = [0.0; 4001];
-    let mut num_unique_fragment: u64 = 0;
-    let mut num_total_fragment: u64 = 0;
-    let mut num_mitochondrial : u64 = 0;
-    let mut update_tss_insertion_count = |ins: GenomicRange| {
-        for (entry, data) in promoter.find(&ins) {
-            let pos: u64 =
-                if *data {
-                    ins.start() - entry.start()
-                } else {
-                    4000 - (entry.end() - 1 - ins.start())
-                };
-            tss_insertion_count[pos as usize] += 1.0;
-        }
-    };
-
-    for fragment in fragments {
-        let (ins1, ins2) = get_insertions(&fragment);
-        update_tss_insertion_count(ins1);
-        update_tss_insertion_count(ins2);
-
-        num_unique_fragment += 1;
-        num_total_fragment += *fragment.score().unwrap() as u64;
-        if fragment.chrom() == "chrM" || fragment.chrom() == "M" { num_mitochondrial += 1 };
-    }
-
-    let bg_count: f64 = (tss_insertion_count[ .. 100].iter().sum::<f64>() +
-            tss_insertion_count[3901 .. 4001].iter().sum::<f64>()) / 200.0 + 0.1;
-    for i in 0 .. 4001 {
-        tss_insertion_count[i] /= bg_count;
-    }
-    let tss_enrichment = *moving_average(5, &tss_insertion_count).iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
-    let frac_duplicated: f64 = 1.0 - num_unique_fragment as f64 / num_total_fragment as f64;
-    let frac_mitochondrial : f64 = num_mitochondrial as f64 / num_unique_fragment as f64;
-    QualityControl { tss_enrichment, num_unique_fragment, frac_mitochondrial, frac_duplicated }
+    fragments.fold(FragmentSummary::new(), |mut accumulator, fragment| {
+        accumulator.update(promoter, &fragment);
+        accumulator
+    }).get_qc()
 }
 
 /// Read tss from a gtf file
@@ -96,19 +130,9 @@ pub fn make_promoter_map<I: Iterator<Item = (String, u64, bool)>>(iter: I) -> Be
         }).collect()
 }
 
-fn get_insertions(rec: &BED<5>) -> (GenomicRange, GenomicRange) {
-    ( GenomicRange::new(rec.chrom().to_string(), rec.start() + 75, rec.start() + 76)
-    , GenomicRange::new(rec.chrom().to_string(), rec.end() - 76, rec.end() - 75) )
-}
-
-fn moving_average(half_window: usize, arr: &[f64]) -> Vec<f64> {
-    let n = arr.len();
-    let f = |i: usize| {
-        let r = i.saturating_sub(half_window) .. std::cmp::min(i + half_window + 1, n);
-        let l = r.len() as f64;
-        arr[r].iter().sum::<f64>() / l
-    };
-    (0 .. arr.len()).map(f).collect()
+pub fn get_insertions(rec: &BED<5>) -> [GenomicRange; 2] {
+    [ GenomicRange::new(rec.chrom().to_string(), rec.start(), rec.start() + 1)
+    , GenomicRange::new(rec.chrom().to_string(), rec.end() - 1, rec.end()) ]
 }
 
 /// Read and group fragments according to cell barcodes.

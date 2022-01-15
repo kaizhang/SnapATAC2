@@ -10,7 +10,6 @@ pub fn create_str_attr(location: &Location, name: &str, value: &str) -> Result<(
     let value_: hdf5::types::VarLenUnicode = value.parse().unwrap();
     attr.write_scalar(&value_)
 }
-    
 
 pub struct ResizableVectorData<T> {
     dataset: Dataset,
