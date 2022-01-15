@@ -5,6 +5,8 @@ use ndarray::{arr1, Array1, Array, Dimension};
 use itertools::Itertools;
 use polars::prelude::*;
 
+pub struct StrVec(pub Vec<String>);
+
 pub struct SparseRowIter<I> {
     iter: I,
     num_col: usize,
@@ -24,6 +26,23 @@ pub trait AnnData {
     const VERSION: &'static str;
 
     fn create(self, location: &Group, name: &str) -> Result<Self::Container>;
+}
+
+impl AnnData for StrVec {
+    type Container = hdf5::Dataset;
+    const VERSION: &'static str = "0.2.0";
+
+    fn create(self, location: &Group, name: &str) -> Result<Self::Container>
+    {
+        let data: Array1<VarLenUnicode> = self.0.into_iter()
+            .map(|x| x.parse::<VarLenUnicode>().unwrap()).collect();
+        let dataset = location.new_dataset_builder().deflate(9)
+            .with_data(&data).create(name)?;
+        create_str_attr(&*dataset, "encoding-type", "string-array")?;
+        create_str_attr(&*dataset, "encoding-version", Self::VERSION)?;
+
+        Ok(dataset)
+    }
 }
 
 impl<A, D> AnnData for Array<A, D>
@@ -68,14 +87,14 @@ where
         create_str_attr(&group, "encoding-type", "csr_matrix")?;
         create_str_attr(&group, "encoding-version", Self::VERSION)?;
 
-        let data: ResizableVectorData<D> = ResizableVectorData::new(&group, "data", 100000)?;
-        let indices: ResizableVectorData<u32> = ResizableVectorData::new(&group, "indices", 100000)?;
+        let data: ResizableVectorData<D> = ResizableVectorData::new(&group, "data", 500000)?;
+        let indices: ResizableVectorData<u32> = ResizableVectorData::new(&group, "indices", 500000)?;
         let mut indptr: Vec<u32> = vec![0];
         let iter = self.iter.scan(0, |state, x| {
             *state = *state + x.len();
             Some((*state, x))
         });
-        for chunk in &iter.chunks(1000) {
+        for chunk in &iter.chunks(5000) {
             let (a, b): (Vec<u32>, Vec<D>) = chunk.map(|(x, vec)| {
                 indptr.push(x.try_into().unwrap());
                 vec
