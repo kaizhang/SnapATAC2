@@ -3,6 +3,8 @@ import numpy as np
 import anndata as ad
 
 from .snapatac2 import *
+from ._spectral import Spectral
+from .utils import read_as_binarized
 
 hg38 = {
     "chr1": 248956422,
@@ -31,5 +33,32 @@ hg38 = {
     "chrY": 57227415
 }
 
-def make_tile_matrix(output, fragment_file, gtf_file, chrom_size, min_num_fragments=100):
+def make_tile_matrix(
+    output: str,
+    fragment_file: str,
+    gtf_file: str,
+    chrom_size,
+    min_num_fragments: int = 100,
+) -> ad.AnnData:
+    """Generate cell by bin count matrix.
+
+    Args:
+        output: file name for saving the result
+        fragment_file: gzipped fragment file
+        gtf_file: gzipped annotation file in GTF format
+        chrom_size: chromosome sizes
+        min_num_fragments: 
+    
+    Returns:
+    """
     mk_tile_matrix(output, fragment_file, gtf_file, chrom_size, 500, min_num_fragments)
+    return ad.read(output, backed='r+')
+
+def reduce(
+    data: ad.AnnData
+) -> ad.AnnData:
+    X = read_as_binarized(data)
+    model = Spectral(n_dim=30, distance="jaccard", sampling_rate=1)
+    model.fit(X)
+    data.obsm['X_spectral'] = model.evecs
+    return data

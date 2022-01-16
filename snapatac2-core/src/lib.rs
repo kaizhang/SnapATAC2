@@ -68,11 +68,15 @@ fn create_obs(file: &File, cells: Vec<CellBarcode>, qc: Vec<QualityControl>) -> 
     create_str_attr(&group, "encoding-type", "dataframe")?;
     create_str_attr(&group, "encoding-version", "0.2.0")?;
     create_str_attr(&group, "_index", "Cell")?;
-    let columns: Array1<hdf5::types::VarLenUnicode> = ["tss_enrichment"].into_iter()
-        .map(|x| x.parse().unwrap()).collect();
+    let columns: Array1<hdf5::types::VarLenUnicode> =
+        ["tsse", "n_fragment", "frac_dup", "frac_mito"]
+        .into_iter().map(|x| x.parse().unwrap()).collect();
     group.new_attr_builder().with_data(&columns).create("column-order")?;
     StrVec(cells).create(&group, "Cell")?;
-    qc.iter().map(|x| x.tss_enrichment).collect::<Array1<f64>>().create(&group, "tss_enrichment")?;
+    qc.iter().map(|x| x.tss_enrichment).collect::<Array1<f64>>().create(&group, "tsse")?;
+    qc.iter().map(|x| x.num_unique_fragment).collect::<Array1<u64>>().create(&group, "n_fragment")?;
+    qc.iter().map(|x| x.frac_duplicated).collect::<Array1<f64>>().create(&group, "frac_dup")?;
+    qc.iter().map(|x| x.frac_mitochondrial).collect::<Array1<f64>>().create(&group, "frac_mito")?;
     Ok(())
 }
 
@@ -81,11 +85,11 @@ fn create_var(file: &File, features: Vec<String>, feature_counts: Vec<u64>) -> R
     create_str_attr(&group, "encoding-type", "dataframe")?;
     create_str_attr(&group, "encoding-version", "0.2.0")?;
     create_str_attr(&group, "_index", "Region")?;
-    let columns: Array1<hdf5::types::VarLenUnicode> = ["num_insertions"].into_iter()
+    let columns: Array1<hdf5::types::VarLenUnicode> = ["counts"].into_iter()
         .map(|x| x.parse().unwrap()).collect();
     group.new_attr_builder().with_data(&columns).create("column-order")?;
     StrVec(features).create(&group, "Region")?;
-    Array1::from(feature_counts).create(&group, "num_insertions")?;
+    Array1::from(feature_counts).create(&group, "counts")?;
     Ok(())
 }
 
