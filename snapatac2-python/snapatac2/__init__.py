@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import anndata as ad
+from typing import Optional
 
 from .snapatac2 import *
 from ._spectral import Spectral
@@ -43,23 +44,71 @@ def make_tile_matrix(
 ) -> ad.AnnData:
     """Generate cell by bin count matrix.
 
-    Args:
-        output: file name for saving the result
-        fragment_file: gzipped fragment file
-        gtf_file: gzipped annotation file in GTF format
-        chrom_size: chromosome sizes
-        min_num_fragments: 
+    Parameters
+    ----------
+    output
+        file name for saving the result
+    fragment_file
+        gzipped fragment file
+    gtf_file
+        gzipped annotation file in GTF format
+    chrom_size
+        chromosome sizes
+    min_num_fragments: 
     
-    Returns:
+    Returns
+    -------
     """
     mk_tile_matrix(output, fragment_file, gtf_file, chrom_size, bin_size, min_num_fragments)
     return ad.read(output, backed='r+')
 
-def reduce(
-    data: ad.AnnData
-) -> ad.AnnData:
+# FIXME: random state
+def spectral(
+    data: ad.AnnData,
+    n_comps: Optional[int] = None,
+    random_state: int = 0,
+    sample_size: Optional[int] = None,
+    chunk_size: Optional[int] = None,
+) -> None:
+    """
+    Parameters
+    ----------
+    data
+        AnnData object
+    n_comps
+        Number of dimensions to keep
+    random_state
+        Seed of the random state generator
+    sample_size
+        Sample size used in the Nystrom method
+    chunk_size
+        Chunk size used in the Nystrom method
+    Returns
+    -------
+    """
+    if n_comps is None:
+        min_dim = min(data.n_vars, data.n_obs)
+        if 50 >= min_dim:
+            n_comps = min_dim - 1
+        else:
+            n_comps = 50
+
     X = read_as_binarized(data)
-    model = Spectral(n_dim=30, distance="jaccard", sampling_rate=1)
+    model = Spectral(n_dim=n_comps, distance="jaccard", sampling_rate=1)
     model.fit(X)
     data.obsm['X_spectral'] = model.evecs[:, 1:]
     return data
+
+def umap(
+    data: ad.AnnData,
+    n_comps: int = 2,
+    random_state: int = 0,
+) -> None:
+    """
+    Parameters
+    ----------
+    Returns
+    -------
+    """
+    from umap import UMAP
+    data.obsm["X_umap"] = UMAP(random_state=random_state, n_components=n_comps).fit_transform(data.obsm["X_spectral"])

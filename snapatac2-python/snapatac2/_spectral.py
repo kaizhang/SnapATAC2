@@ -117,3 +117,14 @@ def regress(X, y):
     model = LinearRegression().fit(X, y)
     return model.predict(X)
 
+def jaccard_similarity2(X, Y=None):
+    """Compute pair-wise jaccard index
+
+    Args:
+        mat1: n1 x m
+        mat2: n2 x m
+    
+    Returns:
+        Jaccard similarity matrix
+    """
+    sklearn.metrics.pairwise_distances(X, Y=None, metric='euclidean', n_jobs=-1)
