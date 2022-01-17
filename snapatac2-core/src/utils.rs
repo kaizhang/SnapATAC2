@@ -2,9 +2,8 @@ pub mod hdf5;
 pub mod anndata;
 
 use std::ops::Range;
-use std::collections::HashMap;
 use itertools::Itertools;
-use std::hash::Hash;
+use std::collections::BTreeMap;
 use num::Integer;
 
 use bed_utils::bed::{split_by_len, GenomicRange, BEDLike, tree::GenomeRegions};
@@ -15,7 +14,7 @@ pub struct SparseBinnedCoverage<'a, B> {
     pub consumed_tags: u64,
     genome_regions: &'a GenomeRegions<B>,
     accu_size: Vec<usize>,
-    coverage: HashMap<usize, u64>,
+    coverage: BTreeMap<usize, u64>,
 }
 
 impl <'a, B: BEDLike> SparseBinnedCoverage<'a, B> {
@@ -29,13 +28,13 @@ impl <'a, B: BEDLike> SparseBinnedCoverage<'a, B> {
         }).collect();
         Self {
             len, bin_size, consumed_tags: 0, genome_regions, accu_size,
-            coverage: HashMap::new()
+            coverage: BTreeMap::new()
         }
     }
 
     pub fn reset(&mut self) {
         self.consumed_tags = 0;
-        self.coverage = HashMap::new();
+        self.coverage = BTreeMap::new();
     }
 
     pub fn add<D>(&mut self, tag: &D)
@@ -63,6 +62,34 @@ impl <'a, B: BEDLike> SparseBinnedCoverage<'a, B> {
             .map(|x| split_by_len(x, self.bin_size))
     }
 
-    pub fn get_coverage(&self) -> &HashMap<usize, u64> { &self.coverage }
+    pub fn get_coverage(&self) -> &BTreeMap<usize, u64> { &self.coverage }
 }
 
+
+#[cfg(test)]
+mod util_tests {
+    use super::*;
+
+    #[test]
+    fn test_coverage() {
+        let regions = [
+            GenomicRange::new("chr1", 0, 2000),
+            GenomicRange::new("chr2", 100, 2100),
+            GenomicRange::new("chr3", 3000, 3500),
+            ].into_iter().collect();
+        let mut cov = SparseBinnedCoverage::new(&regions, 400);
+
+        cov.add(&GenomicRange::new("chr1", 3, 5));
+        cov.add(&GenomicRange::new("chr2", 0, 500));
+        cov.add(&GenomicRange::new("chr2", 0, 501));
+        cov.add(&GenomicRange::new("chr3", 3400, 3401));
+        cov.add(&GenomicRange::new("chr4", 0, 501));
+        cov.add(&GenomicRange::new("chr3", 0, 501));
+
+        assert_eq!(
+            vec![(0, 1), (5, 2), (6, 1), (11, 1)],
+            cov.get_coverage().iter().map(|(i, x)| (*i, *x)).collect::<Vec<(usize, u64)>>()
+        );
+    }
+
+}

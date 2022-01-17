@@ -3,7 +3,6 @@ use crate::{ResizableVectorData, create_str_attr};
 use hdf5::{H5Type, Result, Group, types::VarLenUnicode};
 use ndarray::{arr1, Array1, Array, Dimension};
 use itertools::Itertools;
-use polars::prelude::*;
 
 pub struct StrVec(pub Vec<String>);
 
@@ -88,17 +87,17 @@ where
         create_str_attr(&group, "encoding-version", Self::VERSION)?;
 
         let data: ResizableVectorData<D> = ResizableVectorData::new(&group, "data", 500000)?;
-        let indices: ResizableVectorData<u32> = ResizableVectorData::new(&group, "indices", 500000)?;
-        let mut indptr: Vec<u32> = vec![0];
+        let indices: ResizableVectorData<i32> = ResizableVectorData::new(&group, "indices", 500000)?;
+        let mut indptr: Vec<i32> = vec![0];
         let iter = self.iter.scan(0, |state, x| {
             *state = *state + x.len();
             Some((*state, x))
         });
         for chunk in &iter.chunks(5000) {
-            let (a, b): (Vec<u32>, Vec<D>) = chunk.map(|(x, vec)| {
+            let (a, b): (Vec<i32>, Vec<D>) = chunk.map(|(x, vec)| {
                 indptr.push(x.try_into().unwrap());
                 vec
-            }).flatten().map(|(x, y)| -> (u32, D) {
+            }).flatten().map(|(x, y)| -> (i32, D) {
                 (x.try_into().unwrap(), y) }).unzip();
             indices.extend(a.into_iter())?;
             data.extend(b.into_iter())?;
@@ -113,6 +112,7 @@ where
     }
 }
 
+/*
 /// Polars DataFrame does not have an index. So the first column will be treat as the index.
 impl AnnData for DataFrame {
     type Container = Group;
@@ -151,4 +151,32 @@ impl AnnData for DataFrame {
 
         Ok(group)
     }
+}
+*/
+
+
+#[cfg(test)]
+mod sm_tests {
+    use super::*;
+    use hdf5::{File};
+
+    #[test]
+    fn test_sparse_row() {
+        let matrix =
+            [ vec![(0, 1), (2, 2)]
+            , vec![(2, 3)]
+            , vec![(0, 4), (1, 5), (2, 6)] ];
+        let iter = SparseRowIter::new(matrix.into_iter(), 3);
+
+        let file = File::create("1.h5").unwrap();
+        let grp = iter.create(&file, "X").unwrap();
+        let data = grp.dataset("data").unwrap().read_raw().unwrap();
+        let indicies = grp.dataset("indices").unwrap().read_raw().unwrap();
+        let indptr = grp.dataset("indptr").unwrap().read_raw().unwrap();
+
+        assert_eq!(vec![1,2,3,4,5,6], data);
+        assert_eq!(vec![0,2,2,0,1,2], indicies);
+        assert_eq!(vec![0,2,3,6], indptr);
+    }
+
 }

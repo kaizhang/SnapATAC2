@@ -16,7 +16,6 @@ itertools = "0.8"
 bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "d41f7954cba088381f6c7da3015582317d9208c6" }
 hdf5 = "0.8.1"
 ndarray = "0.15.4"
-polars = "0.18.0"
 num = "0.4.0"
 
 [dev-dependencies]
