@@ -162,11 +162,11 @@ mod tests {
         let f = GzDecoder::new(File::open("../data/fragments.bed.gz").expect("xx"));
         let gencode = File::open("../data/gencode.gtf.gz").expect("xx");
         let promoter = make_promoter_map(read_tss(GzDecoder::new(gencode)));
-        let expected = vec![11.857707509881424, 2.727272727272727, 6.583072100313478
-                , 2.727272727272727, 0.0, 0.0, 1.8181818181818181, 6.1633281972265
-                , 0.9090909090909091, 6.220095693779905, 5.965909090909091
-                , 7.204116638078901, 9.312638580931262];
-
+        let expected = vec![12.702366127023662, 1.8181818181818181,
+            6.1688311688311686, 1.8181818181818181, 0.0, 0.0,
+            0.9090909090909091, 8.333333333333332, 0.9090909090909091,
+            6.0606060606060606, 5.483405483405483, 6.28099173553719,
+            8.869179600886916];
         let result: Vec<f64> = read_fragments(f).into_iter()
                 .map(|(_, fragments)| get_qc(&promoter, fragments).tss_enrichment)
                 .collect();

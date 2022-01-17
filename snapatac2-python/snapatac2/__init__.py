@@ -39,6 +39,7 @@ def make_tile_matrix(
     gtf_file: str,
     chrom_size,
     min_num_fragments: int = 100,
+    bin_size: int = 500,
 ) -> ad.AnnData:
     """Generate cell by bin count matrix.
 
@@ -51,7 +52,7 @@ def make_tile_matrix(
     
     Returns:
     """
-    mk_tile_matrix(output, fragment_file, gtf_file, chrom_size, 500, min_num_fragments)
+    mk_tile_matrix(output, fragment_file, gtf_file, chrom_size, bin_size, min_num_fragments)
     return ad.read(output, backed='r+')
 
 def reduce(
@@ -60,5 +61,5 @@ def reduce(
     X = read_as_binarized(data)
     model = Spectral(n_dim=30, distance="jaccard", sampling_rate=1)
     model.fit(X)
-    data.obsm['X_spectral'] = model.evecs
+    data.obsm['X_spectral'] = model.evecs[:, 1:]
     return data
