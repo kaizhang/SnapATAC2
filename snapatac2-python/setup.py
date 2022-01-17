@@ -13,5 +13,10 @@ setup(
     packages=["snapatac2"],
     zip_safe=False,
     python_requires=">=3.6",
-    install_requires=['numpy>=1.16.0', "anndata>=0.7.7"],
+    install_requires=[
+        'numpy>=1.16.0',
+        "anndata>=0.7.7",
+        "scipy>=1.4",
+        "umap-learn>=0.3.10",
+    ],
 )
