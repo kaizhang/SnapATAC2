@@ -93,11 +93,21 @@ def spectral(
         else:
             n_comps = 50
 
-    X = read_as_binarized(data)
+    if data.isbacked:
+        if data.is_view:
+            raise ValueError(
+                "View of AnnData object in backed mode is not supported."
+                "To save the object to file, use `.copy(filename=myfilename.h5ad)`."
+                "To load the object into memory, use `.to_memory()`.")
+        else:
+            X = read_as_binarized(data)
+    else:
+        X = data.X[...]
+        X.data = np.ones(X.indices.shape, dtype=np.float64)
+
     model = Spectral(n_dim=n_comps, distance="jaccard", sampling_rate=1)
     model.fit(X)
     data.obsm['X_spectral'] = model.evecs[:, 1:]
-    return data
 
 def umap(
     data: ad.AnnData,

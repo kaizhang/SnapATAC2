@@ -1,12 +1,10 @@
 pub mod hdf5;
 pub mod anndata;
 
-use std::ops::Range;
-use itertools::Itertools;
 use std::collections::BTreeMap;
 use num::Integer;
 
-use bed_utils::bed::{split_by_len, GenomicRange, BEDLike, tree::GenomeRegions};
+use bed_utils::bed::{split_by_len, BEDLike, tree::GenomeRegions};
 
 pub struct SparseBinnedCoverage<'a, B> {
     pub len: usize,
