@@ -3,14 +3,12 @@ pub mod utils;
 use utils::SparseBinnedCoverage;
 use utils::hdf5::*;
 use utils::anndata::*;
-use std::collections::HashSet;
 
 use qc::{CellBarcode, FragmentSummary, QualityControl, get_insertions};
-use ndarray::{Array1, arr1};
-
+use ndarray::{Array1};
+use std::collections::HashSet;
 use hdf5::{File, Result};
-use bed_utils::bed::{BED, BEDLike, GenomicRange, split_by_len,
-                     tree::GenomeRegions, tree::BinnedCoverage, tree::BedTree};
+use bed_utils::bed::{BED, BEDLike, tree::GenomeRegions, tree::BedTree};
 use itertools::GroupBy;
 
 /// Create cell by bin matrix, and compute qc matrix.
@@ -31,10 +29,14 @@ where
     let features: Vec<String> = binned_coverage.get_regions().flatten()
         .map(|x| x.to_string()).collect();
     let mut feature_counts: Vec<u64> = vec![0; num_features];
-    let mut list_of_barcodes = Vec::new();
+    let mut saved_barcodes = Vec::new();
+    let mut scanned_barcodes = HashSet::new();
     let mut qc = Vec::new();
     let sp_row_iter = SparseRowIter::new(
         fragments.into_iter().filter_map(|(barcode, iter)| {
+            if !scanned_barcodes.insert(barcode.clone()) {
+                panic!("Please sort fragment file by barcodes");
+            }
             let mut summary = FragmentSummary::new();
             binned_coverage.reset();
             iter.for_each(|fragment| {
@@ -46,7 +48,7 @@ where
             if summary.num_unique_fragment < min_num_fragment {
                 None
             } else {
-                list_of_barcodes.push(barcode);
+                saved_barcodes.push(barcode);
                 let count: Vec<(usize, u32)> = binned_coverage.get_coverage()
                     .iter().map(|(k, v)| (*k, *v as u32)).collect();
                 count.iter().for_each(|&(i, x)| feature_counts[i] += x as u64);
@@ -58,7 +60,7 @@ where
     );
     sp_row_iter.create(&file, "X")?;
 
-    create_obs(&file, list_of_barcodes, qc)?;
+    create_obs(&file, saved_barcodes, qc)?;
     create_var(&file, features, feature_counts)?;
     Ok(())
 }
@@ -91,66 +93,4 @@ fn create_var(file: &File, features: Vec<String>, feature_counts: Vec<u64>) -> R
     StrVec(features).create(&group, "Region")?;
     Array1::from(feature_counts).create(&group, "counts")?;
     Ok(())
-}
-
-pub fn create_count_matrix<B, I>(
-    file: File,
-    fragments: GroupBy<CellBarcode, I, impl FnMut(&BED<5>) -> CellBarcode>,
-    regions: &GenomeRegions<B>,
-    bin_size: Option<u64>,
-    selected_cells: Option<&HashSet<CellBarcode>>
-    ) -> Result<(Vec<CellBarcode>, Vec<String>, Vec<u64>)>
-where
-    B: BEDLike + Clone,
-    I: Iterator<Item = BED<5>>,
-{
-    let features: Vec<String> = match bin_size {
-        None => regions.get_regions().iter().map(BEDLike::to_string).collect(),
-        Some(k) => regions.get_regions().iter()
-            .flat_map(|x| split_by_len(x, k))
-            .map(|x| x.to_string()).collect(),
-    };
-    let mut feature_counts: Vec<u64> = vec![0; features.len()];
-    let mut list_of_barcodes = Vec::new();
-    let sp_row_iter = SparseRowIter::new(
-        fragments.into_iter().filter_map(|(barcode, iter)| {
-            if selected_cells.map_or(true, |x| x.contains(&barcode)) {
-                list_of_barcodes.push(barcode);
-                let count = get_insertion_counts(regions, bin_size, iter);
-                count.iter().for_each(|&(i, x)| feature_counts[i] += x as u64);
-                Some(count)
-            } else {
-                None
-            }
-        }),
-        features.len()
-    );
-    sp_row_iter.create(&file, "X")?;
-
-    Ok((list_of_barcodes, features, feature_counts))
-}
-
-fn get_insertion_counts<B, I>(regions: &GenomeRegions<B>,
-                             bin_size: Option<u64>,
-                             fragments: I) -> Vec<(usize, u32)>
-where
-    B: BEDLike,
-    I: Iterator<Item = BED<5>>,
-{
-    match bin_size {
-        None => regions.get_coverage(to_insertions(fragments)).0.into_iter().enumerate()
-            .filter(|(_, x)| *x != 0).collect(),
-        Some(k) => regions.get_binned_coverage(k, to_insertions(fragments)).0
-            .into_iter().flatten().enumerate().filter(|(_, x)| *x != 0).collect(),
-    }
-}
-
-fn to_insertions<I>(fragments: I) -> impl Iterator<Item = GenomicRange>
-where
-    I: Iterator<Item = BED<5>>,
-{
-    fragments.flat_map(|x| {
-        [ GenomicRange::new(x.chrom().to_string(), x.start(), x.start() + 1)
-        , GenomicRange::new(x.chrom().to_string(), x.end() - 1, x.end()) ]
-    })
 }
