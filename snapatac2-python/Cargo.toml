@@ -16,6 +16,7 @@ bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "d41f7954
 itertools = "0.8"
 flate2 = "1.0"
 hdf5 = "0.8.1"
+rayon = "1.5.1"
 
 [dependencies.pyo3]
 version = "0.15.1"

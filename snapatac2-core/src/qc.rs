@@ -80,14 +80,13 @@ fn moving_average(half_window: usize, arr: &[u64]) -> impl Iterator<Item = f64> 
 
 
 /// Compute QC metrics.
-pub fn get_qc<I>(promoter: &BedTree<bool>, fragments: I) -> QualityControl
+pub fn get_qc<'a, I>(promoter: &BedTree<bool>, fragments: I) -> QualityControl
 where
-    I: Iterator<Item = BED<5>>,
+    I: Iterator<Item = &'a BED<5>>,
 {
-    fragments.fold(FragmentSummary::new(), |mut accumulator, fragment| {
-        accumulator.update(promoter, &fragment);
-        accumulator
-    }).get_qc()
+    let mut summary = FragmentSummary::new();
+    fragments.for_each(|frag| { summary.update(promoter, frag); });
+    summary.get_qc()
 }
 
 /// Read tss from a gtf file
@@ -140,14 +139,8 @@ pub fn read_fragments<R>(r: R) -> GroupBy<CellBarcode, impl Iterator<Item = BED<
 where
     R: Read,
 {
-    group_cells_by_barcode(Reader::new(r).into_records().map(Result::unwrap))
-}
-
-pub fn group_cells_by_barcode<I>(fragments: I) -> GroupBy<CellBarcode, I, impl FnMut(&BED<5>) -> CellBarcode>
-where
-    I: Iterator<Item = BED<5>>,
-{
-    fragments.group_by(|x| { x.name().unwrap().to_string() })
+    Reader::new(r).into_records().map(Result::unwrap)
+        .group_by(|x: &BED<5>| { x.name().unwrap().to_string() })
 }
 
 #[cfg(test)]
