@@ -31,7 +31,6 @@ where
     let features: Vec<String> = SparseBinnedCoverage::new(regions, bin_size)
         .get_regions().flatten().map(|x| x.to_string()).collect();
     let num_features = features.len();
-    let mut feature_counts: Vec<u64> = vec![0; num_features];
     let mut saved_barcodes = Vec::new();
     let mut scanned_barcodes = HashSet::new();
     let mut qc = Vec::new();
@@ -52,7 +51,6 @@ where
                     Some((q, count)) => {
                         saved_barcodes.push(barcode);
                         qc.push(q);
-                        count.iter().for_each(|&(i, x)| feature_counts[i] += x as u64);
                         Some(count)
                     },
                 }
@@ -63,7 +61,7 @@ where
     sp_row_iter.create(&file, "X")?;
 
     create_obs(&file, saved_barcodes, qc)?;
-    create_var(&file, features, feature_counts)?;
+    create_var(&file, features)?;
     Ok(())
 }
 
@@ -110,15 +108,13 @@ fn create_obs(file: &File, cells: Vec<CellBarcode>, qc: Vec<QualityControl>) -> 
     Ok(())
 }
 
-fn create_var(file: &File, features: Vec<String>, feature_counts: Vec<u64>) -> Result<()> {
+fn create_var(file: &File, features: Vec<String>) -> Result<()> {
     let group = file.create_group("var")?;
     create_str_attr(&group, "encoding-type", "dataframe")?;
     create_str_attr(&group, "encoding-version", "0.2.0")?;
     create_str_attr(&group, "_index", "Region")?;
-    let columns: Array1<hdf5::types::VarLenUnicode> = ["counts"].into_iter()
-        .map(|x| x.parse().unwrap()).collect();
+    let columns: Array1<hdf5::types::VarLenUnicode> = [].into_iter().collect();
     group.new_attr_builder().with_data(&columns).create("column-order")?;
     StrVec(features).create(&group, "Region")?;
-    Array1::from(feature_counts).create(&group, "counts")?;
     Ok(())
 }

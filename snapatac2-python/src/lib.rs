@@ -18,23 +18,45 @@ fn mk_tile_matrix(output_file: &str,
                   min_tsse: f64,
                   num_cpu: usize,
                   ) -> PyResult<()> {
-
     let file = hdf5::File::create(output_file).unwrap();
-    let frag = GzDecoder::new(File::open(fragment_file)
-        .expect("Unable to open fragment file"));
-    let gtf = GzDecoder::new(File::open(gtf_file).expect("Fail to open gtf file"));
+    let fragment_file_reader = File::open(fragment_file).unwrap();
+    let gtf_file_reader = File::open(gtf_file).unwrap();
+    let promoters = if is_gzipped(gtf_file) {
+        qc::make_promoter_map(qc::read_tss(GzDecoder::new(gtf_file_reader)))
+    } else {
+        qc::make_promoter_map(qc::read_tss(gtf_file_reader))
+    };
 
     let pool = rayon::ThreadPoolBuilder::new().num_threads(num_cpu).build().unwrap();
-    Ok(pool.install(|| create_tile_matrix(
-        file,
-        qc::read_fragments(frag),
-        &qc::make_promoter_map(qc::read_tss(gtf)),
-        &chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect(),
-        bin_size,
-        min_num_fragment,
-        min_tsse,
-    ).unwrap()))
+    let result = pool.install(|| {
+        if is_gzipped(fragment_file) {
+            create_tile_matrix(
+            file,
+            qc::read_fragments(GzDecoder::new(fragment_file_reader)),
+            &promoters,
+            &chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect(),
+            bin_size,
+            min_num_fragment,
+            min_tsse,
+            ).unwrap()
+        } else {
+            create_tile_matrix(
+            file,
+            qc::read_fragments(fragment_file_reader),
+            &promoters,
+            &chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect(),
+            bin_size,
+            min_num_fragment,
+            min_tsse,
+            ).unwrap()
+        }
+    });
+    Ok(result)
 } 
+
+fn is_gzipped(file: &str) -> bool {
+    GzDecoder::new(File::open(file).unwrap()).header().is_some()
+}
 
 #[pymodule]
 fn snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
