@@ -1,7 +1,9 @@
 import pandas as pd
 import numpy as np
 import anndata as ad
-from typing import Optional
+from typing import Optional, Union
+from anndata.experimental import AnnCollection
+from scipy.stats import zscore
 
 from .snapatac2 import *
 from ._spectral import Spectral
@@ -34,6 +36,30 @@ hg38 = {
     "chrY": 57227415
 }
 
+GRCm39 = {
+    "chr1": 195154279,
+    "chr2": 181755017,
+    "chr3": 159745316,
+    "4": 156860686,
+    "5": 151758149,
+    "6": 149588044,
+    "7": 144995196,
+    "8": 130127694,
+    "9": 124359700,
+    "10": 130530862,
+    "11": 121973369,
+    "12": 120092757,
+    "13": 120883175,
+    "14": 125139656,
+    "15": 104073951,
+    "16": 98008968,
+    "17": 95294699,
+    "18": 90720763,
+    "19": 61420004,
+    "X": 169476592,
+    "Y": 91455967,
+}
+
 def make_tile_matrix(
     output: str,
     fragment_file: str,
@@ -64,10 +90,33 @@ def make_tile_matrix(
     mk_tile_matrix(output, fragment_file, gtf_file, chrom_size, bin_size, min_num_fragments, min_tsse, n_jobs)
     return ad.read(output, backed='r+')
 
+def find_variable_features(
+    adata: Union[ad.AnnData, AnnCollection]
+) -> np.ndarray:
+    """
+    cells_subsetndarray
+    Boolean index mask that does filtering. True means that the cell is kept. False means the cell is removed.
+    """
+    if isinstance(adata, ad.AnnData):
+        count = np.ravel(adata.X.sum(axis = 0))
+    elif isinstance(adata, AnnCollection):
+        count = np.zeros(adata.shape[1])
+        for batch, _ in adata.iterate_axis(5000):
+            count += np.ravel(batch.X[...].sum(axis = 0))
+    else:
+        raise ValueError(
+            '`pp.highly_variable_genes` expects an `AnnData` argument, '
+            'pass `inplace=False` if you want to return a `pd.DataFrame`.'
+        )
+    # TODO: exclude 0 from zscore calculation
+    selected_features = np.logical_and(zscore(count) < 1.65, count != 0)
+    return selected_features
+
 # FIXME: random state
 def spectral(
     data: ad.AnnData,
     n_comps: Optional[int] = None,
+    features: Optional[np.ndarray] = None,
     random_state: int = 0,
     sample_size: Optional[int] = None,
     chunk_size: Optional[int] = None,
@@ -95,17 +144,26 @@ def spectral(
         else:
             n_comps = 50
 
-    if data.isbacked:
-        if data.is_view:
-            raise ValueError(
-                "View of AnnData object in backed mode is not supported."
-                "To save the object to file, use `.copy(filename=myfilename.h5ad)`."
-                "To load the object into memory, use `.to_memory()`.")
-        else:
-            X = read_as_binarized(data)
-    else:
-        X = data.X[...]
+    if isinstance(data, AnnCollection):
+        (n, _) = data.shape
+        X, _ = next(data.iterate_axis(n))
+        X = X.X[...]
         X.data = np.ones(X.indices.shape, dtype=np.float64)
+    else:
+        if data.isbacked:
+            if data.is_view:
+                raise ValueError(
+                    "View of AnnData object in backed mode is not supported."
+                    "To save the object to file, use `.copy(filename=myfilename.h5ad)`."
+                    "To load the object into memory, use `.to_memory()`.")
+            else:
+                X = read_as_binarized(data)
+        else:
+            X = data.X[...]
+            X.data = np.ones(X.indices.shape, dtype=np.float64)
+
+    if features is not None:
+        X = X[:, features]
 
     model = Spectral(n_dim=n_comps, distance="jaccard", sampling_rate=1)
     model.fit(X)
