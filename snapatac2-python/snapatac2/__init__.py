@@ -143,31 +143,54 @@ def spectral(
             n_comps = min_dim - 1
         else:
             n_comps = 50
+    (n_sample, _) = data.shape
 
-    if isinstance(data, AnnCollection):
-        (n, _) = data.shape
-        X, _ = next(data.iterate_axis(n))
-        X = X.X[...]
-        X.data = np.ones(X.indices.shape, dtype=np.float64)
-    else:
-        if data.isbacked:
-            if data.is_view:
-                raise ValueError(
-                    "View of AnnData object in backed mode is not supported."
-                    "To save the object to file, use `.copy(filename=myfilename.h5ad)`."
-                    "To load the object into memory, use `.to_memory()`.")
-            else:
-                X = read_as_binarized(data)
-        else:
-            X = data.X[...]
+    if sample_size is None or sample_size >= n_sample:
+        if isinstance(data, AnnCollection):
+            X, _ = next(data.iterate_axis(n_sample))
+            X = X.X[...]
             X.data = np.ones(X.indices.shape, dtype=np.float64)
+        else:
+            if data.isbacked:
+                if data.is_view:
+                    raise ValueError(
+                        "View of AnnData object in backed mode is not supported."
+                        "To save the object to file, use `.copy(filename=myfilename.h5ad)`."
+                        "To load the object into memory, use `.to_memory()`.")
+                else:
+                    X = read_as_binarized(data)
+            else:
+                X = data.X[...]
+                X.data = np.ones(X.indices.shape, dtype=np.float64)
 
-    if features is not None:
-        X = X[:, features]
+        if features is not None: X = X[:, features]
 
-    model = Spectral(n_dim=n_comps, distance="jaccard", sampling_rate=1)
-    model.fit(X)
-    data.obsm['X_spectral'] = model.evecs[:, 1:]
+        model = Spectral(n_dim=n_comps, distance="jaccard", sampling_rate=1)
+        model.fit(X)
+        data.obsm['X_spectral'] = model.evecs[:, 1:]
+
+    else:
+        if isinstance(data, AnnCollection):
+            S, sample_indices = next(data.iterate_axis(sample_size, shuffle=True))
+            S = S.X[...]
+            S.data = np.ones(S.indices.shape, dtype=np.float64)
+        else:
+            pass
+
+        if features is not None: S = S[:, features]
+
+        model = Spectral(n_dim=n_comps, distance="jaccard", sampling_rate=sample_size / n_sample)
+        model.fit(S)
+        if chunk_size is None: chunk_size = 2000
+        result = []
+        for batch, _ in data.iterate_axis(chunk_size):
+            if features is not None:
+                batch = batch.X[:, features]
+            else:
+                batch = batch.X[...]
+            print("Working on chunk")
+            result.append(model.predict(batch)[:, 1:])
+        data.obsm['X_spectral'] = np.concatenate(result, axis=0)
 
 def umap(
     data: ad.AnnData,
