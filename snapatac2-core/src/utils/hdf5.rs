@@ -4,6 +4,8 @@ use std::marker::PhantomData;
 use ndarray::{Dimension, Array, ArrayView};
 use itertools::Itertools;
 
+pub const COMPRESSION: u8 = 1;
+
 pub fn create_str_attr(location: &Location, name: &str, value: &str) -> Result<()>
 {
     let attr = location.new_attr::<hdf5::types::VarLenUnicode>().create(name)?;
@@ -18,7 +20,7 @@ pub struct ResizableVectorData<T> {
 
 impl<T: H5Type> ResizableVectorData<T> {
     pub fn new(group: &Group, name: &str, chunk_size: usize) -> Result<Self> {
-        let dataset = group.new_dataset::<T>().deflate(9).chunk(chunk_size)
+        let dataset = group.new_dataset::<T>().deflate(COMPRESSION).chunk(chunk_size)
             .shape(Extent::resizable(0)).create(name)?;
         Ok(ResizableVectorData { dataset, dataset_type: PhantomData })
     }

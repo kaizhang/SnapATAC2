@@ -40,7 +40,9 @@ def make_tile_matrix(
     gtf_file: str,
     chrom_size,
     min_num_fragments: int = 100,
+    min_tsse: float = 0,
     bin_size: int = 500,
+    n_jobs: int = 4,
 ) -> ad.AnnData:
     """Generate cell by bin count matrix.
 
@@ -59,7 +61,7 @@ def make_tile_matrix(
     Returns
     -------
     """
-    mk_tile_matrix(output, fragment_file, gtf_file, chrom_size, bin_size, min_num_fragments)
+    mk_tile_matrix(output, fragment_file, gtf_file, chrom_size, bin_size, min_num_fragments, min_tsse, n_jobs)
     return ad.read(output, backed='r+')
 
 # FIXME: random state

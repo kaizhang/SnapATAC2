@@ -17,6 +17,7 @@ bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "d41f7954
 hdf5 = "0.8.1"
 ndarray = "0.15.4"
 num = "0.4.0"
+rayon = "1.5.1"
 
 [dev-dependencies]
 criterion = "0.3"
