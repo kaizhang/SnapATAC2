@@ -1,6 +1,5 @@
 import scipy as sp
 import numpy as np
-import math
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel
 import bz2
@@ -87,7 +86,7 @@ class Normalizer:
         y = self.model.predict(X.flatten().T).reshape(jm.shape)
         return np.array(jm / y)
 
-def jaccard_similarity(mat1, mat2=None):
+def old_jaccard_similarity(mat1, mat2=None):
     """Compute pair-wise jaccard index
 
     Args:
@@ -117,7 +116,7 @@ def regress(X, y):
     model = LinearRegression().fit(X, y)
     return model.predict(X)
 
-def jaccard_similarity2(X, Y=None):
+def jaccard_similarity(m1, m2=None):
     """Compute pair-wise jaccard index
 
     Args:
@@ -127,4 +126,12 @@ def jaccard_similarity2(X, Y=None):
     Returns:
         Jaccard similarity matrix
     """
-    sklearn.metrics.pairwise_distances(X, Y=None, metric='euclidean', n_jobs=-1)
+    s1 = m1.sum(axis=1)
+    if m2 is None:
+        d = m1.dot(m1.T).todense()
+        d /= -d + s1 + s1.T
+    else:
+        s2 = m2.sum(axis=1)
+        d = m1.dot(m2.T).todense()
+        d /= -d + s1 + s2.T
+    return d

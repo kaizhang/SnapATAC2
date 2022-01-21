@@ -18,5 +18,6 @@ setup(
         "anndata>=0.7.7",
         "scipy>=1.4",
         "umap-learn>=0.3.10",
+        "tqdm>=4.62",
     ],
 )
