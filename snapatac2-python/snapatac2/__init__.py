@@ -182,13 +182,14 @@ def spectral(
         model = Spectral(n_dim=n_comps, distance="jaccard", sampling_rate=sample_size / n_sample)
         model.fit(S)
         if chunk_size is None: chunk_size = 2000
+
+        from tqdm import tqdm
+        import math
         result = []
-        for batch, _ in data.iterate_axis(chunk_size):
-            if features is not None:
-                batch = batch.X[:, features]
-            else:
-                batch = batch.X[...]
-            print("Working on chunk")
+        for batch, _ in tqdm(data.iterate_axis(chunk_size), total = math.ceil(n_sample / chunk_size)):
+            batch = batch.X[...]
+            batch.data = np.ones(batch.indices.shape, dtype=np.float64)
+            if features is not None: batch = batch[:, features]
             result.append(model.predict(batch)[:, 1:])
         data.obsm['X_spectral'] = np.concatenate(result, axis=0)
 
