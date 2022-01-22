@@ -68,13 +68,18 @@ class Spectral:
         return evecs
 
 def jaccard_similarity(m1, m2=None):
-    """Compute pair-wise jaccard index
+    """
+    Compute pair-wise jaccard index
 
-    Args:
-        mat1: n1 x m
-        mat2: n2 x m
+    Parameters
+    ----------
+    mat1
+        n1 x m
+    mat2
+        n2 x m
     
-    Returns:
+    Returns
+    -------
         Jaccard similarity matrix
     """
     s1 = m1.sum(axis=1)
@@ -112,11 +117,14 @@ class JaccardNormalizer:
 def old_jaccard_similarity(mat1, mat2=None):
     """Compute pair-wise jaccard index
 
-    Args:
-        mat1: n1 x m
-        mat2: n2 x m
+    Parameters
+    mat1
+        n1 x m
+    mat2
+        n2 x m
     
-    Returns:
+    Returns
+    -------
         Jaccard similarity matrix
     """
     coverage1 = mat1.sum(axis=1)
@@ -200,4 +208,3 @@ class Old_Spectral:
         L_ = np.matmul(D_, S_)
         evecs = (L_.dot(self.evecs)).dot(np.diag(1/self.evals))
         return evecs
-
