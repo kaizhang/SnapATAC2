@@ -1,0 +1,25 @@
+name: "Build Docs"
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install dependency
+      run: pip install --user sphinx==4.4.0 sphinxcontrib-versioning sphinx_rtd_theme sphinx-autoapi
+
+    - name: Build
+      run: cd docs && make html
+
+    - name: Upload
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./docs/_build/html
+        publish_branch: gh-pages
+        force_orphan: true

@@ -70,7 +70,8 @@ def make_tile_matrix(
     bin_size: int = 500,
     n_jobs: int = 4,
 ) -> ad.AnnData:
-    """Generate cell by bin count matrix.
+    """
+    Generate cell by bin count matrix.
 
     Parameters
     ----------
@@ -82,10 +83,12 @@ def make_tile_matrix(
         gzipped annotation file in GTF format
     chrom_size
         chromosome sizes
-    min_num_fragments: 
+    min_num_fragments
+        jsdkf
     
     Returns
     -------
+    AnnData
     """
     mk_tile_matrix(output, fragment_file, gtf_file, chrom_size, bin_size, min_num_fragments, min_tsse, n_jobs)
     return ad.read(output, backed='r+')
@@ -136,6 +139,7 @@ def spectral(
         Chunk size used in the Nystrom method
     Returns
     -------
+    None
     """
     if n_comps is None:
         min_dim = min(data.n_vars, data.n_obs)
@@ -201,8 +205,12 @@ def umap(
     """
     Parameters
     ----------
+    data
+        AnnData
+
     Returns
     -------
+    None
     """
     from umap import UMAP
     data.obsm["X_umap"] = UMAP(random_state=random_state, n_components=n_comps).fit_transform(data.obsm["X_spectral"])
