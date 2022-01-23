@@ -67,6 +67,7 @@ impl <'a, B: BEDLike> SparseBinnedCoverage<'a, B> {
 #[cfg(test)]
 mod util_tests {
     use super::*;
+    use bed_utils::bed::{GenomicRange};
 
     #[test]
     fn test_coverage() {

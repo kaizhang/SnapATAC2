@@ -4,7 +4,7 @@ use utils::SparseBinnedCoverage;
 use utils::hdf5::*;
 use utils::anndata::*;
 
-use qc::{CellBarcode, QualityControl, get_insertions};
+use qc::{CellBarcode, QualityControl, FragmentSummary, get_insertions};
 use ndarray::{Array1};
 use std::collections::HashSet;
 use hdf5::{File, Result};
@@ -75,7 +75,10 @@ fn compute_qc_count<B>(fragments: Vec<BED<5>>,
 where
     B: BEDLike,
 {
-    let qc = qc::get_qc(promoter, fragments.iter());
+
+    let mut summary = FragmentSummary::new();
+    fragments.iter().for_each(|frag| { summary.update(promoter, frag); });
+    let qc = summary.get_qc();
     if qc.num_unique_fragment < min_n_fragment || qc.tss_enrichment < min_tsse {
         None
     } else {
