@@ -78,17 +78,6 @@ fn moving_average(half_window: usize, arr: &[u64]) -> impl Iterator<Item = f64> 
     })
 }
 
-
-/// Compute QC metrics.
-pub fn get_qc<'a, I>(promoter: &BedTree<bool>, fragments: I) -> QualityControl
-where
-    I: Iterator<Item = &'a BED<5>>,
-{
-    let mut summary = FragmentSummary::new();
-    fragments.for_each(|frag| { summary.update(promoter, frag); });
-    summary.get_qc()
-}
-
 /// Read tss from a gtf file
 pub fn read_tss<R: Read>(file: R) -> impl Iterator<Item = (String, u64, bool)> {
     let reader = BufReader::new(file);
@@ -160,9 +149,12 @@ mod tests {
             0.9090909090909091, 8.333333333333332, 0.9090909090909091,
             6.0606060606060606, 5.483405483405483, 6.28099173553719,
             8.869179600886916];
-        let result: Vec<f64> = read_fragments(f).into_iter()
-                .map(|(_, fragments)| get_qc(&promoter, fragments).tss_enrichment)
-                .collect();
+
+        let result: Vec<f64> = read_fragments(f).into_iter().map(|(_, fragments)| {
+            let mut summary = FragmentSummary::new();
+            fragments.for_each(|frag| { summary.update(&promoter, &frag); });
+            summary.get_qc().tss_enrichment
+        }).collect();
         assert_eq!(expected, result);
     }
 
