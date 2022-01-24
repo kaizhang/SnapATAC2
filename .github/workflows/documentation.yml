@@ -11,7 +11,9 @@ jobs:
     - uses: actions/checkout@v2
 
     - name: Install dependency
-      run: pip install --user sphinx==4.4.0 sphinxcontrib-versioning sphinx_rtd_theme sphinx-autoapi
+      run: |
+        sudo apt-get install -y pandoc
+        pip install --user Pygments==2.6.1 sphinx==4.4.0 sphinxcontrib-versioning sphinx_rtd_theme sphinx-autoapi nbsphinx pandoc
 
     - name: Build
       run: cd docs && make html

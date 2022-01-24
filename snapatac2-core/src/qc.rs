@@ -15,6 +15,50 @@ pub struct QualityControl {
     pub frac_duplicated: f64,
 }
 
+/*
+// Store length distribution in an array,
+// TODO: use [u64; N+1] when const generic arithmetic is implemented in rust
+pub struct FragmentSizeDistribution<const N: usize> {
+    counts: [u64; N]),
+
+}
+
+impl<const N: usize> FragmentSizeDistribution<N> {
+    pub fn new() -> Self { Self([0; N]) }
+
+    /// Get the frequency of fragment size
+    pub fn get(&self, i: usize) -> u64 {
+        if i <= N {
+            self.0[i]
+        } else {
+            self.0[N]
+        }
+    }
+
+    pub fn add<B: BEDLike>(&mut self, bed: B) {
+        let i = bed.len() as usize;
+        if i <= N {
+            self.0[i - 1] += 1;
+        } else {
+            self.0[N as usize] += 1;
+        }
+    }
+}
+
+impl<const N: u32> FromIterator for FragmentSizeDistribution<N> {
+    fn from_iter<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = B>,
+        B: BEDLike,
+    {
+        let mut distribution = FragmentSizeDistribution::new();
+        iter.for_each(|x| { distribution.update(x); });
+        distribution
+    }
+
+}
+*/
+
 pub(crate) struct FragmentSummary {
     promoter_insertion_count: [u64; 4001],
     pub(crate) num_unique_fragment: u64,
