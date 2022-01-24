@@ -12,10 +12,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          lfs: true
+
+      - name: Checkout LFS objects
+        run: git lfs checkout
 
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+
+      - name: Install hdf5
+        run: sudo apt-get install -y libhdf5-serial-dev
 
       - name: Test rust core library
         run: cd snapatac2-core && cargo test --all --no-fail-fast

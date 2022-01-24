@@ -33,6 +33,7 @@ release = '0.1.0'
 extensions = [
     'sphinx.ext.doctest',
     'autoapi.extension',
+    'nbsphinx',
 ]
 
 autoapi_type = 'python'

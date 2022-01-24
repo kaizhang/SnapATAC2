@@ -190,6 +190,7 @@ def spectral(
         from tqdm import tqdm
         import math
         result = []
+        print("Perform Nystrom extension")
         for batch, _ in tqdm(data.iterate_axis(chunk_size), total = math.ceil(n_sample / chunk_size)):
             batch = batch.X[...]
             batch.data = np.ones(batch.indices.shape, dtype=np.float64)
