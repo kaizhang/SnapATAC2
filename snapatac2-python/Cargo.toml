@@ -20,11 +20,15 @@ rayon = "1.5.1"
 linreg = "0.2.0"
 numpy = "0.15.1"
 ndarray = "0.15.4"
+linfa = "0.5.0"
+linfa-clustering = "0.5.0"
+rand_isaac = "0.3.0"
+rand_core = "0.6"
 
 [dependencies.pyo3]
 version = "0.15.1"
 features = ["extension-module"]
 
 [lib]
-name = "snapatac2"
+name = "_snapatac2"
 crate-type = ["cdylib"]
