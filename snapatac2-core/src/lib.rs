@@ -15,6 +15,16 @@ use rayon::iter::ParallelIterator;
 use rayon::iter::IntoParallelIterator;
 
 /// Create cell by bin matrix, and compute qc matrix.
+/// 
+/// # Arguments
+/// 
+/// * `file` - 
+/// * `fragments` -
+/// * `promoter` -
+/// * `region` -
+/// * `bin_size` -
+/// * `min_num_fragment` -
+/// * `min_tsse` -
 pub fn create_tile_matrix<B, I>(
     file: File,
     fragments: GroupBy<CellBarcode, I, impl FnMut(&BED<5>) -> CellBarcode>,

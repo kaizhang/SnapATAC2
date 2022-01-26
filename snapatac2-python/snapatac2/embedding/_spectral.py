@@ -6,7 +6,113 @@ import bz2
 import _pickle as cPickle
 import gc
 
-from .snapatac2 import jm_regress
+import anndata as ad
+from snapatac2._snapatac2 import jm_regress
+from typing import Optional, Union
+from anndata.experimental import AnnCollection
+
+from .._utils import read_as_binarized
+
+# FIXME: random state
+def spectral(
+    data: ad.AnnData,
+    n_comps: Optional[int] = None,
+    features: Optional[np.ndarray] = None,
+    random_state: int = 0,
+    sample_size: Optional[int] = None,
+    chunk_size: Optional[int] = None,
+) -> None:
+    """
+    Parameters
+    ----------
+    data
+        AnnData object
+    n_comps
+        Number of dimensions to keep
+    random_state
+        Seed of the random state generator
+    sample_size
+        Sample size used in the Nystrom method
+    chunk_size
+        Chunk size used in the Nystrom method
+    Returns
+    -------
+    None
+    """
+    if n_comps is None:
+        min_dim = min(data.n_vars, data.n_obs)
+        if 50 >= min_dim:
+            n_comps = min_dim - 1
+        else:
+            n_comps = 50
+    (n_sample, _) = data.shape
+
+    if sample_size is None or sample_size >= n_sample:
+        if isinstance(data, AnnCollection):
+            X, _ = next(data.iterate_axis(n_sample))
+            X = X.X[...]
+            X.data = np.ones(X.indices.shape, dtype=np.float64)
+        else:
+            if data.isbacked:
+                if data.is_view:
+                    raise ValueError(
+                        "View of AnnData object in backed mode is not supported."
+                        "To save the object to file, use `.copy(filename=myfilename.h5ad)`."
+                        "To load the object into memory, use `.to_memory()`.")
+                else:
+                    X = read_as_binarized(data)
+            else:
+                X = data.X[...]
+                X.data = np.ones(X.indices.shape, dtype=np.float64)
+
+        if features is not None: X = X[:, features]
+
+        model = Spectral(n_dim=n_comps, distance="jaccard", sampling_rate=1)
+        model.fit(X)
+        data.obsm['X_spectral'] = model.evecs[:, 1:]
+
+    else:
+        if isinstance(data, AnnCollection):
+            S, sample_indices = next(data.iterate_axis(sample_size, shuffle=True))
+            S = S.X[...]
+            S.data = np.ones(S.indices.shape, dtype=np.float64)
+        else:
+            pass
+
+        if features is not None: S = S[:, features]
+
+        model = Spectral(n_dim=n_comps, distance="jaccard", sampling_rate=sample_size / n_sample)
+        model.fit(S)
+        if chunk_size is None: chunk_size = 2000
+
+        from tqdm import tqdm
+        import math
+        result = []
+        print("Perform Nystrom extension")
+        for batch, _ in tqdm(data.iterate_axis(chunk_size), total = math.ceil(n_sample / chunk_size)):
+            batch = batch.X[...]
+            batch.data = np.ones(batch.indices.shape, dtype=np.float64)
+            if features is not None: batch = batch[:, features]
+            result.append(model.predict(batch)[:, 1:])
+        data.obsm['X_spectral'] = np.concatenate(result, axis=0)
+
+def umap(
+    data: ad.AnnData,
+    n_comps: int = 2,
+    random_state: int = 0,
+) -> None:
+    """
+    Parameters
+    ----------
+    data
+        AnnData
+
+    Returns
+    -------
+    None
+    """
+    from umap import UMAP
+    data.obsm["X_umap"] = UMAP(random_state=random_state, n_components=n_comps).fit_transform(data.obsm["X_spectral"])
 
 def compressed_pickle(title, data):
     with bz2.BZ2File(title, "w") as f:
