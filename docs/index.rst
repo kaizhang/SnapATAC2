@@ -7,7 +7,8 @@
    contain the root `toctree` directive.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :hidden:
 
    tutorials/tutorial
+   api
