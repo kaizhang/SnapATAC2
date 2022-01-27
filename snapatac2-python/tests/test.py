@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 import snapatac2._snapatac2 as sa
-import snapatac2.embedding._spectral as spectral
+import snapatac2.tools._spectral as spectral
 import random
 from scipy import sparse
 
