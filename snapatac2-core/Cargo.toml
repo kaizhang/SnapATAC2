@@ -13,7 +13,7 @@ keywords = ["single-cell", "biology"]
 [dependencies]
 flate2 = "1.0"
 itertools = "0.8"
-bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "d41f7954cba088381f6c7da3015582317d9208c6" }
+bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "59b181ce1cf3ce980f411d0579db9614a36f4d36" }
 hdf5 = "0.8.1"
 ndarray = "0.15.4"
 num = "0.4.0"
