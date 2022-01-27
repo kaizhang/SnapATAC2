@@ -1,17 +1,23 @@
-from typing import Optional, Union, Type
+from typing import Optional, Union
 import pandas as pd
+import scipy.sparse as ss
 import numpy as np
+import leidenalg as la
 from anndata.experimental import AnnCollection
 import anndata as ad
-import snapatac2._snapatac2 as _snapatac2
+from leidenalg.VertexPartition import MutableVertexPartition
+from .. import _utils
 
-def kmeans(
+# TODO: leiden function in igraph C library is much faster
+def leiden(
     adata: Union[ad.AnnData, AnnCollection],
-    n_clusters: int,
+    resolution: float = 1,
+    partition_type: MutableVertexPartition = la.RBConfigurationVertexPartition,
+    use_weights: bool = True,
     n_iterations: int = -1,
     random_state: int = 0,
-    use_rep: Optional[str] = None,
-    key_added: str = 'kmeans',
+    key_added: str = 'leiden',
+    adjacency: Optional[ss.spmatrix] = None,
 ):
     """
     Cluster cells into subgroups [Traag18]_.
@@ -79,20 +85,27 @@ def kmeans(
         and `n_iterations`.
     """
 
-    if use_rep is None:
-        data = adata.obsm["X_spectral"]
+    if adjacency is None:
+        adjacency = adata.obsp["connectivities"]
+    gr = _utils.get_igraph_from_adjacency(adjacency)
+    if use_weights:
+        weights = gr.es["weight"]
     else:
-        data = adata.obsm[use_rep]
+        weights = None
 
-    groups = _snapatac2.kmeans(n_clusters, data)
+    partition = la.find_partition(gr, partition_type, n_iterations=n_iterations,
+        seed=random_state, resolution_parameter=resolution, weights=weights
+    )
+    groups = np.array(partition.membership)
+
     adata.obs[key_added] = pd.Categorical(
         values=groups.astype('U'),
         categories=sorted(map(str, np.unique(groups))),
     )
     # store information on the clustering parameters
-    adata.uns['kmeans'] = {}
-    adata.uns['kmeans']['params'] = dict(
-        n_clusters=n_clusters,
+    adata.uns['leiden'] = {}
+    adata.uns['leiden']['params'] = dict(
+        resolution=resolution,
         random_state=random_state,
         n_iterations=n_iterations,
     )

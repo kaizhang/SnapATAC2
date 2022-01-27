@@ -13,8 +13,7 @@ setup(
     packages=[
         "snapatac2",
         "snapatac2.preprocessing",
-        "snapatac2.embedding",
-        "snapatac2.cluster",
+        "snapatac2.tools",
     ],
     zip_safe=False,
     python_requires=">=3.6",
