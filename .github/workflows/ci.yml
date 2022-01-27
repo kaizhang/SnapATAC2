@@ -55,6 +55,6 @@ jobs:
       if: ${{ github.ref == 'refs/heads/main' }}
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./documentation/html
+        publish_dir: ./documentation
         publish_branch: gh-pages
         force_orphan: true
