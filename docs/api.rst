@@ -34,6 +34,11 @@ Basic Preprocessing
 Batch effect correction
 ~~~~~~~~~~~~~~~~~~~~~~~
 
+.. autosummary::
+    :toctree: _autosummary
+    
+    pp.mnc_correct
+
 Tools: `tl`
 -----------
 

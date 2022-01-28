@@ -22,8 +22,8 @@ release = '0.1.0'
 
 # -- General configuration ---------------------------------------------------
 
-needs_sphinx = '2.0'  # Nicer param docs
 suppress_warnings = ['ref.citation']
+default_role = 'code'
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
