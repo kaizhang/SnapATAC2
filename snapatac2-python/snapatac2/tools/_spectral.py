@@ -2,8 +2,6 @@ import scipy as sp
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel
-import bz2
-import _pickle as cPickle
 import gc
 
 import anndata as ad
@@ -95,33 +93,6 @@ def spectral(
             if features is not None: batch = batch[:, features]
             result.append(model.predict(batch)[:, 1:])
         data.obsm['X_spectral'] = np.concatenate(result, axis=0)
-
-def umap(
-    data: ad.AnnData,
-    n_comps: int = 2,
-    random_state: int = 0,
-) -> None:
-    """
-    Parameters
-    ----------
-    data
-        AnnData
-
-    Returns
-    -------
-    None
-    """
-    from umap import UMAP
-    data.obsm["X_umap"] = UMAP(random_state=random_state, n_components=n_comps).fit_transform(data.obsm["X_spectral"])
-
-def compressed_pickle(title, data):
-    with bz2.BZ2File(title, "w") as f:
-        cPickle.dump(data, f)
-
-def decompress_pickle(file):
-    data = bz2.BZ2File(file, "rb")
-    data = cPickle.load(data)
-    return data
 
 class Spectral:
     def __init__(self, n_dim=30, sampling_rate=1, distance="jaccard"):

@@ -4,7 +4,7 @@ from typing import Optional, Union
 from anndata.experimental import AnnCollection
 from scipy.stats import zscore
 
-import snapatac2._snapatac2
+import snapatac2._snapatac2 as internal
 
 def make_tile_matrix(
     output: str,
@@ -36,7 +36,7 @@ def make_tile_matrix(
     -------
     AnnData
     """
-    _snapatac2.mk_tile_matrix(output, fragment_file, gtf_file, chrom_size, bin_size, min_num_fragments, min_tsse, n_jobs)
+    internal.mk_tile_matrix(output, fragment_file, gtf_file, chrom_size, bin_size, min_num_fragments, min_tsse, n_jobs)
     return ad.read(output, backed='r+')
 
 def select_features(
@@ -83,7 +83,7 @@ def select_features(
         # TODO: exclude 0 from zscore calculation
         selected_features &= zscore(count) < 1.65
     if whitelist is not None:
-        selected_features &= _snapatac2.intersect_bed(list(adata.var_names), whitelist)
+        selected_features &= internal.intersect_bed(list(adata.var_names), whitelist)
     if blacklist is not None:
-        selected_features &= not _snapatac2.intersect_bed(list(adata.var_names), blacklist)
+        selected_features &= not internal.intersect_bed(list(adata.var_names), blacklist)
     return selected_features
