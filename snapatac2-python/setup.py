@@ -24,7 +24,6 @@ setup(
         "umap-learn>=0.3.10",
         "tqdm>=4.62",
         "scikit-learn>=0.22",
-        "scrublet>=0.2.2",
         "pandas",
         "python-igraph",
         "leidenalg",
