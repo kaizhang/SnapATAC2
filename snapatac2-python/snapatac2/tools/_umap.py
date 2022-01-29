@@ -12,6 +12,9 @@ def umap(
     ----------
     data
         AnnData
+    n_comps
+    use_rep
+    random_state
 
     Returns
     -------
