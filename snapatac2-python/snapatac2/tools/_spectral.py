@@ -141,7 +141,7 @@ class Spectral:
 
         return self
 
-    def transform(self, data=None):
+    def transform(self, data=None, chunk_size: int = None):
         if data == None:
             return self.evecs
         S = self.compute_similarity(self.sample, data)

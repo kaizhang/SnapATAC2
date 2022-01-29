@@ -31,6 +31,14 @@ Basic Preprocessing
     pp.select_features
     pp.knn
 
+Doublet removal
+~~~~~~~~~~~~~~~
+
+.. autosummary::
+    :toctree: _autosummary
+
+    pp.scrublet
+
 Batch effect correction
 ~~~~~~~~~~~~~~~~~~~~~~~
 

@@ -67,7 +67,7 @@ def select_features(
     False means the cell is removed.
     """
     if isinstance(adata, ad.AnnData):
-        count = np.ravel(adata.X.sum(axis = 0))
+        count = np.ravel(adata.X[...].sum(axis = 0))
     elif isinstance(adata, AnnCollection):
         count = np.zeros(adata.shape[1])
         for batch, _ in adata.iterate_axis(5000):
