@@ -14,60 +14,24 @@ def kmeans(
     key_added: str = 'kmeans',
 ):
     """
-    Cluster cells into subgroups [Traag18]_.
-
-    Cluster cells using the Leiden algorithm [Traag18]_,
-    an improved version of the Louvain algorithm [Blondel08]_.
-    It has been proposed for single-cell analysis by [Levine15]_.
-    This requires having ran :func:`~scanpy.pp.neighbors` or
-    :func:`~scanpy.external.pp.bbknn` first.
+    Cluster cells into subgroups using the K-means algorithm.
 
     Parameters
     ----------
     adata
         The annotated data matrix.
-    resolution
-        A parameter value controlling the coarseness of the clustering.
-        Higher values lead to more clusters.
-        Set to `None` if overriding `partition_type`
-        to one that doesn't accept a `resolution_parameter`.
-    random_state
-        Change the initialization of the optimization.
-    restrict_to
-        Restrict the clustering to the categories within the key for sample
-        annotation, tuple needs to contain `(obs_key, list_of_categories)`.
-    key_added
-        `adata.obs` key under which to add the cluster labels.
-    adjacency
-        Sparse adjacency matrix of the graph, defaults to neighbors connectivities.
-    directed
-        Whether to treat the graph as directed or undirected.
-    use_weights
-        If `True`, edge weights from the graph are used in the computation
-        (placing more emphasis on stronger edges).
+    n_clusters
+        Number of clusters to return.
     n_iterations
-        How many iterations of the Leiden clustering algorithm to perform.
+        How many iterations of the kmeans clustering algorithm to perform.
         Positive values above 2 define the total number of iterations to perform,
         -1 has the algorithm run until it reaches its optimal clustering.
-    partition_type
-        Type of partition to use.
-        Defaults to :class:`~leidenalg.RBConfigurationVertexPartition`.
-        For the available options, consult the documentation for
-        :func:`~leidenalg.find_partition`.
-    neighbors_key
-        Use neighbors connectivities as adjacency.
-        If not specified, leiden looks .obsp['connectivities'] for connectivities
-        (default storage place for pp.neighbors).
-        If specified, leiden looks
-        .obsp[.uns[neighbors_key]['connectivities_key']] for connectivities.
-    obsp
-        Use .obsp[obsp] as adjacency. You can't specify both
-        `obsp` and `neighbors_key` at the same time.
-    copy
-        Whether to copy `adata` or modify it inplace.
-    **partition_kwargs
-        Any further arguments to pass to `~leidenalg.find_partition`
-        (which in turn passes arguments to the `partition_type`).
+    random_state
+        Change the initialization of the optimization.
+    use_rep
+        Which data in `adata.obsm` to use for clustering. Default is "X_spectral".
+    key_added
+        `adata.obs` key under which to add the cluster labels.
 
     Returns
     -------

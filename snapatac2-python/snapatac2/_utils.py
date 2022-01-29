@@ -2,6 +2,15 @@ import numpy as np
 import scipy.sparse as ss
 import anndata as ad
 
+def binarize_inplace(X):
+    """Binarize sparse matrix in-place"""
+    X.data = np.ones(X.indices.shape, dtype=np.float64)
+
+def get_binarized_matrix(X):
+    """Return a copy of binarize sparse matrix"""
+    X_ = X.copy()
+    binarize_inplace(X_)
+    return X_
 
 def read_as_binarized(adata: ad.AnnData) -> ss.spmatrix:
     grp = adata.file["X"]

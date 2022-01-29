@@ -21,18 +21,28 @@ def spectral(
     chunk_size: Optional[int] = None,
 ) -> None:
     """
+    Convert chromatin accessibility profiles of cells into lower dimensional representations.
+
+    Convert chromatin accessibility profiles of cells into lower dimensional representations
+    using the spectrum of the normalized graph Laplacian defined by pairwise similarity
+    between cells.
+
     Parameters
     ----------
     data
         AnnData object
     n_comps
         Number of dimensions to keep
+    features
+        Boolean index mask. True means that the feature is kept.
+        False means the feature is removed.
     random_state
         Seed of the random state generator
     sample_size
         Sample size used in the Nystrom method
     chunk_size
         Chunk size used in the Nystrom method
+
     Returns
     -------
     None
@@ -129,7 +139,9 @@ class Spectral:
         self.evals = np.real(evals[ix])
         self.evecs = np.real(evecs[:, ix])
 
-    def predict(self, data=None):
+        return self
+
+    def transform(self, data=None):
         if data == None:
             return self.evecs
         S = self.compute_similarity(self.sample, data)
@@ -143,6 +155,10 @@ class Spectral:
 
         evecs = (S.dot(self.evecs)).dot(np.diag(1/self.evals))
         return evecs
+
+    def predict(self, data=None):
+        """Backward compatibility"""
+        return self.transform(data)
 
 def jaccard_similarity(m1, m2=None):
     """
