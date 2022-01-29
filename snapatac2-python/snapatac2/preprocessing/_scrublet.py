@@ -5,6 +5,7 @@ import scipy.sparse as ss
 import anndata as ad
 from typing import Optional, Union, Type, Tuple
 from sklearn.neighbors import NearestNeighbors
+from sklearn.mixture import BayesianGaussianMixture
 
 from .._utils import get_binarized_matrix
 from snapatac2.tools._spectral import Spectral
@@ -12,7 +13,7 @@ from snapatac2.tools._spectral import Spectral
 def scrublet(
     adata: ad.AnnData,
     features: Optional[np.ndarray] = None,
-    sim_doublet_ratio: float = 3.0,
+    sim_doublet_ratio: float = 2.0,
     expected_doublet_rate: float = 0.1,
     n_neighbors: Optional[int] = None,
     use_approx_neighbors=True,
@@ -120,15 +121,15 @@ def scrub_doublets_core(
 
     return (doublet_scores_obs, doublet_scores_sim, manifold_obs, manifold_sim)
 
-def get_manifold(E_obs_norm, E_sim_norm, n_comps=30, random_state=0):
-    model = Spectral(n_dim=n_comps, distance="jaccard", sampling_rate=1).fit(E_obs_norm)
+def get_manifold(obs_norm, sim_norm, n_comps=30, random_state=0):
+    model = Spectral(n_dim=n_comps, distance="jaccard", sampling_rate=1).fit(obs_norm)
     manifold_obs = np.asarray(model.transform()[:, 1:])
-    manifold_sim = np.asarray(model.transform(E_sim_norm)[:, 1:])
+    manifold_sim = np.asarray(model.transform(sim_norm)[:, 1:])
     return (manifold_obs, manifold_sim)
 
 def simulate_doublets(
     count_matrix: ss.spmatrix,
-    total_counts: np.adarray,
+    total_counts: np.ndarray,
     sim_doublet_ratio: int = 2,
     synthetic_doublet_umi_subsampling: float = 1.0,
     random_state: int = 0,
@@ -234,3 +235,35 @@ def calculate_doublet_scores(
     doublet_errors_sim = se_Ld[doub_labels==1]
 
     return (doublet_scores_obs, doublet_scores_sim)
+
+"""
+def get_doublet_threshold(
+    doublet_scores_sim: np.ndarray,
+    random_state: int = 0,
+):
+    X = np.array([doublet_scores_sim]).T
+    gmm = BayesianGaussianMixture(
+        n_components=2, max_iter=1000, random_state=random_state
+    ).fit(X)
+
+    i = np.argmax(gmm.means_)
+    probs_sim = gmm.predict_proba(X)[:,i]
+    vals = X[np.argwhere(probs_sim>0.5)].flatten()
+    if vals.size == 0:
+        threshold = np.amax(X.flatten())
+    else:
+        threshold = min(vals)
+
+    X = np.array([doublet_scores]).T
+    probs = gmm.predict_proba(X)[:,i].tolist()
+
+    with open(args.output, 'w') as fl:
+        fl.write('\t'.join(map(str, probs)))
+        fl.write("\n")
+
+        fl.write(str(threshold))
+        fl.write("\n")
+        fl.write('\t'.join(map(str, (doublet_scores.tolist()))))
+        fl.write("\n")
+        fl.write('\t'.join(map(str, scrub.doublet_scores_sim_)))
+"""
