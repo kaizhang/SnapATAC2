@@ -39,13 +39,14 @@ Doublet removal
 
     pp.scrublet
 
-Batch effect correction
-~~~~~~~~~~~~~~~~~~~~~~~
+Data Integration
+~~~~~~~~~~~~~~~~
 
 .. autosummary::
     :toctree: _autosummary
     
     pp.mnc_correct
+    pp.harmony
 
 Tools: `tl`
 -----------

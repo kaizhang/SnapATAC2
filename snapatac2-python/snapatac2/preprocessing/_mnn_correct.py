@@ -8,9 +8,9 @@ from typing import Optional, Union
 
 def mnc_correct(
     data: Union[ad.AnnData, np.ndarray],
+    batch: str,
     n_neighbors: int = 5,
     n_clusters: int = 40,
-    batch: str,
     use_rep: Optional[str] = None,
     n_iter: int = 1,
 ) -> Union[np.ndarray, None]:
@@ -28,15 +28,13 @@ def mnc_correct(
 
     Returns
     -------
-    datas
-        Corrected matrix/matrices or None, depending on the
-        input type and `do_concatenate`.
+    Updates adata with the field ``adata.obsm[obsm_out_field]``,
+    containing adjusted principal components.
     """
+    if use_rep is None:
+        use_rep = "X_spectral"
     if isinstance(data, ad.AnnData):
-        if use_rep is None:
-            mat = data.obsm["X_spectral"] 
-        else:
-            mat = data.obsm[use_rep] 
+        mat = data.obsm[use_rep] 
     else:
         mat = data
 
@@ -58,10 +56,7 @@ def mnc_correct(
         mat = new
 
     if isinstance(data, ad.AnnData):
-        if use_rep is None:
-            data.obsm["X_spectral_corrected"] = mat
-        else:
-            data.obsm[use_rep + "_corrected"] = mat
+        data.obsm[use_rep + "_mnn"] = mat
     else:
         return mat
 
