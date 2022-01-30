@@ -10,7 +10,7 @@ def mnc_correct(
     data: Union[ad.AnnData, np.ndarray],
     n_neighbors: int = 5,
     n_clusters: int = 40,
-    batch: Optional[str] = None,
+    batch: str,
     use_rep: Optional[str] = None,
     n_iter: int = 1,
 ) -> Union[np.ndarray, None]:
@@ -40,11 +40,7 @@ def mnc_correct(
     else:
         mat = data
 
-    if batch is None:
-        labels = data.obs["batch"]
-    else:
-        labels = data.obs[batch]
-
+    labels = data.obs[batch]
     label_uniq = list(set(labels))
 
     for _ in range(n_iter):
