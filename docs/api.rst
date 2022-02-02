@@ -17,6 +17,7 @@ Data IO
 
     read
     read_h5ad
+    read_mtx
 
 Preprocessing: `pp`
 -------------------

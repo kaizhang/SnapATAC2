@@ -4,7 +4,7 @@ from setuptools_rust import Binding, RustExtension
 setup(
     name="snapatac2",
     description='SnapATAC: Single Nucleus Analysis Pipeline for ATAC-seq',
-    url='', 
+    url='https://kzhang.org/SnapATAC2/', 
     author='Kai Zhang',
     author_email='kai@kzhang.org',
     license='MIT',
