@@ -22,8 +22,7 @@ def umap(
     """
     from umap import UMAP
 
-    if use_rep is None:
-        X = data.obsm["X_spectral"]
-    else:
-        X = data.obsm[use_rep]
-    data.obsm["X_umap"] = UMAP(random_state=random_state, n_components=n_comps).fit_transform(X)
+    if use_rep is None: use_rep = "X_spectral"
+    data.obsm["X_umap"] = UMAP(
+        random_state=random_state, n_components=n_comps
+        ).fit_transform(data.obsm[use_rep])

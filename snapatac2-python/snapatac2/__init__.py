@@ -2,7 +2,7 @@ from . import preprocessing as pp
 from . import tools as tl
 from . import genome
 
-from anndata import AnnData, concat, read, read_h5ad
+from anndata import AnnData, concat, read, read_h5ad, read_mtx
 from anndata.experimental import AnnCollection
 
 import sys

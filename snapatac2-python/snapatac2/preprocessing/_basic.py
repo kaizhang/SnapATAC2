@@ -1,5 +1,6 @@
 import numpy as np
 import anndata as ad
+import math
 from typing import Optional, Union
 from anndata.experimental import AnnCollection
 from scipy.stats import zscore
@@ -79,11 +80,15 @@ def select_features(
         )
 
     selected_features = count != 0
-    if variable_feature:
-        # TODO: exclude 0 from zscore calculation
-        selected_features &= zscore(count) < 1.65
+
     if whitelist is not None:
         selected_features &= internal.intersect_bed(list(adata.var_names), whitelist)
     if blacklist is not None:
         selected_features &= not internal.intersect_bed(list(adata.var_names), blacklist)
+
+    if variable_feature:
+        mean = count[selected_features].mean()
+        std = math.sqrt(count[selected_features].var())
+        selected_features &= np.absolute((count - mean) / std) < 1.65
+
     return selected_features
