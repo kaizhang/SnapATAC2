@@ -1,3 +1,4 @@
+from locale import normalize
 import scipy as sp
 import numpy as np
 from sklearn.linear_model import LinearRegression
@@ -19,7 +20,8 @@ def spectral(
     random_state: int = 0,
     sample_size: Optional[int] = None,
     chunk_size: Optional[int] = None,
-) -> None:
+    inplace: bool = True,
+) -> Optional[np.ndarray]:
     """
     Convert chromatin accessibility profiles of cells into lower dimensional representations.
 
@@ -45,7 +47,8 @@ def spectral(
 
     Returns
     -------
-    None
+    if `inplace=True` it stores Spectral embedding of data in the field
+    `adata.obsm["X_spectral"]`, otherwise it returns the result as a numpy array.
     """
     if n_comps is None:
         min_dim = min(data.n_vars, data.n_obs)
@@ -77,7 +80,10 @@ def spectral(
 
         model = Spectral(n_dim=n_comps, distance="jaccard", sampling_rate=1)
         model.fit(X)
-        data.obsm['X_spectral'] = model.evecs[:, 1:]
+        if inplace:
+            data.obsm['X_spectral'] = model.evecs[:, 1:]
+        else:
+            return model.evecs[:, 1:]
 
     else:
         if isinstance(data, AnnCollection):
@@ -101,8 +107,12 @@ def spectral(
             batch = batch.X[...]
             batch.data = np.ones(batch.indices.shape, dtype=np.float64)
             if features is not None: batch = batch[:, features]
-            result.append(model.predict(batch)[:, 1:])
-        data.obsm['X_spectral'] = np.concatenate(result, axis=0)
+            result.append(model.transform(batch)[:, 1:])
+
+        if inplace:
+            data.obsm['X_spectral'] = np.concatenate(result, axis=0)
+        else:
+            return np.concatenate(result, axis=0)
 
 class Spectral:
     def __init__(self, n_dim=30, sampling_rate=1, distance="jaccard"):
@@ -128,8 +138,13 @@ class Spectral:
             print("Normalization")
             self.normalizer = JaccardNormalizer(S, self.coverage)
             self.normalizer.normalize(S, self.coverage, self.coverage)
+            np.fill_diagonal(S, 0)
+            # Remove outlier
+            self.normalizer.outlier = np.quantile(np.asarray(S), 0.999)
+            np.clip(S, a_min=0, a_max=self.normalizer.outlier, out=S)
+        else:
+            np.fill_diagonal(S, 0)
 
-        np.fill_diagonal(S, 0)
         d = 1 / (self.sampling_rate * S.sum(axis=1))
         np.multiply(S, d, out=S)
 
@@ -147,7 +162,10 @@ class Spectral:
         S = self.compute_similarity(self.sample, data)
 
         if (self.distance == "jaccard"):
-            self.normalizer.normalize(S, self.coverage, data.sum(axis=1) / self.dim)
+            self.normalizer.normalize(
+                S, self.coverage, data.sum(axis=1) / self.dim,
+                clip_min=0, clip_max=self.normalizer.outlier
+            )
         S = S.T
 
         d = 1 / (self.sampling_rate * S.sum(axis=1))
@@ -196,8 +214,9 @@ class JaccardNormalizer:
         (slope, intersect) = jm_regress(jm, c)
         self.slope = slope
         self.intersect = intersect
+        self.outlier = None
 
-    def normalize(self, jm, c1, c2):
+    def normalize(self, jm, c1, c2, clip_min=None, clip_max=None):
         # jm / (self.slope / (1 / c1 + 1 / c2.T - 1) + self.intersect)
         temp = 1 / c1 + 1 / c2.T
         temp -= 1
@@ -205,6 +224,8 @@ class JaccardNormalizer:
         np.multiply(temp, self.slope, out=temp)
         temp += self.intersect
         jm /= temp
+        if clip_min is not None or clip_max is not None:
+            np.clip(jm, a_min=clip_min, a_max=clip_max, out=jm)
         gc.collect()
 
 def old_jaccard_similarity(mat1, mat2=None):
@@ -253,51 +274,3 @@ class Old_JaccardNormalizer:
 
         y = self.model.predict(X.flatten().T).reshape(jm.shape)
         return np.array(jm / y)
-
-class Old_Spectral:
-    def __init__(self, n_dim=30, sampling_rate=1, distance="jaccard"):
-        self.sampling_rate = sampling_rate
-        #self.dim = mat.get_shape()[1]
-        self.n_dim = n_dim
-        self.distance = distance
-        if (self.distance == "jaccard"):
-            print("Use jaccard distance")
-            self.compute_similarity = old_jaccard_similarity
-        elif (self.distance == "cosine"):
-            self.compute_similarity = cosine_similarity
-        else:
-            self.compute_similarity = rbf_kernel
-
-    def fit(self, mat):
-        self.sample = mat
-        self.dim = mat.shape[1]
-        self.coverage = mat.sum(axis=1) / self.dim
-        S = self.compute_similarity(mat)
-
-        if (self.distance == "jaccard"):
-            self.normalizer = Old_JaccardNormalizer(S, self.coverage)
-            S = self.normalizer.predict(S, self.coverage, self.coverage)
-
-        np.fill_diagonal(S, 0)
-        D = np.diag(1/(self.sampling_rate * S.sum(axis=1)))
-        L = np.matmul(D, S)
-
-        evals, evecs = sp.sparse.linalg.eigs(L, self.n_dim + 1, which='LR')
-        ix = evals.argsort()[::-1]
-        self.evals = np.real(evals[ix])
-        self.evecs = np.real(evecs[:, ix])
-
-    def predict(self, data=None):
-        if data == None:
-            return self.evecs
-        jm = self.compute_similarity(self.sample, data)
-
-        if (self.distance == "jaccard"):
-            S_ = self.normalizer.predict(jm, self.coverage, data.sum(axis=1) / self.dim).T
-        else:
-            S_ = jm.T
-
-        D_ = np.diag(1/(self.sampling_rate * S_.sum(axis=1)))
-        L_ = np.matmul(D_, S_)
-        evecs = (L_.dot(self.evecs)).dot(np.diag(1/self.evals))
-        return evecs

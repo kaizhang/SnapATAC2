@@ -25,9 +25,9 @@ def make_tile_matrix(
     output
         file name for saving the result
     fragment_file
-        gzipped fragment file
+        fragment file
     gtf_file
-        gzipped annotation file in GTF format
+        annotation file in GTF format
     chrom_size
         chromosome sizes
     min_num_fragments

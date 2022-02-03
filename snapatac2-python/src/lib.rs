@@ -63,11 +63,6 @@ fn mk_tile_matrix(output_file: &str,
     Ok(result)
 } 
 
-/// Determine if a file is gzipped.
-fn is_gzipped(file: &str) -> bool {
-    GzDecoder::new(File::open(file).unwrap()).header().is_some()
-}
-
 /// Simple linear regression
 #[pyfunction]
 fn simple_lin_reg(py_iter: &PyIterator) -> PyResult<(f64, f64)> {
@@ -105,16 +100,6 @@ fn intersect_bed(regions: Vec<&str>, bed_file: &str) -> PyResult<Vec<bool>> {
     )
 }
 
-// Convert string such as "chr1:134-2222" to `GenomicRange`.
-fn str_to_genomic_region(txt: &str) -> Option<GenomicRange> {
-    let mut iter1 = txt.splitn(2, ":");
-    let chr = iter1.next()?;
-    let mut iter2 = iter1.next().map(|x| x.splitn(2, "-"))?;
-    let start: u64 = iter2.next().map_or(None, |x| x.parse().ok())?;
-    let end: u64 = iter2.next().map_or(None, |x| x.parse().ok())?;
-    Some(GenomicRange::new(chr, start, end))
-}
-
 #[pyfunction]
 fn kmeans<'py>(
     py: Python<'py>,
@@ -130,6 +115,31 @@ fn kmeans<'py>(
     Ok(model.predict(observations).targets.into_pyarray(py))
 }
 
+// Search for and save nearest neighbors using ANN
+/*
+#[pyfunction]
+fn save_nearest_neighbors(
+    adata_file: &str, data_loc: &str, result_loc: &str
+) -> PyResult<()> {
+    //let file = File::open(adata_file).unwrap();
+    Ok()
+}
+*/
+
+// Convert string such as "chr1:134-2222" to `GenomicRange`.
+fn str_to_genomic_region(txt: &str) -> Option<GenomicRange> {
+    let mut iter1 = txt.splitn(2, ":");
+    let chr = iter1.next()?;
+    let mut iter2 = iter1.next().map(|x| x.splitn(2, "-"))?;
+    let start: u64 = iter2.next().map_or(None, |x| x.parse().ok())?;
+    let end: u64 = iter2.next().map_or(None, |x| x.parse().ok())?;
+    Some(GenomicRange::new(chr, start, end))
+}
+
+/// Determine if a file is gzipped.
+fn is_gzipped(file: &str) -> bool {
+    GzDecoder::new(File::open(file).unwrap()).header().is_some()
+}
 
 #[pymodule]
 fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {

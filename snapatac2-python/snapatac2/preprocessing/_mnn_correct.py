@@ -13,7 +13,8 @@ def mnc_correct(
     n_clusters: int = 40,
     use_rep: Optional[str] = None,
     n_iter: int = 1,
-) -> Union[np.ndarray, None]:
+    inplace: bool = True,
+) -> Optional[np.ndarray]:
     """
     A modified MNN-Correct algorithm based on cluster centroid.
 
@@ -28,8 +29,9 @@ def mnc_correct(
 
     Returns
     -------
-    Updates adata with the field ``adata.obsm[obsm_out_field]``,
-    containing adjusted principal components.
+    if `inplace=True` it updates adata with the field
+    ``adata.obsm[`use_rep`_field]``, containing adjusted principal components.
+    Otherwise, it returns the result as a numpy array.
     """
     if use_rep is None:
         use_rep = "X_spectral"
@@ -55,7 +57,7 @@ def mnc_correct(
             new[idx[i]] = mat_[i,:]
         mat = new
 
-    if isinstance(data, ad.AnnData):
+    if isinstance(data, ad.AnnData) and inplace:
         data.obsm[use_rep + "_mnn"] = mat
     else:
         return mat

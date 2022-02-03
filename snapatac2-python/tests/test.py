@@ -40,19 +40,5 @@ class TestRegression(unittest.TestCase):
         spectral.JaccardNormalizer(jm, count).normalize(jm, count, count)
         np.testing.assert_array_almost_equal(jm, jm_)
 
-    def test_spectral(self):
-        data = sparse.csr_matrix(np.random.randint(2, size = (100, 1000))).astype(np.float64)
-
-        result1 = spectral.Spectral(n_dim=30, distance="jaccard")
-        result1.fit(data)
-        result2 = spectral.Old_Spectral(n_dim=30, distance="jaccard")
-        result2.fit(data)
-        np.testing.assert_array_almost_equal(result1.evals, result2.evals)
-
-        addition_data = sparse.csr_matrix(np.random.randint(2, size = (200, 1000))).astype(np.float64)
-        #np.testing.assert_array_almost_equal(result1.predict(addition_data), result2.predict(addition_data))
-        print(result1.predict(addition_data))
-        print(result2.predict(addition_data))
-
 if __name__ == '__main__':
     unittest.main()

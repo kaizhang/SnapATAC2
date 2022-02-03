@@ -18,7 +18,7 @@ def leiden(
     random_state: int = 0,
     key_added: str = 'leiden',
     adjacency: Optional[ss.spmatrix] = None,
-):
+) -> None:
     """
     Cluster cells into subgroups [Traag18]_.
 
@@ -57,6 +57,7 @@ def leiden(
 
     Returns
     -------
+    adds fields to `adata`:
     `adata.obs[key_added]`
         Array of dim (number of samples) that stores the subgroup id
         (`'0'`, `'1'`, ...) for each cell.
