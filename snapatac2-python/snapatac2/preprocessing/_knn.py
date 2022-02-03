@@ -1,14 +1,8 @@
 from typing import Optional, Union, Type
-from matplotlib import use
-import pandas as pd
-import scipy.sparse as ss
 import numpy as np
-import leidenalg as la
 from sklearn.neighbors import kneighbors_graph
 from anndata.experimental import AnnCollection
 import anndata as ad
-from leidenalg.VertexPartition import MutableVertexPartition
-from .. import _utils
 
 def knn(
     adata: Union[ad.AnnData, AnnCollection],
