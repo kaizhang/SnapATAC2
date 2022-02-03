@@ -12,7 +12,7 @@ def kmeans(
     random_state: int = 0,
     use_rep: Optional[str] = None,
     key_added: str = 'kmeans',
-):
+) -> None:
     """
     Cluster cells into subgroups using the K-means algorithm.
 
@@ -35,14 +35,14 @@ def kmeans(
 
     Returns
     -------
+    adds fields to `adata`:
     `adata.obs[key_added]`
         Array of dim (number of samples) that stores the subgroup id
         (`'0'`, `'1'`, ...) for each cell.
-    `adata.uns['leiden']['params']`
-        A dict with the values for the parameters `resolution`, `random_state`,
+    `adata.uns['kmeans']['params']`
+        A dict with the values for the parameters `n_clusters`, `random_state`,
         and `n_iterations`.
     """
-
     if use_rep is None:
         data = adata.obsm["X_spectral"]
     else:

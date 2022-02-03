@@ -1,4 +1,5 @@
 from typing import Optional, Union, Type
+from matplotlib import use
 import pandas as pd
 import scipy.sparse as ss
 import numpy as np
@@ -12,8 +13,8 @@ from .. import _utils
 def knn(
     adata: Union[ad.AnnData, AnnCollection],
     n_neighbors: int = 15,
-    n_pcs: Optional[int] = None,
     use_rep: Optional[str] = None,
+    use_approximate_search: bool = False,
     n_jobs: int = -1,
 ) -> None:
     """
@@ -37,16 +38,27 @@ def knn(
     **connectivities** : sparse matrix of dtype `float32`.
         Weighted adjacency matrix of the neighborhood graph of data
         points. Weights should be interpreted as connectivities.
-    **distances** : sparse matrix of dtype `float32`.
-        Instead of decaying weights, this stores distances for each pair of
-        neighbors.
     """
-    if use_rep is None:
-        data = adata.obsm["X_spectral"]
-    else:
-        data = adata.obsm[use_rep]
+    if use_rep is None: use_rep = "X_spectral"
+    data = adata.obsm[use_rep]
+    n_sample, n_dim = data.shape
 
-    adj = kneighbors_graph(data, n_neighbors, mode='distance', n_jobs=n_jobs)
-    np.reciprocal(adj.data, out=adj.data)
-    adata.obsp['connectivities'] = adj
+    if use_approximate_search:
+        ''' TODO: Implement this Rust
+        from horapy import HNSWIndex
+        index = HNSWIndex(n_dim, "usize")
+        for i in range(n_sample): index.add(np.float32(data[i]), i)
+        index.build("euclidean")
+
+        target = np.random.randint(0, n)
+        # 410 in Hora ANNIndex <HNSWIndexUsize> (dimension: 50, dtype: usize, max_item: 1000000, n_neigh: 32, n_neigh0: 64, ef_build: 20, ef_search: 500, has_deletion: False)
+        # has neighbors: [410, 736, 65, 36, 631, 83, 111, 254, 990, 161]
+        print("{} in {} \nhas neighbors: {}".format(
+            target, index, index.search(samples[target], 10)))  # search
+        '''
+        pass
+    else:
+        adj = kneighbors_graph(data, n_neighbors, mode='distance', n_jobs=n_jobs)
+        np.reciprocal(adj.data, out=adj.data)
+        adata.obsp['connectivities'] = adj
 

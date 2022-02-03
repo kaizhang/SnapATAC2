@@ -2,6 +2,7 @@
 Use harmony to integrate cells from different experiments.
 """
 
+import numpy as np
 from typing import Optional
 
 from anndata import AnnData
@@ -10,8 +11,9 @@ def harmony(
     adata: AnnData,
     batch: str,
     use_rep: Optional[str] = None,
+    inplace: bool = True,
     **kwargs,
-):
+) -> Optional[np.ndarray]:
     """
     Use harmonypy to integrate different experiments.
 
@@ -37,9 +39,10 @@ def harmony(
 
     Returns
     -------
-    Updates adata with the field ``adata.obsm[obsm_out_field]``,
-    containing principal components adjusted by Harmony such that
-    different experiments are integrated.
+    if `inplace=True` it updates adata with the field
+    ``adata.obsm[`use_rep`_harmony]``, containing principal components
+    adjusted by Harmony such that different experiments are integrated.
+    Otherwise, it returns the result as a numpy array.
     """
     try:
         import harmonypy
@@ -50,4 +53,7 @@ def harmony(
         use_rep = "X_spectral"
 
     harmony_out = harmonypy.run_harmony(adata.obsm[use_rep], adata.obs, batch, **kwargs)
-    adata.obsm[use_rep + "_harmony"] = harmony_out.Z_corr.T
+    if inplace:
+        adata.obsm[use_rep + "_harmony"] = harmony_out.Z_corr.T
+    else:
+        return harmony_out.Z_corr.T
