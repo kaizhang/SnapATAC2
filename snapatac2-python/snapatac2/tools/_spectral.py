@@ -5,12 +5,14 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel
 import gc
 
+from sklearn.preprocessing import binarize
+
 import anndata as ad
 from snapatac2._snapatac2 import jm_regress
 from typing import Optional, Union
 from anndata.experimental import AnnCollection
 
-from .._utils import read_as_binarized
+from .._utils import read_as_binarized, binarized_chunk_X
 
 # FIXME: random state
 def spectral(
@@ -18,7 +20,7 @@ def spectral(
     n_comps: Optional[int] = None,
     features: Optional[np.ndarray] = None,
     random_state: int = 0,
-    sample_size: Optional[int] = None,
+    sample_size: Optional[Union[int, float]] = None,
     chunk_size: Optional[int] = None,
     inplace: bool = True,
 ) -> Optional[np.ndarray]:
@@ -41,7 +43,9 @@ def spectral(
     random_state
         Seed of the random state generator
     sample_size
-        Sample size used in the Nystrom method
+        Sample size used in the Nystrom method. It could be either an integer
+        indicating the number of cells to sample or a real value from 0 to 1
+        indicating the fraction of cells to sample.
     chunk_size
         Chunk size used in the Nystrom method
 
@@ -58,12 +62,25 @@ def spectral(
             n_comps = 50
     (n_sample, _) = data.shape
 
-    if sample_size is None or sample_size >= n_sample:
+    if sample_size is None:
+        sample_size = n_sample
+    elif isinstance(sample_size, int):
+        if sample_size <= 1:
+            raise ValueError("when sample_size is an integer, it should be > 1")
+        if sample_size > n_sample:
+            sample_size = n_sample
+    else:
+        if sample_size <= 0.0 or sample_size > 1.0:
+            raise ValueError("when sample_size is a float, it should be > 0 and <= 1")
+        else:
+            sample_size = int(sample_size * n_sample)
+
+    if sample_size >= n_sample:
         if isinstance(data, AnnCollection):
             X, _ = next(data.iterate_axis(n_sample))
             X = X.X[...]
             X.data = np.ones(X.indices.shape, dtype=np.float64)
-        else:
+        elif isinstance(data, ad.AnnData):
             if data.isbacked:
                 if data.is_view:
                     raise ValueError(
@@ -75,6 +92,8 @@ def spectral(
             else:
                 X = data.X[...]
                 X.data = np.ones(X.indices.shape, dtype=np.float64)
+        else:
+            raise ValueError("input should be AnnData or AnnCollection")
 
         if features is not None: X = X[:, features]
 
@@ -86,25 +105,29 @@ def spectral(
             return model.evecs[:, 1:]
 
     else:
+        if chunk_size is None: chunk_size = 2000
+
         if isinstance(data, AnnCollection):
             S, sample_indices = next(data.iterate_axis(sample_size, shuffle=True))
             S = S.X[...]
             S.data = np.ones(S.indices.shape, dtype=np.float64)
+            chunk_iterator = map(lambda b: b[0].X[...], data.iterate_axis(chunk_size))
+        elif isinstance(data, ad.AnnData):
+            S = binarized_chunk_X(data, select=sample_size, replace=False)
+            chunk_iterator = map(lambda b: b[0], data.chunked_X(chunk_size))
         else:
-            pass
+            raise ValueError("input should be AnnData or AnnCollection")
 
         if features is not None: S = S[:, features]
 
         model = Spectral(n_dim=n_comps, distance="jaccard", sampling_rate=sample_size / n_sample)
         model.fit(S)
-        if chunk_size is None: chunk_size = 2000
 
         from tqdm import tqdm
         import math
         result = []
         print("Perform Nystrom extension")
-        for batch, _ in tqdm(data.iterate_axis(chunk_size), total = math.ceil(n_sample / chunk_size)):
-            batch = batch.X[...]
+        for batch in tqdm(chunk_iterator, total = math.ceil(n_sample / chunk_size)):
             batch.data = np.ones(batch.indices.shape, dtype=np.float64)
             if features is not None: batch = batch[:, features]
             result.append(model.transform(batch)[:, 1:])

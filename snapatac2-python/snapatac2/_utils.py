@@ -1,4 +1,7 @@
+from multiprocessing.spawn import spawn_main
+from typing import Union, Sequence
 import numpy as np
+import collections.abc as cabc
 import scipy.sparse as ss
 import anndata as ad
 
@@ -30,13 +33,14 @@ def get_igraph_from_adjacency(adj):
     gr = ig.Graph(n=vcount, edges=edgelist, edge_attrs={"weight": weights})
     return gr
 
-'''
 def binarized_chunk_X(
-    adata: ad.AnnData
+    adata: ad.AnnData,
     select: Union[int, Sequence[int], np.ndarray] = 1000,
     replace: bool = False,
-):
-    """ Return a chunk of the data matrix :attr:`X` with random or specified indices.
+) -> ss.spmatrix:
+    """
+    Return a chunk of the data matrix :attr:`X` with random or specified indices.
+
     Parameters
     ----------
     select
@@ -50,45 +54,22 @@ def binarized_chunk_X(
         indices with replacement, `False` without replacement.
     """
     if isinstance(select, int):
-        select = select if select < self.n_obs else self.n_obs
-        choice = np.random.choice(self.n_obs, select, replace)
+        select = select if select < adata.n_obs else adata.n_obs
+        choice = np.random.choice(adata.n_obs, select, replace)
     elif isinstance(select, (np.ndarray, cabc.Sequence)):
         choice = np.asarray(select)
     else:
         raise ValueError("select should be int or array")
 
     reverse = None
-    if self.isbacked:
+    if adata.isbacked:
         # h5py can only slice with a sorted list of unique index values
         # so random batch with indices [2, 2, 5, 3, 8, 10, 8] will fail
         # this fixes the problem
         indices, reverse = np.unique(choice, return_inverse=True)
-        selection = self.X[indices.tolist()]
+        selection = adata.X[indices.tolist()]
     else:
-        selection = self.X[choice]
+        selection = adata.X[choice]
 
-    selection = selection.toarray() if issparse(selection) else selection
+    binarize_inplace(selection)
     return selection if reverse is None else selection[reverse]
-
-def binarized_chunked_X(self, chunk_size: Optional[int] = None):
-    """
-    Return an iterator over the rows of the data matrix :attr:`X`.
-    Parameters
-    ----------
-    chunk_size
-        Row size of a single chunk.
-    """
-    if chunk_size is None:
-        # Should be some adaptive code
-        chunk_size = 6000
-    start = 0
-    n = self.n_obs
-    for _ in range(int(n // chunk_size)):
-        end = start + chunk_size
-        yield (self.X[start:end], start, end)
-        start = end
-    if start < n:
-        yield (self.X[start:n], start, n)
-
-
-'''
