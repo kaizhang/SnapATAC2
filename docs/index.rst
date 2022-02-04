@@ -10,5 +10,5 @@
    :maxdepth: 3
    :hidden:
 
-   tutorials/tutorial
+   tutorials/index
    api
