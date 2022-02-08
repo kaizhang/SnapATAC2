@@ -64,6 +64,7 @@ Embeddings
    :toctree: _autosummary
 
    tl.spectral
+   tl.laplacian
    tl.umap
 
 Clustering

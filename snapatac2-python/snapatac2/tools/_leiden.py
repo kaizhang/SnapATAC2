@@ -13,7 +13,7 @@ def leiden(
     adata: Union[ad.AnnData, AnnCollection],
     resolution: float = 1,
     partition_type: MutableVertexPartition = la.RBConfigurationVertexPartition,
-    use_weights: bool = True,
+    use_weights: bool = False,
     n_iterations: int = -1,
     random_state: int = 0,
     key_added: str = 'leiden',
