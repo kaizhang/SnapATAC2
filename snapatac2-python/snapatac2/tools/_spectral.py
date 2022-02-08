@@ -1,11 +1,8 @@
-from locale import normalize
+from turtle import distance
 import scipy as sp
 import numpy as np
-from sklearn.linear_model import LinearRegression
 from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel
 import gc
-
-from sklearn.preprocessing import binarize
 
 import anndata as ad
 from snapatac2._snapatac2 import jm_regress
@@ -22,10 +19,11 @@ def spectral(
     random_state: int = 0,
     sample_size: Optional[Union[int, float]] = None,
     chunk_size: Optional[int] = None,
+    distance_metric: str = "jaccard",
     inplace: bool = True,
 ) -> Optional[np.ndarray]:
     """
-    Convert chromatin accessibility profiles of cells into lower dimensional representations.
+    Compute Laplacian Eigenmaps of chromatin accessibility profiles.
 
     Convert chromatin accessibility profiles of cells into lower dimensional representations
     using the spectrum of the normalized graph Laplacian defined by pairwise similarity
@@ -48,20 +46,26 @@ def spectral(
         indicating the fraction of cells to sample.
     chunk_size
         Chunk size used in the Nystrom method
+    distance_metric
+        distance metric: "jaccard", "cosine".
+    inplace
+        Whether to store the result in the anndata object.
 
     Returns
     -------
     if `inplace=True` it stores Spectral embedding of data in the field
     `adata.obsm["X_spectral"]`, otherwise it returns the result as a numpy array.
     """
+    np.random.seed(random_state)
     if n_comps is None:
         min_dim = min(data.n_vars, data.n_obs)
         if 50 >= min_dim:
             n_comps = min_dim - 1
         else:
             n_comps = 50
-    (n_sample, _) = data.shape
+    if chunk_size is None: chunk_size = 20000
 
+    (n_sample, _) = data.shape
     if sample_size is None:
         sample_size = n_sample
     elif isinstance(sample_size, int):
@@ -79,7 +83,8 @@ def spectral(
         if isinstance(data, AnnCollection):
             X, _ = next(data.iterate_axis(n_sample))
             X = X.X[...]
-            X.data = np.ones(X.indices.shape, dtype=np.float64)
+            if distance_metric == "jaccard":
+                X.data = np.ones(X.indices.shape, dtype=np.float64)
         elif isinstance(data, ad.AnnData):
             if data.isbacked:
                 if data.is_view:
@@ -91,55 +96,57 @@ def spectral(
                     X = read_as_binarized(data)
             else:
                 X = data.X[...]
-                X.data = np.ones(X.indices.shape, dtype=np.float64)
+                if distance_metric == "jaccard":
+                    X.data = np.ones(X.indices.shape, dtype=np.float64)
         else:
             raise ValueError("input should be AnnData or AnnCollection")
 
         if features is not None: X = X[:, features]
 
-        model = Spectral(n_dim=n_comps, distance="jaccard", sampling_rate=1)
+        model = Spectral(n_dim=n_comps, distance=distance_metric)
         model.fit(X)
-        if inplace:
-            data.obsm['X_spectral'] = model.evecs[:, 1:]
-        else:
-            return model.evecs[:, 1:]
-
+        data.uns['spectral_eigenvalue'] = model.evals[1:]
+        result = model.transform()
     else:
-        if chunk_size is None: chunk_size = 2000
-
         if isinstance(data, AnnCollection):
             S, sample_indices = next(data.iterate_axis(sample_size, shuffle=True))
             S = S.X[...]
-            S.data = np.ones(S.indices.shape, dtype=np.float64)
+            if distance_metric == "jaccard":
+                S.data = np.ones(S.indices.shape, dtype=np.float64)
             chunk_iterator = map(lambda b: b[0].X[...], data.iterate_axis(chunk_size))
         elif isinstance(data, ad.AnnData):
-            S = binarized_chunk_X(data, select=sample_size, replace=False)
+            if distance_metric == "jaccard":
+                S = binarized_chunk_X(data, select=sample_size, replace=False)
+            else:
+                S = ad.chunk_X(data, select=sample_size, replace=False)
             chunk_iterator = map(lambda b: b[0], data.chunked_X(chunk_size))
         else:
             raise ValueError("input should be AnnData or AnnCollection")
 
         if features is not None: S = S[:, features]
 
-        model = Spectral(n_dim=n_comps, distance="jaccard", sampling_rate=sample_size / n_sample)
+        model = Spectral(n_dim=n_comps, distance=distance_metric)
         model.fit(S)
+        data.uns['spectral_eigenvalue'] = model.evals[1:]
 
         from tqdm import tqdm
         import math
-        result = []
         print("Perform Nystrom extension")
         for batch in tqdm(chunk_iterator, total = math.ceil(n_sample / chunk_size)):
-            batch.data = np.ones(batch.indices.shape, dtype=np.float64)
+            if distance_metric == "jaccard":
+                batch.data = np.ones(batch.indices.shape, dtype=np.float64)
             if features is not None: batch = batch[:, features]
-            result.append(model.transform(batch)[:, 1:])
+            model.extend(batch)
+        result = model.transform()
 
-        if inplace:
-            data.obsm['X_spectral'] = np.concatenate(result, axis=0)
-        else:
-            return np.concatenate(result, axis=0)
+    if inplace:
+        data.obsm['X_spectral'] = result
+    else:
+        return result
 
 class Spectral:
-    def __init__(self, n_dim=30, sampling_rate=1, distance="jaccard"):
-        self.sampling_rate = sampling_rate
+    def __init__(self, n_dim=30, distance="jaccard"):
+
         #self.dim = mat.get_shape()[1]
         self.n_dim = n_dim
         self.distance = distance
@@ -155,51 +162,73 @@ class Spectral:
         self.dim = mat.shape[1]
         self.coverage = mat.sum(axis=1) / self.dim
         print("Compute similarity matrix")
-        S = self.compute_similarity(mat)
+        A = self.compute_similarity(mat)
 
         if (self.distance == "jaccard"):
             print("Normalization")
-            self.normalizer = JaccardNormalizer(S, self.coverage)
-            self.normalizer.normalize(S, self.coverage, self.coverage)
-            np.fill_diagonal(S, 0)
+            self.normalizer = JaccardNormalizer(A, self.coverage)
+            self.normalizer.normalize(A, self.coverage, self.coverage)
+            np.fill_diagonal(A, 0)
             # Remove outlier
-            self.normalizer.outlier = np.quantile(np.asarray(S), 0.999)
-            np.clip(S, a_min=0, a_max=self.normalizer.outlier, out=S)
+            self.normalizer.outlier = np.quantile(np.asarray(A), 0.999)
+            np.clip(A, a_min=0, a_max=self.normalizer.outlier, out=A)
         else:
-            np.fill_diagonal(S, 0)
+            np.fill_diagonal(A, 0)
+            A = np.matrix(A)
 
-        d = 1 / (self.sampling_rate * S.sum(axis=1))
-        np.multiply(S, d, out=S)
+        # M <- D^-1/2 * A * D^-1/2
+        D = np.sqrt(A.sum(axis=1))
+        np.divide(A, D, out=A)
+        np.divide(A, D.T, out=A)
 
         print("Perform decomposition")
-        evals, evecs = sp.sparse.linalg.eigs(S, self.n_dim + 1, which='LR')
+        evals, evecs = sp.sparse.linalg.eigsh(A, self.n_dim + 1, which='LM')
         ix = evals.argsort()[::-1]
         self.evals = np.real(evals[ix])
         self.evecs = np.real(evecs[:, ix])
 
+        B = np.divide(self.evecs, D)
+        np.divide(B, self.evals.reshape((1, -1)), out=B)
+
+        self.B = B
+        self.Q = []
+
         return self
 
-    def transform(self, data=None, chunk_size: int = None):
-        if data == None:
-            return self.evecs
-        S = self.compute_similarity(self.sample, data)
-
+    def extend(self, data):
+        A = self.compute_similarity(self.sample, data)
         if (self.distance == "jaccard"):
             self.normalizer.normalize(
-                S, self.coverage, data.sum(axis=1) / self.dim,
+                A, self.coverage, data.sum(axis=1) / self.dim,
                 clip_min=0, clip_max=self.normalizer.outlier
             )
-        S = S.T
+        self.Q.append(A.T @ self.B)
 
-        d = 1 / (self.sampling_rate * S.sum(axis=1))
-        np.multiply(S, d, out=S)
+    def transform(self, orthogonalize = True):
+        if len(self.Q) > 0:
+            Q = np.concatenate(self.Q, axis=0)
+            D_ = np.sqrt(np.multiply(Q, self.evals.reshape(1, -1)) @ Q.sum(axis=0).T)
+            np.divide(Q, D_.reshape((-1, 1)), out=Q)
 
-        evecs = (S.dot(self.evecs)).dot(np.diag(1/self.evals))
-        return evecs
+            if orthogonalize:
+                # orthogonalization
+                sigma, V = np.linalg.eig(Q.T @ Q)
+                sigma = np.sqrt(sigma)
+                B = np.multiply(V.T, self.evals.reshape((1,-1))) @ V
+                np.multiply(B, sigma.reshape((-1, 1)), out=B)
+                np.multiply(B, sigma.reshape((1, -1)), out=B)
+                evals_new, evecs_new = np.linalg.eig(B)
 
-    def predict(self, data=None):
-        """Backward compatibility"""
-        return self.transform(data)
+                # reorder
+                ix = evals_new.argsort()[::-1]
+                self.evals = evals_new[ix]
+                evecs_new = evecs_new[:, ix]
+
+                np.divide(evecs_new, sigma.reshape((-1, 1)), out=evecs_new)
+                self.evecs = Q @ V @ evecs_new
+            else:
+                self.evecs = Q
+        return self.evecs[:, 1:]
 
 def jaccard_similarity(m1, m2=None):
     """
@@ -251,49 +280,48 @@ class JaccardNormalizer:
             np.clip(jm, a_min=clip_min, a_max=clip_max, out=jm)
         gc.collect()
 
-def old_jaccard_similarity(mat1, mat2=None):
-    """Compute pair-wise jaccard index
 
-    Parameters
-    mat1
-        n1 x m
-    mat2
-        n2 x m
-    
-    Returns
-    -------
-        Jaccard similarity matrix
-    """
-    coverage1 = mat1.sum(axis=1)
-    if(mat2 != None):
-        coverage2 = mat2.sum(axis=1)
-        jm = mat1.dot(mat2.T).todense()
-        n1, n2 = jm.shape
-        c1 = coverage1.dot(np.ones((1,n2)))
-        c2 = coverage2.dot(np.ones((1,n1)))
-        jm = jm / (c1 + c2.T - jm)
-    else:
-        n, _ = mat1.get_shape()
-        jm = mat1.dot(mat1.T).todense()
-        c = coverage1.dot(np.ones((1,n)))
-        jm = jm / (c + c.T - jm)
-    return jm
+"""
+def nystrom_full(mat, sample_size, n_dim):
+    n, m = mat.shape
+    sample_indices = np.random.choice(n, size=sample_size, replace=False)
+    mask = np.ones(n, bool)
+    mask[sample_indices] = False
+    sample = mat[sample_indices, :]
+    other_data = mat[mask, :]
 
-class Old_JaccardNormalizer:
-    def __init__(self, jm, c):
-        n, _ = jm.shape
+    # Compute affinity matrix
+    coverage = sample.sum(axis=1) / m
+    A = jaccard_similarity(sample)
+    normalizer = JaccardNormalizer(A, coverage)
+    normalizer.normalize(A, coverage, coverage)
+    np.fill_diagonal(A, 0)
+    normalizer.outlier = np.quantile(np.asarray(A), 0.999)
+    np.clip(A, a_min=0, a_max=normalizer.outlier, out=A)
 
-        X = 1 / c.dot(np.ones((1,n)))
-        X = 1 / (X + X.T - 1)
-        X = X[np.triu_indices(n, k = 1)].T
-        y = jm[np.triu_indices(n, k = 1)].T
+    # Compute distance matrix B
+    B = jaccard_similarity(sample, other_data)
+    normalizer.normalize(B, coverage, other_data.sum(axis=1) / m,
+        clip_min=0, clip_max=normalizer.outlier)
 
-        self.model = LinearRegression().fit(X, y)
+    # Compute degree
+    a_r = A.sum(axis=1)
+    b_r = B.sum(axis=1)
+    b_c = B.sum(axis=0).reshape((-1, 1))
+    d1 = np.sqrt(a_r + b_r)
+    d2 = np.sqrt(np.clip(b_c + B.T @ np.linalg.pinv(A) @ b_r, a_min=1e-10, a_max=None))
 
-    def predict(self, jm, c1, c2):
-        X1 = 1 / c1.dot(np.ones((1, c2.shape[1]))) 
-        X2 = 1 / c2.dot(np.ones((1, c1.shape[1])))
-        X = 1 / (X1 + X2.T - 1)
+    # normalization
+    np.divide(A, d1, out=A)
+    np.divide(A, d1.T, out=A)
+    np.divide(B, d1.reshape((-1, 1)), out=B)
+    np.divide(B, d2.reshape((1, -1)), out=B)
 
-        y = self.model.predict(X.flatten().T).reshape(jm.shape)
-        return np.array(jm / y)
+    # compute eigenvector
+    evals, U = sp.sparse.linalg.eigsh(A, n_dim + 1, which='LM')
+    U_ = np.divide(B.T @ U, evals.reshape((1, -1)))
+    result = np.empty((n, n_dim))
+    result[sample_indices] = U[:, 1:]
+    result[mask] = U_[:, 1:]
+    return result
+"""

@@ -40,5 +40,10 @@ class TestRegression(unittest.TestCase):
         spectral.JaccardNormalizer(jm, count).normalize(jm, count, count)
         np.testing.assert_array_almost_equal(jm, jm_)
 
+    def test_spectral(self):
+        import snapatac2.tools._spectral2 as spectral2
+        data = sparse.csr_matrix(np.random.randint(2, size = (1000, 2000))).astype(np.float64)
+        print(spectral2.nystrom_full(data, 100, 30))
+
 if __name__ == '__main__':
     unittest.main()
