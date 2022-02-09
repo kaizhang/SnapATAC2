@@ -1,4 +1,3 @@
-from turtle import distance
 import scipy as sp
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel
