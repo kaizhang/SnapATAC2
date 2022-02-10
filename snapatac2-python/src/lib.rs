@@ -14,8 +14,9 @@ use linfa_clustering::KMeans;
 use linfa::traits::{Fit, Predict};
 use rand_core::SeedableRng;
 use rand_isaac::Isaac64Rng;
+use hora::core::ann_index::ANNIndex;
 
-use snapatac2_core::{create_tile_matrix, qc};
+use snapatac2_core::{create_tile_matrix, qc, utils::anndata::SparseRowIter};
 
 #[pyfunction]
 fn mk_tile_matrix(output_file: &str,
@@ -116,15 +117,28 @@ fn kmeans<'py>(
 }
 
 // Search for and save nearest neighbors using ANN
-/*
 #[pyfunction]
-fn save_nearest_neighbors(
-    adata_file: &str, data_loc: &str, result_loc: &str
-) -> PyResult<()> {
-    //let file = File::open(adata_file).unwrap();
-    Ok()
+fn approximate_nearest_neighbors(
+    data_: PyReadonlyArray<'_, f32, Ix2>,
+    k: usize,
+) -> PyResult<(Vec<f32>, Vec<i32>, Vec<i32>)>
+{
+    let data = data_.as_array();
+    let dimension = data.shape()[1];
+    let mut index = hora::index::hnsw_idx::HNSWIndex::<f32, usize>::new(
+        dimension,
+        &hora::index::hnsw_params::HNSWParams::<f32>::default(),
+    );
+    for (i, sample) in data.axis_iter(ndarray::Axis(0)).enumerate() {
+        index.add(sample.as_slice().unwrap(), i).unwrap();
+    }
+    index.build(hora::core::metrics::Metric::Euclidean).unwrap();
+    let row_iter = data.axis_iter(ndarray::Axis(0)).map(move |row| {
+        index.search_nodes(row.as_slice().unwrap(), k).into_iter()
+            .map(|(n, d)| (n.idx().unwrap(), d)).collect::<Vec<_>>()
+    });
+    Ok(SparseRowIter::new(row_iter, data.shape()[0]).to_csr_matrix())
 }
-*/
 
 // Convert string such as "chr1:134-2222" to `GenomicRange`.
 fn str_to_genomic_region(txt: &str) -> Option<GenomicRange> {
@@ -148,6 +162,7 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(jm_regress, m)?)?;
     m.add_function(wrap_pyfunction!(intersect_bed, m)?)?;
     m.add_function(wrap_pyfunction!(kmeans, m)?)?;
+    m.add_function(wrap_pyfunction!(approximate_nearest_neighbors, m)?)?;
 
     Ok(())
 }

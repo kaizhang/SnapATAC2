@@ -2,7 +2,10 @@ from typing import Optional, Union, Type
 import numpy as np
 from sklearn.neighbors import kneighbors_graph
 from anndata.experimental import AnnCollection
+from scipy.sparse import csr_matrix
 import anndata as ad
+
+import snapatac2._snapatac2 as internal
 
 def knn(
     adata: Union[ad.AnnData, AnnCollection],
@@ -20,10 +23,9 @@ def knn(
         Annotated data matrix.
     n_neighbors
         The number of nearest neighbors to be searched.
-    key_added
-        If not specified, connectivities .obsp['connectivities'].
-        connectivities in .obsp[key_added+'_connectivities'].
-
+    use_rep
+    use_approximate_search
+        Whether to use approximate nearest neighbor search
     Returns
     -------
     Depending on `copy`, updates or returns `adata` with the following:
@@ -35,24 +37,10 @@ def knn(
     """
     if use_rep is None: use_rep = "X_spectral"
     data = adata.obsm[use_rep]
-    n_sample, n_dim = data.shape
-
+    n = data.shape[0]
     if use_approximate_search:
-        ''' TODO: Implement this Rust
-        from horapy import HNSWIndex
-        index = HNSWIndex(n_dim, "usize")
-        for i in range(n_sample): index.add(np.float32(data[i]), i)
-        index.build("euclidean")
-
-        target = np.random.randint(0, n)
-        # 410 in Hora ANNIndex <HNSWIndexUsize> (dimension: 50, dtype: usize, max_item: 1000000, n_neigh: 32, n_neigh0: 64, ef_build: 20, ef_search: 500, has_deletion: False)
-        # has neighbors: [410, 736, 65, 36, 631, 83, 111, 254, 990, 161]
-        print("{} in {} \nhas neighbors: {}".format(
-            target, index, index.search(samples[target], 10)))  # search
-        '''
-        pass
+        (d, indices, indptr) = internal.approximate_nearest_neighbors(data.astype(np.float32), n_neighbors)
+        adj = csr_matrix((d, indices, indptr), shape=(n, n))
     else:
         adj = kneighbors_graph(data, n_neighbors, mode='distance', n_jobs=n_jobs)
-        np.reciprocal(adj.data, out=adj.data)
-        adata.obsp['connectivities'] = adj
-
+    adata.obsp['distances'] = adj

@@ -24,6 +24,7 @@ linfa = "0.5.0"
 linfa-clustering = "0.5.0"
 rand_isaac = "0.3.0"
 rand_core = "0.6"
+hora = "0.1.1"
 
 [dependencies.pyo3]
 version = "0.15.1"
