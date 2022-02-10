@@ -17,6 +17,25 @@ where
     D: H5Type,
 {
     pub fn new(iter: I, num_col: usize) -> Self { SparseRowIter {iter, num_col} }
+    pub fn to_csr_matrix(self) -> (Vec<D>, Vec<i32>, Vec<i32>)
+    {
+        let mut data: Vec<D> = Vec::new();
+        let mut indices: Vec<i32> = Vec::new();
+        let mut indptr: Vec<i32> = Vec::new();
+
+        let n = self.iter.fold(0, |r_idx, row| {
+            indptr.push(r_idx.try_into().unwrap());
+            let new_idx = r_idx + row.len();
+            let (mut a, mut b) = row.into_iter().map(|(x, y)| -> (i32, D) {
+                (x.try_into().unwrap(), y)
+            }).unzip();
+            indices.append(&mut a);
+            data.append(&mut b);
+            new_idx
+        });
+        indptr.push(n.try_into().unwrap());
+        (data, indices, indptr)
+    }
 }
 
 pub trait AnnData {

@@ -43,11 +43,9 @@ def kmeans(
         A dict with the values for the parameters `n_clusters`, `random_state`,
         and `n_iterations`.
     """
-    if use_rep is None:
-        data = adata.obsm["X_spectral"]
-    else:
-        data = adata.obsm[use_rep]
+    if use_rep is None: use_rep = "X_spectral"
 
+    data = adata.obsm[use_rep]
     groups = _snapatac2.kmeans(n_clusters, data)
     adata.obs[key_added] = pd.Categorical(
         values=groups.astype('U'),

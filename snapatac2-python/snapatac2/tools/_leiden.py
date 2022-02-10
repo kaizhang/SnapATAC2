@@ -13,7 +13,6 @@ def leiden(
     adata: Union[ad.AnnData, AnnCollection],
     resolution: float = 1,
     partition_type: MutableVertexPartition = la.RBConfigurationVertexPartition,
-    use_weights: bool = False,
     n_iterations: int = -1,
     random_state: int = 0,
     key_added: str = 'leiden',
@@ -67,15 +66,11 @@ def leiden(
     """
 
     if adjacency is None:
-        adjacency = adata.obsp["connectivities"]
+        adjacency = adata.obsp["distances"]
     gr = _utils.get_igraph_from_adjacency(adjacency)
-    if use_weights:
-        weights = gr.es["weight"]
-    else:
-        weights = None
 
     partition = la.find_partition(gr, partition_type, n_iterations=n_iterations,
-        seed=random_state, resolution_parameter=resolution, weights=weights
+        seed=random_state, resolution_parameter=resolution, weights=None
     )
     groups = np.array(partition.membership)
 
