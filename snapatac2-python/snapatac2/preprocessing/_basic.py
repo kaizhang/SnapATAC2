@@ -15,6 +15,7 @@ def make_tile_matrix(
     min_num_fragments: int = 100,
     min_tsse: float = 0,
     bin_size: int = 500,
+    sorted_by_barcode: bool = False,
     n_jobs: int = 4,
 ) -> ad.AnnData:
     """
@@ -31,13 +32,31 @@ def make_tile_matrix(
     chrom_size
         chromosome sizes
     min_num_fragments
-        jsdkf
+        threshold used to filter cells
+    min_tsse
+        threshold used to filter cells
+    bin_size
+        the size of consecutive genomic regions used to record the counts
+    sorted_by_barcode
+        whether the fragment file has been sorted by cell barcodes. Pre-sort the
+        fragment file will speed up the processing and require far less memory.
+    n_jobs
+        number of CPUs to use
     
     Returns
     -------
     AnnData
     """
-    internal.mk_tile_matrix(output, fragment_file, gtf_file, chrom_size, bin_size, min_num_fragments, min_tsse, n_jobs)
+    if sorted_by_barcode:
+        internal.mk_tile_matrix(
+            output, fragment_file, gtf_file, chrom_size,
+            bin_size, min_num_fragments, min_tsse, n_jobs
+        )
+    else:
+        internal.mk_tile_matrix_unsorted(
+            output, fragment_file, gtf_file, chrom_size,
+            bin_size, min_num_fragments, min_tsse
+        )
     return ad.read(output, backed='r+')
 
 def select_features(

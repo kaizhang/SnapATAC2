@@ -59,29 +59,33 @@ impl<const N: u32> FromIterator for FragmentSizeDistribution<N> {
 }
 */
 
-pub(crate) struct FragmentSummary {
+pub(crate) struct FragmentSummary<'a> {
     promoter_insertion_count: [u64; 4001],
     pub(crate) num_unique_fragment: u64,
     num_total_fragment: u64, 
     num_mitochondrial : u64,
+    promoter: &'a BedTree<bool>,
 }
 
-impl FragmentSummary {
-    pub(crate) fn new() -> Self { FragmentSummary {
-        promoter_insertion_count: [0; 4001],
-        num_unique_fragment: 0,
-        num_total_fragment: 0,
-        num_mitochondrial: 0 }
+impl<'a> FragmentSummary<'a> {
+    pub(crate) fn new(promoter: &'a BedTree<bool>) -> Self {
+        FragmentSummary {
+            promoter_insertion_count: [0; 4001],
+            num_unique_fragment: 0,
+            num_total_fragment: 0,
+            num_mitochondrial: 0,
+            promoter,
+        }
     }
 
-    pub(crate) fn update(&mut self, promoter: &BedTree<bool>, fragment: &BED<5>) {
+    pub(crate) fn update(&mut self, fragment: &BED<5>) {
         self.num_unique_fragment += 1;
         self.num_total_fragment += *fragment.score().unwrap() as u64;
         if fragment.chrom() == "chrM" || fragment.chrom() == "M" {
             self.num_mitochondrial += 1;
         }
         for ins in get_insertions(fragment) {
-            for (entry, data) in promoter.find(&ins) {
+            for (entry, data) in self.promoter.find(&ins) {
                 let pos: u64 =
                     if *data {
                         ins.start() - entry.start()
@@ -172,7 +176,7 @@ pub fn read_fragments<R>(r: R) -> GroupBy<CellBarcode, impl Iterator<Item = BED<
 where
     R: Read,
 {
-    Reader::new(r).into_records().map(Result::unwrap)
+    Reader::new(r, None).into_records().map(Result::unwrap)
         .group_by(|x: &BED<5>| { x.name().unwrap().to_string() })
 }
 
@@ -195,8 +199,8 @@ mod tests {
             8.869179600886916];
 
         let result: Vec<f64> = read_fragments(f).into_iter().map(|(_, fragments)| {
-            let mut summary = FragmentSummary::new();
-            fragments.for_each(|frag| { summary.update(&promoter, &frag); });
+            let mut summary = FragmentSummary::new(&promoter);
+            fragments.for_each(|frag| { summary.update(&frag); });
             summary.get_qc().tss_enrichment
         }).collect();
         assert_eq!(expected, result);
