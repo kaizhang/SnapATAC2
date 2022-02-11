@@ -14,6 +14,7 @@ setup(
         "snapatac2",
         "snapatac2.preprocessing",
         "snapatac2.tools",
+        "snapatac2.plotting",
     ],
     zip_safe=False,
     python_requires=">=3.6",
