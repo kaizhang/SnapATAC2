@@ -75,3 +75,15 @@ Clustering
 
    tl.kmeans
    tl.leiden
+
+Plotting: `pl`
+-------------------
+
+Quality Control
+~~~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+    :toctree: _autosummary
+
+    pl.plot_TSS
+    
