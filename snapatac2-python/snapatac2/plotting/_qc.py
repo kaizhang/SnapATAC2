@@ -25,11 +25,11 @@ def using_mpl_scatter_density(fig, x, y):
     plt.ylabel("TSS enrichment score")
 
     
-def plot_TSS(
+def tsse(
     adata: AnnData,
 ) -> None:
     """
-    Plot the TSS vs. log10(unique fragments) density figure.
+    Plot the TSS enrichment vs. log10(unique fragments) density figure.
 
     Parameters
     ----------

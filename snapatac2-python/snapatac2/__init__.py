@@ -8,6 +8,6 @@ from anndata.experimental import AnnCollection
 
 import sys
 
-sys.modules.update({f'{__name__}.{m}': globals()[m] for m in ['pp', 'tl']})
+sys.modules.update({f'{__name__}.{m}': globals()[m] for m in ['pp', 'tl', 'pl']})
 
 del sys
