@@ -7,6 +7,7 @@ use utils::anndata::*;
 use qc::{CellBarcode, QualityControl, FragmentSummary, get_insertions};
 use ndarray::{Array1};
 use std::collections::HashSet;
+use std::collections::HashMap;
 use hdf5::{File, Result};
 use bed_utils::bed::{BED, BEDLike, tree::GenomeRegions, tree::BedTree};
 use itertools::GroupBy;
@@ -86,8 +87,8 @@ where
     B: BEDLike,
 {
 
-    let mut summary = FragmentSummary::new();
-    fragments.iter().for_each(|frag| { summary.update(promoter, frag); });
+    let mut summary = FragmentSummary::new(promoter);
+    fragments.iter().for_each(|frag| { summary.update(frag); });
     let qc = summary.get_qc();
     if qc.num_unique_fragment < min_n_fragment || qc.tss_enrichment < min_tsse {
         None
@@ -129,5 +130,63 @@ fn create_var(file: &File, features: Vec<String>) -> Result<()> {
     let columns: Array1<hdf5::types::VarLenUnicode> = [].into_iter().collect();
     group.new_attr_builder().with_data(&columns).create("column-order")?;
     StrVec(features).create(&group, "Region")?;
+    Ok(())
+}
+
+/// Create cell by bin matrix, and compute qc matrix.
+pub fn create_tile_matrix_unsorted<B, I>(
+    file: File,
+    fragments: I,
+    promoter: &BedTree<bool>,
+    regions: &GenomeRegions<B>,
+    bin_size: u64,
+    min_num_fragment: u64,
+    min_tsse: f64,
+    ) -> Result<()>
+where
+    B: BEDLike + Clone + std::marker::Sync,
+    I: Iterator<Item = BED<5>>,
+{
+    let features: Vec<String> = SparseBinnedCoverage::new(regions, bin_size)
+        .get_regions().flatten().map(|x| x.to_string()).collect();
+    let num_features = features.len();
+    let mut saved_barcodes = Vec::new();
+    let mut qc = Vec::new();
+    let mut barcodes = HashMap::new();
+    fragments.for_each(|frag| {
+        let key = frag.name().unwrap();
+        let ins = get_insertions(&frag);
+        match barcodes.get_mut(key) {
+            None => {
+                let mut summary= FragmentSummary::new(promoter);
+                let mut counts = SparseBinnedCoverage::new(regions, bin_size);
+                summary.update(&frag);
+                counts.add(&ins[0]);
+                counts.add(&ins[1]);
+                barcodes.insert(key.to_string(), (summary, counts));
+            },
+            Some((summary, counts)) => {
+                summary.update(&frag);
+                counts.add(&ins[0]);
+                counts.add(&ins[1]);
+            }
+        }
+    });
+    let row_iter = barcodes.drain().filter_map(|(barcode, (summary, binned_coverage))| {
+        let q = summary.get_qc();
+        if q.num_unique_fragment < min_num_fragment || q.tss_enrichment < min_tsse {
+            None
+        } else {
+            saved_barcodes.push(barcode);
+            qc.push(q);
+            let count: Vec<(usize, u32)> = binned_coverage.get_coverage()
+                .iter().map(|(k, v)| (*k, *v as u32)).collect();
+            Some(count)
+        }
+    });
+
+    SparseRowIter::new(row_iter, num_features).create(&file, "X")?;
+    create_obs(&file, saved_barcodes, qc)?;
+    create_var(&file, features)?;
     Ok(())
 }

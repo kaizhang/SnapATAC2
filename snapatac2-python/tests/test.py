@@ -24,21 +24,5 @@ class TestRegression(unittest.TestCase):
         self.assertAlmostEqual(slope_, slope, msg="slope different")
         self.assertAlmostEqual(intersect_, intersect_, msg="intersect different")
 
-    @repeat(50)
-    def test_jm(self):
-        data = sparse.csr_matrix(np.random.randint(2, size = (100, 1000))).astype(np.float64)
-        jm1 = spectral.jaccard_similarity(data)
-        jm2 = spectral.old_jaccard_similarity(data)
-        np.testing.assert_array_equal(jm1, jm2)
-
-    def test_jm_normalization(self):
-        data = sparse.csr_matrix(np.random.randint(2, size = (100, 1000))).astype(np.float64)
-        jm = spectral.jaccard_similarity(data)
-        count = data.sum(axis=1) / data.shape[1]
-
-        jm_ = spectral.Old_JaccardNormalizer(jm, count).predict(jm, count, count)
-        spectral.JaccardNormalizer(jm, count).normalize(jm, count, count)
-        np.testing.assert_array_almost_equal(jm, jm_)
-
 if __name__ == '__main__':
     unittest.main()

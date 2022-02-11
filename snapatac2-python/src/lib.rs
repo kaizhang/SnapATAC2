@@ -6,7 +6,7 @@ use pyo3::{pymodule, types::PyModule, PyResult, Python};
 use bed_utils::{bed, bed::GenomicRange, bed::BED};
 use std::fs::File;
 use std::collections::BTreeMap;
-use flate2::read::GzDecoder;
+use flate2::read::MultiGzDecoder;
 use hdf5;
 use linreg::lin_reg_imprecise;
 use linfa::DatasetBase;
@@ -16,7 +16,7 @@ use rand_core::SeedableRng;
 use rand_isaac::Isaac64Rng;
 use hora::core::ann_index::ANNIndex;
 
-use snapatac2_core::{create_tile_matrix, qc, utils::anndata::SparseRowIter};
+use snapatac2_core::{create_tile_matrix, create_tile_matrix_unsorted, qc, utils::anndata::SparseRowIter};
 
 #[pyfunction]
 fn mk_tile_matrix(output_file: &str,
@@ -32,7 +32,7 @@ fn mk_tile_matrix(output_file: &str,
     let fragment_file_reader = File::open(fragment_file).unwrap();
     let gtf_file_reader = File::open(gtf_file).unwrap();
     let promoters = if is_gzipped(gtf_file) {
-        qc::make_promoter_map(qc::read_tss(GzDecoder::new(gtf_file_reader)))
+        qc::make_promoter_map(qc::read_tss(MultiGzDecoder::new(gtf_file_reader)))
     } else {
         qc::make_promoter_map(qc::read_tss(gtf_file_reader))
     };
@@ -42,7 +42,7 @@ fn mk_tile_matrix(output_file: &str,
         if is_gzipped(fragment_file) {
             create_tile_matrix(
             file,
-            qc::read_fragments(GzDecoder::new(fragment_file_reader)),
+            qc::read_fragments(MultiGzDecoder::new(fragment_file_reader)),
             &promoters,
             &chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect(),
             bin_size,
@@ -63,6 +63,56 @@ fn mk_tile_matrix(output_file: &str,
     });
     Ok(result)
 } 
+
+#[pyfunction]
+fn mk_tile_matrix_unsorted(
+    output_file: &str,
+    fragment_file: &str,
+    gtf_file: &str,
+    chrom_size: BTreeMap<&str, u64>,
+    bin_size: u64,
+    min_num_fragment: u64,
+    min_tsse: f64,
+) -> PyResult<()>
+{
+    let file = hdf5::File::create(output_file).unwrap();
+    let fragment_file_reader = File::open(fragment_file).unwrap();
+    let gtf_file_reader = File::open(gtf_file).unwrap();
+    let promoters = if is_gzipped(gtf_file) {
+        qc::make_promoter_map(qc::read_tss(MultiGzDecoder::new(gtf_file_reader)))
+    } else {
+        qc::make_promoter_map(qc::read_tss(gtf_file_reader))
+    };
+
+    let result = if is_gzipped(fragment_file) {
+        create_tile_matrix_unsorted(
+            file,
+            bed::io::Reader::new(
+                MultiGzDecoder::new(fragment_file_reader), Some("#".to_string())
+            ).into_records().map(Result::unwrap),
+            &promoters,
+            &chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect(),
+            bin_size,
+            min_num_fragment,
+            min_tsse,
+        )
+    } else {
+        create_tile_matrix_unsorted(
+            file,
+            bed::io::Reader::new(fragment_file_reader, Some("#".to_string()))
+                .into_records().map(Result::unwrap),
+            &promoters,
+            &chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect(),
+            bin_size,
+            min_num_fragment,
+            min_tsse,
+        )
+    };
+
+    Ok(result.unwrap())
+} 
+
+
 
 /// Simple linear regression
 #[pyfunction]
@@ -89,10 +139,10 @@ fn jm_regress(
 #[pyfunction]
 fn intersect_bed(regions: Vec<&str>, bed_file: &str) -> PyResult<Vec<bool>> {
     let bed_tree: bed::tree::BedTree<()> = if is_gzipped(bed_file) {
-        bed::io::Reader::new(GzDecoder::new(File::open(bed_file).unwrap()))
+        bed::io::Reader::new(MultiGzDecoder::new(File::open(bed_file).unwrap()), None)
             .into_records().map(|x: Result<BED<3>, _>| (x.unwrap(), ())).collect()
     } else {
-        bed::io::Reader::new(File::open(bed_file).unwrap())
+        bed::io::Reader::new(File::open(bed_file).unwrap(), None)
             .into_records().map(|x: Result<BED<3>, _>| (x.unwrap(), ())).collect()
     };
     Ok(regions.into_iter()
@@ -152,12 +202,13 @@ fn str_to_genomic_region(txt: &str) -> Option<GenomicRange> {
 
 /// Determine if a file is gzipped.
 fn is_gzipped(file: &str) -> bool {
-    GzDecoder::new(File::open(file).unwrap()).header().is_some()
+    MultiGzDecoder::new(File::open(file).unwrap()).header().is_some()
 }
 
 #[pymodule]
 fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(mk_tile_matrix, m)?)?;
+    m.add_function(wrap_pyfunction!(mk_tile_matrix_unsorted, m)?)?;
     m.add_function(wrap_pyfunction!(simple_lin_reg, m)?)?;
     m.add_function(wrap_pyfunction!(jm_regress, m)?)?;
     m.add_function(wrap_pyfunction!(intersect_bed, m)?)?;
