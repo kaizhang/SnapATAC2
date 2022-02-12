@@ -4,6 +4,7 @@ from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.pyplot as plt
 import numpy as np
 from anndata import AnnData
+from _util import save_img
 
 # "Viridis-like" colormap with white background
 white_viridis = LinearSegmentedColormap.from_list('white_viridis', [
@@ -27,6 +28,8 @@ def using_mpl_scatter_density(fig, x, y):
     
 def tsse(
     adata: AnnData,
+    save: bool = True,
+    outpath: str = None,
 ) -> None:
     """
     Plot the TSS enrichment vs. log10(unique fragments) density figure.
@@ -35,7 +38,11 @@ def tsse(
     ----------
     adata
         Annotated data matrix.
-    
+    save
+        Save the figure
+    outpath
+        Path for saving the output image
+
     Returns
     -------
     
@@ -48,4 +55,15 @@ def tsse(
     fig = plt.figure()
     using_mpl_scatter_density(fig, x, y)
     plt.show()
+    if save:
+        save_path = outpath +'/tsse.png'
+        save_img(save_path)
     
+
+
+
+
+
+
+
+
