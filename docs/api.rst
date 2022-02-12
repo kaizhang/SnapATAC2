@@ -73,5 +73,6 @@ Clustering
 .. autosummary::
    :toctree: _autosummary
 
-   tl.kmeans
    tl.leiden
+   tl.kmeans
+   tl.hdbscan

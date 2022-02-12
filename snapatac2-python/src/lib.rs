@@ -16,7 +16,13 @@ use rand_core::SeedableRng;
 use rand_isaac::Isaac64Rng;
 use hora::core::ann_index::ANNIndex;
 
-use snapatac2_core::{create_tile_matrix, create_tile_matrix_unsorted, qc, utils::anndata::SparseRowIter};
+use snapatac2_core::{
+    create_tile_matrix,
+    create_tile_matrix_unsorted,
+    qc,
+    utils::anndata::SparseRowIter,
+    get_barcode_count,
+};
 
 #[pyfunction]
 fn mk_tile_matrix(output_file: &str,
@@ -76,7 +82,6 @@ fn mk_tile_matrix_unsorted(
 ) -> PyResult<()>
 {
     let file = hdf5::File::create(output_file).unwrap();
-    let fragment_file_reader = File::open(fragment_file).unwrap();
     let gtf_file_reader = File::open(gtf_file).unwrap();
     let promoters = if is_gzipped(gtf_file) {
         qc::make_promoter_map(qc::read_tss(MultiGzDecoder::new(gtf_file_reader)))
@@ -84,7 +89,29 @@ fn mk_tile_matrix_unsorted(
         qc::make_promoter_map(qc::read_tss(gtf_file_reader))
     };
 
+    let white_list = if min_num_fragment > 0 {
+        let fragment_file_reader = File::open(fragment_file).unwrap();
+        let mut barcode_count = if is_gzipped(fragment_file) {
+            get_barcode_count(bed::io::Reader::new(
+                MultiGzDecoder::new(fragment_file_reader), Some("#".to_string())
+                ).into_records().map(Result::unwrap)
+            )
+        } else {
+            let fragment_file_reader = File::open(fragment_file).unwrap();
+            get_barcode_count(bed::io::Reader::new(
+                fragment_file_reader, Some("#".to_string()))
+                .into_records().map(Result::unwrap)
+            )
+        };
+        Some(barcode_count.drain().filter_map(|(k, v)|
+            if v >= min_num_fragment { Some(k) } else { None }).collect()
+        )
+    } else {
+        None
+    };
+
     let result = if is_gzipped(fragment_file) {
+        let fragment_file_reader = File::open(fragment_file).unwrap();
         create_tile_matrix_unsorted(
             file,
             bed::io::Reader::new(
@@ -93,10 +120,12 @@ fn mk_tile_matrix_unsorted(
             &promoters,
             &chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect(),
             bin_size,
+            white_list.as_ref(),
             min_num_fragment,
             min_tsse,
         )
     } else {
+        let fragment_file_reader = File::open(fragment_file).unwrap();
         create_tile_matrix_unsorted(
             file,
             bed::io::Reader::new(fragment_file_reader, Some("#".to_string()))
@@ -104,6 +133,7 @@ fn mk_tile_matrix_unsorted(
             &promoters,
             &chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect(),
             bin_size,
+            white_list.as_ref(),
             min_num_fragment,
             min_tsse,
         )

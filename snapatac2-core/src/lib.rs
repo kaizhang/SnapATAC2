@@ -140,6 +140,7 @@ pub fn create_tile_matrix_unsorted<B, I>(
     promoter: &BedTree<bool>,
     regions: &GenomeRegions<B>,
     bin_size: u64,
+    white_list: Option<&HashSet<String>>,
     min_num_fragment: u64,
     min_tsse: f64,
     ) -> Result<()>
@@ -155,20 +156,22 @@ where
     let mut barcodes = HashMap::new();
     fragments.for_each(|frag| {
         let key = frag.name().unwrap();
-        let ins = get_insertions(&frag);
-        match barcodes.get_mut(key) {
-            None => {
-                let mut summary= FragmentSummary::new(promoter);
-                let mut counts = SparseBinnedCoverage::new(regions, bin_size);
-                summary.update(&frag);
-                counts.add(&ins[0]);
-                counts.add(&ins[1]);
-                barcodes.insert(key.to_string(), (summary, counts));
-            },
-            Some((summary, counts)) => {
-                summary.update(&frag);
-                counts.add(&ins[0]);
-                counts.add(&ins[1]);
+        if white_list.map_or(true, |x| x.contains(key)) {
+            let ins = get_insertions(&frag);
+            match barcodes.get_mut(key) {
+                None => {
+                    let mut summary= FragmentSummary::new(promoter);
+                    let mut counts = SparseBinnedCoverage::new(regions, bin_size);
+                    summary.update(&frag);
+                    counts.add(&ins[0]);
+                    counts.add(&ins[1]);
+                    barcodes.insert(key.to_string(), (summary, counts));
+                },
+                Some((summary, counts)) => {
+                    summary.update(&frag);
+                    counts.add(&ins[0]);
+                    counts.add(&ins[1]);
+                }
             }
         }
     });
@@ -189,4 +192,17 @@ where
     create_obs(&file, saved_barcodes, qc)?;
     create_var(&file, features)?;
     Ok(())
+}
+
+/// barcode counting.
+pub fn get_barcode_count<I>(fragments: I) -> HashMap<String, u64>
+where
+    I: Iterator<Item = BED<5>>,
+{
+    let mut barcodes = HashMap::new();
+    fragments.for_each(|frag| {
+        let key = frag.name().unwrap().to_string();
+        *barcodes.entry(key).or_insert(0) += 1;
+    });
+    barcodes
 }
