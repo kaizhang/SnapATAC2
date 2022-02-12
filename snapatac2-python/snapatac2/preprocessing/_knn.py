@@ -9,7 +9,7 @@ import snapatac2._snapatac2 as internal
 
 def knn(
     adata: Union[ad.AnnData, AnnCollection],
-    n_neighbors: int = 15,
+    n_neighbors: int = 50,
     use_rep: Optional[str] = None,
     use_approximate_search: bool = False,
     n_jobs: int = -1,
