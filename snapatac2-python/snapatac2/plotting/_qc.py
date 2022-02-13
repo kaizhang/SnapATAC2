@@ -1,35 +1,16 @@
-import math
-import mpl_scatter_density # adds projection='scatter_density'
-from matplotlib.colors import LinearSegmentedColormap
+import seaborn as sns
 import matplotlib.pyplot as plt
-import numpy as np
+import math
 from anndata import AnnData
 from _util import save_img
+import numpy as np
 
-# "Viridis-like" colormap with white background
-white_viridis = LinearSegmentedColormap.from_list('white_viridis', [
-    (0, '#ffffff'),
-    (1e-20, '#440053'),
-    (0.2, '#404388'),
-    (0.4, '#2a788e'),
-    (0.6, '#21a784'),
-    (0.8, '#78d151'),
-    (1, '#fde624'),
-], N=256)
-
-
-def using_mpl_scatter_density(fig, x, y):
-    ax = fig.add_subplot(1, 1, 1, projection='scatter_density')
-    density = ax.scatter_density(x, y, cmap=white_viridis)
-    fig.colorbar(density, label='Number of points per pixel')
-    plt.xlabel("log10(unique fragments)")
-    plt.ylabel("TSS enrichment score")
-
-    
 def tsse(
     adata: AnnData,
     save: bool = True,
     outpath: str = None,
+    bw_adjust: float = 1.0,
+    thresh: float = 0.1,
 ) -> None:
     """
     Plot the TSS enrichment vs. log10(unique fragments) density figure.
@@ -42,28 +23,29 @@ def tsse(
         Save the figure
     outpath
         Path for saving the output image
+    bw_adjust
+        Bandwidth, smoothing parameter, number in [0, 1]
+    thresh
+        Lowest iso-proportion level at which to draw a contour line, number in [0, 1]
 
     Returns
     -------
     
     """
-    n_fragment_data = adata.obs['n_fragment']
-    log_nfragment_data = [math.log10(item) for item in n_fragment_data]
+    # remove the cells with less than 500 unique fragments 
+    adata = adata[adata.obs["n_fragment"] >= 500, :]
     tsse_data = adata.obs['tsse']
+    n_fragment_data = adata.obs['n_fragment']
+    log_nfragment_data = np.array([math.log10(item) for item in n_fragment_data])   
+    # set seaborn style
+    sns.set_style("white")
     x = log_nfragment_data
     y = tsse_data
-    fig = plt.figure()
-    using_mpl_scatter_density(fig, x, y)
+    # Add thresh parameter
+    sns.kdeplot(x, y, cmap="Blues", cbar=True,shade=True, bw_adjust=bw_adjust,thresh=thresh)
+    plt.xlabel("log10(unique fragments)")
+    plt.ylabel("TSS enrichment score")
     plt.show()
     if save:
         save_path = outpath +'/tsse.png'
         save_img(save_path)
-    
-
-
-
-
-
-
-
-
