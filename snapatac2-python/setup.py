@@ -13,7 +13,6 @@ setup(
     packages=[
         "snapatac2",
         "snapatac2.preprocessing",
-        "snapatac2.plotting",
         "snapatac2.tools",
         "snapatac2.plotting",
     ],
@@ -30,5 +29,6 @@ setup(
         "scikit-learn>=0.22",
         "tqdm>=4.62",
         "umap-learn>=0.3.10",
+        "seaborn>=0.11.2",
     ],
 )
