@@ -85,5 +85,5 @@ Quality Control
 .. autosummary::
     :toctree: _autosummary
 
-    pl.plot_TSS
+    pl.tsse
     
