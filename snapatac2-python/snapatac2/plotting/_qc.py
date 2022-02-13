@@ -2,7 +2,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import math
 from anndata import AnnData
-from _util import save_img
+from ._util import save_img
 import numpy as np
 
 def tsse(
