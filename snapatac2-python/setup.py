@@ -8,7 +8,7 @@ setup(
     author='Kai Zhang',
     author_email='kai@kzhang.org',
     license='MIT',
-    version="0.1.0",
+    version="1.99.99",
     rust_extensions=[RustExtension("snapatac2._snapatac2", binding=Binding.PyO3)],
     packages=[
         "snapatac2",
@@ -17,7 +17,7 @@ setup(
         "snapatac2.plotting",
     ],
     zip_safe=False,
-    python_requires=">=3.6",
+    python_requires=">=3.7",
     install_requires=[
         "anndata>=0.7.7",
         "leidenalg",
