@@ -75,4 +75,5 @@ Clustering
 
    tl.leiden
    tl.kmeans
+   tl.dbscan
    tl.hdbscan

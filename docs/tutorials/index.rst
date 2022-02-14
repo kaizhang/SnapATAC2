@@ -5,4 +5,4 @@
 .. toctree::
    :maxdepth: 2
 
-   basic
+   10XPBMC

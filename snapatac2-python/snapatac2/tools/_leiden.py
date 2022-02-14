@@ -10,7 +10,7 @@ from .. import _utils
 def leiden(
     adata: Union[ad.AnnData, AnnCollection],
     resolution: float = 1,
-    objective_function: str = "RBConfiguration",
+    objective_function: str = "modularity",
     n_iterations: int = -1,
     random_state: int = 0,
     key_added: str = 'leiden',
