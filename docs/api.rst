@@ -77,3 +77,14 @@ Clustering
    tl.kmeans
    tl.dbscan
    tl.hdbscan
+
+Plotting: `pl`
+--------------
+
+Quality Control
+~~~~~~~~~~~~~~~
+
+.. autosummary::
+    :toctree: _autosummary
+
+    pl.tsse
