@@ -12,7 +12,7 @@ def tsse(
     min_fragment: int = 500,
 ) -> None:
     """
-    Plot the TSS enrichment vs. log10(unique fragments) density figure.
+    Plot the TSS enrichment vs. number of fragments density figure.
 
     Parameters
     ----------
@@ -38,7 +38,7 @@ def tsse(
     
     """
     import seaborn as sns
-    sns.set_style("white")
+    sns.set_style("whitegrid", {"grid.color": ".6", "grid.linestyle": ":"})
 
     selected_cells = adata.obs["n_fragment"] >= min_fragment
     sns.kdeplot(
@@ -51,7 +51,7 @@ def tsse(
         thresh = thresh,
         log_scale = (10, False)
     )
-    plt.xlabel("Number of fragments)")
+    plt.xlabel("Number of fragments")
     plt.ylabel("TSS enrichment score")
     if show:
         plt.show()
