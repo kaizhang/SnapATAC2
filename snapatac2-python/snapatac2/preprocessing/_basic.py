@@ -12,10 +12,10 @@ def make_tile_matrix(
     fragment_file: str,
     gtf_file: str,
     chrom_size,
-    min_num_fragments: int = 100,
-    min_tsse: float = 0,
+    min_num_fragments: int = 200,
+    min_tsse: float = 1,
     bin_size: int = 500,
-    sorted_by_barcode: bool = False,
+    sorted_by_barcode: bool = True,
     n_jobs: int = 4,
 ) -> ad.AnnData:
     """

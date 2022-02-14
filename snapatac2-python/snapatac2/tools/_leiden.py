@@ -1,22 +1,21 @@
+from logging import raiseExceptions
 from typing import Optional, Union
 import pandas as pd
 import scipy.sparse as ss
 import numpy as np
-import leidenalg as la
 from anndata.experimental import AnnCollection
 import anndata as ad
-from leidenalg.VertexPartition import MutableVertexPartition
 from .. import _utils
 
-# TODO: leiden function in igraph C library is much faster
 def leiden(
     adata: Union[ad.AnnData, AnnCollection],
     resolution: float = 1,
-    partition_type: MutableVertexPartition = la.RBConfigurationVertexPartition,
+    objective_function: str = "modularity",
     n_iterations: int = -1,
     random_state: int = 0,
     key_added: str = 'leiden',
     adjacency: Optional[ss.spmatrix] = None,
+    use_leidenalg: bool = False,
 ) -> None:
     """
     Cluster cells into subgroups [Traag18]_.
@@ -34,12 +33,10 @@ def leiden(
         A parameter value controlling the coarseness of the clustering.
         Higher values lead to more clusters.
         Set to `None` if overriding `partition_type`
-        to one that doesn’t accept a `resolution_parameter`.
-    partition_type
-        Type of partition to use.
-        Defaults to :class:`~leidenalg.RBConfigurationVertexPartition`.
-        For the available options, consult the documentation for
-        :func:`~leidenalg.find_partition`.
+        to one that doesn't accept a `resolution_parameter`.
+    objective_function
+        whether to use the Constant Potts Model (CPM) or modularity.
+        Must be either "CPM", "modularity" or "RBConfiguration".
     use_weights
         If `True`, edge weights from the graph are used in the computation
         (placing more emphasis on stronger edges).
@@ -53,6 +50,8 @@ def leiden(
         `adata.obs` key under which to add the cluster labels.
     adjacency
         Sparse adjacency matrix of the graph, defaults to neighbors connectivities.
+    use_leidenalg
+        If `True`, `leidenalg` package is used. Otherwise, `python-igraph` is used.
 
     Returns
     -------
@@ -69,9 +68,37 @@ def leiden(
         adjacency = adata.obsp["distances"]
     gr = _utils.get_igraph_from_adjacency(adjacency)
 
-    partition = la.find_partition(gr, partition_type, n_iterations=n_iterations,
-        seed=random_state, resolution_parameter=resolution, weights=None
-    )
+    if use_leidenalg or objective_function == "RBConfiguration":
+        import leidenalg
+        from leidenalg.VertexPartition import MutableVertexPartition
+
+        if objective_function == "modularity":
+            partition_type = leidenalg.ModularityVertexPartition
+        elif objective_function == "CPM":
+            partition_type = leidenalg.CPMVertexPartition
+        elif objective_function == "RBConfiguration":
+            partition_type = leidenalg.RBConfigurationVertexPartition
+        else:
+            raise ValueError(
+                'objective function is not supported: ' + partition_type
+            )
+
+        partition = leidenalg.find_partition(
+            gr, partition_type, n_iterations=n_iterations,
+            seed=random_state, resolution_parameter=resolution, weights=None
+        )
+    else:
+        import random
+        random.seed(random_state)
+        partition = gr.community_leiden(
+            objective_function=objective_function,
+            weights=None,
+            resolution_parameter=resolution,
+            beta=0.01,
+            initial_membership=None,
+            n_iterations=n_iterations,
+        )
+
     groups = np.array(partition.membership)
 
     adata.obs[key_added] = pd.Categorical(

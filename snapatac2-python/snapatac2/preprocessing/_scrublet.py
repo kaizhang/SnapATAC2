@@ -5,7 +5,6 @@ import scipy.sparse as ss
 import anndata as ad
 from typing import Optional, Union, Type, Tuple
 from sklearn.neighbors import NearestNeighbors
-from sklearn.mixture import BayesianGaussianMixture
 
 from .._utils import get_binarized_matrix
 from snapatac2.tools._spectral import Spectral
@@ -42,6 +41,12 @@ def scrublet(
     
     Returns
     -------
+    It updates adata with the following fields:
+    - ``adata.obs["doublet_probability"]``: probability (from 0 to 1) of being doublets
+    - ``adata.uns["doublet_score"]``: doublet scores of cells
+    - ``adata.uns["scrublet_sim_doublet_score"]``: doublet scores of simulated doublets
+    - ``adata.uns["scrublet_cell_embedding"]``: embedding of cells
+    - ``adata.uns["scrublet_sim_doublet_embedding"]``: embedding of simulated doublets
     """
     if features is None:
         count_matrix = adata.X[...]
@@ -56,7 +61,8 @@ def scrublet(
         random_state=random_state
         )
 
-    adata.obs["doublet_score"] = doublet_scores_obs
+    adata.obs["doublet_probability"] = get_doublet_probability(doublet_scores_sim, doublet_scores_obs, random_state)
+    adata.uns["doublet_score"] = doublet_scores_obs
     adata.uns["scrublet_cell_embedding"] = manifold_obs
     adata.uns["scrublet_sim_doublet_embedding"] = manifold_sim
     adata.uns["scrublet_sim_doublet_score"] = doublet_scores_sim
@@ -122,9 +128,13 @@ def scrub_doublets_core(
     return (doublet_scores_obs, doublet_scores_sim, manifold_obs, manifold_sim)
 
 def get_manifold(obs_norm, sim_norm, n_comps=30, random_state=0):
-    model = Spectral(n_dim=n_comps, distance="jaccard", sampling_rate=1).fit(obs_norm)
-    manifold_obs = np.asarray(model.transform()[:, 1:])
-    manifold_sim = np.asarray(model.transform(sim_norm)[:, 1:])
+    model = Spectral(n_dim=n_comps, distance="jaccard").fit(obs_norm)
+    model.extend(obs_norm)
+    model.extend(sim_norm)
+    manifold = np.asanyarray(model.transform())
+    n = obs_norm.shape[0]
+    manifold_obs = manifold[0:n, ]
+    manifold_sim = manifold[n:, ]
     return (manifold_obs, manifold_sim)
 
 def simulate_doublets(
@@ -236,34 +246,17 @@ def calculate_doublet_scores(
 
     return (doublet_scores_obs, doublet_scores_sim)
 
-"""
-def get_doublet_threshold(
+def get_doublet_probability(
     doublet_scores_sim: np.ndarray,
+    doublet_scores: np.ndarray,
     random_state: int = 0,
 ):
-    X = np.array([doublet_scores_sim]).T
+    from sklearn.mixture import BayesianGaussianMixture
+
+    X = doublet_scores_sim.reshape((-1, 1))
     gmm = BayesianGaussianMixture(
-        n_components=2, max_iter=1000, random_state=random_state
+        n_components=2, n_init=10, max_iter=1000, random_state=random_state
     ).fit(X)
-
     i = np.argmax(gmm.means_)
-    probs_sim = gmm.predict_proba(X)[:,i]
-    vals = X[np.argwhere(probs_sim>0.5)].flatten()
-    if vals.size == 0:
-        threshold = np.amax(X.flatten())
-    else:
-        threshold = min(vals)
 
-    X = np.array([doublet_scores]).T
-    probs = gmm.predict_proba(X)[:,i].tolist()
-
-    with open(args.output, 'w') as fl:
-        fl.write('\t'.join(map(str, probs)))
-        fl.write("\n")
-
-        fl.write(str(threshold))
-        fl.write("\n")
-        fl.write('\t'.join(map(str, (doublet_scores.tolist()))))
-        fl.write("\n")
-        fl.write('\t'.join(map(str, scrub.doublet_scores_sim_)))
-"""
+    return gmm.predict_proba(doublet_scores.reshape((-1, 1)))[:,i]
