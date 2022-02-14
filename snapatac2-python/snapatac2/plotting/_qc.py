@@ -1,19 +1,15 @@
-import seaborn as sns
 import matplotlib.pyplot as plt
-import math
+from typing import Optional
 from anndata import AnnData
-from ._util import save_img
-import numpy as np
 
 def tsse(
     adata: AnnData,
-    save: bool = True,
     show: bool = True,
-    outfile: str = None,
-    dpi: int = 150,
+    outfile: Optional[str] = None,
+    dpi: int = 300,
     bw_adjust: float = 1.0,
     thresh: float = 0.1,
-    xlim: int = 500,
+    min_fragment: int = 500,
 ) -> None:
     """
     Plot the TSS enrichment vs. log10(unique fragments) density figure.
@@ -34,27 +30,31 @@ def tsse(
         Bandwidth, smoothing parameter, number in [0, 1]
     thresh
         Lowest iso-proportion level at which to draw a contour line, number in [0, 1]
-    xlim
+    min_fragment
         The cells' unique fragments lower than it should be removed
 
     Returns
     -------
     
     """
-    # remove the cells with less than xlim unique fragments 
-    adata = adata[adata.obs["n_fragment"] >= xlim, :]
-    tsse_data = adata.obs['tsse']
-    n_fragment_data = adata.obs['n_fragment']
-    log_nfragment_data = np.array([math.log10(item) for item in n_fragment_data])   
-    # set seaborn style
+    import seaborn as sns
     sns.set_style("white")
-    x = log_nfragment_data
-    y = tsse_data
-    # Add thresh parameter
-    sns.kdeplot(x, y, cmap="Blues", cbar=True,shade=True, bw_adjust=bw_adjust,thresh=thresh)
-    plt.xlabel("log10(unique fragments)")
+
+    selected_cells = adata.obs["n_fragment"] >= min_fragment
+    sns.kdeplot(
+        x = adata.obs['n_fragment'][selected_cells],
+        y = adata.obs['tsse'][selected_cells],
+        cmap = "Blues",
+        cbar = True,
+        shade = True,
+        bw_adjust = bw_adjust,
+        thresh = thresh,
+        log_scale = (10, False)
+    )
+    plt.xlabel("Number of fragments)")
     plt.ylabel("TSS enrichment score")
     if show:
         plt.show()
-    if save:
-        save_img(outfile,dpi)
+    if outfile:
+        plt.savefig(outfile, dpi=dpi, bbox_inches='tight')
+        plt.close()
