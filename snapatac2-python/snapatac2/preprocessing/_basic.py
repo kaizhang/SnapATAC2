@@ -3,7 +3,6 @@ import anndata as ad
 import math
 from typing import Optional, Union
 from anndata.experimental import AnnCollection
-from scipy.stats import zscore
 
 import snapatac2._snapatac2 as internal
 

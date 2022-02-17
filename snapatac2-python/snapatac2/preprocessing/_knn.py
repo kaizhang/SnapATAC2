@@ -1,6 +1,5 @@
 from typing import Optional, Union, Type
 import numpy as np
-from sklearn.neighbors import kneighbors_graph
 from anndata.experimental import AnnCollection
 from scipy.sparse import csr_matrix
 import anndata as ad
@@ -42,5 +41,6 @@ def knn(
         (d, indices, indptr) = internal.approximate_nearest_neighbors(data.astype(np.float32), n_neighbors)
         adj = csr_matrix((d, indices, indptr), shape=(n, n))
     else:
+        from sklearn.neighbors import kneighbors_graph
         adj = kneighbors_graph(data, n_neighbors, mode='distance', n_jobs=n_jobs)
     adata.obsp['distances'] = adj
