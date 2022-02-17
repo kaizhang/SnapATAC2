@@ -17,11 +17,9 @@ use rand_isaac::Isaac64Rng;
 use hora::core::ann_index::ANNIndex;
 
 use snapatac2_core::{
-    create_tile_matrix,
-    create_tile_matrix_unsorted,
+    tile_matrix::{create_tile_matrix, get_barcode_count},
     qc,
     utils::anndata::SparseRowIter,
-    get_barcode_count,
 };
 
 #[pyfunction]
@@ -32,54 +30,9 @@ fn mk_tile_matrix(output_file: &str,
                   bin_size: u64,
                   min_num_fragment: u64,
                   min_tsse: f64,
+                  fragment_is_sorted_by_name: bool,
                   num_cpu: usize,
-                  ) -> PyResult<()> {
-    let file = hdf5::File::create(output_file).unwrap();
-    let fragment_file_reader = File::open(fragment_file).unwrap();
-    let gtf_file_reader = File::open(gtf_file).unwrap();
-    let promoters = if is_gzipped(gtf_file) {
-        qc::make_promoter_map(qc::read_tss(MultiGzDecoder::new(gtf_file_reader)))
-    } else {
-        qc::make_promoter_map(qc::read_tss(gtf_file_reader))
-    };
-
-    let pool = rayon::ThreadPoolBuilder::new().num_threads(num_cpu).build().unwrap();
-    let result = pool.install(|| {
-        if is_gzipped(fragment_file) {
-            create_tile_matrix(
-            file,
-            qc::read_fragments(MultiGzDecoder::new(fragment_file_reader)),
-            &promoters,
-            &chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect(),
-            bin_size,
-            min_num_fragment,
-            min_tsse,
-            ).unwrap()
-        } else {
-            create_tile_matrix(
-            file,
-            qc::read_fragments(fragment_file_reader),
-            &promoters,
-            &chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect(),
-            bin_size,
-            min_num_fragment,
-            min_tsse,
-            ).unwrap()
-        }
-    });
-    Ok(result)
-} 
-
-#[pyfunction]
-fn mk_tile_matrix_unsorted(
-    output_file: &str,
-    fragment_file: &str,
-    gtf_file: &str,
-    chrom_size: BTreeMap<&str, u64>,
-    bin_size: u64,
-    min_num_fragment: u64,
-    min_tsse: f64,
-) -> PyResult<()>
+                  ) -> PyResult<()>
 {
     let file = hdf5::File::create(output_file).unwrap();
     let gtf_file_reader = File::open(gtf_file).unwrap();
@@ -89,7 +42,9 @@ fn mk_tile_matrix_unsorted(
         qc::make_promoter_map(qc::read_tss(gtf_file_reader))
     };
 
-    let white_list = if min_num_fragment > 0 {
+    let white_list = if fragment_is_sorted_by_name {
+        None
+    } else if min_num_fragment > 0 {
         let fragment_file_reader = File::open(fragment_file).unwrap();
         let mut barcode_count = if is_gzipped(fragment_file) {
             get_barcode_count(bed::io::Reader::new(
@@ -110,9 +65,11 @@ fn mk_tile_matrix_unsorted(
         None
     };
 
-    let result = if is_gzipped(fragment_file) {
+    let result = rayon::ThreadPoolBuilder::new().num_threads(num_cpu)
+        .build().unwrap().install(|| {
         let fragment_file_reader = File::open(fragment_file).unwrap();
-        create_tile_matrix_unsorted(
+        if is_gzipped(fragment_file) {
+            create_tile_matrix(
             file,
             bed::io::Reader::new(
                 MultiGzDecoder::new(fragment_file_reader), Some("#".to_string())
@@ -123,10 +80,10 @@ fn mk_tile_matrix_unsorted(
             white_list.as_ref(),
             min_num_fragment,
             min_tsse,
-        )
-    } else {
-        let fragment_file_reader = File::open(fragment_file).unwrap();
-        create_tile_matrix_unsorted(
+            fragment_is_sorted_by_name,
+            ).unwrap()
+        } else {
+            create_tile_matrix(
             file,
             bed::io::Reader::new(fragment_file_reader, Some("#".to_string()))
                 .into_records().map(Result::unwrap),
@@ -136,13 +93,12 @@ fn mk_tile_matrix_unsorted(
             white_list.as_ref(),
             min_num_fragment,
             min_tsse,
-        )
-    };
-
-    Ok(result.unwrap())
+            fragment_is_sorted_by_name,
+            ).unwrap()
+        }
+    });
+    Ok(result)
 } 
-
-
 
 /// Simple linear regression
 #[pyfunction]
@@ -238,7 +194,6 @@ fn is_gzipped(file: &str) -> bool {
 #[pymodule]
 fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(mk_tile_matrix, m)?)?;
-    m.add_function(wrap_pyfunction!(mk_tile_matrix_unsorted, m)?)?;
     m.add_function(wrap_pyfunction!(simple_lin_reg, m)?)?;
     m.add_function(wrap_pyfunction!(jm_regress, m)?)?;
     m.add_function(wrap_pyfunction!(intersect_bed, m)?)?;

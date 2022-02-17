@@ -46,16 +46,10 @@ def make_tile_matrix(
     -------
     AnnData
     """
-    if sorted_by_barcode:
-        internal.mk_tile_matrix(
-            output, fragment_file, gtf_file, chrom_size,
-            bin_size, min_num_fragments, min_tsse, n_jobs
-        )
-    else:
-        internal.mk_tile_matrix_unsorted(
-            output, fragment_file, gtf_file, chrom_size,
-            bin_size, min_num_fragments, min_tsse
-        )
+    internal.mk_tile_matrix(
+        output, fragment_file, gtf_file, chrom_size,
+        bin_size, min_num_fragments, min_tsse, sorted_by_barcode, n_jobs
+    )
     return ad.read(output, backed='r+')
 
 def select_features(
