@@ -1,6 +1,7 @@
-use crate::{ResizableVectorData, create_str_attr, COMPRESSION};
+use crate::utils::hdf5::{ResizableVectorData, create_str_attr, COMPRESSION};
+use crate::qc::{CellBarcode, QualityControl};
 
-use hdf5::{H5Type, Result, Group, types::VarLenUnicode};
+use hdf5::{File, H5Type, Result, Group, types::VarLenUnicode};
 use ndarray::{arr1, Array1, Array, Dimension};
 use itertools::Itertools;
 
@@ -131,53 +132,52 @@ where
     }
 }
 
-/*
-/// Polars DataFrame does not have an index. So the first column will be treat as the index.
-impl AnnData for DataFrame {
-    type Container = Group;
-    const VERSION: &'static str = "0.2.0";
+pub fn create_obs(
+    file: &File,
+    cells: Vec<CellBarcode>,
+    optional_qc: Option<Vec<QualityControl>>,
+    ) -> Result<()>
+{
+    let group = file.create_group("obs")?;
+    create_str_attr(&group, "encoding-type", "dataframe")?;
+    create_str_attr(&group, "encoding-version", "0.2.0")?;
+    create_str_attr(&group, "_index", "Cell")?;
+    StrVec(cells).create(&group, "Cell")?;
 
-    fn create(self, location: &Group, name: &str) -> Result<Self::Container>
-    {
-        let group = location.create_group(name)?;
-        let attr = group.new_attr::<VarLenUnicode>().create(name)?;
-        let field_names: Array1<VarLenUnicode> = self.fields().into_iter()
-            .map(|x| x.name().parse::<VarLenUnicode>().unwrap()).collect();
-        attr.write(&field_names)?;
-
-        for col in self.get_columns() {
-            let name = col.name();
-            match col.dtype().to_physical() {
-                DataType::UInt8 => col.u8().unwrap().into_iter().map(|x| x.unwrap())
-                    .collect::<Array1<u8>>().create(&group, name),
-                DataType::UInt16 => col.u16().unwrap().into_iter().map(|x| x.unwrap())
-                    .collect::<Array1<u16>>().create(&group, name),
-                DataType::UInt32 => col.u32().unwrap().into_iter().map(|x| x.unwrap())
-                    .collect::<Array1<u32>>().create(&group, name),
-                DataType::UInt64 => col.u64().unwrap().into_iter().map(|x| x.unwrap())
-                    .collect::<Array1<u64>>().create(&group, name),
-                DataType::Int8 => col.i8().unwrap().into_iter().map(|x| x.unwrap())
-                    .collect::<Array1<i8>>().create(&group, name),
-                DataType::Int16 => col.i16().unwrap().into_iter().map(|x| x.unwrap())
-                    .collect::<Array1<i16>>().create(&group, name),
-                DataType::Int32 => col.i32().unwrap().into_iter().map(|x| x.unwrap())
-                    .collect::<Array1<i32>>().create(&group, name),
-                DataType::Int64 => col.i64().unwrap().into_iter().map(|x| x.unwrap())
-                    .collect::<Array1<i64>>().create(&group, name),
-                _ => todo!(),
-            }?;
-        }
-
-        Ok(group)
+    match optional_qc {
+        Some(qc) => {
+            let columns: Array1<hdf5::types::VarLenUnicode> =
+                ["tsse", "n_fragment", "frac_dup", "frac_mito"]
+                .into_iter().map(|x| x.parse().unwrap()).collect();
+            group.new_attr_builder().with_data(&columns).create("column-order")?;
+            qc.iter().map(|x| x.tss_enrichment).collect::<Array1<f64>>().create(&group, "tsse")?;
+            qc.iter().map(|x| x.num_unique_fragment).collect::<Array1<u64>>().create(&group, "n_fragment")?;
+            qc.iter().map(|x| x.frac_duplicated).collect::<Array1<f64>>().create(&group, "frac_dup")?;
+            qc.iter().map(|x| x.frac_mitochondrial).collect::<Array1<f64>>().create(&group, "frac_mito")?;
+        },
+        _ => {
+            let columns: Array1<hdf5::types::VarLenUnicode> = [].into_iter().collect();
+            group.new_attr_builder().with_data(&columns).create("column-order")?;
+        },
     }
-}
-*/
 
+    Ok(())
+}
+
+pub fn create_var(file: &File, features: Vec<String>) -> Result<()> {
+    let group = file.create_group("var")?;
+    create_str_attr(&group, "encoding-type", "dataframe")?;
+    create_str_attr(&group, "encoding-version", "0.2.0")?;
+    create_str_attr(&group, "_index", "Region")?;
+    let columns: Array1<hdf5::types::VarLenUnicode> = [].into_iter().collect();
+    group.new_attr_builder().with_data(&columns).create("column-order")?;
+    StrVec(features).create(&group, "Region")?;
+    Ok(())
+}
 
 #[cfg(test)]
 mod sm_tests {
     use super::*;
-    use hdf5::{File};
 
     #[test]
     fn test_sparse_row() {
@@ -189,9 +189,9 @@ mod sm_tests {
 
         let file = File::create("1.h5").unwrap();
         let grp = iter.create(&file, "X").unwrap();
-        let data = grp.dataset("data").unwrap().read_raw().unwrap();
-        let indicies = grp.dataset("indices").unwrap().read_raw().unwrap();
-        let indptr = grp.dataset("indptr").unwrap().read_raw().unwrap();
+        let data: Vec<u32> = grp.dataset("data").unwrap().read_raw().unwrap();
+        let indicies: Vec<u32> = grp.dataset("indices").unwrap().read_raw().unwrap();
+        let indptr: Vec<u32> = grp.dataset("indptr").unwrap().read_raw().unwrap();
 
         assert_eq!(vec![1,2,3,4,5,6], data);
         assert_eq!(vec![0,2,2,0,1,2], indicies);
