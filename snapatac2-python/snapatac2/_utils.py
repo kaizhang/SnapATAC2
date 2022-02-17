@@ -1,4 +1,3 @@
-from multiprocessing.spawn import spawn_main
 from typing import Union, Sequence
 import numpy as np
 import collections.abc as cabc
