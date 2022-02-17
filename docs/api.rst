@@ -88,3 +88,12 @@ Quality Control
     :toctree: _autosummary
 
     pl.tsse
+
+Embeddings
+~~~~~~~~~~
+
+.. autosummary::
+   :toctree: _autosummary
+
+   pl.umap
+    
