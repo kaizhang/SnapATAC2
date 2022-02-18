@@ -104,7 +104,6 @@ def spectral(
 
         model = Spectral(n_dim=n_comps, distance=distance_metric)
         model.fit(X)
-        data.uns['spectral_eigenvalue'] = model.evals[1:]
         result = model.transform()
     else:
         if isinstance(data, AnnCollection):
@@ -126,7 +125,6 @@ def spectral(
 
         model = Spectral(n_dim=n_comps, distance=distance_metric)
         model.fit(S)
-        data.uns['spectral_eigenvalue'] = model.evals[1:]
 
         from tqdm import tqdm
         import math
@@ -139,7 +137,8 @@ def spectral(
         result = model.transform()
 
     if inplace:
-        data.obsm['X_spectral'] = result
+        data.uns['spectral_eigenvalue'] = result[0]
+        data.obsm['X_spectral'] = result[1]
     else:
         return result
 
@@ -227,7 +226,7 @@ class Spectral:
                 self.evecs = Q @ V @ evecs_new
             else:
                 self.evecs = Q
-        return self.evecs[:, 1:]
+        return (self.evals[1:], self.evecs[:, 1:])
 
 def jaccard_similarity(m1, m2=None):
     """

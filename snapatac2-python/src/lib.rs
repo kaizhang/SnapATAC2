@@ -166,11 +166,11 @@ fn approximate_nearest_neighbors(
         &hora::index::hnsw_params::HNSWParams::<f32>::default(),
     );
     for (i, sample) in data.axis_iter(ndarray::Axis(0)).enumerate() {
-        index.add(sample.as_slice().unwrap(), i).unwrap();
+        index.add(sample.to_vec().as_slice(), i).unwrap();
     }
     index.build(hora::core::metrics::Metric::Euclidean).unwrap();
     let row_iter = data.axis_iter(ndarray::Axis(0)).map(move |row| {
-        index.search_nodes(row.as_slice().unwrap(), k).into_iter()
+        index.search_nodes(row.to_vec().as_slice(), k).into_iter()
             .map(|(n, d)| (n.idx().unwrap(), d)).collect::<Vec<_>>()
     });
     Ok(SparseRowIter::new(row_iter, data.shape()[0]).to_csr_matrix())
