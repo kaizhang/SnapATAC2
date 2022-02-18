@@ -1,16 +1,17 @@
-from typing import Optional, Union, Type
+from typing import Optional, Union, List
 import numpy as np
 from anndata.experimental import AnnCollection
 from scipy.sparse import csr_matrix
-import anndata as ad
+from anndata import AnnData
 
 import snapatac2._snapatac2 as internal
 
 def knn(
-    adata: Union[ad.AnnData, AnnCollection],
+    adata: Union[AnnData, AnnCollection],
     n_neighbors: int = 50,
+    use_dims: Optional[Union[int, List[int]]] = None,
     use_rep: Optional[str] = None,
-    use_approximate_search: bool = False,
+    use_approximate_search: bool = True,
     n_jobs: int = -1,
 ) -> None:
     """
@@ -22,6 +23,7 @@ def knn(
         Annotated data matrix.
     n_neighbors
         The number of nearest neighbors to be searched.
+    use_dims
     use_rep
     use_approximate_search
         Whether to use approximate nearest neighbor search
@@ -35,7 +37,12 @@ def knn(
         points. Weights should be interpreted as connectivities.
     """
     if use_rep is None: use_rep = "X_spectral"
-    data = adata.obsm[use_rep]
+    if use_dims is None:
+        data = adata.obsm[use_rep]
+    elif isinstance(use_dims, int):
+        data = adata.obsm[use_rep][:, :use_dims]
+    else:
+        data = adata.obsm[use_rep][:, use_dims]
     n = data.shape[0]
     if use_approximate_search:
         (d, indices, indptr) = internal.approximate_nearest_neighbors(data.astype(np.float32), n_neighbors)
