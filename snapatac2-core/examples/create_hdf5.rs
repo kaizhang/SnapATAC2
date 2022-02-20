@@ -10,9 +10,11 @@ fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
     let mut anndata: Ann<u32> = Ann::read(&args[1])?;
     //println!("{:?}", anndata.obs_names());
+    /*
     for x in anndata.ann_row_iter().take(10) {
         println!("{:?}", x);
     }
+    */
 
     Ok(())
 }

@@ -52,6 +52,21 @@ def make_tile_matrix(
     )
     return ad.read(output, backed='r+')
 
+def make_gene_matrix(
+    adata: Union[ad.AnnData, str],
+    gff_file: str,
+    output: Optional[str] = "gene_matrix.h5ad",
+) -> ad.AnnData:
+    if isinstance(adata, ad.AnnData):
+        if adata.filename is None:
+            raise ValueError("anndata need to be in backed mode!")
+        else:
+            input_file = str(adata.filename)
+    else:
+        input_file = adata
+    internal.mk_gene_matrix(output, str(input_file), gff_file)
+    return ad.read(output, backed='r+')
+ 
 def select_features(
     adata: Union[ad.AnnData, AnnCollection],
     variable_feature: bool = True,
