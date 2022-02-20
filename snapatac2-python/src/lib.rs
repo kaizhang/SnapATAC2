@@ -18,9 +18,30 @@ use hora::core::ann_index::ANNIndex;
 
 use snapatac2_core::{
     tile_matrix::{create_tile_matrix, get_barcode_count},
+    gene_score::create_gene_matrix,
     qc,
-    utils::anndata::SparseRowWriter,
+    utils::{anndata::SparseRowWriter, gene::read_transcripts},
 };
+
+#[pyfunction]
+fn mk_gene_matrix(output_file: &str,
+                  input_file: &str,
+                  gff_file: &str,
+) -> PyResult<()>
+{
+    let file = hdf5::File::create(output_file).unwrap();
+    let transcripts = if is_gzipped(gff_file) {
+        let reader = File::open(gff_file).map(MultiGzDecoder::new)
+            .map(std::io::BufReader::new).unwrap();
+        read_transcripts(reader).into_values().collect()
+    } else {
+        let reader = File::open(gff_file).map(std::io::BufReader::new).unwrap();
+        read_transcripts(reader).into_values().collect()
+    };
+    let anndata = snapatac2_core::utils::anndata::Ann::read(input_file).unwrap();
+    create_gene_matrix(file, anndata.ann_row_iter(), transcripts, None, true).unwrap();
+    Ok(())
+}
 
 #[pyfunction]
 fn mk_tile_matrix(output_file: &str,
@@ -194,6 +215,7 @@ fn is_gzipped(file: &str) -> bool {
 #[pymodule]
 fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(mk_tile_matrix, m)?)?;
+    m.add_function(wrap_pyfunction!(mk_gene_matrix, m)?)?;
     m.add_function(wrap_pyfunction!(simple_lin_reg, m)?)?;
     m.add_function(wrap_pyfunction!(jm_regress, m)?)?;
     m.add_function(wrap_pyfunction!(intersect_bed, m)?)?;

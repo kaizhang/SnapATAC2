@@ -34,7 +34,7 @@ impl Promoters {
             };
             transcript_ids.push(transcript.transcript_id);
             gene_names.push(transcript.gene_name);
-            GenomicRange::new(transcript.chrom, tss - half_size, tss + half_size + 1)
+            GenomicRange::new(transcript.chrom, tss.saturating_sub(half_size), tss + half_size + 1)
         }).collect();
         Promoters { regions, transcript_ids, gene_names }
     }
