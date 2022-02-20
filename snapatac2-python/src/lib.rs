@@ -19,7 +19,7 @@ use hora::core::ann_index::ANNIndex;
 use snapatac2_core::{
     tile_matrix::{create_tile_matrix, get_barcode_count},
     qc,
-    utils::anndata::SparseRowIter,
+    utils::anndata::SparseRowWriter,
 };
 
 #[pyfunction]
@@ -173,7 +173,7 @@ fn approximate_nearest_neighbors(
         index.search_nodes(row.to_vec().as_slice(), k).into_iter()
             .map(|(n, d)| (n.idx().unwrap(), d)).collect::<Vec<_>>()
     });
-    Ok(SparseRowIter::new(row_iter, data.shape()[0]).to_csr_matrix())
+    Ok(SparseRowWriter::new(row_iter, data.shape()[0]).to_csr_matrix())
 }
 
 // Convert string such as "chr1:134-2222" to `GenomicRange`.
