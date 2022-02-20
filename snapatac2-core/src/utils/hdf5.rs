@@ -13,6 +13,12 @@ pub fn create_str_attr(location: &Location, name: &str, value: &str) -> Result<(
     attr.write_scalar(&value_)
 }
 
+pub fn read_str_attr(location: &Location, name: &str) -> Result<String>
+{
+    let attr: hdf5::types::VarLenUnicode = location.attr(name)?.read_scalar()?;
+    Ok(attr.parse().unwrap())
+}
+
 pub struct ResizableVectorData<T> {
     dataset: Dataset,
     dataset_type: PhantomData<T>,

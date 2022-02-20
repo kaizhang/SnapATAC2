@@ -1,4 +1,4 @@
-use crate::utils::anndata::{AnnData, SparseRowIter, create_obs, create_var};
+use crate::utils::anndata::{AnnData, SparseRowWriter, create_obs, create_var};
 use crate::qc::{QualityControl, FragmentSummary, get_insertions};
 
 use std::collections::HashSet;
@@ -46,7 +46,7 @@ where
 
     if fragment_is_sorted_by_name {
         let mut scanned_barcodes = HashSet::new();
-        SparseRowIter::new(fragments
+        SparseRowWriter::new(fragments
             .group_by(|x| { x.name().unwrap().to_string() }).into_iter()
             .filter(|(key, _)| white_list.map_or(true, |x| x.contains(key)))
             .chunks(5000).into_iter().map(|chunk| {
@@ -83,14 +83,14 @@ where
                     let mut summary= FragmentSummary::new(promoter);
                     let mut counts = SparseBinnedCoverage::new(regions, bin_size);
                     summary.update(&frag);
-                    counts.add(&ins[0]);
-                    counts.add(&ins[1]);
+                    counts.insert(&ins[0], 1);
+                    counts.insert(&ins[1], 1);
                     scanned_barcodes.insert(key.to_string(), (summary, counts));
                 },
                 Some((summary, counts)) => {
                     summary.update(&frag);
-                    counts.add(&ins[0]);
-                    counts.add(&ins[1]);
+                    counts.insert(&ins[0], 1);
+                    counts.insert(&ins[1], 1);
                 }
             }
         });
@@ -107,7 +107,7 @@ where
                     Some(count)
                 }
             });
-        SparseRowIter::new(row_iter, num_features).create(&file, "X")?;
+        SparseRowWriter::new(row_iter, num_features).create(&file, "X")?;
     }
 
     create_obs(&file, saved_barcodes, Some(qc))?;
@@ -135,8 +135,8 @@ where
         let mut binned_coverage = SparseBinnedCoverage::new(regions, bin_size);
         fragments.iter().for_each(|fragment| {
             let ins = get_insertions(fragment);
-            binned_coverage.add(&ins[0]);
-            binned_coverage.add(&ins[1]);
+            binned_coverage.insert(&ins[0], 1);
+            binned_coverage.insert(&ins[1], 1);
         });
         let count: Vec<(usize, u32)> = binned_coverage.get_coverage()
             .iter().map(|(k, v)| (*k, *v)).collect();
