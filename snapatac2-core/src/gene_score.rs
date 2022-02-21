@@ -8,7 +8,9 @@ use crate::utils::{
 };
 use crate::peak_matrix::create_feat_matrix;
 
+use std::collections::BTreeMap;
 use std::collections::HashSet;
+use std::collections::HashMap;
 use hdf5::{File, Result};
 use noodles_gff::record::Strand;
 use bed_utils::bed::{
@@ -20,6 +22,7 @@ pub struct Promoters {
     regions: GenomeRegions<GenomicRange>,
     transcript_ids: Vec<String>,
     gene_names: Vec<String>,
+    gene_names_index: HashMap<String, usize>,
 }
 
 impl Promoters {
@@ -36,7 +39,8 @@ impl Promoters {
             gene_names.push(transcript.gene_name);
             GenomicRange::new(transcript.chrom, tss.saturating_sub(half_size), tss + half_size + 1)
         }).collect();
-        Promoters { regions, transcript_ids, gene_names }
+        let gene_names_index = gene_names.clone().into_iter().enumerate().map(|(a,b)| (b,a)).collect();
+        Promoters { regions, transcript_ids, gene_names, gene_names_index }
     }
 }
 
@@ -63,11 +67,20 @@ impl FeatureCounter for PromoterCoverage<'_> {
     fn insert<B: BEDLike>(&mut self, tag: &B, count: u32) { self.counter.insert(tag, count); }
 
     fn get_feature_ids(&self) -> Vec<String> {
-        self.promoters.transcript_ids.clone()
+        let mut names: Vec<(&String, &usize)> = self.promoters.gene_names_index.iter().collect();
+        names.sort_by(|a, b| a.cmp(b));
+        names.iter().map(|(a, _)| (*a).clone()).collect()
     }
 
     fn get_counts(&self) -> Vec<(usize, Self::Value)> {
-        self.counter.get_coverage().iter().map(|(k, v)| (*k, *v)).collect()
+        let mut counts = BTreeMap::new();
+        self.counter.get_coverage().iter().for_each(|(k, v)| {
+            let name = &self.promoters.gene_names[*k];
+            let idx = *self.promoters.gene_names_index.get(name).unwrap();
+            let current_v = counts.entry(idx).or_insert(*v);
+            if *current_v < *v { *current_v = *v }
+        });
+        counts.into_iter().collect()
     }
 }
 

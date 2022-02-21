@@ -131,7 +131,7 @@ def get_manifold(obs_norm, sim_norm, n_comps=30, random_state=0):
     model = Spectral(n_dim=n_comps, distance="jaccard").fit(obs_norm)
     model.extend(obs_norm)
     model.extend(sim_norm)
-    manifold = np.asanyarray(model.transform())
+    manifold = np.asanyarray(model.transform()[1])
     n = obs_norm.shape[0]
     manifold_obs = manifold[0:n, ]
     manifold_sim = manifold[n:, ]
