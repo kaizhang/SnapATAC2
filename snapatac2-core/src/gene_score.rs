@@ -30,16 +30,18 @@ impl Promoters {
         let mut transcript_ids = Vec::new();
         let mut gene_names = Vec::new();
         let regions = transcripts.into_iter().map(|transcript| {
-            let tss = match transcript.strand {
-                Strand::Forward => transcript.left as u64,
-                Strand::Reverse => transcript.right as u64,
+            let (start, end) = match transcript.strand {
+                Strand::Forward => ((transcript.left as u64).saturating_sub(half_size), transcript.right as u64),
+                Strand::Reverse => (transcript.left as u64, (transcript.right as u64) + half_size),
                 _ => panic!("Miss strand information for {}", transcript.transcript_id),
             };
             transcript_ids.push(transcript.transcript_id);
             gene_names.push(transcript.gene_name);
-            GenomicRange::new(transcript.chrom, tss.saturating_sub(half_size), tss + half_size + 1)
+            GenomicRange::new(transcript.chrom, start, end)
         }).collect();
-        let gene_names_index = gene_names.clone().into_iter().enumerate().map(|(a,b)| (b,a)).collect();
+        let gene_names_index = gene_names.clone().into_iter()
+            .collect::<HashSet<_>>().into_iter()
+            .enumerate().map(|(a,b)| (b,a)).collect();
         Promoters { regions, transcript_ids, gene_names, gene_names_index }
     }
 }
@@ -68,7 +70,7 @@ impl FeatureCounter for PromoterCoverage<'_> {
 
     fn get_feature_ids(&self) -> Vec<String> {
         let mut names: Vec<(&String, &usize)> = self.promoters.gene_names_index.iter().collect();
-        names.sort_by(|a, b| a.cmp(b));
+        names.sort_by(|a, b| a.1.cmp(b.1));
         names.iter().map(|(a, _)| (*a).clone()).collect()
     }
 
