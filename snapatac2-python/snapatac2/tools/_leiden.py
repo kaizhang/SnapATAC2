@@ -11,12 +11,14 @@ def leiden(
     adata: Union[ad.AnnData, AnnCollection],
     resolution: float = 1,
     objective_function: str = "modularity",
+    min_cluster_size: int = 5,
     n_iterations: int = -1,
     random_state: int = 0,
     key_added: str = 'leiden',
     adjacency: Optional[ss.spmatrix] = None,
     use_leidenalg: bool = False,
-) -> None:
+    inplace: bool = True,
+) -> Optional[np.ndarray]:
     """
     Cluster cells into subgroups [Traag18]_.
 
@@ -37,6 +39,8 @@ def leiden(
     objective_function
         whether to use the Constant Potts Model (CPM) or modularity.
         Must be either "CPM", "modularity" or "RBConfiguration".
+    min_cluster_size
+        The minimum size of clusters.
     use_weights
         If `True`, edge weights from the graph are used in the computation
         (placing more emphasis on stronger edges).
@@ -63,6 +67,7 @@ def leiden(
         A dict with the values for the parameters `resolution`, `random_state`,
         and `n_iterations`.
     """
+    from collections import Counter
 
     if adjacency is None:
         adjacency = adata.obsp["distances"]
@@ -99,16 +104,23 @@ def leiden(
             n_iterations=n_iterations,
         )
 
-    groups = np.array(partition.membership)
+    groups = partition.membership
 
-    adata.obs[key_added] = pd.Categorical(
-        values=groups.astype('U'),
-        categories=sorted(map(str, np.unique(groups))),
-    )
-    # store information on the clustering parameters
-    adata.uns['leiden'] = {}
-    adata.uns['leiden']['params'] = dict(
-        resolution=resolution,
-        random_state=random_state,
-        n_iterations=n_iterations,
-    )
+    new_cl_id = dict([(cl, i) if count >= min_cluster_size else (cl, -1) for (i, (cl, count)) in enumerate(Counter(groups).most_common())])
+    for i in range(len(groups)): groups[i] = new_cl_id[groups[i]]
+    groups = np.array(groups, dtype=np.int64)
+
+    if inplace:
+        adata.obs[key_added] = pd.Categorical(
+            values=groups.astype('U'),
+            categories=map(str, sorted(np.unique(groups))),
+        )
+        # store information on the clustering parameters
+        adata.uns['leiden'] = {}
+        adata.uns['leiden']['params'] = dict(
+            resolution=resolution,
+            random_state=random_state,
+            n_iterations=n_iterations,
+        )
+    else:
+        return groups
