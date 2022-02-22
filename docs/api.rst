@@ -30,6 +30,8 @@ Basic Preprocessing
     :toctree: _autosummary
 
     pp.make_tile_matrix
+    pp.make_gene_matrix
+    pp.filter_cells
     pp.select_features
     pp.knn
 

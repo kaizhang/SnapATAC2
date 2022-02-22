@@ -22,7 +22,7 @@ pub struct Promoters {
     regions: GenomeRegions<GenomicRange>,
     transcript_ids: Vec<String>,
     gene_names: Vec<String>,
-    gene_names_index: HashMap<String, usize>,
+    unique_gene_index: HashMap<String, usize>,
 }
 
 impl Promoters {
@@ -39,10 +39,10 @@ impl Promoters {
             gene_names.push(transcript.gene_name);
             GenomicRange::new(transcript.chrom, start, end)
         }).collect();
-        let gene_names_index = gene_names.clone().into_iter()
+        let unique_gene_index = gene_names.clone().into_iter()
             .collect::<HashSet<_>>().into_iter()
             .enumerate().map(|(a,b)| (b,a)).collect();
-        Promoters { regions, transcript_ids, gene_names, gene_names_index }
+        Promoters { regions, transcript_ids, gene_names, unique_gene_index }
     }
 }
 
@@ -69,7 +69,7 @@ impl FeatureCounter for PromoterCoverage<'_> {
     fn insert<B: BEDLike>(&mut self, tag: &B, count: u32) { self.counter.insert(tag, count); }
 
     fn get_feature_ids(&self) -> Vec<String> {
-        let mut names: Vec<(&String, &usize)> = self.promoters.gene_names_index.iter().collect();
+        let mut names: Vec<(&String, &usize)> = self.promoters.unique_gene_index.iter().collect();
         names.sort_by(|a, b| a.1.cmp(b.1));
         names.iter().map(|(a, _)| (*a).clone()).collect()
     }
@@ -78,7 +78,7 @@ impl FeatureCounter for PromoterCoverage<'_> {
         let mut counts = BTreeMap::new();
         self.counter.get_coverage().iter().for_each(|(k, v)| {
             let name = &self.promoters.gene_names[*k];
-            let idx = *self.promoters.gene_names_index.get(name).unwrap();
+            let idx = *self.promoters.unique_gene_index.get(name).unwrap();
             let current_v = counts.entry(idx).or_insert(*v);
             if *current_v < *v { *current_v = *v }
         });
