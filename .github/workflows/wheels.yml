@@ -2,6 +2,9 @@ name: Build wheels
 
 on:
   push:
+    tags:
+      - 'v*'
+
     branches:
       - main
 
