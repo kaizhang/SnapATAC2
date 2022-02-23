@@ -20,8 +20,6 @@ setup(
     python_requires=">=3.7",
     install_requires=[
         "anndata>=0.7.7",
-        "leidenalg",
-        "matplotlib>=3.1.2",
         "numpy>=1.16.0",
         "pandas",
         "python-igraph",
@@ -29,6 +27,6 @@ setup(
         "scikit-learn>=0.22",
         "tqdm>=4.62",
         "umap-learn>=0.3.10",
-        "seaborn>=0.11.2",
+        "plotly>=5.6.0"
     ],
 )

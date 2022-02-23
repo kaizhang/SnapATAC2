@@ -53,7 +53,9 @@ def spectral(
     Returns
     -------
     if `inplace=True` it stores Spectral embedding of data in the field
-    `adata.obsm["X_spectral"]`, otherwise it returns the result as a numpy array.
+    `adata.obsm["X_spectral"]`,
+    `adata.uns["spectral_eigenvalue"]`,
+    otherwise it returns the result as a numpy array.
     """
     np.random.seed(random_state)
     if n_comps is None:
