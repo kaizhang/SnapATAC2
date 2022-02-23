@@ -1,9 +1,9 @@
 name: Build wheels
 
 on:
-  create:
-    tags:
-      - v*
+  push:
+    branches:
+      - main
 
 jobs:
   build_wheels:
