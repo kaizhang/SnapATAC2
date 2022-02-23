@@ -12,7 +12,7 @@ from ._spectral import JaccardNormalizer, jaccard_similarity
 def laplacian(
     data: ad.AnnData,
     n_comps: Optional[int] = None,
-    features: Optional[np.ndarray] = None,
+    features: Optional[Union[str, np.ndarray]] = "selected",
     random_state: int = 0,
     inplace: bool = True,
 ) -> Optional[np.ndarray]:
@@ -40,6 +40,7 @@ def laplacian(
     if `inplace=True` it stores Spectral embedding of data in the field
     `adata.obsm["X_spectral"]`, otherwise it returns the result as a numpy array.
     """
+    features = data.var[features] if isinstance(features, str) else features
     if n_comps is None:
         min_dim = min(data.n_vars, data.n_obs)
         if 50 >= min_dim:

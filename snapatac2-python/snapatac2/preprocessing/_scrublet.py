@@ -11,7 +11,7 @@ from snapatac2.tools._spectral import Spectral
 
 def scrublet(
     adata: ad.AnnData,
-    features: Optional[np.ndarray] = None,
+    features: Optional[Union[str, np.ndarray]] = "selected",
     sim_doublet_ratio: float = 2.0,
     expected_doublet_rate: float = 0.1,
     n_neighbors: Optional[int] = None,
@@ -48,6 +48,7 @@ def scrublet(
     - ``adata.uns["scrublet_cell_embedding"]``: embedding of cells
     - ``adata.uns["scrublet_sim_doublet_embedding"]``: embedding of simulated doublets
     """
+    features = adata.var[features] if isinstance(features, str) else features
     if features is None:
         count_matrix = adata.X[...]
     else:

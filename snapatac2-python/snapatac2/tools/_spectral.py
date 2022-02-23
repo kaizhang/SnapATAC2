@@ -14,7 +14,7 @@ from .._utils import read_as_binarized, binarized_chunk_X
 def spectral(
     data: ad.AnnData,
     n_comps: Optional[int] = None,
-    features: Optional[np.ndarray] = None,
+    features: Optional[Union[str, np.ndarray]] = "selected",
     random_state: int = 0,
     sample_size: Optional[Union[int, float]] = None,
     chunk_size: Optional[int] = None,
@@ -57,6 +57,8 @@ def spectral(
     `adata.uns["spectral_eigenvalue"]`,
     otherwise it returns the result as a numpy array.
     """
+    features = data.var[features] if isinstance(features, str) else features
+
     np.random.seed(random_state)
     if n_comps is None:
         min_dim = min(data.n_vars, data.n_obs)

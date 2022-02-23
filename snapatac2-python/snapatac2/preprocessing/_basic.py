@@ -147,7 +147,8 @@ def select_features(
     variable_feature: bool = True,
     whitelist: Optional[str] = None,
     blacklist: Optional[str] = None,
-) -> np.ndarray:
+    inplace: bool = True,
+) -> Optional[np.ndarray]:
     """
     Perform feature selection.
 
@@ -163,6 +164,8 @@ def select_features(
     blacklist 
         A user provided bed file containing genome-wide blacklist regions.
         Features that are overlapped with these regions will be removed.
+    inplace
+        Perform computation inplace or return result.
     
     Returns
     -------
@@ -193,4 +196,7 @@ def select_features(
         std = math.sqrt(count[selected_features].var())
         selected_features &= np.absolute((count - mean) / std) < 1.65
 
-    return selected_features
+    if inplace:
+        adata.var["selected"] = selected_features
+    else:
+        return selected_features
