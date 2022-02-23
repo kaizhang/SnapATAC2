@@ -1,16 +1,16 @@
-import matplotlib.pyplot as plt
 from typing import Optional
 from anndata import AnnData
+import numpy as np
+from ._utils import render_plot
 
 def tsse(
     adata: AnnData,
+    show_cells: bool = False,
     show: bool = True,
-    outfile: Optional[str] = None,
-    dpi: int = 300,
-    bw_adjust: float = 1.0,
-    thresh: float = 0.1,
+    interactive: bool = True,
+    out_file: Optional[str] = None,
     min_fragment: int = 500,
-) -> None:
+):
     """
     Plot the TSS enrichment vs. number of fragments density figure.
 
@@ -18,18 +18,12 @@ def tsse(
     ----------
     adata
         Annotated data matrix.
-    save
-        Save the figure
+    show_cells
+        Whether to show individual cells as dots on the plot
     show
         Show the figure
-    outfile
+    out_file
         Path of the output file for saving the output image, end with '.svg' or '.pdf' or '.png'
-    dpi
-        Value of dpi for saving the figure, >= 150 is recommend
-    bw_adjust
-        Bandwidth, smoothing parameter, number in [0, 1]
-    thresh
-        Lowest iso-proportion level at which to draw a contour line, number in [0, 1]
     min_fragment
         The cells' unique fragments lower than it should be removed
 
@@ -37,24 +31,46 @@ def tsse(
     -------
     
     """
-    import seaborn as sns
-    sns.set_style("whitegrid", {"grid.color": ".6", "grid.linestyle": ":"})
+    import plotly.graph_objects as go
 
     selected_cells = adata.obs["n_fragment"] >= min_fragment
-    sns.kdeplot(
-        x = adata.obs['n_fragment'][selected_cells],
-        y = adata.obs['tsse'][selected_cells],
-        cmap = "Blues",
-        cbar = True,
-        shade = True,
-        bw_adjust = bw_adjust,
-        thresh = thresh,
-        log_scale = (10, False)
+    x = adata.obs["n_fragment"][selected_cells]
+    y = adata.obs["tsse"][selected_cells]
+
+    log_x = np.log10(x)
+    log_x_min, log_x_max = log_x.min(), log_x.max()
+    x_range = log_x_max - log_x_min
+    bin_x = np.linspace(log_x_min - 0.1 * x_range, log_x_max + 0.2 * x_range, 20)
+
+    y_min, y_max = y.min(), y.max()
+    y_range = y_max - y_min
+    bin_y = np.linspace(y_min - 0.1 * y_range, y_max + 0.2 * y_range, 15)
+
+    (z, rx, ry) = np.histogram2d(log_x,y, bins=(bin_x, bin_y))
+    fig = go.Figure(data =
+        go.Contour(
+            z = z.T,
+            x = 10**rx,
+            y = ry,
+            colorscale = 'Blues',
+        )
     )
-    plt.xlabel("Number of fragments")
-    plt.ylabel("TSS enrichment score")
-    if show:
-        plt.show()
-    if outfile:
-        plt.savefig(outfile, dpi=dpi, bbox_inches='tight')
-        plt.close()
+
+    if show_cells:
+        fig.add_trace(go.Scatter(
+                x = x,
+                y = y,
+                xaxis = 'x',
+                yaxis = 'y',
+                mode = 'markers',
+                marker = dict(color = 'rgba(0,0,0,0.3)', size = 3)
+        ))
+
+    fig.update_xaxes(type="log")
+    fig.update_layout(
+        template="simple_white",
+        xaxis_title="Number of unique fragments",
+        yaxis_title="TSS enrichment score",
+    )
+
+    return render_plot(fig, interactive, show, out_file)

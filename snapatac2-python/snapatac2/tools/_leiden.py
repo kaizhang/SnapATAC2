@@ -93,8 +93,10 @@ def leiden(
             seed=random_state, resolution_parameter=resolution, weights=None
         )
     else:
+        from igraph import set_random_number_generator
         import random
         random.seed(random_state)
+        set_random_number_generator(random)
         partition = gr.community_leiden(
             objective_function=objective_function,
             weights=None,

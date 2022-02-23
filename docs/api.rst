@@ -91,3 +91,4 @@ Quality Control
     :toctree: _autosummary
 
     pl.tsse
+    pl.spectral_eigenvalues
