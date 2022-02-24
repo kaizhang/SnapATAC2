@@ -3,7 +3,7 @@
 import numpy as np
 import scipy.sparse as ss
 import anndata as ad
-from typing import Optional, Union, Type, Tuple
+from typing import Literal, Optional, Union, Type, Tuple
 from sklearn.neighbors import NearestNeighbors
 
 from .._utils import get_binarized_matrix
@@ -12,6 +12,7 @@ from snapatac2.tools._spectral import Spectral
 def scrublet(
     adata: ad.AnnData,
     features: Optional[Union[str, np.ndarray]] = "selected",
+    n_comps: int = 15,
     sim_doublet_ratio: float = 2.0,
     expected_doublet_rate: float = 0.1,
     n_neighbors: Optional[int] = None,
@@ -25,11 +26,14 @@ def scrublet(
     ----------
     adata
         AnnData object
-    sim_doublet_ratio
-        Number of doublets to simulate relative to the number of observed cells.
     features
         Boolean index mask. True means that the feature is kept.
         False means the feature is removed.
+    n_comps
+        Number of PCs
+    sim_doublet_ratio
+        Number of doublets to simulate relative to the number of observed cells.
+    expected_doublet_rate
     n_neighbors
         Number of neighbors used to construct the KNN graph of observed
         cells and simulated doublets. If `None`, this is 
@@ -42,12 +46,12 @@ def scrublet(
     Returns
     -------
     It updates adata with the following fields:
-    - ``adata.obs["doublet_probability"]``: probability (from 0 to 1) of being doublets
-    - ``adata.uns["doublet_score"]``: doublet scores of cells
-    - ``adata.uns["scrublet_sim_doublet_score"]``: doublet scores of simulated doublets
-    - ``adata.uns["scrublet_cell_embedding"]``: embedding of cells
-    - ``adata.uns["scrublet_sim_doublet_embedding"]``: embedding of simulated doublets
+    - ``adata.obs["doublet_score"]``: scrublet doublet score
+    - ``adata.uns["scrublet"]["sim_doublet_score"]``: doublet scores of simulated doublets 
     """
+    #- adata.uns["scrublet_cell_embedding"]: embedding of cells
+    #- adata.uns["scrublet_sim_doublet_embedding"]: embedding of simulated doublets
+
     features = adata.var[features] if isinstance(features, str) else features
     if features is None:
         count_matrix = adata.X[...]
@@ -59,14 +63,70 @@ def scrublet(
 
     (doublet_scores_obs, doublet_scores_sim, manifold_obs, manifold_sim) = scrub_doublets_core(
         count_matrix, n_neighbors, sim_doublet_ratio, expected_doublet_rate,
+        n_comps=n_comps,
         random_state=random_state
         )
+    adata.obs["doublet_score"] = doublet_scores_obs
+    adata.uns["scrublet"] = {
+        "sim_doublet_score": doublet_scores_sim,
+    }
 
-    adata.obs["doublet_probability"] = get_doublet_probability(doublet_scores_sim, doublet_scores_obs, random_state)
-    adata.uns["doublet_score"] = doublet_scores_obs
-    adata.uns["scrublet_cell_embedding"] = manifold_obs
-    adata.uns["scrublet_sim_doublet_embedding"] = manifold_sim
-    adata.uns["scrublet_sim_doublet_score"] = doublet_scores_sim
+def call_doublets(
+    adata: ad.AnnData,
+    threshold: Union[Literal["gmm", ""], float] = "gmm",
+    random_state: int = 0,
+    inplace: bool = True,
+) -> Optional[Tuple[np.ndarray, float]]:
+    """
+    Find doublet score threshold for calling doublets.
+
+    Need to run scrublet first.
+
+    Parameters
+    ----------
+    adata
+        AnnData object
+    threshold
+        Mannually specify a threshold or use one of the default methods to
+        automatically identify a threshold:
+        - "gmm": fit a 2-component gaussian mixture model
+        - "scrublet": the method used in the scrublet paper
+    random_state
+        Random state
+    inplace
+        Whether update the AnnData object inplace
+    
+    Returns
+    -------
+    if ``inplace = True``, it updates adata with the following fields:
+    - ``adata.obs["is_doublet"]``: boolean mask
+    - ``adata.uns["scrublet"]["threshold"]``: saved threshold
+    """
+
+    if 'scrublet' not in adata.uns:
+        raise NameError("Please call `scrublet` first")
+
+    doublet_scores_sim = adata.uns["scrublet"]["sim_doublet_score"]
+    doublet_scores_obs = adata.obs["doublet_score"].to_numpy()
+
+    if isinstance(threshold, float):
+        thres = threshold
+    elif threshold == "gmm":
+        thres, _ = get_doublet_probability(
+            doublet_scores_sim, doublet_scores_obs, random_state
+        )
+    elif threshold == "scrublet":
+        from skimage.filters import threshold_minimum
+        thres = threshold_minimum(doublet_scores_sim)
+    else:
+        raise NameError("Invalid value for the `threshold` argument")
+
+    doublets = doublet_scores_obs >= thres
+    if inplace:
+        adata.uns["scrublet"]["threshold"] = thres
+        adata.obs["is_doublet"] = doublets
+    else:
+        return (doublets, thres)
 
 def scrub_doublets_core(
     count_matrix: ss.spmatrix,
@@ -260,4 +320,8 @@ def get_doublet_probability(
     ).fit(X)
     i = np.argmax(gmm.means_)
 
-    return gmm.predict_proba(doublet_scores.reshape((-1, 1)))[:,i]
+    probs_sim = gmm.predict_proba(X)[:,i]
+    vals = X[probs_sim > 0.5]
+    threshold = X.max() if vals.size == 0 else vals.min()
+
+    return (threshold, gmm.predict_proba(doublet_scores.reshape((-1, 1)))[:,i])

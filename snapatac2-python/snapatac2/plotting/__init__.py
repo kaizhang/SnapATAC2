@@ -1,4 +1,4 @@
-from ._qc import tsse
+from ._qc import tsse, scrublet
 
 from typing import Optional
 from anndata import AnnData
