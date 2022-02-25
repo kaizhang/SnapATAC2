@@ -1,5 +1,6 @@
 """ Implementation of the scrublet algorithm for single-cell ATAC-seq data
 """
+from tokenize import Name
 import numpy as np
 import scipy.sparse as ss
 import anndata as ad
@@ -52,7 +53,12 @@ def scrublet(
     #- adata.uns["scrublet_cell_embedding"]: embedding of cells
     #- adata.uns["scrublet_sim_doublet_embedding"]: embedding of simulated doublets
 
-    features = adata.var[features] if isinstance(features, str) else features
+    if isinstance(features, str):
+        if features in adata.var:
+            features = adata.var[features]
+        else:
+            raise NameError("Please call `select_features` first or explicitly set `features = None`")
+
     if features is None:
         count_matrix = adata.X[...]
     else:

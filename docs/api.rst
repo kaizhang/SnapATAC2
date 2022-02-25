@@ -85,11 +85,9 @@ Clustering
 Plotting: `pl`
 --------------
 
-Quality Control
-~~~~~~~~~~~~~~~
-
 .. autosummary::
     :toctree: _autosummary
 
     pl.tsse
     pl.spectral_eigenvalues
+    pl.scrublet

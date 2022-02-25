@@ -24,7 +24,9 @@ def knn(
     n_neighbors
         The number of nearest neighbors to be searched.
     use_dims
+        The dimensions used for computation.
     use_rep
+        The key for the matrix
     use_approximate_search
         Whether to use approximate nearest neighbor search
     Returns

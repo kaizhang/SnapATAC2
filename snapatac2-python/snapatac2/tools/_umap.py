@@ -16,6 +16,7 @@ def umap(
     data
         AnnData
     n_comps
+    use_dims
     use_rep
     random_state
     inplace
