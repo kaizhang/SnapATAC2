@@ -49,7 +49,7 @@ where
         SparseRowWriter::new(fragments
             .group_by(|x| { x.name().unwrap().to_string() }).into_iter()
             .filter(|(key, _)| white_list.map_or(true, |x| x.contains(key)))
-            .chunks(5000).into_iter().map(|chunk| {
+            .chunks(2000).into_iter().map(|chunk| {
                 let data: Vec<(String, Vec<BED<5>>)> = chunk
                     .map(|(barcode, x)| (barcode, x.collect())).collect();
                 let result: Vec<_> = data.into_par_iter()
@@ -127,7 +127,7 @@ where
 {
 
     let mut summary = FragmentSummary::new(promoter);
-    fragments.iter().for_each(|frag| { summary.update(frag); });
+    fragments.iter().for_each(|frag| summary.update(frag));
     let qc = summary.get_qc();
     if qc.num_unique_fragment < min_n_fragment || qc.tss_enrichment < min_tsse {
         None
