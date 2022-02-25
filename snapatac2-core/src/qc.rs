@@ -79,20 +79,22 @@ impl<'a> FragmentSummary<'a> {
     }
 
     pub(crate) fn update(&mut self, fragment: &BED<5>) {
-        self.num_unique_fragment += 1;
         self.num_total_fragment += *fragment.score().unwrap() as u64;
-        if fragment.chrom() == "chrM" || fragment.chrom() == "M" {
-            self.num_mitochondrial += 1;
-        }
-        for ins in get_insertions(fragment) {
-            for (entry, data) in self.promoter.find(&ins) {
-                let pos: u64 =
-                    if *data {
-                        ins.start() - entry.start()
-                    } else {
-                        4000 - (entry.end() - 1 - ins.start())
-                    };
-                self.promoter_insertion_count[pos as usize] += 1;
+        match fragment.chrom() {
+            "chrM" | "M" => self.num_mitochondrial += 1,
+            _ => {
+                self.num_unique_fragment += 1;
+                for ins in get_insertions(fragment) {
+                    for (entry, data) in self.promoter.find(&ins) {
+                        let pos: u64 =
+                            if *data {
+                                ins.start() - entry.start()
+                            } else {
+                                4000 - (entry.end() - 1 - ins.start())
+                            };
+                        self.promoter_insertion_count[pos as usize] += 1;
+                    }
+                }
             }
         }
     }
@@ -105,9 +107,10 @@ impl<'a> FragmentSummary<'a> {
         let tss_enrichment = moving_average(5, &self.promoter_insertion_count)
             .max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap().div(bg_count);
         let frac_duplicated = 1.0 -
-            self.num_unique_fragment as f64 / self.num_total_fragment as f64;
+            (self.num_unique_fragment + self.num_mitochondrial) as f64 /
+            self.num_total_fragment as f64;
         let frac_mitochondrial = self.num_mitochondrial as f64 /
-            self.num_unique_fragment as f64;
+            (self.num_unique_fragment + self.num_mitochondrial) as f64;
         QualityControl {
             tss_enrichment,
             num_unique_fragment: self.num_unique_fragment,
