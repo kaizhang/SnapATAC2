@@ -57,7 +57,11 @@ def spectral(
     `adata.uns["spectral_eigenvalue"]`,
     otherwise it returns the result as a numpy array.
     """
-    features = data.var[features] if isinstance(features, str) else features
+    if isinstance(features, str):
+        if features in data.var:
+            features = data.var[features]
+        else:
+            raise NameError("Please call `select_features` first or explicitly set `features = None`")
 
     np.random.seed(random_state)
     if n_comps is None:

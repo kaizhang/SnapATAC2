@@ -3,13 +3,14 @@ Use harmony to integrate cells from different experiments.
 """
 
 import numpy as np
-from typing import Optional
+from typing import Optional, List, Union
 
 from anndata import AnnData
 
 def harmony(
     adata: AnnData,
     batch: str,
+    use_dims: Optional[Union[int, List[int]]] = None,
     use_rep: Optional[str] = None,
     inplace: bool = True,
     **kwargs,
@@ -49,10 +50,12 @@ def harmony(
     except ImportError:
         raise ImportError("\nplease install harmonypy:\n\n\tpip install harmonypy")
 
-    if use_rep is None:
-        use_rep = "X_spectral"
+    if use_rep is None: use_rep = "X_spectral"
+    mat = adata.obsm[use_rep] if isinstance(adata, AnnData) else adata
+    if isinstance(use_dims, int): use_dims = range(use_dims) 
+    mat = mat if use_dims is None else mat[:, use_dims]
 
-    harmony_out = harmonypy.run_harmony(adata.obsm[use_rep], adata.obs, batch, **kwargs)
+    harmony_out = harmonypy.run_harmony(mat, adata.obs, batch, **kwargs)
     if inplace:
         adata.obsm[use_rep + "_harmony"] = harmony_out.Z_corr.T
     else:

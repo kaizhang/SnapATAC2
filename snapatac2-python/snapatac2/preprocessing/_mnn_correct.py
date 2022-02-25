@@ -4,13 +4,14 @@ import itertools
 from scipy.special import logsumexp
 from sklearn.cluster import KMeans
 import anndata as ad
-from typing import Optional, Union
+from typing import Optional, Union, List
 
 def mnc_correct(
     data: Union[ad.AnnData, np.ndarray],
     batch: str,
     n_neighbors: int = 5,
     n_clusters: int = 40,
+    use_dims: Optional[Union[int, List[int]]] = None,
     use_rep: Optional[str] = None,
     n_iter: int = 1,
     inplace: bool = True,
@@ -22,23 +23,26 @@ def mnc_correct(
     ----------
     data
         Matrice or AnnData object. Matrices should be shaped like n_obs x n_vars.
+    batch
     n_neighbors
         Number of mutual nearest neighbors.
     n_clusters
         Number of clusters
+    use_dims
+    use_rep
+    n_iter
+    inplace
 
     Returns
     -------
     if `inplace=True` it updates adata with the field
-    ``adata.obsm[`use_rep`_field]``, containing adjusted principal components.
+    ``adata.obsm[`use_rep`_mnn]``, containing adjusted principal components.
     Otherwise, it returns the result as a numpy array.
     """
-    if use_rep is None:
-        use_rep = "X_spectral"
-    if isinstance(data, ad.AnnData):
-        mat = data.obsm[use_rep] 
-    else:
-        mat = data
+    if use_rep is None: use_rep = "X_spectral"
+    mat = data.obsm[use_rep] if isinstance(data, ad.AnnData) else data
+    if isinstance(use_dims, int): use_dims = range(use_dims) 
+    mat = mat if use_dims is None else mat[:, use_dims]
 
     labels = data.obs[batch]
     label_uniq = list(set(labels))
