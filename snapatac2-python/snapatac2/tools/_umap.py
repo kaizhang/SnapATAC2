@@ -14,12 +14,17 @@ def umap(
     Parameters
     ----------
     data
-        AnnData
+        AnnData.
     n_comps
+        The number of dimensions of the embedding.
     use_dims
+        Use these dimensions in `use_rep`.
     use_rep
+        Use the indicated representation in `.obsm`.
     random_state
+        Random seed.
     inplace
+        Whether to store the result in the anndata object.
 
     Returns
     -------

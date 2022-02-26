@@ -31,9 +31,13 @@ def harmony(
     batch
         The name of the column in ``adata.obs`` that differentiates
         among experiments/batches.
+    use_dims
+        Use these dimensions in `use_rep`.
     use_rep
         The name of the field in ``adata.obsm`` where the lower dimensional
         representation is stored. Defaults to ``'X_spectral'``.
+    inplace
+        Whether to store the result in the anndata object.
     kwargs
         Any additional arguments will be passed to
         ``harmonypy.run_harmony()``.

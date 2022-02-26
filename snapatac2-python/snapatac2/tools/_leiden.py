@@ -41,9 +41,6 @@ def leiden(
         Must be either "CPM", "modularity" or "RBConfiguration".
     min_cluster_size
         The minimum size of clusters.
-    use_weights
-        If `True`, edge weights from the graph are used in the computation
-        (placing more emphasis on stronger edges).
     n_iterations
         How many iterations of the Leiden clustering algorithm to perform.
         Positive values above 2 define the total number of iterations to perform,
@@ -56,6 +53,8 @@ def leiden(
         Sparse adjacency matrix of the graph, defaults to neighbors connectivities.
     use_leidenalg
         If `True`, `leidenalg` package is used. Otherwise, `python-igraph` is used.
+    inplace
+        Whether to store the result in the anndata object.
 
     Returns
     -------

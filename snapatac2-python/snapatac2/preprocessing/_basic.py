@@ -1,7 +1,7 @@
 import numpy as np
 import anndata as ad
 import math
-from typing import Optional, Union, Literal
+from typing import Optional, Union, Literal, Mapping
 from anndata.experimental import AnnCollection
 
 import snapatac2._snapatac2 as internal
@@ -10,7 +10,7 @@ def make_tile_matrix(
     output: str,
     fragment_file: str,
     gff_file: str,
-    chrom_size,
+    chrom_size: Mapping[str, int],
     min_num_fragments: int = 200,
     min_tsse: float = 1,
     bin_size: int = 500,
@@ -24,21 +24,22 @@ def make_tile_matrix(
     Parameters
     ----------
     output
-        file name for saving the result
+        File name of the output h5ad file used to store the result
     fragment_file
-        fragment file
+        File name of the fragment file
     gff_file
-        annotation file in GFF format
+        File name of the gene annotation file in GFF format
     chrom_size
-        chromosome sizes
+        A dictionary containing chromosome sizes, for example,
+        `{"chr1": 2393, "chr2": 2344, ...}`
     min_num_fragments
-        threshold used to filter cells
+        Threshold used to filter cells
     min_tsse
-        threshold used to filter cells
+        Threshold used to filter cells
     bin_size
-        the size of consecutive genomic regions used to record the counts
+        The size of consecutive genomic regions used to record the counts
     sorted_by_barcode
-        whether the fragment file has been sorted by cell barcodes. Pre-sort the
+        Whether the fragment file has been sorted by cell barcodes. Pre-sort the
         fragment file will speed up the processing and require far less memory.
     backed
         Whether to return the resulting anndata in backed mode.
@@ -69,9 +70,16 @@ def make_gene_matrix(
     Parameters
     ----------
     adata
-        input anndata containing the cell by bin count matrix
+        An anndata instance or the file name of a h5ad file containing the
+        cell by bin count matrix
     gff_file
-        annotation file in GFF format
+        File name of the gene annotation file in GFF format
+    copy_obs
+        Whether to copy over the `obs` annotation
+    copy_obsm
+        Whether to copy over the `obsm` annotation
+    output
+        File name of the h5ad file used to store the result
     backed
         Whether to return the resulting anndata in backed mode.
     
@@ -174,15 +182,10 @@ def select_features(
     """
     if isinstance(adata, ad.AnnData):
         count = np.ravel(adata.X[...].sum(axis = 0))
-    elif isinstance(adata, AnnCollection):
+    else:
         count = np.zeros(adata.shape[1])
         for batch, _ in adata.iterate_axis(5000):
             count += np.ravel(batch.X[...].sum(axis = 0))
-    else:
-        raise ValueError(
-            '`pp.highly_variable_genes` expects an `AnnData` argument, '
-            'pass `inplace=False` if you want to return a `pd.DataFrame`.'
-        )
 
     selected_features = count != 0
 
