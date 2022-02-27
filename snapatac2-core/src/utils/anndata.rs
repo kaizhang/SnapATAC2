@@ -93,14 +93,14 @@ where
 
         let data: ResizableVectorData<D> = ResizableVectorData::new(&group, "data", 10000)?;
         let indices: ResizableVectorData<i32> = ResizableVectorData::new(&group, "indices", 10000)?;
-        let mut indptr: Vec<i32> = vec![0];
+        let mut indptr: Vec<usize> = vec![0];
         let iter = self.iter.scan(0, |state, x| {
             *state = *state + x.len();
             Some((*state, x))
         });
         for chunk in &iter.chunks(10000) {
             let (a, b): (Vec<i32>, Vec<D>) = chunk.map(|(x, vec)| {
-                indptr.push(x.try_into().unwrap());
+                indptr.push(x);
                 vec
             }).flatten().map(|(x, y)| -> (i32, D) {
                 (x.try_into().unwrap(), y) }).unzip();
@@ -111,8 +111,21 @@ where
             .with_data(&arr1(&[indptr.len() - 1, self.num_col]))
             .create("shape")?;
 
-        group.new_dataset_builder().deflate(COMPRESSION)
-            .with_data(&Array::from_vec(indptr)).create("indptr")?;
+        let try_convert_indptr: Option<Vec<i32>> = indptr.iter()
+            .map(|x| (*x).try_into().ok()).collect();
+        match try_convert_indptr {
+            Some(vec) => {
+                group.new_dataset_builder().deflate(COMPRESSION)
+                    .with_data(&Array::from_vec(vec)).create("indptr")?;
+            },
+            _ => {
+                let vec: Vec<i64> = indptr.into_iter()
+                    .map(|x| x.try_into().unwrap()).collect();
+                group.new_dataset_builder().deflate(COMPRESSION)
+                    .with_data(&Array::from_vec(vec)).create("indptr")?;
+            },
+        }
+
         Ok(group)
     }
 }

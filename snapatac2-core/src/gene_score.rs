@@ -1,10 +1,8 @@
 use crate::utils::{
-    Fragment,
     Insertions,
     Barcoded,
     FeatureCounter,
     gene::Transcript,
-    anndata::{AnnData, SparseRowWriter, create_obs, create_var},
 };
 use crate::peak_matrix::create_feat_matrix;
 
