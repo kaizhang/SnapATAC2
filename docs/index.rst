@@ -18,22 +18,22 @@ with ground truth.
 During the clustering step, we tested a wide range of parameters for each method and the
 best outcome was recorded.
 
-.. image:: docs/_static/benchmark.svg
+.. image:: _static/benchmark.svg
 
 Subsampling test
 ^^^^^^^^^^^^^^^^
 
-.. image:: docs/_static/benchmark_subsample.svg
+.. image:: _static/benchmark_subsample.svg
 
 Running time and space complexity
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. image:: docs/_static/benchmark_performance.svg
+.. image:: _static/benchmark_performance.svg
 
 Example visualization
 ^^^^^^^^^^^^^^^^^^^^^
 
-.. image:: docs/_static/Zhang_Cell_2021_GI.png
+.. image:: _static/Zhang_Cell_2021_GI.png
 
 .. toctree::
    :maxdepth: 3
