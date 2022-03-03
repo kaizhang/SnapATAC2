@@ -19,7 +19,7 @@ setup(
     zip_safe=False,
     python_requires=">=3.7",
     install_requires=[
-        "anndata>=0.7.7",
+        "anndata>=0.8.0rc1",
         "numpy>=1.16.0",
         "pandas",
         "python-igraph",

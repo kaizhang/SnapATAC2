@@ -6,25 +6,22 @@ from anndata.experimental import AnnCollection
 
 import snapatac2._snapatac2 as internal
 
-def make_tile_matrix(
-    output: str,
+def import_data(
     fragment_file: str,
     gff_file: str,
     chrom_size: Mapping[str, int],
+    output: str = "data.h5ad",
     min_num_fragments: int = 200,
     min_tsse: float = 1,
-    bin_size: int = 500,
     sorted_by_barcode: bool = True,
-    backed: Optional[Literal["r", "r+"]] = None,
+    backed: Optional[Literal["r", "r+"]] = "r+",
     n_jobs: int = 4,
 ) -> ad.AnnData:
     """
-    Generate cell by bin count matrix.
+    Import dataset and compute QC metrics.
 
     Parameters
     ----------
-    output
-        File name of the output h5ad file used to store the result
     fragment_file
         File name of the fragment file
     gff_file
@@ -32,17 +29,17 @@ def make_tile_matrix(
     chrom_size
         A dictionary containing chromosome sizes, for example,
         `{"chr1": 2393, "chr2": 2344, ...}`
+    output
+        File name of the output h5ad file used to store the result
     min_num_fragments
         Threshold used to filter cells
     min_tsse
         Threshold used to filter cells
-    bin_size
-        The size of consecutive genomic regions used to record the counts
     sorted_by_barcode
         Whether the fragment file has been sorted by cell barcodes. Pre-sort the
         fragment file will speed up the processing and require far less memory.
     backed
-        Whether to return the resulting anndata in backed mode.
+        Whether to open the file in backed mode
     n_jobs
         number of CPUs to use
     
@@ -50,19 +47,60 @@ def make_tile_matrix(
     -------
     AnnData
     """
-    internal.mk_tile_matrix(
+    internal.import_fragments(
         output, fragment_file, gff_file, chrom_size,
-        bin_size, min_num_fragments, min_tsse, sorted_by_barcode, n_jobs
+        min_num_fragments, min_tsse, sorted_by_barcode, n_jobs
     )
-    return ad.read(output) if backed is None else ad.read(output, backed=backed)
+    return ad.read(output, backed=backed) 
+
+def make_tile_matrix(
+    adata: ad.AnnData,
+    bin_size: int = 500,
+    n_jobs: int = 4
+):
+    """
+    Generate cell by bin count matrix.
+
+    Parameters
+    ----------
+    adata
+        AnnData
+    bin_size
+        The size of consecutive genomic regions used to record the counts
+    n_jobs
+        number of CPUs to use
+    
+    Returns
+    -------
+    """
+    if not adata.isbacked:
+        raise NotImplementedError("not implemented")
+    filename = str(adata.filename)
+    adata.file.close()
+    internal.mk_tile_matrix(filename, bin_size, n_jobs)
+    new_adata = ad.read(filename, backed="r+")
+    new_adata.file.close()
+    adata._init_as_actual(
+        obs=new_adata.obs,
+        var=new_adata.var,
+        uns=new_adata.uns,
+        obsm=new_adata.obsm,
+        varm=new_adata.varm,
+        varp=new_adata.varp,
+        obsp=new_adata.obsp,
+        raw=new_adata.raw,
+        layers=new_adata.layers,
+        shape=new_adata.shape,
+        filename=new_adata.filename,
+        filemode="r+",
+    )
 
 def make_gene_matrix(
     adata: Union[ad.AnnData, str],
     gff_file: str,
-    copy_obs: bool = True,
-    copy_obsm: bool = True,
     output: Optional[str] = "gene_matrix.h5ad",
     backed: Optional[Literal["r", "r+"]] = None,
+    n_jobs: int = 4,
 ) -> ad.AnnData:
     """
     Generate cell by gene activity matrix.
@@ -74,31 +112,41 @@ def make_gene_matrix(
         cell by bin count matrix
     gff_file
         File name of the gene annotation file in GFF format
-    copy_obs
-        Whether to copy over the `obs` annotation
-    copy_obsm
-        Whether to copy over the `obsm` annotation
     output
         File name of the h5ad file used to store the result
     backed
-        Whether to return the resulting anndata in backed mode.
+        Whether to open the file in backed mode
+    n_jobs
+        number of CPUs to use
     
     Returns
     -------
     AnnData
     """
-   
-    if isinstance(adata, ad.AnnData):
-        if adata.filename is None:
-            raise ValueError("anndata need to be in backed mode!")
-        else:
-            input_file = str(adata.filename)
-    else:
+    if isinstance(adata, ad.AnnData) and adata.isbacked:
+        input_file = str(adata.filename)
+        adata.file.close()
+    elif isinstance(adata, str):
         input_file = adata
-    internal.mk_gene_matrix(output, str(input_file), gff_file)
-    gene_mat = ad.read(output) if backed is None else ad.read(output, backed=backed)
-    if copy_obs: gene_mat.obs = adata.obs
-    if copy_obsm: gene_mat.obsm = adata.obsm
+    else:
+        raise NameError("Input type should be 'str' or 'AnnData'")
+    internal.mk_gene_matrix(input_file, gff_file, output, n_jobs)
+    gene_mat = ad.read(output, backed=backed)
+    if backed is None:
+        gene_mat._init_as_actual(
+            X = gene_mat.X,
+            obs=adata.obs,
+            var=gene_mat.var,
+            dtype=np.int32,
+        )
+    else:
+        gene_mat.file.close()
+        gene_mat._init_as_actual(
+            obs=adata.obs,
+            var=gene_mat.var,
+            filename=output,
+            filemode=backed,
+        )
     return gene_mat
 
 def filter_cells(
@@ -146,9 +194,30 @@ def filter_cells(
     if max_tsse: selected_cells &= data.obs["tsse"] <= max_tsse
 
     if inplace:
-        data._inplace_subset_obs(selected_cells)
+        if data.isbacked:
+            filename = str(data.filename)
+            data[selected_cells, :].write()
+            data.file.close()
+            sdata = ad.read(filename, backed="r+")
+            sdata.file.close()
+            data._init_as_actual(
+                obs=sdata.obs,
+                var=sdata.var,
+                uns=sdata.uns,
+                obsm=sdata.obsm,
+                varm=sdata.varm,
+                varp=sdata.varp,
+                obsp=sdata.obsp,
+                raw=sdata.raw,
+                layers=sdata.layers,
+                shape=sdata.shape,
+                filename=sdata.filename,
+                filemode="r+",
+            )
+        else:
+            data._inplace_subset_obs(selected_cells)
     else:
-        return selected_cells
+        return data[selected_cells, :]
  
 def select_features(
     adata: Union[ad.AnnData, AnnCollection],

@@ -17,16 +17,17 @@ use rand_isaac::Isaac64Rng;
 use hora::core::ann_index::ANNIndex;
 
 use snapatac2_core::{
-    tile_matrix::{create_tile_matrix, get_barcode_count},
+    tile_matrix::{create_tile_matrix},
     gene_score::create_gene_matrix,
     qc,
-    utils::{anndata::SparseRowWriter, gene::read_transcripts},
+    utils::{anndata::to_csr_matrix, gene::read_transcripts},
 };
 
 #[pyfunction]
-fn mk_gene_matrix(output_file: &str,
-                  input_file: &str,
+fn mk_gene_matrix(input_file: &str,
                   gff_file: &str,
+                  output_file: &str,
+                  num_cpu: usize,
 ) -> PyResult<()>
 {
     let file = hdf5::File::create(output_file).unwrap();
@@ -38,22 +39,44 @@ fn mk_gene_matrix(output_file: &str,
         let reader = File::open(gff_file).map(std::io::BufReader::new).unwrap();
         read_transcripts(reader).into_values().collect()
     };
-    let anndata = snapatac2_core::utils::anndata::Ann::read(input_file).unwrap();
-    create_gene_matrix(file, anndata.ann_row_iter(), transcripts, None, true).unwrap();
+
+    let group = hdf5::File::open(input_file).unwrap().group("obsm").unwrap()
+        .group("base_count").unwrap();
+    let insertions = qc::read_insertions(group).unwrap();
+
+    rayon::ThreadPoolBuilder::new().num_threads(num_cpu)
+        .build().unwrap().install(||
+            create_gene_matrix(&file, insertions.iter(), transcripts).unwrap()
+        );
+    file.close().unwrap();
+
     Ok(())
 }
 
 #[pyfunction]
-fn mk_tile_matrix(output_file: &str,
-                  fragment_file: &str,
-                  gtf_file: &str,
-                  chrom_size: BTreeMap<&str, u64>,
+fn mk_tile_matrix(input_file: &str,
                   bin_size: u64,
-                  min_num_fragment: u64,
-                  min_tsse: f64,
-                  fragment_is_sorted_by_name: bool,
                   num_cpu: usize,
                   ) -> PyResult<()>
+{
+    let file = hdf5::File::open_rw(input_file).unwrap();
+    rayon::ThreadPoolBuilder::new().num_threads(num_cpu)
+        .build().unwrap().install(|| create_tile_matrix(&file, bin_size).unwrap());
+    file.close().unwrap();
+    Ok(())
+} 
+
+#[pyfunction]
+fn import_fragments(
+    output_file: &str,
+    fragment_file: &str,
+    gtf_file: &str,
+    chrom_size: BTreeMap<&str, u64>,
+    min_num_fragment: u64,
+    min_tsse: f64,
+    fragment_is_sorted_by_name: bool,
+    num_cpu: usize,
+    ) -> PyResult<()>
 {
     let file = hdf5::File::create(output_file).unwrap();
     let gtf_file_reader = File::open(gtf_file).unwrap();
@@ -68,13 +91,13 @@ fn mk_tile_matrix(output_file: &str,
     } else if min_num_fragment > 0 {
         let fragment_file_reader = File::open(fragment_file).unwrap();
         let mut barcode_count = if is_gzipped(fragment_file) {
-            get_barcode_count(bed::io::Reader::new(
+            qc::get_barcode_count(bed::io::Reader::new(
                 MultiGzDecoder::new(fragment_file_reader), Some("#".to_string())
                 ).into_records().map(Result::unwrap)
             )
         } else {
             let fragment_file_reader = File::open(fragment_file).unwrap();
-            get_barcode_count(bed::io::Reader::new(
+            qc::get_barcode_count(bed::io::Reader::new(
                 fragment_file_reader, Some("#".to_string()))
                 .into_records().map(Result::unwrap)
             )
@@ -90,27 +113,25 @@ fn mk_tile_matrix(output_file: &str,
         .build().unwrap().install(|| {
         let fragment_file_reader = File::open(fragment_file).unwrap();
         if is_gzipped(fragment_file) {
-            create_tile_matrix(
-            file,
+            qc::import_fragments(
+            &file,
             bed::io::Reader::new(
                 MultiGzDecoder::new(fragment_file_reader), Some("#".to_string())
             ).into_records().map(Result::unwrap),
             &promoters,
             &chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect(),
-            bin_size,
             white_list.as_ref(),
             min_num_fragment,
             min_tsse,
             fragment_is_sorted_by_name,
             ).unwrap()
         } else {
-            create_tile_matrix(
-            file,
+            qc::import_fragments(
+            &file,
             bed::io::Reader::new(fragment_file_reader, Some("#".to_string()))
                 .into_records().map(Result::unwrap),
             &promoters,
             &chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect(),
-            bin_size,
             white_list.as_ref(),
             min_num_fragment,
             min_tsse,
@@ -118,8 +139,11 @@ fn mk_tile_matrix(output_file: &str,
             ).unwrap()
         }
     });
+    file.close().unwrap();
     Ok(result)
 } 
+
+
 
 /// Simple linear regression
 #[pyfunction]
@@ -194,7 +218,7 @@ fn approximate_nearest_neighbors(
         index.search_nodes(row.to_vec().as_slice(), k).into_iter()
             .map(|(n, d)| (n.idx().unwrap(), d)).collect::<Vec<_>>()
     });
-    Ok(SparseRowWriter::new(row_iter, data.shape()[0]).to_csr_matrix())
+    Ok(to_csr_matrix(row_iter, data.shape()[0]))
 }
 
 // Convert string such as "chr1:134-2222" to `GenomicRange`.
@@ -214,6 +238,7 @@ fn is_gzipped(file: &str) -> bool {
 
 #[pymodule]
 fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(import_fragments, m)?)?;
     m.add_function(wrap_pyfunction!(mk_tile_matrix, m)?)?;
     m.add_function(wrap_pyfunction!(mk_gene_matrix, m)?)?;
     m.add_function(wrap_pyfunction!(simple_lin_reg, m)?)?;

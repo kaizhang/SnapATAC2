@@ -8,7 +8,7 @@ from snapatac2._snapatac2 import jm_regress
 from typing import Optional, Union
 from anndata.experimental import AnnCollection
 
-from .._utils import read_as_binarized, binarized_chunk_X
+from .._utils import read_as_binarized, binarized_chunk_X, inplace_init_view_as_actual
 
 # FIXME: random state
 def spectral(
@@ -93,18 +93,11 @@ def spectral(
             if distance_metric == "jaccard":
                 X.data = np.ones(X.indices.shape, dtype=np.float64)
         elif isinstance(data, ad.AnnData):
-            if data.isbacked:
-                if data.is_view:
-                    raise ValueError(
-                        "View of AnnData object in backed mode is not supported."
-                        "To save the object to file, use `.copy(filename=myfilename.h5ad)`."
-                        "To load the object into memory, use `.to_memory()`.")
-                else:
-                    X = read_as_binarized(data)
-            else:
-                X = data.X[...]
-                if distance_metric == "jaccard":
-                    X.data = np.ones(X.indices.shape, dtype=np.float64)
+            if data.isbacked and data.is_view:
+                    inplace_init_view_as_actual(data)
+            X = data.X[...]
+            if distance_metric == "jaccard":
+                X.data = np.ones(X.indices.shape, dtype=np.float64)
         else:
             raise ValueError("input should be AnnData or AnnCollection")
 
