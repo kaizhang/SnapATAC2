@@ -15,6 +15,12 @@ pub trait Barcoded {
 
 pub struct Fragment(BED<5>);
 
+impl<'a> Barcoded for &'a Fragment {
+    fn get_barcode(&self) -> &'a str {
+        self.0.name().unwrap()
+    }
+}
+
 impl Barcoded for Fragment {
     fn get_barcode(&self) -> &str {
         self.0.name().unwrap()
@@ -26,6 +32,15 @@ impl<T> Barcoded for AnnSparseRow<T> {
 }
 
 pub struct Insertions(pub Vec<(GenomicRange, u32)>);
+
+impl From<&Fragment> for Insertions {
+    fn from(rec: &Fragment) -> Self {
+        Insertions(vec![
+            (GenomicRange::new(rec.0.chrom().to_string(), rec.0.start(), rec.0.start() + 1), 1),
+            (GenomicRange::new(rec.0.chrom().to_string(), rec.0.end() - 1, rec.0.end()), 1),
+        ])
+    }
+}
 
 impl From<Fragment> for Insertions {
     fn from(rec: Fragment) -> Self {

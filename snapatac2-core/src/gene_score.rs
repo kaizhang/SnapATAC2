@@ -85,17 +85,15 @@ impl FeatureCounter for PromoterCoverage<'_> {
 }
 
 pub fn create_gene_matrix<'a, I, D>(
-    file: File,
+    file: &File,
     fragments: I,
     transcripts: Vec<Transcript>,
-    white_list: Option<&HashSet<String>>,
-    fragment_is_sorted_by_name: bool,
     ) -> Result<()>
 where
     I: Iterator<Item = D>,
-    D: Into<Insertions> + Barcoded + Send,
+    D: Into<Insertions> + Send,
 {
     let promoters = Promoters::new(transcripts, 2000);
     let feature_counter: PromoterCoverage<'_> = PromoterCoverage::new(&promoters);
-    create_feat_matrix(file, fragments, feature_counter, white_list, fragment_is_sorted_by_name)
+    create_feat_matrix(file, fragments, feature_counter)
 }

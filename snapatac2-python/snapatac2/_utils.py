@@ -72,3 +72,28 @@ def binarized_chunk_X(
 
     binarize_inplace(selection)
     return selection if reverse is None else selection[reverse]
+
+def inplace_init_view_as_actual(data):
+    """
+    Replace view of backed AnnData with actual data
+    """
+    if data.isbacked and data.is_view:
+        filename = str(data.filename)
+        data.write()
+        data.file.close()
+        new_data = ad.read(filename, backed="r+")
+        new_data.file.close()
+        data._init_as_actual(
+            obs=new_data.obs,
+            var=new_data.var,
+            uns=new_data.uns,
+            obsm=new_data.obsm,
+            varm=new_data.varm,
+            varp=new_data.varp,
+            obsp=new_data.obsp,
+            raw=new_data.raw,
+            layers=new_data.layers,
+            shape=new_data.shape,
+            filename=new_data.filename,
+            filemode="r+",
+        )
