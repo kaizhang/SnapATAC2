@@ -19,8 +19,7 @@ setup(
     zip_safe=False,
     python_requires=">=3.7",
     install_requires=[
-        #"anndata>=0.8.0rc1",
-        "anndata @ git+https://github.com/kaizhang/anndata.git@f1d6ff6dd44bacea066a92e36e6b0778f9a28e61",
+        "anndata>=0.8.0rc1",
         "numpy>=1.16.0",
         "pandas",
         "python-igraph",

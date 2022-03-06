@@ -42,3 +42,4 @@ Example visualization
    tutorials/index
    install
    api
+   algorithms/index
