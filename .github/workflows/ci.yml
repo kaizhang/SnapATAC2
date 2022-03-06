@@ -10,9 +10,6 @@ jobs:
       with:
         lfs: true
 
-    - name: Checkout LFS objects
-      run: git lfs checkout
-
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
