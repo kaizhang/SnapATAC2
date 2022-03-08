@@ -36,6 +36,6 @@ jobs:
 
     - name: Build and test package
       run: |
-        cd ${GITHUB_WORKSPACE}/snapatac2-core && cargo test --all --no-fail-fast
-        cd ${GITHUB_WORKSPACE}/snapatac2-python && pip install --user . --use-feature=in-tree-build
-        python ${GITHUB_WORKSPACE}/snapatac2-python/tests/test.py
+        cd snapatac2-core && cargo test --all --no-fail-fast
+        cd ../snapatac2-python && pip install --user . --use-feature=in-tree-build
+        python tests/test.py
