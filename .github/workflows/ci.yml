@@ -29,9 +29,10 @@ jobs:
         brew install hdf5
         python -m pip install --upgrade wheel setuptools setuptools-rust
 
-    - if: runner.os == 'Windows'
+    - name: Install dependency (Windows)
+      if: runner.os == 'Windows'
       run: |
-        pip install --upgrade pip h5py
+        pip install --upgrade --user pip h5py
 
     - name: Build and test package
       run: |
