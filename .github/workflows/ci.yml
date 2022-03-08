@@ -13,6 +13,10 @@ jobs:
       with:
         lfs: true
 
+    - uses: actions/setup-python@v2
+      with:
+        python-version: '3.7'
+
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
@@ -27,7 +31,7 @@ jobs:
       if: runner.os == 'macOS'
       run: |
         brew install hdf5
-        python -m pip install --upgrade wheel setuptools setuptools-rust
+        pip install --upgrade pip
 
     - name: Install dependency (Windows)
       if: runner.os == 'Windows'
