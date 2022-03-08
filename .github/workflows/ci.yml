@@ -4,7 +4,10 @@ on: [push, pull_request]
 
 jobs:
   build_and_test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-11]
     steps:
     - uses: actions/checkout@v2
       with:
@@ -14,10 +17,21 @@ jobs:
       with:
         toolchain: stable
 
-    - name: Install dependency
+    - name: Install dependency (Linux)
+      if: runner.os == 'Linux'
       run: |
         sudo apt-get install -y libhdf5-serial-dev
         sudo pip install --upgrade pip
+
+    - name: Install dependency (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install hdf5
+        python -m pip install --upgrade wheel setuptools setuptools-rust
+
+    - if: runner.os == 'Windows'
+      run: |
+        pip install --upgrade pip h5py
 
     - name: Build and test package
       run: |
