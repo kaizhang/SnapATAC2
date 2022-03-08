@@ -34,6 +34,7 @@ jobs:
     - name: Install dependency (Windows)
       if: runner.os == 'Windows'
       run: |
+        pip install --user requests
         python ci/get_hdf5_win.py
 
     - name: Install dependency (all)
