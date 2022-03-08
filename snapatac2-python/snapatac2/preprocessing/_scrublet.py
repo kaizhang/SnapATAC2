@@ -4,7 +4,11 @@ from tokenize import Name
 import numpy as np
 import scipy.sparse as ss
 import anndata as ad
-from typing import Literal, Optional, Union, Type, Tuple
+from typing import Optional, Union, Type, Tuple
+try:
+    from typing import Literal
+except ImportError:
+    from typing_extensions import Literal
 from sklearn.neighbors import NearestNeighbors
 
 from .._utils import get_binarized_matrix

@@ -25,21 +25,23 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get install -y libhdf5-serial-dev
-        sudo pip install --upgrade pip
 
     - name: Install dependency (macOS)
       if: runner.os == 'macOS'
       run: |
         brew install hdf5
-        pip install --upgrade pip
 
     - name: Install dependency (Windows)
       if: runner.os == 'Windows'
       run: |
-        pip install --upgrade --user pip h5py
+        python ci/get_hdf5_win.py
+
+    - name: Install dependency (all)
+      run: |
+        pip install --upgrade --user pip typing_extensions
 
     - name: Build and test package
       run: |
         cd snapatac2-core && cargo test --all --no-fail-fast
-        cd ../snapatac2-python && pip install --user . --use-feature=in-tree-build
+        cd ../snapatac2-python && pip install --user .
         python tests/test.py

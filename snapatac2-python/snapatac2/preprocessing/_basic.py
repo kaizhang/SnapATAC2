@@ -1,7 +1,11 @@
 import numpy as np
 import anndata as ad
 import math
-from typing import Optional, Union, Literal, Mapping
+from typing import Optional, Union, Mapping
+try:
+    from typing import Literal
+except ImportError:
+    from typing_extensions import Literal
 from anndata.experimental import AnnCollection
 
 import snapatac2._snapatac2 as internal
