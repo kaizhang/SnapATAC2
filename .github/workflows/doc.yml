@@ -24,7 +24,7 @@ jobs:
         sudo apt-get install -y pandoc
         pip install --user Pygments==2.6.1 sphinx==4.4.0 pandoc nbsphinx \
           sphinx-autodoc-typehints \
-          sphinxcontrib-versioning \
+          sphinx-multiversion \
           sphinx_rtd_theme
 
     - name: Install package dependency
@@ -35,13 +35,15 @@ jobs:
         pip install --user -r *.egg-info/requires.txt
 
     - name: Build doc
-      run: cd ${GITHUB_WORKSPACE}/docs && make html
+      run: |
+        sphinx-multiversion ${GITHUB_WORKSPACE}/docs _build/html
+        mv ${GITHUB_WORKSPACE}/docs/github_page_redirect.html _build/html/index.html
 
     - name: Upload doc
       uses: actions/upload-artifact@v2
       with:
         name: documentation
-        path: ./docs/_build/html
+        path: ./_build/html
 
   upload_gh-page:
     #if: startsWith(github.ref, 'refs/tags/v')

@@ -29,7 +29,8 @@ default_role = 'code'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'nbsphinx',
+    "sphinx_multiversion",
+    "nbsphinx",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.doctest",
@@ -72,8 +73,15 @@ intersphinx_mapping = {
     "sklearn": ("https://scikit-learn.org/stable/", None),
 }
 
+smv_branch_whitelist = r'main'  # Include all branches
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
+html_sidebars = {
+    '**': [
+        'versioning.html',
+    ],
+}
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
