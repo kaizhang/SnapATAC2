@@ -43,6 +43,7 @@ def mnc_correct(
     mat = data.obsm[use_rep] if isinstance(data, ad.AnnData) else data
     if isinstance(use_dims, int): use_dims = range(use_dims) 
     mat = mat if use_dims is None else mat[:, use_dims]
+    mat = np.asarray(mat)
 
     labels = data.obs[batch]
     label_uniq = list(set(labels))

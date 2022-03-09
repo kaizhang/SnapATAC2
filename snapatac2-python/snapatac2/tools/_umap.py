@@ -7,6 +7,7 @@ def umap(
     n_comps: int = 2,
     use_dims: Optional[Union[int, List[int]]] = None,
     use_rep: Optional[str] = None,
+    key_added: str = 'umap',
     random_state: int = 0,
     inplace: bool = True,
 ) -> Optional[np.ndarray]:
@@ -21,6 +22,8 @@ def umap(
         Use these dimensions in `use_rep`.
     use_rep
         Use the indicated representation in `.obsm`.
+    key_added
+        `adata.obs` key under which to add the cluster labels.
     random_state
         Random seed.
     inplace
@@ -43,6 +46,6 @@ def umap(
         random_state=random_state, n_components=n_comps
         ).fit_transform(data)
     if inplace:
-        adata.obsm["X_umap"] = umap
+        adata.obsm["X_" + key_added] = umap
     else:
         return umap
