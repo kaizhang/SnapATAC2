@@ -64,6 +64,8 @@ def scrublet(
     else:
         count_matrix = adata.X[:, features]
 
+    if min(count_matrix.shape) == 0: raise NameError("Matrix is empty")
+
     if n_neighbors is None:
         n_neighbors = int(round(0.5 * np.sqrt(count_matrix.shape[0])))
 

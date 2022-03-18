@@ -261,7 +261,7 @@ def select_features(
     if whitelist is not None:
         selected_features &= internal.intersect_bed(list(adata.var_names), whitelist)
     if blacklist is not None:
-        selected_features &= not internal.intersect_bed(list(adata.var_names), blacklist)
+        selected_features &= np.logical_not(internal.intersect_bed(list(adata.var_names), blacklist))
 
     if variable_feature:
         mean = count[selected_features].mean()
