@@ -3,6 +3,8 @@ use pyo3::types::PyIterator;
 use numpy::{PyReadonlyArrayDyn, PyReadonlyArray, Ix1, Ix2, PyArray, IntoPyArray};
 use pyo3::{pymodule, types::PyModule, PyResult, Python};
 
+use anndata_rs::base::AnnData;
+use pyanndata::PyAnnData;
 use bed_utils::{bed, bed::GenomicRange, bed::BED};
 use std::fs::File;
 use std::collections::BTreeMap;
@@ -30,6 +32,8 @@ fn mk_gene_matrix(input_file: &str,
                   num_cpu: usize,
 ) -> PyResult<()>
 {
+    todo!()
+    /*
     let file = hdf5::File::create(output_file).unwrap();
     let transcripts = if is_gzipped(gff_file) {
         let reader = File::open(gff_file).map(MultiGzDecoder::new)
@@ -51,18 +55,17 @@ fn mk_gene_matrix(input_file: &str,
     file.close().unwrap();
 
     Ok(())
+    */
 }
 
 #[pyfunction]
-fn mk_tile_matrix(input_file: &str,
+fn mk_tile_matrix(anndata: &mut PyAnnData,
                   bin_size: u64,
                   num_cpu: usize,
                   ) -> PyResult<()>
 {
-    let file = hdf5::File::open_rw(input_file).unwrap();
     rayon::ThreadPoolBuilder::new().num_threads(num_cpu)
-        .build().unwrap().install(|| create_tile_matrix(&file, bin_size).unwrap());
-    file.close().unwrap();
+        .build().unwrap().install(|| create_tile_matrix(&mut anndata.0, bin_size).unwrap());
     Ok(())
 } 
 
@@ -76,9 +79,9 @@ fn import_fragments(
     min_tsse: f64,
     fragment_is_sorted_by_name: bool,
     num_cpu: usize,
-    ) -> PyResult<()>
+    ) -> PyResult<PyAnnData>
 {
-    let file = hdf5::File::create(output_file).unwrap();
+    let mut anndata = AnnData::new(output_file, 0, 0).unwrap();
     let gtf_file_reader = File::open(gtf_file).unwrap();
     let promoters = if is_gzipped(gtf_file) {
         qc::make_promoter_map(qc::read_tss(MultiGzDecoder::new(gtf_file_reader)))
@@ -109,12 +112,12 @@ fn import_fragments(
         None
     };
 
-    let result = rayon::ThreadPoolBuilder::new().num_threads(num_cpu)
+    rayon::ThreadPoolBuilder::new().num_threads(num_cpu)
         .build().unwrap().install(|| {
         let fragment_file_reader = File::open(fragment_file).unwrap();
         if is_gzipped(fragment_file) {
             qc::import_fragments(
-            &file,
+            &mut anndata,
             bed::io::Reader::new(
                 MultiGzDecoder::new(fragment_file_reader), Some("#".to_string())
             ).into_records().map(Result::unwrap),
@@ -127,7 +130,7 @@ fn import_fragments(
             ).unwrap()
         } else {
             qc::import_fragments(
-            &file,
+            &mut anndata,
             bed::io::Reader::new(fragment_file_reader, Some("#".to_string()))
                 .into_records().map(Result::unwrap),
             &promoters,
@@ -139,8 +142,7 @@ fn import_fragments(
             ).unwrap()
         }
     });
-    file.close().unwrap();
-    Ok(result)
+    Ok(PyAnnData(anndata))
 } 
 
 

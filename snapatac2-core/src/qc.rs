@@ -3,6 +3,13 @@ use crate::utils::{
     anndata::{AnnDataElement, SparseRowIter, StrVec, AnnDataIO, create_obs, write_csr_rows},
 };
 
+use anndata_rs::base::AnnData;
+use anndata_rs::anndata_trait::WriteData;
+use anndata_rs::element::MatrixElem;
+use anndata_rs::iterator::CsrIterator;
+use polars::prelude::{NamedFrom, DataFrame, Series};
+use anndata_rs::iterator::{IntoRowIterator, CsrRowIterator};
+
 use std::io;
 use std::io::prelude::*;
 use std::io::BufReader;                                                                                                                                           
@@ -14,10 +21,9 @@ use itertools::{Itertools, GroupBy};
 use std::ops::Div;
 use std::collections::HashSet;
 use std::collections::HashMap;
-use hdf5::{File, Group, Result};
+use hdf5::Result;
 use rayon::iter::ParallelIterator;
 use rayon::iter::IntoParallelIterator;
-use nalgebra_sparse::csr;
 
 pub type CellBarcode = String;
 
@@ -134,6 +140,31 @@ impl<'a> FragmentSummary<'a> {
     }
 }
 
+fn qc_to_df(
+    cells: Vec<CellBarcode>,
+    qc: Vec<QualityControl>,
+) -> DataFrame {
+    DataFrame::new(vec![
+        Series::new("Cell", cells),
+        Series::new(
+            "tsse", 
+            qc.iter().map(|x| x.tss_enrichment).collect::<Series>(),
+        ),
+        Series::new(
+            "n_fragment", 
+            qc.iter().map(|x| x.num_unique_fragment).collect::<Series>(),
+        ),
+        Series::new(
+            "frac_dup", 
+            qc.iter().map(|x| x.frac_duplicated).collect::<Series>(),
+        ),
+        Series::new(
+            "frac_mito", 
+            qc.iter().map(|x| x.frac_mitochondrial).collect::<Series>(),
+        ),
+    ]).unwrap()
+}
+
 fn moving_average(half_window: usize, arr: &[u64]) -> impl Iterator<Item = f64> + '_ {
     let n = arr.len();
     (0 .. n).map(move |i| {
@@ -198,7 +229,7 @@ where
 }
 
 pub fn import_fragments<B, I>(
-    file: &File,
+    anndata: &mut AnnData,
     fragments: I,
     promoter: &BedTree<bool>,
     regions: &GenomeRegions<B>,
@@ -214,42 +245,40 @@ where
     let num_features = SparseBinnedCoverage::<_, u8>::new(regions, 1).len;
     let mut saved_barcodes = Vec::new();
     let mut qc = Vec::new();
-    let obsm = file.create_group("obsm")?;
 
-    let mat = if fragment_is_sorted_by_name {
+    if fragment_is_sorted_by_name {
         let mut scanned_barcodes = HashSet::new();
-        write_csr_rows(
-            fragments
-            .group_by(|x| { x.name().unwrap().to_string() }).into_iter()
-            .filter(|(key, _)| white_list.map_or(true, |x| x.contains(key)))
-            .chunks(2000).into_iter().map(|chunk| {
-                let data: Vec<(String, Vec<BED<5>>)> = chunk
-                    .map(|(barcode, x)| (barcode, x.collect())).collect();
-                let result: Vec<_> = data.into_par_iter()
-                    .map(|(barcode, x)| (
-                        barcode,
-                        compute_qc_count(x, promoter, regions, min_num_fragment, min_tsse)
-                    )).collect();
-                result.into_iter().filter_map(|(barcode, r)| {
-                    if !scanned_barcodes.insert(barcode.clone()) {
-                        panic!("Please sort fragment file by barcodes");
-                    }
-                    match r {
-                        None => None,
-                        Some((q, count)) => {
-                            saved_barcodes.push(barcode);
-                            qc.push(q);
-                            Some(count)
-                        },
-                    }
-                }).collect::<Vec<_>>()
-            }).flatten(),
-            num_features,
-            &obsm,
-            "base_count",
-            "base_count",
-            "0.1.0",
-        )?
+        anndata.add_obsm_from_row_iter(
+            "insertion",
+            CsrIterator {
+                iterator: fragments
+                .group_by(|x| { x.name().unwrap().to_string() }).into_iter()
+                .filter(|(key, _)| white_list.map_or(true, |x| x.contains(key)))
+                .chunks(2000).into_iter().map(|chunk| {
+                    let data: Vec<(String, Vec<BED<5>>)> = chunk
+                        .map(|(barcode, x)| (barcode, x.collect())).collect();
+                    let result: Vec<_> = data.into_par_iter()
+                        .map(|(barcode, x)| (
+                            barcode,
+                            compute_qc_count(x, promoter, regions, min_num_fragment, min_tsse)
+                        )).collect();
+                    result.into_iter().filter_map(|(barcode, r)| {
+                        if !scanned_barcodes.insert(barcode.clone()) {
+                            panic!("Please sort fragment file by barcodes");
+                        }
+                        match r {
+                            None => None,
+                            Some((q, count)) => {
+                                saved_barcodes.push(barcode);
+                                qc.push(q);
+                                Some(count)
+                            },
+                        }
+                    }).collect::<Vec<_>>()
+                }).flatten(),
+                num_cols: num_features,
+            }
+        )?;
     } else {
         let mut scanned_barcodes = HashMap::new();
         fragments
@@ -273,7 +302,8 @@ where
                 }
             }
         });
-        let csr_rows = scanned_barcodes.drain()
+        let csr_rows = CsrIterator {
+            iterator: scanned_barcodes.drain()
             .filter_map(|(barcode, (summary, binned_coverage))| {
                 let q = summary.get_qc();
                 if q.num_unique_fragment < min_num_fragment || q.tss_enrichment < min_tsse {
@@ -285,15 +315,24 @@ where
                         .iter().map(|(k, v)| (*k, *v)).collect();
                     Some(count)
                 }
-            });
-        write_csr_rows(csr_rows, num_features, &obsm, "base_count", "base_count", "0.1.0")?
-    };
+            }),
+            num_cols: num_features,
+        };
+        anndata.add_obsm_from_row_iter("insertion", csr_rows)?;
+    }
 
-    StrVec(regions.regions.iter().map(|x| x.chrom().to_string()).collect())
-        .write(&mat, "reference_seq_name")?;
-    regions.regions.iter().map(|x| x.end()).collect::<Vec<_>>()
-        .write(&mat, "reference_seq_length")?;
-    create_obs(file, saved_barcodes, Some(qc))?;
+    let chrom_sizes: Box<dyn WriteData> = Box::new(DataFrame::new(vec![
+        Series::new(
+            "reference_seq_name",
+            regions.regions.iter().map(|x| x.chrom()).collect::<Series>(),
+        ),
+        Series::new(
+            "reference_seq_length",
+            regions.regions.iter().map(|x| x.end()).collect::<Series>(),
+        ),
+    ]).unwrap());
+    anndata.add_uns("reference_sequences", &chrom_sizes)?;
+    anndata.set_obs(&qc_to_df(saved_barcodes, qc))?;
     Ok(())
 }
 
@@ -340,7 +379,7 @@ where
 }
 
 pub struct IntoInsertionIter {
-    data: AnnDataElement<csr::CsrMatrix<u32>, Group>, 
+    elem: MatrixElem,
     chrom_index: Vec<(String, u64)>,
 }
 
@@ -348,14 +387,14 @@ impl IntoInsertionIter {
     pub fn iter<'a>(&'a self) -> InsertionIter<'a> {
         InsertionIter {
             data: self,
-            iter: self.data.row_iter(),
+            iter: self.elem.0.as_ref().as_ref().into_row_iter(),
         }
     }
 }
 
 pub struct InsertionIter<'a> {
     data: &'a IntoInsertionIter,
-    iter: SparseRowIter<'a, u32>,
+    iter: CsrRowIterator<'a, u8>,
 }
 
 impl<'a> Iterator for InsertionIter<'a>
@@ -372,25 +411,28 @@ impl<'a> Iterator for InsertionIter<'a>
                         GenomicRange::new(chr, i as u64 - p, i as u64 - p + 1)
                     },
                 };
-                (locus, x)
+                (locus, x as u32)
             }).collect();
             Insertions(ins)
         })
     }
 }
 
-pub fn read_insertions<'a>(file: Group) -> Result<IntoInsertionIter> {
-    let chrs: StrVec = AnnDataIO::read(&file.dataset("reference_seq_name")?)?;
-    let chr_sizes: Vec<u64> = AnnDataIO::read(&file.dataset("reference_seq_length")?)?;
-    let chrom_index = chrs.0.into_iter().zip(
-        std::iter::once(0).chain(chr_sizes.into_iter().scan(0, |state, x| {
+pub fn read_insertions(anndata: &AnnData) -> Result<IntoInsertionIter> {
+    let df: DataFrame = anndata.uns.get("reference_sequences").unwrap().0
+        .as_ref().as_ref().read_elem();
+    let chrs = df.column("reference_seq_name").unwrap().utf8().unwrap();
+    let chr_sizes = df.column("reference_seq_length").unwrap().u64().unwrap();
+    let chrom_index = chrs.into_iter().flatten().map(|x| x.to_string()).zip(
+        std::iter::once(0).chain(chr_sizes.into_iter().flatten().scan(0, |state, x| {
             *state = *state + x;
             Some(*state)
         }))
     ).collect();
+
     Ok(IntoInsertionIter{
-        data: AnnDataElement::new(file),
-        chrom_index
+        elem: anndata.obsm.get("insertion").unwrap().clone(),
+        chrom_index,
     })
 }
 

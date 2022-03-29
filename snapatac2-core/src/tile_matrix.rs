@@ -2,6 +2,11 @@ use crate::utils::anndata::{AnnDataIO, StrVec};
 use crate::qc::{read_insertions};
 use crate::peak_matrix::create_feat_matrix;
 
+use anndata_rs::base::AnnData;
+use anndata_rs::anndata_trait::WriteData;
+use anndata_rs::iterator::CsrIterator;
+use polars::prelude::{DataFrame, Series};
+
 use hdf5::{File, Result};
 use bed_utils::bed::{
     GenomicRange,
@@ -20,16 +25,19 @@ use bed_utils::bed::{
 /// * `min_num_fragment` -
 /// * `min_tsse` -
 pub fn create_tile_matrix(
-    file: &File,
+    anndata: &mut AnnData,
     bin_size: u64,
     ) -> Result<()>
 where
 {
-    let group = file.group("obsm")?.group("base_count")?;
-    let chrs: StrVec = AnnDataIO::read(&group.dataset("reference_seq_name")?)?;
-    let chr_sizes: Vec<u64> = AnnDataIO::read(&group.dataset("reference_seq_length")?)?;
-    let regions = chrs.0.into_iter().zip(chr_sizes).map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect();
-    let feature_counter: SparseBinnedCoverage<'_, _, u32> = SparseBinnedCoverage::new(&regions, bin_size);
-    let insertions = read_insertions(group)?;
-    create_feat_matrix(file, insertions.iter(), feature_counter)
+    let df: DataFrame = anndata.uns.get("reference_sequences").unwrap().0
+        .as_ref().as_ref().read_elem();
+    let regions = df.column("reference_seq_length")
+        .unwrap().u64().unwrap().into_iter()
+        .zip(df.column("reference_seq_name").unwrap().utf8().unwrap())
+        .map(|(s, chr)| GenomicRange::new(chr.unwrap(), 0, s.unwrap())).collect();
+    let feature_counter: SparseBinnedCoverage<'_, _, u32> =
+        SparseBinnedCoverage::new(&regions, bin_size);
+    let insertion = read_insertions(anndata)?;
+    create_feat_matrix(anndata, insertion.iter(), feature_counter)
 }

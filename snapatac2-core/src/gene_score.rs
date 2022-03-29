@@ -6,6 +6,11 @@ use crate::utils::{
 };
 use crate::peak_matrix::create_feat_matrix;
 
+use anndata_rs::base::AnnData;
+use anndata_rs::anndata_trait::WriteData;
+use anndata_rs::iterator::CsrIterator;
+use polars::prelude::{NamedFrom, DataFrame, Series};
+
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::collections::HashMap;
@@ -85,7 +90,7 @@ impl FeatureCounter for PromoterCoverage<'_> {
 }
 
 pub fn create_gene_matrix<'a, I, D>(
-    file: &File,
+    anndata: &mut AnnData,
     fragments: I,
     transcripts: Vec<Transcript>,
     ) -> Result<()>
@@ -95,5 +100,5 @@ where
 {
     let promoters = Promoters::new(transcripts, 2000);
     let feature_counter: PromoterCoverage<'_> = PromoterCoverage::new(&promoters);
-    create_feat_matrix(file, fragments, feature_counter)
+    create_feat_matrix(anndata, fragments, feature_counter)
 }

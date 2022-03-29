@@ -1,5 +1,6 @@
 import numpy as np
 import anndata as ad
+import anndata_rs as rs
 import math
 from typing import Optional, Union, Literal, Mapping
 from anndata.experimental import AnnCollection
@@ -14,9 +15,8 @@ def import_data(
     min_num_fragments: int = 200,
     min_tsse: float = 1,
     sorted_by_barcode: bool = True,
-    backed: Optional[Literal["r", "r+"]] = "r+",
     n_jobs: int = 4,
-) -> ad.AnnData:
+) -> rs.AnnData:
     """
     Import dataset and compute QC metrics.
 
@@ -38,8 +38,6 @@ def import_data(
     sorted_by_barcode
         Whether the fragment file has been sorted by cell barcodes. Pre-sort the
         fragment file will speed up the processing and require far less memory.
-    backed
-        Whether to open the file in backed mode
     n_jobs
         number of CPUs to use
     
@@ -47,14 +45,14 @@ def import_data(
     -------
     AnnData
     """
-    internal.import_fragments(
+    pyanndata = internal.import_fragments(
         output, fragment_file, gff_file, chrom_size,
         min_num_fragments, min_tsse, sorted_by_barcode, n_jobs
     )
-    return ad.read(output, backed=backed) 
+    return rs.AnnData(pyanndata = pyanndata)
 
 def make_tile_matrix(
-    adata: ad.AnnData,
+    adata: rs.AnnData,
     bin_size: int = 500,
     n_jobs: int = 4
 ):
@@ -73,27 +71,7 @@ def make_tile_matrix(
     Returns
     -------
     """
-    if not adata.isbacked:
-        raise NotImplementedError("not implemented")
-    filename = str(adata.filename)
-    adata.file.close()
-    internal.mk_tile_matrix(filename, bin_size, n_jobs)
-    new_adata = ad.read(filename, backed="r+")
-    new_adata.file.close()
-    adata._init_as_actual(
-        obs=new_adata.obs,
-        var=new_adata.var,
-        uns=new_adata.uns,
-        obsm=new_adata.obsm,
-        varm=new_adata.varm,
-        varp=new_adata.varp,
-        obsp=new_adata.obsp,
-        raw=new_adata.raw,
-        layers=new_adata.layers,
-        shape=new_adata.shape,
-        filename=new_adata.filename,
-        filemode="r+",
-    )
+    internal.mk_tile_matrix(adata._anndata, bin_size, n_jobs)
 
 def make_gene_matrix(
     adata: Union[ad.AnnData, str],
