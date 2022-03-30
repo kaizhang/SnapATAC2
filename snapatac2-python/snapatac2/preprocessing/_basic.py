@@ -1,6 +1,7 @@
 import numpy as np
 import anndata as ad
 import anndata_rs as rs
+from anndata_rs import AnnData
 import math
 from typing import Optional, Union, Literal, Mapping
 from anndata.experimental import AnnCollection
@@ -128,7 +129,7 @@ def make_gene_matrix(
     return gene_mat
 
 def filter_cells(
-    data: ad.AnnData,
+    data: AnnData,
     min_counts: Optional[int] = 1000,
     min_tsse: Optional[float] = 5.0,
     max_counts: Optional[int] = None,
@@ -172,30 +173,9 @@ def filter_cells(
     if max_tsse: selected_cells &= data.obs["tsse"] <= max_tsse
 
     if inplace:
-        if data.isbacked:
-            filename = str(data.filename)
-            data[selected_cells, :].write()
-            data.file.close()
-            sdata = ad.read(filename, backed="r+")
-            sdata.file.close()
-            data._init_as_actual(
-                obs=sdata.obs,
-                var=sdata.var,
-                uns=sdata.uns,
-                obsm=sdata.obsm,
-                varm=sdata.varm,
-                varp=sdata.varp,
-                obsp=sdata.obsp,
-                raw=sdata.raw,
-                layers=sdata.layers,
-                shape=sdata.shape,
-                filename=sdata.filename,
-                filemode="r+",
-            )
-        else:
-            data._inplace_subset_obs(selected_cells)
+        data.subset(selected_cells.to_numpy())
     else:
-        return data[selected_cells, :]
+        raise NameError("Not implement")
  
 def select_features(
     adata: Union[ad.AnnData, AnnCollection],

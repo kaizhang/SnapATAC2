@@ -1,5 +1,5 @@
 from typing import Optional
-from anndata import AnnData
+from anndata_rs import AnnData
 import numpy as np
 from ._utils import render_plot
 
