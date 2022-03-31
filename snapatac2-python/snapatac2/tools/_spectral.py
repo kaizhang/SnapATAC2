@@ -3,16 +3,15 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel
 import gc
 
-import anndata as ad
+from anndata_rs import AnnData
 from snapatac2._snapatac2 import jm_regress
 from typing import Optional, Union
-from anndata.experimental import AnnCollection
 
 from .._utils import read_as_binarized, binarized_chunk_X, inplace_init_view_as_actual
 
 # FIXME: random state
 def spectral(
-    data: ad.AnnData,
+    data: AnnData,
     n_comps: Optional[int] = None,
     features: Optional[Union[str, np.ndarray]] = "selected",
     random_state: int = 0,
@@ -59,7 +58,7 @@ def spectral(
     """
     if isinstance(features, str):
         if features in data.var:
-            features = data.var[features]
+            features = data.var[features].to_numpy()
         else:
             raise NameError("Please call `select_features` first or explicitly set `features = None`")
 
@@ -87,14 +86,7 @@ def spectral(
             sample_size = int(sample_size * n_sample)
 
     if sample_size >= n_sample:
-        if isinstance(data, AnnCollection):
-            X, _ = next(data.iterate_axis(n_sample))
-            X = X.X[...]
-            if distance_metric == "jaccard":
-                X.data = np.ones(X.indices.shape, dtype=np.float64)
-        elif isinstance(data, ad.AnnData):
-            if data.isbacked and data.is_view:
-                    inplace_init_view_as_actual(data)
+        if isinstance(data, AnnData):
             X = data.X[...]
             if distance_metric == "jaccard":
                 X.data = np.ones(X.indices.shape, dtype=np.float64)
@@ -107,18 +99,10 @@ def spectral(
         model.fit(X)
         result = model.transform()
     else:
-        if isinstance(data, AnnCollection):
-            S, sample_indices = next(data.iterate_axis(sample_size, shuffle=True))
-            S = S.X[...]
+        if isinstance(data, AnnData):
+            S = data.X.chunk(sample_size, replace=False)
             if distance_metric == "jaccard":
                 S.data = np.ones(S.indices.shape, dtype=np.float64)
-            chunk_iterator = map(lambda b: b[0].X[...], data.iterate_axis(chunk_size))
-        elif isinstance(data, ad.AnnData):
-            if distance_metric == "jaccard":
-                S = binarized_chunk_X(data, select=sample_size, replace=False)
-            else:
-                S = ad.chunk_X(data, select=sample_size, replace=False)
-            chunk_iterator = map(lambda b: b[0], data.chunked_X(chunk_size))
         else:
             raise ValueError("input should be AnnData or AnnCollection")
 
@@ -130,7 +114,7 @@ def spectral(
         from tqdm import tqdm
         import math
         print("Perform Nystrom extension")
-        for batch in tqdm(chunk_iterator, total = math.ceil(n_sample / chunk_size)):
+        for batch in tqdm(data.X.chunked(chunk_size), total = math.ceil(n_sample / chunk_size)):
             if distance_metric == "jaccard":
                 batch.data = np.ones(batch.indices.shape, dtype=np.float64)
             if features is not None: batch = batch[:, features]

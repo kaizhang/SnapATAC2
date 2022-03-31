@@ -1,10 +1,8 @@
 import numpy as np
 import anndata as ad
-import anndata_rs as rs
 from anndata_rs import AnnData
 import math
 from typing import Optional, Union, Literal, Mapping
-from anndata.experimental import AnnCollection
 
 import snapatac2._snapatac2 as internal
 
@@ -17,7 +15,7 @@ def import_data(
     min_tsse: float = 1,
     sorted_by_barcode: bool = True,
     n_jobs: int = 4,
-) -> rs.AnnData:
+) -> AnnData:
     """
     Import dataset and compute QC metrics.
 
@@ -50,10 +48,10 @@ def import_data(
         output, fragment_file, gff_file, chrom_size,
         min_num_fragments, min_tsse, sorted_by_barcode, n_jobs
     )
-    return rs.AnnData(pyanndata = pyanndata)
+    return AnnData(pyanndata = pyanndata)
 
 def make_tile_matrix(
-    adata: rs.AnnData,
+    adata: AnnData,
     bin_size: int = 500,
     n_jobs: int = 4
 ):
@@ -178,7 +176,7 @@ def filter_cells(
         raise NameError("Not implement")
  
 def select_features(
-    adata: Union[ad.AnnData, AnnCollection],
+    adata: AnnData,
     variable_feature: bool = True,
     whitelist: Optional[str] = None,
     blacklist: Optional[str] = None,
@@ -207,12 +205,9 @@ def select_features(
     Boolean index mask that does filtering. True means that the cell is kept.
     False means the cell is removed.
     """
-    if isinstance(adata, ad.AnnData):
-        count = np.ravel(adata.X[...].sum(axis = 0))
-    else:
-        count = np.zeros(adata.shape[1])
-        for batch, _ in adata.iterate_axis(5000):
-            count += np.ravel(batch.X[...].sum(axis = 0))
+    count = np.zeros(adata.shape[1])
+    for batch in adata.X.chunked(5000):
+        count += np.ravel(batch.sum(axis = 0))
 
     selected_features = count != 0
 

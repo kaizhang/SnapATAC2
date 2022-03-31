@@ -3,7 +3,7 @@
 from tokenize import Name
 import numpy as np
 import scipy.sparse as ss
-import anndata as ad
+from anndata_rs import AnnData
 from typing import Literal, Optional, Union, Type, Tuple
 from sklearn.neighbors import NearestNeighbors
 
@@ -11,7 +11,7 @@ from .._utils import get_binarized_matrix
 from snapatac2.tools._spectral import Spectral
 
 def scrublet(
-    adata: ad.AnnData,
+    adata: AnnData,
     features: Optional[Union[str, np.ndarray]] = "selected",
     n_comps: int = 15,
     sim_doublet_ratio: float = 2.0,
@@ -55,7 +55,7 @@ def scrublet(
 
     if isinstance(features, str):
         if features in adata.var:
-            features = adata.var[features]
+            features = adata.var[features].to_numpy()
         else:
             raise NameError("Please call `select_features` first or explicitly set `features = None`")
 
@@ -75,12 +75,10 @@ def scrublet(
         random_state=random_state
         )
     adata.obs["doublet_score"] = doublet_scores_obs
-    adata.uns["scrublet"] = {
-        "sim_doublet_score": doublet_scores_sim,
-    }
+    adata.uns["scrublet_sim_doublet_score"] = doublet_scores_sim
 
 def call_doublets(
-    adata: ad.AnnData,
+    adata: AnnData,
     threshold: Union[Literal["gmm", ""], float] = "gmm",
     random_state: int = 0,
     inplace: bool = True,
@@ -114,7 +112,7 @@ def call_doublets(
     if 'scrublet' not in adata.uns:
         raise NameError("Please call `scrublet` first")
 
-    doublet_scores_sim = adata.uns["scrublet"]["sim_doublet_score"]
+    doublet_scores_sim = adata.uns["scrublet_sim_doublet_score"]
     doublet_scores_obs = adata.obs["doublet_score"].to_numpy()
 
     if isinstance(threshold, float):
@@ -131,7 +129,7 @@ def call_doublets(
 
     doublets = doublet_scores_obs >= thres
     if inplace:
-        adata.uns["scrublet"]["threshold"] = thres
+        adata.uns["scrublet_threshold"] = thres
         adata.obs["is_doublet"] = doublets
     else:
         return (doublets, thres)

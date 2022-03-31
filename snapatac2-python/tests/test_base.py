@@ -18,3 +18,15 @@ snap.pl.tsse(data, out_file="out.png")
 print("filtering...")
 snap.pp.filter_cells(data, min_tsse = 15)
 print(data)
+
+print("selecting features...")
+snap.pp.select_features(data)
+
+print("scrublet...")
+snap.pp.scrublet(data)
+#snap.pp.call_doublets(data)
+print(data)
+
+print("spectral embedding...")
+snap.tl.spectral(data)
+snap.tl.spectral(data, sample_size = 300)
