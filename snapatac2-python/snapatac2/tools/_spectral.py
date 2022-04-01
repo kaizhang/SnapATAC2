@@ -3,11 +3,9 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel
 import gc
 
-from anndata_rs import AnnData
+from snapatac2.anndata import AnnData
 from snapatac2._snapatac2 import jm_regress
 from typing import Optional, Union
-
-from .._utils import read_as_binarized, binarized_chunk_X, inplace_init_view_as_actual
 
 # FIXME: random state
 def spectral(

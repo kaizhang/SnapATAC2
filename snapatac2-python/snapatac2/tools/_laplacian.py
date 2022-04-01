@@ -1,16 +1,14 @@
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel
 
-import anndata as ad
 from typing import Optional, Union
-from anndata.experimental import AnnCollection
 from scipy.sparse.linalg import svds
 
-from .._utils import read_as_binarized
+from snapatac2.anndata import AnnData
 from ._spectral import JaccardNormalizer, jaccard_similarity
 
 def laplacian(
-    data: ad.AnnData,
+    data: AnnData,
     n_comps: Optional[int] = None,
     features: Optional[Union[str, np.ndarray]] = "selected",
     random_state: int = 0,
@@ -40,7 +38,7 @@ def laplacian(
     if `inplace=True` it stores Spectral embedding of data in the field
     `adata.obsm["X_spectral"]`, otherwise it returns the result as a numpy array.
     """
-    features = data.var[features] if isinstance(features, str) else features
+    features = data.var[features].to_numpy() if isinstance(features, str) else features
     if n_comps is None:
         min_dim = min(data.n_vars, data.n_obs)
         if 50 >= min_dim:
@@ -49,22 +47,9 @@ def laplacian(
             n_comps = 50
     (n_sample, _) = data.shape
 
-    if isinstance(data, AnnCollection):
-        X, _ = next(data.iterate_axis(n_sample))
-        X = X.X[...]
+    if isinstance(data, AnnData):
+        X = data.X[...]
         X.data = np.ones(X.indices.shape, dtype=np.float64)
-    elif isinstance(data, ad.AnnData):
-        if data.isbacked:
-            if data.is_view:
-                raise ValueError(
-                    "View of AnnData object in backed mode is not supported."
-                    "To save the object to file, use `.copy(filename=myfilename.h5ad)`."
-                    "To load the object into memory, use `.to_memory()`.")
-            else:
-                X = read_as_binarized(data)
-        else:
-            X = data.X[...]
-            X.data = np.ones(X.indices.shape, dtype=np.float64)
     else:
         raise ValueError("input should be AnnData or AnnCollection")
 

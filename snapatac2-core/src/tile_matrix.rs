@@ -1,13 +1,9 @@
-use crate::utils::anndata::{AnnDataIO, StrVec};
 use crate::qc::{read_insertions};
 use crate::peak_matrix::create_feat_matrix;
 
 use anndata_rs::base::AnnData;
-use anndata_rs::anndata_trait::WriteData;
-use anndata_rs::iterator::CsrIterator;
-use polars::prelude::{DataFrame, Series};
-
-use hdf5::{File, Result};
+use polars::prelude::DataFrame;
+use hdf5::Result;
 use bed_utils::bed::{
     GenomicRange,
     tree::{SparseBinnedCoverage},

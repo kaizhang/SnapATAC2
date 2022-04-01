@@ -2,11 +2,11 @@ from typing import Optional, Union, Type
 import pandas as pd
 from typing import Optional
 import numpy as np
-from anndata.experimental import AnnCollection
-import anndata as ad
+
+from snapatac2.anndata import AnnData
 
 def dbscan(
-    adata: Union[ad.AnnData, AnnCollection],
+    adata: AnnData,
     eps: float = 0.5,
     min_samples: int = 5,
     leaf_size: int = 30,
@@ -50,7 +50,7 @@ def dbscan(
     """
     from sklearn.cluster import DBSCAN
     if use_rep is None: use_rep = "X_spectral"
-    data = adata.obsm[use_rep]
+    data = adata.obsm[use_rep][...]
 
     clustering = DBSCAN(
         eps=eps,

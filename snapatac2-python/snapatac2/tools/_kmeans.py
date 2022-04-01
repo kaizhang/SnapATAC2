@@ -1,17 +1,18 @@
 from typing import Optional, Union, Type
-import pandas as pd
 import numpy as np
-from anndata.experimental import AnnCollection
-import anndata as ad
+import polars
+
+from snapatac2.anndata import AnnData
 import snapatac2._snapatac2 as _snapatac2
 
 def kmeans(
-    adata: Union[ad.AnnData, AnnCollection],
+    adata: AnnData,
     n_clusters: int,
     n_iterations: int = -1,
     random_state: int = 0,
     use_rep: Optional[str] = None,
     key_added: str = 'kmeans',
+    inplace: bool = True,
 ) -> None:
     """
     Cluster cells into subgroups using the K-means algorithm.
@@ -45,16 +46,21 @@ def kmeans(
     """
     if use_rep is None: use_rep = "X_spectral"
 
-    data = adata.obsm[use_rep]
+    data = adata.obsm[use_rep][...]
     groups = _snapatac2.kmeans(n_clusters, data)
-    adata.obs[key_added] = pd.Categorical(
-        values=groups.astype('U'),
-        categories=sorted(map(str, np.unique(groups))),
-    )
-    # store information on the clustering parameters
-    adata.uns['kmeans'] = {}
-    adata.uns['kmeans']['params'] = dict(
-        n_clusters=n_clusters,
-        random_state=random_state,
-        n_iterations=n_iterations,
-    )
+    groups = np.array(groups, dtype=np.compat.unicode)
+    if inplace:
+        adata.obs[key_added] = polars.Series(
+            groups,
+            dtype=polars.datatypes.Categorical,
+        )
+        # store information on the clustering parameters
+        #adata.uns['kmeans'] = {}
+        #adata.uns['kmeans']['params'] = dict(
+        #    n_clusters=n_clusters,
+        #    random_state=random_state,
+        #    n_iterations=n_iterations,
+        #)
+
+    else:
+        return groups

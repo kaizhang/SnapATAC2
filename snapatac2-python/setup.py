@@ -12,6 +12,7 @@ setup(
     rust_extensions=[RustExtension("snapatac2._snapatac2", binding=Binding.PyO3)],
     packages=[
         "snapatac2",
+        "snapatac2.anndata",
         "snapatac2.preprocessing",
         "snapatac2.tools",
         "snapatac2.plotting",
@@ -19,8 +20,7 @@ setup(
     zip_safe=False,
     python_requires=">=3.7",
     install_requires=[
-        "anndata>=0.8.0rc1",
-        "anndata-rs>=0.1.0",
+        "polars",
         "numpy>=1.16.0",
         "pandas",
         "python-igraph",

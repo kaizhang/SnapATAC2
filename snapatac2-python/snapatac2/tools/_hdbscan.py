@@ -1,11 +1,11 @@
 from typing import Optional, Union, Type
 import pandas as pd
 import numpy as np
-from anndata.experimental import AnnCollection
-import anndata as ad
+
+from snapatac2.anndata import AnnData
 
 def hdbscan(
-    adata: Union[ad.AnnData, AnnCollection],
+    adata: AnnData,
     min_cluster_size: int = 5,
     min_samples: Optional[int] = None,
     cluster_selection_epsilon: float = 0.0,
@@ -56,7 +56,7 @@ def hdbscan(
     """
     import hdbscan
     if use_rep is None: use_rep = "X_spectral"
-    data = adata.obsm[use_rep]
+    data = adata.obsm[use_rep][...]
     clusterer = hdbscan.HDBSCAN(
         min_cluster_size = min_cluster_size,
         min_samples = min_samples,

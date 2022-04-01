@@ -1,15 +1,11 @@
-use crate::utils::{
-    Insertions,
-    FeatureCounter,
-    anndata::{write_csr_rows, create_var},
+use crate::utils::{Insertions, FeatureCounter};
+
+use anndata_rs::{
+    base::AnnData,
+    iterator::CsrIterator
 };
-
-use anndata_rs::base::AnnData;
-use anndata_rs::anndata_trait::WriteData;
-use anndata_rs::iterator::CsrIterator;
 use polars::prelude::{NamedFrom, DataFrame, Series};
-
-use hdf5::{File, Result};
+use hdf5::Result;
 use itertools::Itertools;
 use rayon::iter::ParallelIterator;
 use rayon::iter::IntoParallelIterator;

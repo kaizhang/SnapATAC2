@@ -1,14 +1,12 @@
-use crate::utils::{
-    Insertions,
-    anndata::{AnnDataElement, SparseRowIter, StrVec, AnnDataIO, create_obs, write_csr_rows},
-};
+use crate::utils::Insertions;
 
-use anndata_rs::base::AnnData;
-use anndata_rs::anndata_trait::WriteData;
-use anndata_rs::element::MatrixElem;
-use anndata_rs::iterator::CsrIterator;
+use anndata_rs::{
+    base::AnnData,
+    anndata_trait::WriteData,
+    element::MatrixElem,
+    iterator::{CsrIterator, IntoRowIterator, CsrRowIterator},
+};
 use polars::prelude::{NamedFrom, DataFrame, Series};
-use anndata_rs::iterator::{IntoRowIterator, CsrRowIterator};
 
 use std::io;
 use std::io::prelude::*;

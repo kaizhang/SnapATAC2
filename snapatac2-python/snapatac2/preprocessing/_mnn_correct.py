@@ -3,11 +3,12 @@ from sklearn.neighbors import KDTree
 import itertools
 from scipy.special import logsumexp
 from sklearn.cluster import KMeans
-import anndata as ad
 from typing import Optional, Union, List
 
+from snapatac2.anndata import AnnData
+
 def mnc_correct(
-    data: Union[ad.AnnData, np.ndarray],
+    data: AnnData,
     batch: str,
     n_neighbors: int = 5,
     n_clusters: int = 40,
@@ -40,12 +41,12 @@ def mnc_correct(
     Otherwise, it returns the result as a numpy array.
     """
     if use_rep is None: use_rep = "X_spectral"
-    mat = data.obsm[use_rep] if isinstance(data, ad.AnnData) else data
+    mat = data.obsm[use_rep][...] if isinstance(data, AnnData) else data
     if isinstance(use_dims, int): use_dims = range(use_dims) 
     mat = mat if use_dims is None else mat[:, use_dims]
     mat = np.asarray(mat)
 
-    labels = data.obs[batch]
+    labels = data.obs[batch].to_numpy()
     label_uniq = list(set(labels))
 
     for _ in range(n_iter):
@@ -62,7 +63,7 @@ def mnc_correct(
             new[idx[i]] = mat_[i,:]
         mat = new
 
-    if isinstance(data, ad.AnnData) and inplace:
+    if isinstance(data, AnnData) and inplace:
         data.obsm[use_rep + "_mnn"] = mat
     else:
         return mat

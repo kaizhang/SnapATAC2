@@ -1,13 +1,12 @@
 from typing import Optional, Union, List
 import numpy as np
-from anndata.experimental import AnnCollection
 from scipy.sparse import csr_matrix
-from anndata import AnnData
 
+from snapatac2.anndata import AnnData
 import snapatac2._snapatac2 as internal
 
 def knn(
-    adata: Union[AnnData, AnnCollection],
+    adata: AnnData,
     n_neighbors: int = 50,
     use_dims: Optional[Union[int, List[int]]] = None,
     use_rep: Optional[str] = None,
@@ -40,7 +39,7 @@ def knn(
     """
     if use_rep is None: use_rep = "X_spectral"
     if use_dims is None:
-        data = adata.obsm[use_rep]
+        data = adata.obsm[use_rep][...]
     elif isinstance(use_dims, int):
         data = adata.obsm[use_rep][:, :use_dims]
     else:

@@ -1,6 +1,7 @@
-from anndata import AnnData
 import numpy as np
 from typing import Optional, Union, List
+
+from snapatac2.anndata import AnnData
 
 def umap(
     adata: AnnData,
@@ -37,7 +38,7 @@ def umap(
 
     if use_rep is None: use_rep = "X_spectral"
     if use_dims is None:
-        data = adata.obsm[use_rep]
+        data = adata.obsm[use_rep][...]
     elif isinstance(use_dims, int):
         data = adata.obsm[use_rep][:, :use_dims]
     else:

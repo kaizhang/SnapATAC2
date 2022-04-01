@@ -1,14 +1,13 @@
-from logging import raiseExceptions
 from typing import Optional, Union
-import pandas as pd
 import scipy.sparse as ss
 import numpy as np
-from anndata.experimental import AnnCollection
-import anndata as ad
+import polars
+
+from snapatac2.anndata import AnnData
 from .. import _utils
 
 def leiden(
-    adata: Union[ad.AnnData, AnnCollection],
+    adata: AnnData,
     resolution: float = 1,
     objective_function: str = "modularity",
     min_cluster_size: int = 5,
@@ -69,7 +68,7 @@ def leiden(
     from collections import Counter
 
     if adjacency is None:
-        adjacency = adata.obsp["distances"]
+        adjacency = adata.obsp["distances"][...]
     gr = _utils.get_igraph_from_adjacency(adjacency)
 
     if use_leidenalg or objective_function == "RBConfiguration":
@@ -109,19 +108,19 @@ def leiden(
 
     new_cl_id = dict([(cl, i) if count >= min_cluster_size else (cl, -1) for (i, (cl, count)) in enumerate(Counter(groups).most_common())])
     for i in range(len(groups)): groups[i] = new_cl_id[groups[i]]
-    groups = np.array(groups, dtype=np.int64)
 
+    groups = np.array(groups, dtype=np.compat.unicode)
     if inplace:
-        adata.obs[key_added] = pd.Categorical(
-            values=groups.astype('U'),
-            categories=map(str, sorted(np.unique(groups))),
+        adata.obs[key_added] = polars.Series(
+            groups,
+            dtype=polars.datatypes.Categorical,
         )
         # store information on the clustering parameters
-        adata.uns['leiden'] = {}
-        adata.uns['leiden']['params'] = dict(
-            resolution=resolution,
-            random_state=random_state,
-            n_iterations=n_iterations,
-        )
+        #adata.uns['leiden'] = {}
+        #adata.uns['leiden']['params'] = dict(
+        #    resolution=resolution,
+        #    random_state=random_state,
+        #    n_iterations=n_iterations,
+        #)
     else:
         return groups

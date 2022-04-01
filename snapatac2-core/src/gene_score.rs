@@ -1,20 +1,16 @@
 use crate::utils::{
     Insertions,
-    Barcoded,
     FeatureCounter,
     gene::Transcript,
 };
 use crate::peak_matrix::create_feat_matrix;
 
 use anndata_rs::base::AnnData;
-use anndata_rs::anndata_trait::WriteData;
-use anndata_rs::iterator::CsrIterator;
-use polars::prelude::{NamedFrom, DataFrame, Series};
 
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::collections::HashMap;
-use hdf5::{File, Result};
+use hdf5::Result;
 use noodles_gff::record::Strand;
 use bed_utils::bed::{
     GenomicRange, BEDLike, tree::GenomeRegions,
@@ -90,15 +86,17 @@ impl FeatureCounter for PromoterCoverage<'_> {
 }
 
 pub fn create_gene_matrix<'a, I, D>(
-    anndata: &mut AnnData,
+    output: &str,
     fragments: I,
     transcripts: Vec<Transcript>,
-    ) -> Result<()>
+    ) -> Result<AnnData>
 where
     I: Iterator<Item = D>,
     D: Into<Insertions> + Send,
 {
+    let mut anndata = AnnData::new(output, 0, 0)?;
     let promoters = Promoters::new(transcripts, 2000);
     let feature_counter: PromoterCoverage<'_> = PromoterCoverage::new(&promoters);
-    create_feat_matrix(anndata, fragments, feature_counter)
+    create_feat_matrix(&mut anndata, fragments, feature_counter)?;
+    Ok(anndata)
 }

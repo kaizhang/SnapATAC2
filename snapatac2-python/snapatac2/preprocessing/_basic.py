@@ -1,6 +1,5 @@
 import numpy as np
-import anndata as ad
-from anndata_rs import AnnData
+from snapatac2.anndata import AnnData
 import math
 from typing import Optional, Union, Literal, Mapping
 
@@ -73,12 +72,11 @@ def make_tile_matrix(
     internal.mk_tile_matrix(adata._anndata, bin_size, n_jobs)
 
 def make_gene_matrix(
-    adata: Union[ad.AnnData, str],
+    adata: AnnData,
     gff_file: str,
     output: Optional[str] = "gene_matrix.h5ad",
-    backed: Optional[Literal["r", "r+"]] = None,
     n_jobs: int = 4,
-) -> ad.AnnData:
+) -> AnnData:
     """
     Generate cell by gene activity matrix.
 
@@ -91,8 +89,6 @@ def make_gene_matrix(
         File name of the gene annotation file in GFF format
     output
         File name of the h5ad file used to store the result
-    backed
-        Whether to open the file in backed mode
     n_jobs
         number of CPUs to use
     
@@ -100,31 +96,10 @@ def make_gene_matrix(
     -------
     AnnData
     """
-    if isinstance(adata, ad.AnnData) and adata.isbacked:
-        input_file = str(adata.filename)
-        adata.file.close()
-    elif isinstance(adata, str):
-        input_file = adata
-    else:
-        raise NameError("Input type should be 'str' or 'AnnData'")
-    internal.mk_gene_matrix(input_file, gff_file, output, n_jobs)
-    gene_mat = ad.read(output, backed=backed)
-    if backed is None:
-        gene_mat._init_as_actual(
-            X = gene_mat.X,
-            obs=adata.obs,
-            var=gene_mat.var,
-            dtype=np.int32,
-        )
-    else:
-        gene_mat.file.close()
-        gene_mat._init_as_actual(
-            obs=adata.obs,
-            var=gene_mat.var,
-            filename=output,
-            filemode=backed,
-        )
-    return gene_mat
+    pyanndata = internal.mk_gene_matrix(adata._anndata, gff_file, output, n_jobs)
+    anndata = AnnData(pyanndata = pyanndata)
+    anndata.obs = adata.obs[...]
+    return anndata
 
 def filter_cells(
     data: AnnData,

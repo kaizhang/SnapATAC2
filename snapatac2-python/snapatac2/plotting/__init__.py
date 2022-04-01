@@ -1,7 +1,7 @@
 from ._qc import tsse, scrublet
 
 from typing import Optional
-from anndata import AnnData
+from snapatac2.anndata import AnnData
 from ._utils import render_plot
 
 def spectral_eigenvalues(

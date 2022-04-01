@@ -1,8 +1,6 @@
-pub mod hdf5;
-pub mod anndata;
+//pub mod hdf5;
+//pub mod anndata;
 pub mod gene;
-
-use crate::utils::anndata::AnnSparseRow;
 
 use bed_utils::bed::{
     BEDLike, GenomicRange, BED,
@@ -27,10 +25,6 @@ impl Barcoded for Fragment {
     }
 }
 
-impl<T> Barcoded for AnnSparseRow<T> {
-    fn get_barcode(&self) -> &str { &self.row_name }
-}
-
 pub struct Insertions(pub Vec<(GenomicRange, u32)>);
 
 impl From<&Fragment> for Insertions {
@@ -48,15 +42,6 @@ impl From<Fragment> for Insertions {
             (GenomicRange::new(rec.0.chrom().to_string(), rec.0.start(), rec.0.start() + 1), 1),
             (GenomicRange::new(rec.0.chrom().to_string(), rec.0.end() - 1, rec.0.end()), 1),
         ])
-    }
-}
-
-impl From<AnnSparseRow<u32>> for Insertions {
-    fn from(rec: AnnSparseRow<u32>) -> Self {
-        Insertions(rec.data.into_iter()
-            .map(|(i, v)| (i.replace(&[':', '-'], "\t").parse().unwrap(), v))
-            .collect()
-        )
     }
 }
 

@@ -30,3 +30,14 @@ print(data)
 print("spectral embedding...")
 snap.tl.spectral(data)
 snap.tl.spectral(data, sample_size = 300)
+
+print("KNN...")
+snap.pp.knn(data)
+
+print("leiden...")
+snap.tl.leiden(data)
+
+print("umap...")
+snap.tl.umap(data)
+
+snap.pp.make_gene_matrix(data, gff_file="data/genes.gff3.gz")

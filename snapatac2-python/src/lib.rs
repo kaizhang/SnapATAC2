@@ -1,12 +1,16 @@
-use pyo3::prelude::*;
-use pyo3::types::PyIterator;
+use pyo3::{
+    prelude::*,
+    types::PyIterator,
+    pymodule, types::PyModule, PyResult, Python,
+};
 use numpy::{PyReadonlyArrayDyn, PyReadonlyArray, Ix1, Ix2, PyArray, IntoPyArray};
-use pyo3::{pymodule, types::PyModule, PyResult, Python};
 
+use hdf5::H5Type;
 use anndata_rs::base::AnnData;
 use pyanndata::PyAnnData;
 use bed_utils::{bed, bed::GenomicRange, bed::BED};
 use std::fs::File;
+use snapatac2_core::qc::read_insertions;
 use std::collections::BTreeMap;
 use flate2::read::MultiGzDecoder;
 use hdf5;
@@ -22,19 +26,17 @@ use snapatac2_core::{
     tile_matrix::{create_tile_matrix},
     gene_score::create_gene_matrix,
     qc,
-    utils::{anndata::to_csr_matrix, gene::read_transcripts},
+    utils::{gene::read_transcripts},
 };
 
 #[pyfunction]
-fn mk_gene_matrix(input_file: &str,
-                  gff_file: &str,
-                  output_file: &str,
-                  num_cpu: usize,
-) -> PyResult<()>
+fn mk_gene_matrix(
+    input: &PyAnnData,
+    gff_file: &str,
+    output_file: &str,
+    num_cpu: usize,
+) -> PyResult<PyAnnData>
 {
-    todo!()
-    /*
-    let file = hdf5::File::create(output_file).unwrap();
     let transcripts = if is_gzipped(gff_file) {
         let reader = File::open(gff_file).map(MultiGzDecoder::new)
             .map(std::io::BufReader::new).unwrap();
@@ -44,18 +46,12 @@ fn mk_gene_matrix(input_file: &str,
         read_transcripts(reader).into_values().collect()
     };
 
-    let group = hdf5::File::open(input_file).unwrap().group("obsm").unwrap()
-        .group("base_count").unwrap();
-    let insertions = qc::read_insertions(group).unwrap();
-
-    rayon::ThreadPoolBuilder::new().num_threads(num_cpu)
+    let insertions = read_insertions(&input.0).unwrap();
+    let anndata = rayon::ThreadPoolBuilder::new().num_threads(num_cpu)
         .build().unwrap().install(||
-            create_gene_matrix(&file, insertions.iter(), transcripts).unwrap()
+            create_gene_matrix(output_file, insertions.iter(), transcripts).unwrap()
         );
-    file.close().unwrap();
-
-    Ok(())
-    */
+    Ok(PyAnnData(anndata))
 }
 
 #[pyfunction]
@@ -220,7 +216,31 @@ fn approximate_nearest_neighbors(
         index.search_nodes(row.to_vec().as_slice(), k).into_iter()
             .map(|(n, d)| (n.idx().unwrap(), d)).collect::<Vec<_>>()
     });
-    Ok(to_csr_matrix(row_iter, data.shape()[0]))
+    Ok(to_csr_matrix(row_iter))
+}
+
+fn to_csr_matrix<I, D>(iter: I) -> (Vec<D>, Vec<i32>, Vec<i32>)
+where
+    I: Iterator<Item = Vec<(usize, D)>>,
+    D: H5Type,
+{
+    let mut data: Vec<D> = Vec::new();
+    let mut indices: Vec<i32> = Vec::new();
+    let mut indptr: Vec<i32> = Vec::new();
+
+    let n = iter.fold(0, |r_idx, mut row| {
+        row.sort_by(|a, b| a.0.cmp(&b.0));
+        indptr.push(r_idx.try_into().unwrap());
+        let new_idx = r_idx + row.len();
+        let (mut a, mut b) = row.into_iter().map(|(x, y)| -> (i32, D) {
+            (x.try_into().unwrap(), y)
+        }).unzip();
+        indices.append(&mut a);
+        data.append(&mut b);
+        new_idx
+    });
+    indptr.push(n.try_into().unwrap());
+    (data, indices, indptr)
 }
 
 // Convert string such as "chr1:134-2222" to `GenomicRange`.
@@ -248,6 +268,12 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(intersect_bed, m)?)?;
     m.add_function(wrap_pyfunction!(kmeans, m)?)?;
     m.add_function(wrap_pyfunction!(approximate_nearest_neighbors, m)?)?;
+
+    m.add_class::<pyanndata::PyAnnData>().unwrap();
+    m.add_class::<pyanndata::PyElem>().unwrap();
+    m.add_class::<pyanndata::PyMatrixElem>().unwrap();
+    m.add_class::<pyanndata::PyDataFrameElem>().unwrap();
+    m.add_function(wrap_pyfunction!(pyanndata::read_anndata, m)?)?;
 
     Ok(())
 }
