@@ -12,6 +12,7 @@ print("make bin matrix...")
 snap.pp.make_tile_matrix(data)
 print(data)
 
+'''
 print("plot tsse...")
 snap.pl.tsse(data, out_file="out.png")
 
@@ -40,4 +41,6 @@ snap.tl.leiden(data)
 print("umap...")
 snap.tl.umap(data)
 
+print("make gene matrix...")
 snap.pp.make_gene_matrix(data, gff_file="data/genes.gff3.gz")
+'''

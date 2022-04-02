@@ -85,14 +85,13 @@ impl FeatureCounter for PromoterCoverage<'_> {
     }
 }
 
-pub fn create_gene_matrix<'a, I, D>(
+pub fn create_gene_matrix<'a, I>(
     output: &str,
     fragments: I,
     transcripts: Vec<Transcript>,
     ) -> Result<AnnData>
 where
-    I: Iterator<Item = D>,
-    D: Into<Insertions> + Send,
+    I: Iterator<Item = Vec<Insertions>>,
 {
     let mut anndata = AnnData::new(output, 0, 0)?;
     let promoters = Promoters::new(transcripts, 2000);

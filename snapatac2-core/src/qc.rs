@@ -2,9 +2,9 @@ use crate::utils::Insertions;
 
 use anndata_rs::{
     base::AnnData,
-    anndata_trait::WriteData,
-    element::MatrixElem,
-    iterator::{CsrIterator, IntoRowIterator, CsrRowIterator},
+    anndata_trait::{WriteData, DataPartialIO},
+    element::{MatrixElem, RawMatrixElem},
+    iterator::{CsrIterator, CsrRowsIterator, IntoRowsIterator},
 };
 use polars::prelude::{NamedFrom, DataFrame, Series};
 
@@ -22,6 +22,7 @@ use std::collections::HashMap;
 use hdf5::Result;
 use rayon::iter::ParallelIterator;
 use rayon::iter::IntoParallelIterator;
+use std::sync::MutexGuard;
 
 pub type CellBarcode = String;
 
@@ -376,31 +377,31 @@ where
     barcodes
 }
 
-pub struct IntoInsertionIter {
-    elem: MatrixElem,
+pub struct IntoInsertionIter<'a> {
+    guard: MutexGuard<'a, RawMatrixElem<dyn DataPartialIO>>,
     chrom_index: Vec<(String, u64)>,
 }
 
-impl IntoInsertionIter {
-    pub fn iter<'a>(&'a self) -> InsertionIter<'a> {
+impl<'a> IntoInsertionIter<'a> {
+    pub fn chunks(&'a self, chunk_size: usize) -> InsertionIter<'a> {
         InsertionIter {
             data: self,
-            iter: self.elem.0.as_ref().as_ref().into_row_iter(),
+            iter: self.guard.as_ref().into_row_iter(chunk_size),
         }
     }
 }
 
 pub struct InsertionIter<'a> {
-    data: &'a IntoInsertionIter,
-    iter: CsrRowIterator<'a, u8>,
+    data: &'a IntoInsertionIter<'a>,
+    iter: CsrRowsIterator<'a, u8>,
 }
 
 impl<'a> Iterator for InsertionIter<'a>
 {
-    type Item = Insertions;
+    type Item = Vec<Insertions>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|item| {
+        self.iter.next().map(|items| items.into_iter().map(|item| { 
             let ins = item.into_iter().map(|(i, x)| {
                 let locus = match self.data.chrom_index.binary_search_by_key(&i, |s| s.1.try_into().unwrap()) {
                     Ok(i_) => GenomicRange::new(self.data.chrom_index[i_].0.clone(), 0, 1),
@@ -412,13 +413,13 @@ impl<'a> Iterator for InsertionIter<'a>
                 (locus, x as u32)
             }).collect();
             Insertions(ins)
-        })
+        }).collect())
     }
 }
 
-pub fn read_insertions(anndata: &AnnData) -> Result<IntoInsertionIter> {
+pub fn read_insertions(anndata: &AnnData) -> Result<IntoInsertionIter<'_>> {
     let df: DataFrame = anndata.uns.get("reference_sequences").unwrap().0
-        .as_ref().as_ref().read_elem();
+        .lock().unwrap().as_mut().read_elem()?;
     let chrs = df.column("reference_seq_name").unwrap().utf8().unwrap();
     let chr_sizes = df.column("reference_seq_length").unwrap().u64().unwrap();
     let chrom_index = chrs.into_iter().flatten().map(|x| x.to_string()).zip(
@@ -429,9 +430,47 @@ pub fn read_insertions(anndata: &AnnData) -> Result<IntoInsertionIter> {
     ).collect();
 
     Ok(IntoInsertionIter{
-        elem: anndata.obsm.get("insertion").unwrap().clone(),
+        guard: anndata.obsm.get("insertion").unwrap().0.lock().unwrap(),
         chrom_index,
     })
+}
+
+pub fn read_insertions2(anndata: &AnnData) -> Result<(MatrixElem, Vec<(String, u64)>)> {
+    let df: DataFrame = anndata.uns.get("reference_sequences").unwrap().0
+        .lock().unwrap().as_mut().read_elem()?;
+    let chrs = df.column("reference_seq_name").unwrap().utf8().unwrap();
+    let chr_sizes = df.column("reference_seq_length").unwrap().u64().unwrap();
+    let chrom_index = chrs.into_iter().flatten().map(|x| x.to_string()).zip(
+        std::iter::once(0).chain(chr_sizes.into_iter().flatten().scan(0, |state, x| {
+            *state = *state + x;
+            Some(*state)
+        }))
+    ).collect();
+
+    Ok((anndata.obsm.get("insertion").unwrap().clone(), chrom_index))
+}
+
+pub fn iter_insertions<'a>(
+    elem: &'a RawMatrixElem<dyn DataPartialIO>,
+    chrom_index: &'a Vec<(String, u64)>,
+    chunk_size: usize,
+) -> impl Iterator<Item = Vec<Insertions>> + 'a
+{
+    elem.as_ref().into_row_iter(chunk_size).map(|items: Vec<Vec<(usize, u8)>>|
+        items.into_iter().map(|item| { 
+            let ins = item.into_iter().map(|(i, x)| {
+                let locus = match chrom_index.binary_search_by_key(&i, |s| s.1.try_into().unwrap()) {
+                    Ok(i_) => GenomicRange::new(chrom_index[i_].0.clone(), 0, 1),
+                    Err(i_) => {
+                        let (chr, p) = chrom_index[i_ - 1].clone();
+                        GenomicRange::new(chr, i as u64 - p, i as u64 - p + 1)
+                    },
+                };
+                (locus, x as u32)
+            }).collect();
+            Insertions(ins)
+        }).collect()
+    )
 }
 
 

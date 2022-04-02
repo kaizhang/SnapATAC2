@@ -44,7 +44,7 @@ class AnnData:
     def shape(self): return (self.n_obs, self.n_vars)
 
     @property
-    def X(self): return MatrixElem(self._anndata.get_x())
+    def X(self): return self._anndata.get_x()
 
     @X.setter
     def X(self, X):
@@ -56,7 +56,7 @@ class AnnData:
 
     @property
     def obs(self): 
-        return DataFrameElem(self._anndata.get_obs())
+        return self._anndata.get_obs()
 
     @obs.setter
     def obs(self, df):
@@ -68,7 +68,7 @@ class AnnData:
 
     @property
     def var(self):
-        return DataFrameElem(self._anndata.get_var())
+        return self._anndata.get_var()
 
     @var.setter
     def var(self, df):
@@ -176,7 +176,7 @@ class OBSM:
         self._anndata = anndata
 
     def __getitem__(self, key):
-        return MatrixElem(self._anndata.get_obsm(key))
+        return self._anndata.get_obsm(key)
 
     def __setitem__(self, key, data):
         self._anndata.add_obsm(key, data)
@@ -185,14 +185,14 @@ class OBSM:
         return self._anndata.list_obsm()
 
     def __repr__(self) -> str:
-        return f"AxisArrays with keys:\n{self.keys()[1:-1]}" 
+        return f"AxisArrays with keys:\n{str(self.keys())[1:-1]}" 
 
 class OBSP:
     def __init__(self, anndata):
         self._anndata = anndata
 
     def __getitem__(self, key):
-        return MatrixElem(self._anndata.get_obsp(key))
+        return self._anndata.get_obsp(key)
 
     def __setitem__(self, key, data):
         self._anndata.add_obsp(key, data)
@@ -201,14 +201,14 @@ class OBSP:
         return self._anndata.list_obsp()
 
     def __repr__(self) -> str:
-        return f"AxisArrays with keys:\n{self.keys()[1:-1]}" 
+        return f"AxisArrays with keys: {self.keys()[1:-1]}" 
 
 class VARM:
     def __init__(self, anndata):
         self._anndata = anndata
 
     def __getitem__(self, key):
-        return MatrixElem(self._anndata.get_varm(key))
+        return self._anndata.get_varm(key)
 
     def __setitem__(self, key, data):
         self._anndata.add_varm(key, data)
@@ -217,14 +217,14 @@ class VARM:
         return self._anndata.list_varm()
 
     def __repr__(self) -> str:
-        return f"AxisArrays with keys:\n{self.keys()[1:-1]}" 
+        return f"AxisArrays with keys: {str(self.keys())[1:-1]}" 
 
 class VARP:
     def __init__(self, anndata):
         self._anndata = anndata
 
     def __getitem__(self, key):
-        return MatrixElem(self._anndata.get_varp(key))
+        return self._anndata.get_varp(key)
 
     def __setitem__(self, key, data):
         self._anndata.add_varp(key, data)
@@ -233,14 +233,14 @@ class VARP:
         return self._anndata.list_varp()
 
     def __repr__(self) -> str:
-        return f"AxisArrays with keys:\n{self.keys()[1:-1]}" 
+        return f"AxisArrays with keys: {str(self.keys())[1:-1]}" 
 
 class UNS:
     def __init__(self, anndata):
         self._anndata = anndata
 
     def __getitem__(self, key):
-        return Elem(self._anndata.get_uns(key))
+        return self._anndata.get_uns(key)
 
     def __setitem__(self, key, data):
         self._anndata.add_uns(key, data)
@@ -249,80 +249,7 @@ class UNS:
         return self._anndata.list_uns()
 
     def __repr__(self) -> str:
-        return f"Dict with keys:\n{self.keys()[1:-1]}" 
-
-class MatrixElem:
-    def __new__(cls, elem, *args, **kwargs):
-        if elem is not None:
-            return(super(MatrixElem, cls).__new__(cls, *args, **kwargs))
-        else:
-            return None
-
-    def __init__(self, elem, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._elem = elem
-
-    # TODO: efficient partial data reading
-    def __getitem__(self, subscript):
-        if subscript == ...:
-            return self._elem.get_data()
-        else:
-            return self._elem.get_data().__getitem__(subscript)
-
-    def chunked(self, chunk_size):
-        return self._elem.chunked(chunk_size)
-
-    def chunk(
-        self,
-        chunk_size: Union[int, np.ndarray],
-        replace: bool = True,
-    ):
-        if isinstance(chunk_size, int):
-            chunk_size = np.random.choice(self._elem.nrows(), size=chunk_size, replace=replace)
-        return self[chunk_size, :]
-
-class Elem:
-    def __new__(cls, elem, *args, **kwargs):
-        if elem is not None:
-            return(super(Elem, cls).__new__(cls, *args, **kwargs))
-        else:
-            return None
-
-    def __init__(self, elem, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._elem = elem
-
-    def __getitem__(self, subscript):
-        if subscript == ...:
-            return self._elem.get_data()
-        else:
-            raise NameError("Please use '...' to retrieve value")
-
-
-class DataFrameElem:
-    def __new__(cls, elem, *args, **kwargs):
-        if elem is not None:
-            return(super(DataFrameElem, cls).__new__(cls, *args, **kwargs))
-        else:
-            return None
-
-    def __init__(self, elem, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._elem = elem
-
-    def __contains__(self, key):
-        return key in self._elem.get_data()
-
-    def __getitem__(self, subscript):
-        if subscript == ...:
-            return self._elem.get_data()
-        else:
-            return self._elem.get_data().__getitem__(subscript)
-
-    def __setitem__(self, key, data):
-        df = self._elem.get_data()
-        df.__setitem__(key, data)
-        self._elem.update(df)
+        return f"Dict with keys: {str(self.keys())[1:-1]}" 
 
 def read_h5ad(filename: str, mode: str = "r+") -> AnnData:
     return AnnData(pyanndata=internal.read_anndata(filename, mode))

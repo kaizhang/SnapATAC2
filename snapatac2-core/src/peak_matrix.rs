@@ -6,7 +6,6 @@ use anndata_rs::{
 };
 use polars::prelude::{NamedFrom, DataFrame, Series};
 use hdf5::Result;
-use itertools::Itertools;
 use rayon::iter::ParallelIterator;
 use rayon::iter::IntoParallelIterator;
 
@@ -21,20 +20,19 @@ use rayon::iter::IntoParallelIterator;
 /// * `bin_size` -
 /// * `min_num_fragment` -
 /// * `min_tsse` -
-pub fn create_feat_matrix<C, I, D>(
-    anndata: &mut AnnData,
+pub fn create_feat_matrix<C, I>(
+    anndata: &AnnData,
     insertions: I,
     feature_counter: C,
     ) -> Result<()>
 where
     C: FeatureCounter<Value = u32> + Clone + std::marker::Sync,
-    I: Iterator<Item = D>,
-    D: Into<Insertions> + Send,
+    I: Iterator<Item = Vec<Insertions>>,
 {
     let features = feature_counter.get_feature_ids();
     anndata.set_x_from_row_iter(CsrIterator {
-        iterator: insertions.chunks(2500).into_iter().map(|chunk|
-            chunk.collect::<Vec<_>>().into_par_iter().map(|ins| {
+        iterator: insertions.map(|chunk|
+            chunk.into_par_iter().map(|ins| {
                 let mut counter = feature_counter.clone();
                 counter.inserts(ins);
                 counter.get_counts()
