@@ -10,7 +10,7 @@ use anndata_rs::base::AnnData;
 use pyanndata::PyAnnData;
 use bed_utils::{bed, bed::GenomicRange, bed::BED};
 use std::fs::File;
-use snapatac2_core::qc::{read_insertions, read_insertions2, iter_insertions};
+use snapatac2_core::qc::read_insertions;
 use std::collections::BTreeMap;
 use flate2::read::MultiGzDecoder;
 use hdf5;
@@ -21,7 +21,6 @@ use linfa::traits::{Fit, Predict};
 use rand_core::SeedableRng;
 use rand_isaac::Isaac64Rng;
 use hora::core::ann_index::ANNIndex;
-use std::ops::Deref;
 
 use snapatac2_core::{
     tile_matrix::{create_tile_matrix},
@@ -47,15 +46,13 @@ fn mk_gene_matrix(
         read_transcripts(reader).into_values().collect()
     };
 
-    let (elem, chrom_index) = read_insertions2(&input.0).unwrap();
-    //let anndata = rayon::ThreadPoolBuilder::new().num_threads(num_cpu)
-    //    .build().unwrap().install(||
-    let anndata = create_gene_matrix(
-        output_file,
-        iter_insertions(elem.0.lock().unwrap().deref(), &chrom_index, 500),
-        transcripts
-    ).unwrap();
-    //    );
+    let anndata = rayon::ThreadPoolBuilder::new().num_threads(num_cpu)
+        .build().unwrap().install(|| create_gene_matrix(
+            output_file,
+            read_insertions(&input.0).unwrap().chunks(1000),
+            transcripts,
+        ).unwrap()
+    );
     Ok(PyAnnData(anndata))
 }
 

@@ -3,7 +3,7 @@ use crate::utils::Insertions;
 use anndata_rs::{
     base::AnnData,
     anndata_trait::{WriteData, DataPartialIO},
-    element::{MatrixElem, RawMatrixElem},
+    element::RawMatrixElem,
     iterator::{CsrIterator, CsrRowsIterator, IntoRowsIterator},
 };
 use polars::prelude::{NamedFrom, DataFrame, Series};
@@ -386,7 +386,7 @@ impl<'a> IntoInsertionIter<'a> {
     pub fn chunks(&'a self, chunk_size: usize) -> InsertionIter<'a> {
         InsertionIter {
             data: self,
-            iter: self.guard.as_ref().into_row_iter(chunk_size),
+            iter: self.guard.downcast().into_row_iter(chunk_size),
         }
     }
 }
@@ -418,8 +418,8 @@ impl<'a> Iterator for InsertionIter<'a>
 }
 
 pub fn read_insertions(anndata: &AnnData) -> Result<IntoInsertionIter<'_>> {
-    let df: DataFrame = anndata.uns.get("reference_sequences").unwrap().0
-        .lock().unwrap().as_mut().read_elem()?;
+    let df: Box<DataFrame> = anndata.uns.get("reference_sequences").unwrap().read()?
+        .into_any().downcast().unwrap();
     let chrs = df.column("reference_seq_name").unwrap().utf8().unwrap();
     let chr_sizes = df.column("reference_seq_length").unwrap().u64().unwrap();
     let chrom_index = chrs.into_iter().flatten().map(|x| x.to_string()).zip(
@@ -434,45 +434,6 @@ pub fn read_insertions(anndata: &AnnData) -> Result<IntoInsertionIter<'_>> {
         chrom_index,
     })
 }
-
-pub fn read_insertions2(anndata: &AnnData) -> Result<(MatrixElem, Vec<(String, u64)>)> {
-    let df: DataFrame = anndata.uns.get("reference_sequences").unwrap().0
-        .lock().unwrap().as_mut().read_elem()?;
-    let chrs = df.column("reference_seq_name").unwrap().utf8().unwrap();
-    let chr_sizes = df.column("reference_seq_length").unwrap().u64().unwrap();
-    let chrom_index = chrs.into_iter().flatten().map(|x| x.to_string()).zip(
-        std::iter::once(0).chain(chr_sizes.into_iter().flatten().scan(0, |state, x| {
-            *state = *state + x;
-            Some(*state)
-        }))
-    ).collect();
-
-    Ok((anndata.obsm.get("insertion").unwrap().clone(), chrom_index))
-}
-
-pub fn iter_insertions<'a>(
-    elem: &'a RawMatrixElem<dyn DataPartialIO>,
-    chrom_index: &'a Vec<(String, u64)>,
-    chunk_size: usize,
-) -> impl Iterator<Item = Vec<Insertions>> + 'a
-{
-    elem.as_ref().into_row_iter(chunk_size).map(|items: Vec<Vec<(usize, u8)>>|
-        items.into_iter().map(|item| { 
-            let ins = item.into_iter().map(|(i, x)| {
-                let locus = match chrom_index.binary_search_by_key(&i, |s| s.1.try_into().unwrap()) {
-                    Ok(i_) => GenomicRange::new(chrom_index[i_].0.clone(), 0, 1),
-                    Err(i_) => {
-                        let (chr, p) = chrom_index[i_ - 1].clone();
-                        GenomicRange::new(chr, i as u64 - p, i as u64 - p + 1)
-                    },
-                };
-                (locus, x as u32)
-            }).collect();
-            Insertions(ins)
-        }).collect()
-    )
-}
-
 
 #[cfg(test)]
 mod tests {

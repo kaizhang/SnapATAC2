@@ -149,8 +149,12 @@ class AnnData:
             else:
                 self._anndata.subset(i, j)
 
+    @property
+    def filename(self):
+        return self._anndata.filename()
+
     def __repr__(self) -> str:
-        descr = f"AnnData object with n_obs x n_vars = {self.n_obs} x {self.n_vars}"
+        descr = f"AnnData object with n_obs x n_vars = {self.n_obs} x {self.n_vars} backed at '{self.filename}'"
         if self.obs is not None: descr += f"\n    obs: {str(self.obs[...].columns)[1:-1]}"
         if self.var is not None: descr += f"\n    var: {str(self.var[...].columns)[1:-1]}"
         for attr in [
@@ -185,7 +189,7 @@ class OBSM:
         return self._anndata.list_obsm()
 
     def __repr__(self) -> str:
-        return f"AxisArrays with keys:\n{str(self.keys())[1:-1]}" 
+        return f"AxisArrays with keys: {str(self.keys())[1:-1]}" 
 
 class OBSP:
     def __init__(self, anndata):

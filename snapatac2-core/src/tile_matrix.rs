@@ -26,8 +26,8 @@ pub fn create_tile_matrix(
     ) -> Result<()>
 where
 {
-    let df: DataFrame = anndata.uns.get("reference_sequences").unwrap().0
-        .lock().unwrap().as_mut().read_elem()?;
+    let df: Box<DataFrame> = anndata.uns.get("reference_sequences").unwrap().read()?
+        .into_any().downcast().unwrap();
     let regions = df.column("reference_seq_length")
         .unwrap().u64().unwrap().into_iter()
         .zip(df.column("reference_seq_name").unwrap().utf8().unwrap())
