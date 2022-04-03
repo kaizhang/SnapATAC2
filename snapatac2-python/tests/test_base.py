@@ -13,7 +13,7 @@ snap.pp.make_tile_matrix(data)
 print(data)
 
 print("plot tsse...")
-snap.pl.tsse(data, out_file="out.png")
+#snap.pl.tsse(data, out_file="out.png")
 
 print("filtering...")
 snap.pp.filter_cells(data, min_tsse = 15)
@@ -24,7 +24,7 @@ snap.pp.select_features(data)
 
 print("scrublet...")
 snap.pp.scrublet(data)
-#snap.pp.call_doublets(data)
+snap.pp.call_doublets(data)
 print(data)
 
 print("spectral embedding...")

@@ -185,6 +185,9 @@ class OBSM:
     def __setitem__(self, key, data):
         self._anndata.add_obsm(key, data)
 
+    def __contains__(self, key):
+        return key in self.keys()
+
     def keys(self):
         return self._anndata.list_obsm()
 
@@ -200,6 +203,9 @@ class OBSP:
 
     def __setitem__(self, key, data):
         self._anndata.add_obsp(key, data)
+        
+    def __contains__(self, key):
+        return key in self.keys()
 
     def keys(self):
         return self._anndata.list_obsp()
@@ -217,6 +223,9 @@ class VARM:
     def __setitem__(self, key, data):
         self._anndata.add_varm(key, data)
 
+    def __contains__(self, key):
+        return key in self.keys()
+
     def keys(self):
         return self._anndata.list_varm()
 
@@ -233,6 +242,9 @@ class VARP:
     def __setitem__(self, key, data):
         self._anndata.add_varp(key, data)
 
+    def __contains__(self, key):
+        return key in self.keys()
+
     def keys(self):
         return self._anndata.list_varp()
 
@@ -244,10 +256,17 @@ class UNS:
         self._anndata = anndata
 
     def __getitem__(self, key):
-        return self._anndata.get_uns(key)
+        elem = self._anndata.get_uns(key)
+        if elem.is_scalar():
+            return elem[:]
+        else:
+            return elem
 
     def __setitem__(self, key, data):
         self._anndata.add_uns(key, data)
+
+    def __contains__(self, key):
+        return key in self.keys()
 
     def keys(self):
         return self._anndata.list_uns()

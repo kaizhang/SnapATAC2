@@ -109,10 +109,10 @@ def call_doublets(
     - ``adata.uns["scrublet"]["threshold"]``: saved threshold
     """
 
-    if 'scrublet' not in adata.uns:
+    if 'scrublet_sim_doublet_score' not in adata.uns:
         raise NameError("Please call `scrublet` first")
 
-    doublet_scores_sim = adata.uns["scrublet_sim_doublet_score"]
+    doublet_scores_sim = adata.uns["scrublet_sim_doublet_score"][...]
     doublet_scores_obs = adata.obs["doublet_score"].to_numpy()
 
     if isinstance(threshold, float):
