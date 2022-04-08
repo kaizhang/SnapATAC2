@@ -326,8 +326,8 @@ where
             regions.regions.iter().map(|x| x.end()).collect::<Series>(),
         ),
     ]).unwrap());
-    anndata.uns.insert("reference_sequences", &chrom_sizes)?;
-    anndata.set_obs(&qc_to_df(saved_barcodes, qc))?;
+    anndata.get_uns().insert("reference_sequences", &chrom_sizes)?;
+    anndata.set_obs(Some(&qc_to_df(saved_barcodes, qc)))?;
     Ok(())
 }
 

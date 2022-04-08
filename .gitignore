@@ -1,3 +1,6 @@
 target
 Cargo.lock
 *.h5ad
+__pycache__/
+*.egg-info/
+*.egg

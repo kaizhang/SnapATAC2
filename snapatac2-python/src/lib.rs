@@ -54,8 +54,8 @@ fn mk_gene_matrix(
     };
 
     let anndata = rayon::ThreadPoolBuilder::new().num_threads(num_cpu).build().unwrap().install(|| if use_x {
-        let regions: Vec<GenomicRange> = input.0.var.read().unwrap().unwrap()[0]
-            .utf8().unwrap().into_iter()
+        let regions: Vec<GenomicRange> = input.0.get_var().lock().unwrap().as_ref()
+            .unwrap().read().unwrap()[0].utf8().unwrap().into_iter()
             .map(|x| str_to_genomic_region(x.unwrap()).unwrap()).collect();
         create_gene_matrix(
             output_file,
@@ -70,7 +70,7 @@ fn mk_gene_matrix(
         create_gene_matrix(
             output_file,
             InsertionIter {
-                iter: input.0.obsm.data.lock().unwrap().get("insertion").unwrap()
+                iter: input.0.get_obsm().data.lock().unwrap().get("insertion").unwrap()
                     .0.lock().unwrap().downcast().into_row_iter(500),
                 chrom_index,
             },

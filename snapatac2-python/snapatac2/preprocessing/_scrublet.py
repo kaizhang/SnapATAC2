@@ -195,7 +195,7 @@ def scrub_doublets_core(
     return (doublet_scores_obs, doublet_scores_sim, manifold_obs, manifold_sim)
 
 def get_manifold(obs_norm, sim_norm, n_comps=30, random_state=0):
-    model = Spectral(n_dim=n_comps, distance="jaccard").fit(obs_norm)
+    model = Spectral(n_dim=n_comps, distance="jaccard").fit(obs_norm, verbose=0)
     model.extend(obs_norm)
     model.extend(sim_norm)
     manifold = np.asanyarray(model.transform()[1])

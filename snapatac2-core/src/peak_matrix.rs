@@ -41,9 +41,9 @@ where
         num_cols: features.len(),
     })?;
 
-    anndata.set_var(&DataFrame::new(vec![
-        Series::new("Feature_ID", features)
-    ]).unwrap())?;
+    anndata.set_var(Some(
+        &DataFrame::new(vec![Series::new("Feature_ID", features)]).unwrap()
+    ))?;
 
     Ok(())
 }

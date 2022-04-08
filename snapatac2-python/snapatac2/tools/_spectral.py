@@ -3,13 +3,12 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel
 import gc
 
-from snapatac2._snapatac2 import AnnData
-from snapatac2._snapatac2 import jm_regress
+from snapatac2._snapatac2 import AnnData, AnnDataSet, jm_regress
 from typing import Optional, Union
 
 # FIXME: random state
 def spectral(
-    data: AnnData,
+    data: Union[AnnData, AnnDataSet],
     n_comps: Optional[int] = None,
     features: Optional[Union[str, np.ndarray]] = "selected",
     random_state: int = 0,
@@ -28,7 +27,7 @@ def spectral(
     Parameters
     ----------
     data
-        AnnData object
+        AnnData or AnnDataSet object
     n_comps
         Number of dimensions to keep
     features
@@ -54,6 +53,9 @@ def spectral(
     `adata.uns["spectral_eigenvalue"]`,
     otherwise it returns the result as a numpy array.
     """
+    if not (isinstance(data, AnnData) or isinstance(data, AnnDataSet)):
+        raise ValueError("input should be AnnData or AnnDataSet")
+
     if isinstance(features, str):
         if features in data.var:
             features = data.var[features].to_numpy()
@@ -84,12 +86,9 @@ def spectral(
             sample_size = int(sample_size * n_sample)
 
     if sample_size >= n_sample:
-        if isinstance(data, AnnData):
-            X = data.X[...]
-            if distance_metric == "jaccard":
-                X.data = np.ones(X.indices.shape, dtype=np.float64)
-        else:
-            raise ValueError("input should be AnnData or AnnCollection")
+        X = data.X[...]
+        if distance_metric == "jaccard":
+            X.data = np.ones(X.indices.shape, dtype=np.float64)
 
         if features is not None: X = X[:, features]
 
@@ -97,12 +96,9 @@ def spectral(
         model.fit(X)
         result = model.transform()
     else:
-        if isinstance(data, AnnData):
-            S = data.X.chunk(sample_size, replace=False)
-            if distance_metric == "jaccard":
-                S.data = np.ones(S.indices.shape, dtype=np.float64)
-        else:
-            raise ValueError("input should be AnnData or AnnCollection")
+        S = data.X.chunk(sample_size, replace=False)
+        if distance_metric == "jaccard":
+            S.data = np.ones(S.indices.shape, dtype=np.float64)
 
         if features is not None: S = S[:, features]
 
@@ -126,7 +122,7 @@ def spectral(
         return result
 
 class Spectral:
-    def __init__(self, n_dim=30, distance="jaccard"):
+    def __init__(self, n_dim: int = 30, distance: str = "jaccard"):
 
         #self.dim = mat.get_shape()[1]
         self.n_dim = n_dim
@@ -138,15 +134,15 @@ class Spectral:
         else:
             self.compute_similarity = rbf_kernel
 
-    def fit(self, mat):
+    def fit(self, mat, verbose: int = 1):
         self.sample = mat
         self.dim = mat.shape[1]
         self.coverage = mat.sum(axis=1) / self.dim
-        print("Compute similarity matrix")
+        if verbose > 0: print("Compute similarity matrix")
         A = self.compute_similarity(mat)
 
         if (self.distance == "jaccard"):
-            print("Normalization")
+            if verbose > 0: print("Normalization")
             self.normalizer = JaccardNormalizer(A, self.coverage)
             self.normalizer.normalize(A, self.coverage, self.coverage)
             np.fill_diagonal(A, 0)
@@ -162,7 +158,7 @@ class Spectral:
         np.divide(A, D, out=A)
         np.divide(A, D.T, out=A)
 
-        print("Perform decomposition")
+        if verbose > 0: print("Perform decomposition")
         evals, evecs = sp.sparse.linalg.eigsh(A, self.n_dim + 1, which='LM')
         ix = evals.argsort()[::-1]
         self.evals = np.real(evals[ix])
