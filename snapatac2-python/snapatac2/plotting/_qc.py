@@ -1,5 +1,5 @@
 from typing import Optional
-from snapatac2.anndata import AnnData
+from snapatac2._snapatac2 import AnnData
 import numpy as np
 from ._utils import render_plot
 

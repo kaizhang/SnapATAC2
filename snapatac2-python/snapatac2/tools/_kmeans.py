@@ -2,7 +2,7 @@ from typing import Optional, Union, Type
 import numpy as np
 import polars
 
-from snapatac2.anndata import AnnData
+from snapatac2._snapatac2 import AnnData
 import snapatac2._snapatac2 as _snapatac2
 
 def kmeans(

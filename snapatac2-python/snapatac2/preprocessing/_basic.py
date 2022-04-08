@@ -1,8 +1,8 @@
 import numpy as np
-from snapatac2.anndata import AnnData
 import math
 from typing import Optional, Union, Literal, Mapping
 
+from snapatac2._snapatac2 import AnnData
 import snapatac2._snapatac2 as internal
 
 def import_data(
@@ -43,11 +43,10 @@ def import_data(
     -------
     AnnData
     """
-    pyanndata = internal.import_fragments(
+    return internal.import_fragments(
         output, fragment_file, gff_file, chrom_size,
         min_num_fragments, min_tsse, sorted_by_barcode, n_jobs
     )
-    return AnnData(pyanndata = pyanndata)
 
 def make_tile_matrix(
     adata: AnnData,
@@ -69,12 +68,13 @@ def make_tile_matrix(
     Returns
     -------
     """
-    internal.mk_tile_matrix(adata._anndata, bin_size, n_jobs)
+    internal.mk_tile_matrix(adata, bin_size, n_jobs)
 
 def make_gene_matrix(
     adata: AnnData,
     gff_file: str,
     output: Optional[str] = "gene_matrix.h5ad",
+    use_x: bool = False,
     n_jobs: int = 4,
 ) -> AnnData:
     """
@@ -96,8 +96,7 @@ def make_gene_matrix(
     -------
     AnnData
     """
-    pyanndata = internal.mk_gene_matrix(adata._anndata, gff_file, output, n_jobs)
-    anndata = AnnData(pyanndata = pyanndata)
+    anndata = internal.mk_gene_matrix(adata, gff_file, output, use_x, n_jobs)
     anndata.obs = adata.obs[...]
     return anndata
 

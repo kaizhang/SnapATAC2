@@ -3,7 +3,7 @@ import scipy.sparse as ss
 import numpy as np
 import polars
 
-from snapatac2.anndata import AnnData
+from snapatac2._snapatac2 import AnnData
 from .. import _utils
 
 def leiden(

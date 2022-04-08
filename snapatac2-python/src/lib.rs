@@ -6,11 +6,8 @@ use pyo3::{
 use numpy::{PyReadonlyArrayDyn, PyReadonlyArray, Ix1, Ix2, PyArray, IntoPyArray};
 
 use hdf5::H5Type;
-use anndata_rs::base::AnnData;
-use pyanndata::PyAnnData;
 use bed_utils::{bed, bed::GenomicRange, bed::BED};
 use std::fs::File;
-use snapatac2_core::qc::read_insertions;
 use std::collections::BTreeMap;
 use flate2::read::MultiGzDecoder;
 use hdf5;
@@ -22,20 +19,30 @@ use rand_core::SeedableRng;
 use rand_isaac::Isaac64Rng;
 use hora::core::ann_index::ANNIndex;
 
+use anndata_rs::{
+    anndata,
+    iterator::IntoRowsIterator,
+};
+use pyanndata::{
+    AnnData,
+    AnnDataSet,
+};
+
 use snapatac2_core::{
     tile_matrix::{create_tile_matrix},
     gene_score::create_gene_matrix,
     qc,
-    utils::{gene::read_transcripts},
+    utils::{gene::read_transcripts, Insertions, get_chrom_index, InsertionIter},
 };
 
 #[pyfunction]
 fn mk_gene_matrix(
-    input: &PyAnnData,
+    input: &AnnData,
     gff_file: &str,
     output_file: &str,
+    use_x: bool,
     num_cpu: usize,
-) -> PyResult<PyAnnData>
+) -> PyResult<AnnData>
 {
     let transcripts = if is_gzipped(gff_file) {
         let reader = File::open(gff_file).map(MultiGzDecoder::new)
@@ -46,18 +53,36 @@ fn mk_gene_matrix(
         read_transcripts(reader).into_values().collect()
     };
 
-    let anndata = rayon::ThreadPoolBuilder::new().num_threads(num_cpu)
-        .build().unwrap().install(|| create_gene_matrix(
+    let anndata = rayon::ThreadPoolBuilder::new().num_threads(num_cpu).build().unwrap().install(|| if use_x {
+        let regions: Vec<GenomicRange> = input.0.var.read().unwrap().unwrap()[0]
+            .utf8().unwrap().into_iter()
+            .map(|x| str_to_genomic_region(x.unwrap()).unwrap()).collect();
+        create_gene_matrix(
             output_file,
-            read_insertions(&input.0).unwrap().chunks(1000),
+            // FIXME: poison
+            input.0.x.lock().unwrap().as_ref().unwrap()
+                .0.lock().unwrap().into_csr_u32_iter(500)
+                .map(|x| x.into_iter().map(|vec| Insertions(vec.into_iter().map(|(i, v)| (regions[i].clone(), v)).collect())).collect()),
             transcripts,
         ).unwrap()
-    );
-    Ok(PyAnnData(anndata))
+    } else {
+        let chrom_index = get_chrom_index(&input.0).unwrap();
+        create_gene_matrix(
+            output_file,
+            InsertionIter {
+                iter: input.0.obsm.data.lock().unwrap().get("insertion").unwrap()
+                    .0.lock().unwrap().downcast().into_row_iter(500),
+                chrom_index,
+            },
+            transcripts,
+        ).unwrap()
+    });
+
+    Ok(AnnData(anndata))
 }
 
 #[pyfunction]
-fn mk_tile_matrix(anndata: &PyAnnData,
+fn mk_tile_matrix(anndata: &AnnData,
                   bin_size: u64,
                   num_cpu: usize,
                   ) -> PyResult<()>
@@ -77,9 +102,9 @@ fn import_fragments(
     min_tsse: f64,
     fragment_is_sorted_by_name: bool,
     num_cpu: usize,
-    ) -> PyResult<PyAnnData>
+    ) -> PyResult<AnnData>
 {
-    let mut anndata = AnnData::new(output_file, 0, 0).unwrap();
+    let mut anndata = anndata::AnnData::new(output_file, 0, 0).unwrap();
     let gtf_file_reader = File::open(gtf_file).unwrap();
     let promoters = if is_gzipped(gtf_file) {
         qc::make_promoter_map(qc::read_tss(MultiGzDecoder::new(gtf_file_reader)))
@@ -140,7 +165,7 @@ fn import_fragments(
             ).unwrap()
         }
     });
-    Ok(PyAnnData(anndata))
+    Ok(AnnData(anndata))
 } 
 
 
@@ -271,11 +296,14 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(kmeans, m)?)?;
     m.add_function(wrap_pyfunction!(approximate_nearest_neighbors, m)?)?;
 
-    m.add_class::<pyanndata::PyAnnData>().unwrap();
-    m.add_class::<pyanndata::PyElem>().unwrap();
-    m.add_class::<pyanndata::PyMatrixElem>().unwrap();
-    m.add_class::<pyanndata::PyDataFrameElem>().unwrap();
-    m.add_function(wrap_pyfunction!(pyanndata::read_anndata, m)?)?;
+    m.add_class::<pyanndata::AnnData>().unwrap();
+    m.add_class::<pyanndata::element::PyElem>().unwrap();
+    m.add_class::<pyanndata::element::PyMatrixElem>().unwrap();
+    m.add_class::<pyanndata::element::PyDataFrameElem>().unwrap();
+    m.add_class::<AnnDataSet>().unwrap();
 
+    m.add_function(wrap_pyfunction!(pyanndata::read_mtx, m)?)?;
+    m.add_function(wrap_pyfunction!(pyanndata::read_h5ad, m)?)?;
+    m.add_function(wrap_pyfunction!(pyanndata::read_dataset, m)?)?;
     Ok(())
 }

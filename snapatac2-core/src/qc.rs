@@ -1,10 +1,7 @@
-use crate::utils::Insertions;
-
 use anndata_rs::{
-    base::AnnData,
-    anndata_trait::{WriteData, DataPartialIO},
-    element::RawMatrixElem,
-    iterator::{CsrIterator, CsrRowsIterator, IntoRowsIterator},
+    anndata::AnnData,
+    anndata_trait::DataIO,
+    iterator::CsrIterator,
 };
 use polars::prelude::{NamedFrom, DataFrame, Series};
 
@@ -22,7 +19,6 @@ use std::collections::HashMap;
 use hdf5::Result;
 use rayon::iter::ParallelIterator;
 use rayon::iter::IntoParallelIterator;
-use std::sync::MutexGuard;
 
 pub type CellBarcode = String;
 
@@ -320,7 +316,7 @@ where
         anndata.add_obsm_from_row_iter("insertion", csr_rows)?;
     }
 
-    let chrom_sizes: Box<dyn WriteData> = Box::new(DataFrame::new(vec![
+    let chrom_sizes: Box<dyn DataIO> = Box::new(DataFrame::new(vec![
         Series::new(
             "reference_seq_name",
             regions.regions.iter().map(|x| x.chrom()).collect::<Series>(),
@@ -330,7 +326,7 @@ where
             regions.regions.iter().map(|x| x.end()).collect::<Series>(),
         ),
     ]).unwrap());
-    anndata.add_uns("reference_sequences", &chrom_sizes)?;
+    anndata.uns.insert("reference_sequences", &chrom_sizes)?;
     anndata.set_obs(&qc_to_df(saved_barcodes, qc))?;
     Ok(())
 }
@@ -375,64 +371,6 @@ where
         *barcodes.entry(key).or_insert(0) += 1;
     });
     barcodes
-}
-
-pub struct IntoInsertionIter<'a> {
-    guard: MutexGuard<'a, RawMatrixElem<dyn DataPartialIO>>,
-    chrom_index: Vec<(String, u64)>,
-}
-
-impl<'a> IntoInsertionIter<'a> {
-    pub fn chunks(&'a self, chunk_size: usize) -> InsertionIter<'a> {
-        InsertionIter {
-            data: self,
-            iter: self.guard.downcast().into_row_iter(chunk_size),
-        }
-    }
-}
-
-pub struct InsertionIter<'a> {
-    data: &'a IntoInsertionIter<'a>,
-    iter: CsrRowsIterator<'a, u8>,
-}
-
-impl<'a> Iterator for InsertionIter<'a>
-{
-    type Item = Vec<Insertions>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|items| items.into_iter().map(|item| { 
-            let ins = item.into_iter().map(|(i, x)| {
-                let locus = match self.data.chrom_index.binary_search_by_key(&i, |s| s.1.try_into().unwrap()) {
-                    Ok(i_) => GenomicRange::new(self.data.chrom_index[i_].0.clone(), 0, 1),
-                    Err(i_) => {
-                        let (chr, p) = self.data.chrom_index[i_ - 1].clone();
-                        GenomicRange::new(chr, i as u64 - p, i as u64 - p + 1)
-                    },
-                };
-                (locus, x as u32)
-            }).collect();
-            Insertions(ins)
-        }).collect())
-    }
-}
-
-pub fn read_insertions(anndata: &AnnData) -> Result<IntoInsertionIter<'_>> {
-    let df: Box<DataFrame> = anndata.uns.get("reference_sequences").unwrap().read()?
-        .into_any().downcast().unwrap();
-    let chrs = df.column("reference_seq_name").unwrap().utf8().unwrap();
-    let chr_sizes = df.column("reference_seq_length").unwrap().u64().unwrap();
-    let chrom_index = chrs.into_iter().flatten().map(|x| x.to_string()).zip(
-        std::iter::once(0).chain(chr_sizes.into_iter().flatten().scan(0, |state, x| {
-            *state = *state + x;
-            Some(*state)
-        }))
-    ).collect();
-
-    Ok(IntoInsertionIter{
-        guard: anndata.obsm.get("insertion").unwrap().0.lock().unwrap(),
-        chrom_index,
-    })
 }
 
 #[cfg(test)]

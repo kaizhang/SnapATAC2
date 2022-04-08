@@ -1,10 +1,7 @@
 from pathlib import Path
 from typing import Union
 import pandas as pd
-from anndata import (
-    AnnData,
-    read_mtx,
-)
+from snapatac2._snapatac2 import AnnData, read_mtx
 
 def read_10x_mtx(
     path: Union[Path, str],

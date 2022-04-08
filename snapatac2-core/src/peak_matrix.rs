@@ -1,8 +1,8 @@
 use crate::utils::{Insertions, FeatureCounter};
 
 use anndata_rs::{
-    base::AnnData,
-    iterator::CsrIterator
+    anndata::AnnData,
+    iterator::CsrIterator,
 };
 use polars::prelude::{NamedFrom, DataFrame, Series};
 use hdf5::Result;

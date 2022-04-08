@@ -1,7 +1,7 @@
 import numpy as np
 from typing import Optional, Union, List
 
-from snapatac2.anndata import AnnData
+from snapatac2._snapatac2 import AnnData
 
 def umap(
     adata: AnnData,

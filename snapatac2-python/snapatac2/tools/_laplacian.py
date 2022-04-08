@@ -4,7 +4,7 @@ from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel
 from typing import Optional, Union
 from scipy.sparse.linalg import svds
 
-from snapatac2.anndata import AnnData
+from snapatac2._snapatac2 import AnnData
 from ._spectral import JaccardNormalizer, jaccard_similarity
 
 def laplacian(

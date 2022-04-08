@@ -8,11 +8,12 @@ setup(
     author='Kai Zhang',
     author_email='kai@kzhang.org',
     license='MIT',
-    version="1.99.99.3",
-    rust_extensions=[RustExtension("snapatac2._snapatac2", binding=Binding.PyO3)],
+    version="1.99.99.4",
+    rust_extensions=[
+        RustExtension("snapatac2._snapatac2", binding=Binding.PyO3),
+    ],
     packages=[
         "snapatac2",
-        "snapatac2.anndata",
         "snapatac2.preprocessing",
         "snapatac2.tools",
         "snapatac2.plotting",

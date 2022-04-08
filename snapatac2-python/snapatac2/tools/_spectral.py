@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel
 import gc
 
-from snapatac2.anndata import AnnData
+from snapatac2._snapatac2 import AnnData
 from snapatac2._snapatac2 import jm_regress
 from typing import Optional, Union
 

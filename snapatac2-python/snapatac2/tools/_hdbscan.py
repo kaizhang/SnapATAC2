@@ -2,7 +2,7 @@ from typing import Optional, Union, Type
 import pandas as pd
 import numpy as np
 
-from snapatac2.anndata import AnnData
+from snapatac2._snapatac2 import AnnData
 
 def hdbscan(
     adata: AnnData,

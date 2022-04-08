@@ -3,7 +3,7 @@ import pandas as pd
 from typing import Optional
 import numpy as np
 
-from snapatac2.anndata import AnnData
+from snapatac2._snapatac2 import AnnData
 
 def dbscan(
     adata: AnnData,

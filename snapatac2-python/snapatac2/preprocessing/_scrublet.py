@@ -7,7 +7,7 @@ from typing import Literal, Optional, Union, Type, Tuple
 from sklearn.neighbors import NearestNeighbors
 
 from .._utils import get_binarized_matrix
-from snapatac2.anndata import AnnData
+from snapatac2._snapatac2 import AnnData
 from snapatac2.tools._spectral import Spectral
 
 def scrublet(

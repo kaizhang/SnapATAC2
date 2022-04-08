@@ -5,7 +5,7 @@ from scipy.special import logsumexp
 from sklearn.cluster import KMeans
 from typing import Optional, Union, List
 
-from snapatac2.anndata import AnnData
+from snapatac2._snapatac2 import AnnData
 
 def mnc_correct(
     data: AnnData,

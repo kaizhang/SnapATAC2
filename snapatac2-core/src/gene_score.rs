@@ -5,8 +5,7 @@ use crate::utils::{
 };
 use crate::peak_matrix::create_feat_matrix;
 
-use anndata_rs::base::AnnData;
-
+use anndata_rs::anndata::AnnData;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::collections::HashMap;

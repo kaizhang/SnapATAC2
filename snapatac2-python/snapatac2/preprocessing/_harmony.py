@@ -5,7 +5,7 @@ Use harmony to integrate cells from different experiments.
 import numpy as np
 from typing import Optional, List, Union
 
-from snapatac2.anndata import AnnData
+from snapatac2._snapatac2 import AnnData
 
 def harmony(
     adata: AnnData,
