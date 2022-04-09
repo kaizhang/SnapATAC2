@@ -36,7 +36,8 @@ jobs:
         pip install --user Pygments==2.6.1 sphinx==4.4.0 pandoc nbsphinx \
           sphinx-autodoc-typehints \
           sphinx-multiversion \
-          sphinx_rtd_theme
+          sphinx_rtd_theme \
+          markupsafe==2.0.1 
 
     - name: Install package dependency
       run: |

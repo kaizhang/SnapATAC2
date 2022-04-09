@@ -54,7 +54,6 @@ napoleon_custom_sections = [('Params', 'Parameters')]
 todo_include_todos = False
 
 intersphinx_mapping = {
-    "anndata": ("https://anndata.readthedocs.io/en/stable/", None),
     "cycler": ("https://matplotlib.org/cycler/", None),
     "h5py": ("http://docs.h5py.org/en/stable/", None),
     "ipython": ("https://ipython.readthedocs.io/en/stable/", None),
