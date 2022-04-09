@@ -372,31 +372,3 @@ where
     });
     barcodes
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    use flate2::read::GzDecoder;
-    use std::fs::File;
-
-    #[test]
-    fn test_tsse() {
-        let f = GzDecoder::new(File::open("../data/fragments.bed.gz").expect("xx"));
-        let gencode = File::open("../data/gencode.gtf.gz").expect("xx");
-        let promoter = make_promoter_map(read_tss(GzDecoder::new(gencode)));
-        let expected = vec![12.702366127023662, 1.8181818181818181,
-            6.1688311688311686, 1.8181818181818181, 0.0, 0.0,
-            0.9090909090909091, 8.333333333333332, 0.9090909090909091,
-            6.0606060606060606, 5.483405483405483, 6.28099173553719,
-            8.869179600886916];
-
-        let result: Vec<f64> = read_fragments(f).into_iter().map(|(_, fragments)| {
-            let mut summary = FragmentSummary::new(&promoter);
-            fragments.for_each(|frag| { summary.update(&frag); });
-            summary.get_qc().tss_enrichment
-        }).collect();
-        assert_eq!(expected, result);
-    }
-
-}
