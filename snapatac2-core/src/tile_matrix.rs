@@ -32,7 +32,7 @@ pub fn create_tile_matrix(
     ) -> Result<()>
 where
 {
-    let df: Box<DataFrame> = anndata.get_uns().data.lock().unwrap()
+    let df: Box<DataFrame> = anndata.get_uns().data.lock()
         .get("reference_sequences").unwrap().read()?.into_any().downcast().unwrap();
     let regions = df.column("reference_seq_length")
         .unwrap().u64().unwrap().into_iter()
@@ -44,8 +44,8 @@ where
     create_feat_matrix(
         anndata,
         InsertionIter {
-            iter: anndata.get_obsm().data.lock().unwrap().get("insertion").unwrap()
-                .0.lock().unwrap().downcast().into_row_iter(500),
+            iter: anndata.get_obsm().data.lock().get("insertion").unwrap()
+                .0.lock().downcast().into_row_iter(500),
             chrom_index,
         },
         feature_counter,

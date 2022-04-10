@@ -113,7 +113,7 @@ pub fn str_to_genomic_region(txt: &str) -> Option<GenomicRange> {
 }
 
 pub fn get_chrom_index(anndata: &AnnData) -> Result<Vec<(String, u64)>> {
-    let df: Box<DataFrame> = anndata.get_uns().data.lock().unwrap()
+    let df: Box<DataFrame> = anndata.get_uns().data.lock()
         .get("reference_sequences").unwrap().read()?.into_any().downcast().unwrap();
     let chrs = df.column("reference_seq_name").unwrap().utf8().unwrap();
     let chr_sizes = df.column("reference_seq_length").unwrap().u64().unwrap();

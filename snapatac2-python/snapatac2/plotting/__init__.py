@@ -1,4 +1,5 @@
 from ._qc import tsse, scrublet
+from ._scatter import umap
 
 from typing import Optional
 from snapatac2._snapatac2 import AnnData

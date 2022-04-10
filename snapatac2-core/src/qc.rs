@@ -240,10 +240,11 @@ where
     let num_features = SparseBinnedCoverage::<_, u8>::new(regions, 1).len;
     let mut saved_barcodes = Vec::new();
     let mut qc = Vec::new();
-
+    let mut obsm_guard = anndata.get_obsm().0;
+    
     if fragment_is_sorted_by_name {
         let mut scanned_barcodes = HashSet::new();
-        anndata.add_obsm_from_row_iter(
+        obsm_guard.as_mut().unwrap().insert_from_row_iter(
             "insertion",
             CsrIterator {
                 iterator: fragments
@@ -313,7 +314,7 @@ where
             }),
             num_cols: num_features,
         };
-        anndata.add_obsm_from_row_iter("insertion", csr_rows)?;
+        obsm_guard.as_mut().unwrap().insert_from_row_iter("insertion", csr_rows)?;
     }
 
     let chrom_sizes: Box<dyn DataIO> = Box::new(DataFrame::new(vec![

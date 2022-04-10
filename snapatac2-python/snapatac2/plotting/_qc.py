@@ -105,7 +105,7 @@ def scrublet(
     import plotly.graph_objects as go
 
     doublet_scores = adata.obs["doublet_score"].to_numpy()
-    sim_scores = adata.uns["scrublet_sim_doublet_score"].to_numpy()
+    sim_scores = adata.uns["scrublet_sim_doublet_score"]
 
     thres = adata.uns["scrublet_threshold"] if "threshold" in adata.uns["scrublet"] else None
 

@@ -15,10 +15,7 @@ Data IO
 .. autosummary::
     :toctree: _autosummary
 
-    read
     read_h5ad
-    read_mtx
-    read_10x_mtx
 
 Preprocessing: `pp`
 -------------------

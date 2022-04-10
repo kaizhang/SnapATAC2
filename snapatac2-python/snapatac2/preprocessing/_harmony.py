@@ -5,7 +5,7 @@ Use harmony to integrate cells from different experiments.
 import numpy as np
 from typing import Optional, List, Union
 
-from snapatac2._snapatac2 import AnnData
+from snapatac2._snapatac2 import AnnData, AnnDataSet
 
 def harmony(
     adata: AnnData,
@@ -55,12 +55,12 @@ def harmony(
         raise ImportError("\nplease install harmonypy:\n\n\tpip install harmonypy")
 
     if use_rep is None: use_rep = "X_spectral"
-    mat = adata.obsm[use_rep][...] if isinstance(adata, AnnData) else adata
+    mat = adata.obsm[use_rep] if isinstance(adata, AnnData) or isinstance(adata, AnnDataSet) else adata
     if isinstance(use_dims, int): use_dims = range(use_dims) 
     mat = mat if use_dims is None else mat[:, use_dims]
 
     harmony_out = harmonypy.run_harmony(mat, adata.obs[...].to_pandas(), batch, **kwargs)
-    if inplace:
+    if (isinstance(adata, AnnData) or isinstance(adata, AnnDataSet)) and inplace:
         adata.obsm[use_rep + "_harmony"] = harmony_out.Z_corr.T
     else:
         return harmony_out.Z_corr.T

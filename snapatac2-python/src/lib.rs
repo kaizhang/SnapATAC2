@@ -18,15 +18,13 @@ use linfa::traits::{Fit, Predict};
 use rand_core::SeedableRng;
 use rand_isaac::Isaac64Rng;
 use hora::core::ann_index::ANNIndex;
+use std::ops::Deref;
 
 use anndata_rs::{
     anndata,
     iterator::IntoRowsIterator,
 };
-use pyanndata::{
-    AnnData,
-    AnnDataSet,
-};
+use pyanndata::{AnnData, AnnDataSet, read, read_mtx, create_dataset, read_dataset};
 
 use snapatac2_core::{
     tile_matrix::{create_tile_matrix},
@@ -53,32 +51,33 @@ fn mk_gene_matrix(
         read_transcripts(reader).into_values().collect()
     };
 
+    let inner = input.inner();
     let anndata = rayon::ThreadPoolBuilder::new().num_threads(num_cpu).build().unwrap().install(|| if use_x {
-        let regions: Vec<GenomicRange> = input.0.get_var().lock().unwrap().as_ref()
-            .unwrap().read().unwrap()[0].utf8().unwrap().into_iter()
+        let regions: Vec<GenomicRange> = inner.get_var().read().unwrap()[0]
+            .utf8().unwrap().into_iter()
             .map(|x| str_to_genomic_region(x.unwrap()).unwrap()).collect();
         create_gene_matrix(
             output_file,
             // FIXME: poison
-            input.0.x.lock().unwrap().as_ref().unwrap()
-                .0.lock().unwrap().into_csr_u32_iter(500)
+            inner.x.lock().as_ref().unwrap()
+                .0.lock().into_csr_u32_iter(500)
                 .map(|x| x.into_iter().map(|vec| Insertions(vec.into_iter().map(|(i, v)| (regions[i].clone(), v)).collect())).collect()),
             transcripts,
         ).unwrap()
     } else {
-        let chrom_index = get_chrom_index(&input.0).unwrap();
+        let chrom_index = get_chrom_index(inner.deref()).unwrap();
         create_gene_matrix(
             output_file,
             InsertionIter {
-                iter: input.0.get_obsm().data.lock().unwrap().get("insertion").unwrap()
-                    .0.lock().unwrap().downcast().into_row_iter(500),
+                iter: inner.get_obsm().data.lock().get("insertion").unwrap()
+                    .0.lock().downcast().into_row_iter(500),
                 chrom_index,
             },
             transcripts,
         ).unwrap()
     });
 
-    Ok(AnnData(anndata))
+    Ok(AnnData::wrap(anndata))
 }
 
 #[pyfunction]
@@ -87,8 +86,9 @@ fn mk_tile_matrix(anndata: &AnnData,
                   num_cpu: usize,
                   ) -> PyResult<()>
 {
+    let inner = anndata.inner();
     rayon::ThreadPoolBuilder::new().num_threads(num_cpu)
-        .build().unwrap().install(|| create_tile_matrix(&anndata.0, bin_size).unwrap());
+        .build().unwrap().install(|| create_tile_matrix(inner.deref(), bin_size).unwrap());
     Ok(())
 } 
 
@@ -165,7 +165,7 @@ fn import_fragments(
             ).unwrap()
         }
     });
-    Ok(AnnData(anndata))
+    Ok(AnnData::wrap(anndata))
 } 
 
 
@@ -296,14 +296,15 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(kmeans, m)?)?;
     m.add_function(wrap_pyfunction!(approximate_nearest_neighbors, m)?)?;
 
-    m.add_class::<pyanndata::AnnData>().unwrap();
+    m.add_class::<AnnData>().unwrap();
+    m.add_class::<AnnDataSet>().unwrap();
     m.add_class::<pyanndata::element::PyElem>().unwrap();
     m.add_class::<pyanndata::element::PyMatrixElem>().unwrap();
     m.add_class::<pyanndata::element::PyDataFrameElem>().unwrap();
-    m.add_class::<AnnDataSet>().unwrap();
 
-    m.add_function(wrap_pyfunction!(pyanndata::read_mtx, m)?)?;
-    m.add_function(wrap_pyfunction!(pyanndata::read_h5ad, m)?)?;
-    m.add_function(wrap_pyfunction!(pyanndata::read_dataset, m)?)?;
+    m.add_function(wrap_pyfunction!(read_mtx, m)?)?;
+    m.add_function(wrap_pyfunction!(read, m)?)?;
+    m.add_function(wrap_pyfunction!(create_dataset, m)?)?;
+    m.add_function(wrap_pyfunction!(read_dataset, m)?)?;
     Ok(())
 }

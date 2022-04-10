@@ -7,8 +7,8 @@
 # -- Path setup --------------------------------------------------------------
 
 import os
-import sys
-sys.path.insert(0, os.path.abspath('../snapatac2-python'))
+#import sys
+#sys.path.insert(0, os.path.abspath('../snapatac2-python'))
 
 # -- Project information -----------------------------------------------------
 
@@ -17,7 +17,7 @@ copyright = '2022, Kai Zhang'
 author = 'Kai Zhang'
 
 # The full version, including alpha/beta/rc tags
-release = '1.99.99.3'
+release = '1.99.99.4'
 
 
 # -- General configuration ---------------------------------------------------
@@ -43,7 +43,7 @@ extensions = [
 # Generate the API documentation when building
 autosummary_generate = True
 autodoc_member_order = 'bysource'
-autodoc_mock_imports = ["snapatac2._snapatac2"]
+#autodoc_mock_imports = ["snapatac2._snapatac2"]
 # autodoc_default_flags = ['members']
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True

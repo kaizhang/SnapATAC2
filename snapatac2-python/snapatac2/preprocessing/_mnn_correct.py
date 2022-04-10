@@ -5,7 +5,7 @@ from scipy.special import logsumexp
 from sklearn.cluster import KMeans
 from typing import Optional, Union, List
 
-from snapatac2._snapatac2 import AnnData
+from snapatac2._snapatac2 import AnnData, AnnDataSet
 
 def mnc_correct(
     data: AnnData,
@@ -41,7 +41,7 @@ def mnc_correct(
     Otherwise, it returns the result as a numpy array.
     """
     if use_rep is None: use_rep = "X_spectral"
-    mat = data.obsm[use_rep][...] if isinstance(data, AnnData) else data
+    mat = data.obsm[use_rep] if isinstance(data, AnnData) or isinstance(data, AnnDataSet) else data
     if isinstance(use_dims, int): use_dims = range(use_dims) 
     mat = mat if use_dims is None else mat[:, use_dims]
     mat = np.asarray(mat)
@@ -63,7 +63,7 @@ def mnc_correct(
             new[idx[i]] = mat_[i,:]
         mat = new
 
-    if isinstance(data, AnnData) and inplace:
+    if (isinstance(data, AnnData) or isinstance(data, AnnDataSet)) and inplace:
         data.obsm[use_rep + "_mnn"] = mat
     else:
         return mat
