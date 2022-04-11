@@ -38,7 +38,7 @@ def laplacian(
     if `inplace=True` it stores Spectral embedding of data in the field
     `adata.obsm["X_spectral"]`, otherwise it returns the result as a numpy array.
     """
-    features = data.var[features].to_numpy() if isinstance(features, str) else features
+    features = data.var[features] if isinstance(features, str) else features
     if n_comps is None:
         min_dim = min(data.n_vars, data.n_obs)
         if 50 >= min_dim:
@@ -47,11 +47,8 @@ def laplacian(
             n_comps = 50
     (n_sample, _) = data.shape
 
-    if isinstance(data, AnnData):
-        X = data.X[...]
-        X.data = np.ones(X.indices.shape, dtype=np.float64)
-    else:
-        raise ValueError("input should be AnnData or AnnCollection")
+    X = data.X[...]
+    X.data = np.ones(X.indices.shape, dtype=np.float64)
 
     if features is not None: X = X[:, features]
 

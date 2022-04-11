@@ -9,7 +9,7 @@ def import_data(
     fragment_file: str,
     gff_file: str,
     chrom_size: Mapping[str, int],
-    output: str = "data.h5ad",
+    file: str,
     min_num_fragments: int = 200,
     min_tsse: float = 1,
     sorted_by_barcode: bool = True,
@@ -27,7 +27,7 @@ def import_data(
     chrom_size
         A dictionary containing chromosome sizes, for example,
         `{"chr1": 2393, "chr2": 2344, ...}`
-    output
+    file
         File name of the output h5ad file used to store the result
     min_num_fragments
         Threshold used to filter cells
@@ -44,7 +44,7 @@ def import_data(
     AnnData
     """
     return internal.import_fragments(
-        output, fragment_file, gff_file, chrom_size,
+        file, fragment_file, gff_file, chrom_size,
         min_num_fragments, min_tsse, sorted_by_barcode, n_jobs
     )
 
@@ -73,7 +73,7 @@ def make_tile_matrix(
 def make_gene_matrix(
     adata: AnnData,
     gff_file: str,
-    output: Optional[str] = "gene_matrix.h5ad",
+    file: str,
     use_x: bool = False,
     n_jobs: int = 4,
 ) -> AnnData:
@@ -87,7 +87,7 @@ def make_gene_matrix(
         cell by bin count matrix
     gff_file
         File name of the gene annotation file in GFF format
-    output
+    file
         File name of the h5ad file used to store the result
     n_jobs
         number of CPUs to use
@@ -96,7 +96,7 @@ def make_gene_matrix(
     -------
     AnnData
     """
-    anndata = internal.mk_gene_matrix(adata, gff_file, output, use_x, n_jobs)
+    anndata = internal.mk_gene_matrix(adata, gff_file, file, use_x, n_jobs)
     anndata.obs = adata.obs[...]
     return anndata
 
@@ -145,7 +145,7 @@ def filter_cells(
     if max_tsse: selected_cells &= data.obs["tsse"] <= max_tsse
 
     if inplace:
-        data.subset(selected_cells.to_numpy())
+        data.subset(selected_cells)
     else:
         raise NameError("Not implement")
  

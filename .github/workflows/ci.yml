@@ -7,8 +7,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
 
     - name: Create LFS file list
       run: git lfs ls-files -l | cut -d' ' -f1 | sort > .lfs-assets-id
@@ -33,7 +31,6 @@ jobs:
         sudo pip install --upgrade pip
         pip install --user Pygments==2.6.1 sphinx==4.4.0 pandoc nbsphinx \
           sphinx-autodoc-typehints \
-          sphinx-multiversion \
           sphinx_rtd_theme \
           markupsafe==2.0.1 
 
@@ -47,8 +44,7 @@ jobs:
     - name: Build doc
       run: |
         cd ${GITHUB_WORKSPACE}
-        sphinx-multiversion ${GITHUB_WORKSPACE}/docs _build/html
-        mv ${GITHUB_WORKSPACE}/docs/github_page_redirect.html _build/html/index.html
+        sphinx-build ${GITHUB_WORKSPACE}/docs _build/html
 
     - name: Upload doc
       uses: actions/upload-artifact@v2
