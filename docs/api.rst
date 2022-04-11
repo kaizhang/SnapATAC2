@@ -15,7 +15,10 @@ Data IO
 .. autosummary::
     :toctree: _autosummary
 
-    read_h5ad
+    read
+    read_mtx
+    read_dataset
+    create_dataset
 
 Preprocessing: `pp`
 -------------------
@@ -89,3 +92,4 @@ Plotting: `pl`
     pl.tsse
     pl.spectral_eigenvalues
     pl.scrublet
+    pl.umap

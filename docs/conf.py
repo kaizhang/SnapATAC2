@@ -29,7 +29,6 @@ default_role = 'code'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    "sphinx_multiversion",
     "nbsphinx",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
@@ -43,7 +42,6 @@ extensions = [
 # Generate the API documentation when building
 autosummary_generate = True
 autodoc_member_order = 'bysource'
-#autodoc_mock_imports = ["snapatac2._snapatac2"]
 # autodoc_default_flags = ['members']
 napoleon_google_docstring = False
 napoleon_numpy_docstring = True
@@ -57,7 +55,6 @@ intersphinx_mapping = {
     "cycler": ("https://matplotlib.org/cycler/", None),
     "h5py": ("http://docs.h5py.org/en/stable/", None),
     "ipython": ("https://ipython.readthedocs.io/en/stable/", None),
-    "louvain": ("https://louvain-igraph.readthedocs.io/en/latest/", None),
     "matplotlib": ("https://matplotlib.org/", None),
     "networkx": (
         "https://networkx.github.io/documentation/networkx-1.10/",
@@ -76,11 +73,6 @@ smv_branch_whitelist = r'main'  # Include all branches
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
-html_sidebars = {
-    '**': [
-        'versioning.html',
-    ],
-}
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
