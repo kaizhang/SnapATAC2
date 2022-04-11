@@ -35,9 +35,9 @@ def tsse(
     """
     import plotly.graph_objects as go
 
-    selected_cells = adata.obs["n_fragment"].to_numpy() >= min_fragment
-    x = adata.obs["n_fragment"].to_numpy()[selected_cells]
-    y = adata.obs["tsse"].to_numpy()[selected_cells]
+    selected_cells = adata.obs["n_fragment"] >= min_fragment
+    x = adata.obs["n_fragment"][selected_cells]
+    y = adata.obs["tsse"][selected_cells]
 
     log_x = np.log10(x)
     log_x_min, log_x_max = log_x.min(), log_x.max()
@@ -104,10 +104,10 @@ def scrublet(
     from plotly.subplots import make_subplots
     import plotly.graph_objects as go
 
-    doublet_scores = adata.obs["doublet_score"].to_numpy()
+    doublet_scores = adata.obs["doublet_score"]
     sim_scores = adata.uns["scrublet_sim_doublet_score"]
 
-    thres = adata.uns["scrublet_threshold"] if "threshold" in adata.uns["scrublet"] else None
+    thres = adata.uns["scrublet_threshold"] if "scrublet_threshold" in adata.uns else None
 
     if thres is None:
         title1 = "Observed cells"

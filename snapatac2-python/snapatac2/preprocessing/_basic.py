@@ -145,7 +145,7 @@ def filter_cells(
     if max_tsse: selected_cells &= data.obs["tsse"] <= max_tsse
 
     if inplace:
-        data.subset(selected_cells.to_numpy())
+        data.subset(selected_cells)
     else:
         raise NameError("Not implement")
  

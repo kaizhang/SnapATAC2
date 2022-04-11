@@ -46,7 +46,7 @@ def mnc_correct(
     mat = mat if use_dims is None else mat[:, use_dims]
     mat = np.asarray(mat)
 
-    labels = data.obs[batch].to_numpy()
+    labels = data.obs[batch]
     label_uniq = list(set(labels))
 
     for _ in range(n_iter):

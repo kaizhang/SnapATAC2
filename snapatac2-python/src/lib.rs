@@ -58,7 +58,6 @@ fn mk_gene_matrix(
             .map(|x| str_to_genomic_region(x.unwrap()).unwrap()).collect();
         create_gene_matrix(
             output_file,
-            // FIXME: poison
             inner.x.lock().as_ref().unwrap()
                 .0.lock().into_csr_u32_iter(500)
                 .map(|x| x.into_iter().map(|vec| Insertions(vec.into_iter().map(|(i, v)| (regions[i].clone(), v)).collect())).collect()),

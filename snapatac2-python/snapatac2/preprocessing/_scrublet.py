@@ -55,7 +55,7 @@ def scrublet(
 
     if isinstance(features, str):
         if features in adata.var:
-            features = adata.var[features].to_numpy()
+            features = adata.var[features]
         else:
             raise NameError("Please call `select_features` first or explicitly set `features = None`")
 
@@ -113,7 +113,7 @@ def call_doublets(
         raise NameError("Please call `scrublet` first")
 
     doublet_scores_sim = adata.uns["scrublet_sim_doublet_score"][...]
-    doublet_scores_obs = adata.obs["doublet_score"].to_numpy()
+    doublet_scores_obs = adata.obs["doublet_score"]
 
     if isinstance(threshold, float):
         thres = threshold

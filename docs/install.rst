@@ -1,16 +1,8 @@
 Installation
 ============
 
-**IMPORTANT: SnapATAC2 uses a patched version of the `anndata` package which must be installed
-first by:**
-
-::
-
-    pip install anndata@git+https://github.com/kaizhang/anndata.git@f1d6ff6dd44bacea066a92e36e6b0778f9a28e61
-
 PyPI
 ----
-
 
 ::
 

@@ -58,7 +58,7 @@ def spectral(
 
     if isinstance(features, str):
         if features in data.var:
-            features = data.var[features].to_numpy()
+            features = data.var[features]
         else:
             raise NameError("Please call `select_features` first or explicitly set `features = None`")
 

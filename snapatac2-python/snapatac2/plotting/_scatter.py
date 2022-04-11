@@ -41,7 +41,7 @@ def umap(
             "UMAP-1": embedding[:, 0],
             "UMAP-2": embedding[:, 1],
             "UMAP-3": embedding[:, 2],
-            color: adata.obs[color].to_numpy(),
+            color: adata.obs[color],
         })
         fig = px.scatter_3d(df,
             x='UMAP-1', y='UMAP-2', z='UMAP-3',
@@ -51,7 +51,7 @@ def umap(
         df = pd.DataFrame({
             "UMAP-1": embedding[:, 0],
             "UMAP-2": embedding[:, 1],
-            color: adata.obs[color].to_numpy(),
+            color: adata.obs[color],
         })
         fig = px.scatter(df, x="UMAP-1", y="UMAP-2", color=color, width=width, height=height)
     fig.update_traces(marker_size=marker_size)
