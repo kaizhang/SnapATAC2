@@ -7,7 +7,6 @@ use bed_utils::bed::{
 use hdf5::Result;
 use anndata_rs::{
     anndata::AnnData,
-    element::ElemTrait,
 };
 use polars::frame::DataFrame;
 
@@ -113,8 +112,8 @@ pub fn str_to_genomic_region(txt: &str) -> Option<GenomicRange> {
 }
 
 pub fn get_chrom_index(anndata: &AnnData) -> Result<Vec<(String, u64)>> {
-    let df: Box<DataFrame> = anndata.get_uns().data.lock()
-        .get("reference_sequences").unwrap().read()?.into_any().downcast().unwrap();
+    let df: Box<DataFrame> = anndata.get_uns().inner()
+        .get_mut("reference_sequences").unwrap().read()?.into_any().downcast().unwrap();
     let chrs = df.column("reference_seq_name").unwrap().utf8().unwrap();
     let chr_sizes = df.column("reference_seq_length").unwrap().u64().unwrap();
     Ok(chrs.into_iter().flatten().map(|x| x.to_string()).zip(

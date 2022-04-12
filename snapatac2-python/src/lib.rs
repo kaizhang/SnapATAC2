@@ -51,15 +51,14 @@ fn mk_gene_matrix(
         read_transcripts(reader).into_values().collect()
     };
 
-    let inner = input.inner();
+    let inner = input.0.inner();
     let anndata = rayon::ThreadPoolBuilder::new().num_threads(num_cpu).build().unwrap().install(|| if use_x {
         let regions: Vec<GenomicRange> = inner.get_var().read().unwrap()[0]
             .utf8().unwrap().into_iter()
             .map(|x| str_to_genomic_region(x.unwrap()).unwrap()).collect();
         create_gene_matrix(
             output_file,
-            inner.x.lock().as_ref().unwrap()
-                .0.lock().into_csr_u32_iter(500)
+            inner.get_x().inner().into_csr_u32_iter(500)
                 .map(|x| x.into_iter().map(|vec| Insertions(vec.into_iter().map(|(i, v)| (regions[i].clone(), v)).collect())).collect()),
             transcripts,
         ).unwrap()
@@ -68,8 +67,8 @@ fn mk_gene_matrix(
         create_gene_matrix(
             output_file,
             InsertionIter {
-                iter: inner.get_obsm().data.lock().get("insertion").unwrap()
-                    .0.lock().downcast().into_row_iter(500),
+                iter: inner.get_obsm().inner().get("insertion").unwrap()
+                    .inner().downcast().into_row_iter(500),
                 chrom_index,
             },
             transcripts,
@@ -85,7 +84,7 @@ fn mk_tile_matrix(anndata: &AnnData,
                   num_cpu: usize,
                   ) -> PyResult<()>
 {
-    let inner = anndata.inner();
+    let inner = anndata.0.inner();
     rayon::ThreadPoolBuilder::new().num_threads(num_cpu)
         .build().unwrap().install(|| create_tile_matrix(inner.deref(), bin_size).unwrap());
     Ok(())

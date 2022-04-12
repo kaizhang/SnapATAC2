@@ -240,7 +240,7 @@ where
     let num_features = SparseBinnedCoverage::<_, u8>::new(regions, 1).len;
     let mut saved_barcodes = Vec::new();
     let mut qc = Vec::new();
-    let mut obsm_guard = anndata.get_obsm().0;
+    let mut obsm_guard = anndata.get_obsm().inner().0;
     
     if fragment_is_sorted_by_name {
         let mut scanned_barcodes = HashSet::new();
@@ -327,7 +327,7 @@ where
             regions.regions.iter().map(|x| x.end()).collect::<Series>(),
         ),
     ]).unwrap());
-    anndata.get_uns().insert("reference_sequences", &chrom_sizes)?;
+    anndata.get_uns().inner().add_data("reference_sequences", &chrom_sizes)?;
     anndata.set_obs(Some(&qc_to_df(saved_barcodes, qc)))?;
     Ok(())
 }

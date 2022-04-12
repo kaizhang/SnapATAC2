@@ -6,7 +6,6 @@ use crate::{
 use anndata_rs::{
     anndata::AnnData,
     iterator::IntoRowsIterator,
-    element::ElemTrait,
 };
 use polars::prelude::DataFrame;
 use hdf5::Result;
@@ -32,8 +31,8 @@ pub fn create_tile_matrix(
     ) -> Result<()>
 where
 {
-    let df: Box<DataFrame> = anndata.get_uns().data.lock()
-        .get("reference_sequences").unwrap().read()?.into_any().downcast().unwrap();
+    let df: Box<DataFrame> = anndata.get_uns().inner()
+        .get_mut("reference_sequences").unwrap().read()?.into_any().downcast().unwrap();
     let regions = df.column("reference_seq_length")
         .unwrap().u64().unwrap().into_iter()
         .zip(df.column("reference_seq_name").unwrap().utf8().unwrap())
@@ -44,8 +43,8 @@ where
     create_feat_matrix(
         anndata,
         InsertionIter {
-            iter: anndata.get_obsm().data.lock().get("insertion").unwrap()
-                .0.lock().downcast().into_row_iter(500),
+            iter: anndata.get_obsm().inner().get("insertion").unwrap().inner()
+                .downcast().into_row_iter(500),
             chrom_index,
         },
         feature_counter,
