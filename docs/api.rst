@@ -31,6 +31,7 @@ Basic Preprocessing
 
     pp.import_data
     pp.make_tile_matrix
+    pp.make_peak_matrix
     pp.make_gene_matrix
     pp.filter_cells
     pp.select_features

@@ -17,7 +17,7 @@ copyright = '2022, Kai Zhang'
 author = 'Kai Zhang'
 
 # The full version, including alpha/beta/rc tags
-release = '1.99.99.4'
+release = '1.99.99.5'
 
 
 # -- General configuration ---------------------------------------------------
