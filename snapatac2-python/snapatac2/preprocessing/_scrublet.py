@@ -3,7 +3,7 @@
 from tokenize import Name
 import numpy as np
 import scipy.sparse as ss
-from typing import Literal, Optional, Union, Type, Tuple
+from typing import Optional, Union, Type, Tuple
 from sklearn.neighbors import NearestNeighbors
 
 from .._utils import get_binarized_matrix
@@ -79,7 +79,7 @@ def scrublet(
 
 def call_doublets(
     adata: AnnData,
-    threshold: Union[Literal["gmm", ""], float] = "gmm",
+    threshold: Union[str, float] = "gmm",
     random_state: int = 0,
     inplace: bool = True,
 ) -> Optional[Tuple[np.ndarray, float]]:

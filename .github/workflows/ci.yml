@@ -30,16 +30,16 @@ jobs:
         sudo apt-get install -y libhdf5-serial-dev pandoc
         sudo pip install --upgrade pip
         pip install --user Pygments==2.6.1 sphinx==4.4.0 pandoc nbsphinx \
-          sphinx-autodoc-typehints \
-          sphinx_rtd_theme \
-          markupsafe==2.0.1 
+          sphinx-autodoc-typehints sphinx_rtd_theme \
+          markupsafe==2.0.1 \
+          pytest
 
     - name: Build and test package
       run: |
         cd ${GITHUB_WORKSPACE}/snapatac2-core && cargo test --all --no-fail-fast
         cd ${GITHUB_WORKSPACE}/snapatac2-python && \
           pip install --user . --use-feature=in-tree-build
-        python ${GITHUB_WORKSPACE}/snapatac2-python/tests/test.py
+        pytest ${GITHUB_WORKSPACE}/snapatac2-python/tests
 
     - name: Build doc
       run: |

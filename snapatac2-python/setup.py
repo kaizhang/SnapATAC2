@@ -21,14 +21,15 @@ setup(
     zip_safe=False,
     python_requires=">=3.7",
     install_requires=[
-        "polars",
         "numpy>=1.16.0",
-        "pandas",
-        "python-igraph",
         "scipy>=1.4",
         "scikit-learn>=0.22",
         "tqdm>=4.62",
         "umap-learn>=0.3.10",
+        "pandas",
+        "python-igraph",
+        "polars",
+        "pyarrow",
         "plotly>=5.6.0"
     ],
 )

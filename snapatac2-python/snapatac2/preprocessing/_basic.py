@@ -1,6 +1,6 @@
 import numpy as np
 import math
-from typing import Optional, Union, Literal, Mapping
+from typing import Optional, Union, Mapping
 
 from snapatac2._snapatac2 import AnnData
 import snapatac2._snapatac2 as internal
