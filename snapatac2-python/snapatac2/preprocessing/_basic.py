@@ -70,6 +70,28 @@ def make_tile_matrix(
     """
     internal.mk_tile_matrix(adata, bin_size, n_jobs)
 
+def make_peak_matrix(
+    adata: AnnData,
+    peak_file: str,
+    n_jobs: int = 4
+):
+    """
+    Add a cell by peak count matrix to the AnnData object.
+
+    Parameters
+    ----------
+    adata
+        AnnData
+    peak_file
+        Bed file containing the peaks
+    n_jobs
+        number of CPUs to use
+    
+    Returns
+    -------
+    """
+    internal.mk_peak_matrix(adata, peak_file, n_jobs)
+
 def make_gene_matrix(
     adata: AnnData,
     gff_file: str,

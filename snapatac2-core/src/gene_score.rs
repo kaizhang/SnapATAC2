@@ -9,7 +9,7 @@ use anndata_rs::anndata::AnnData;
 use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::collections::HashMap;
-use hdf5::Result;
+use anyhow::Result;
 use noodles_gff::record::Strand;
 use bed_utils::bed::{
     GenomicRange, BEDLike, tree::GenomeRegions,

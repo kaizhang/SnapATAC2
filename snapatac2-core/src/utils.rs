@@ -4,11 +4,12 @@ use bed_utils::bed::{
     BEDLike, GenomicRange, BED,
     tree::{SparseCoverage, SparseBinnedCoverage},
 };
-use hdf5::Result;
+use anyhow::Result;
 use anndata_rs::{
     anndata::AnnData,
 };
 use polars::frame::DataFrame;
+use std::fmt::Debug;
 
 pub trait Barcoded {
     fn get_barcode(&self) -> &str;
@@ -111,43 +112,70 @@ pub fn str_to_genomic_region(txt: &str) -> Option<GenomicRange> {
     Some(GenomicRange::new(chr, start, end))
 }
 
-pub fn get_chrom_index(anndata: &AnnData) -> Result<Vec<(String, u64)>> {
-    let df: Box<DataFrame> = anndata.get_uns().inner()
-        .get_mut("reference_sequences").unwrap().read()?.into_any().downcast().unwrap();
-    let chrs = df.column("reference_seq_name").unwrap().utf8().unwrap();
-    let chr_sizes = df.column("reference_seq_length").unwrap().u64().unwrap();
-    Ok(chrs.into_iter().flatten().map(|x| x.to_string()).zip(
-        std::iter::once(0).chain(chr_sizes.into_iter().flatten().scan(0, |state, x| {
-            *state = *state + x;
-            Some(*state)
-        }))
-    ).collect())
+trait GenomeIndex {
+    fn lookup_region(&self, i: usize) -> GenomicRange;
 }
 
-pub struct InsertionIter<I> {
+pub struct GenomeBaseIndex(Vec<(String, u64)>);
+
+impl GenomeBaseIndex {
+    pub fn read_from_anndata(anndata: &AnnData) -> Result<Self> {
+        let df: Box<DataFrame> = anndata.get_uns().inner()
+            .get_mut("reference_sequences").unwrap().read()?.into_any().downcast().unwrap();
+        let chrs = df.column("reference_seq_name").unwrap().utf8().unwrap();
+        let chr_sizes = df.column("reference_seq_length").unwrap().u64().unwrap();
+        let chrom_index = chrs.into_iter().flatten().map(|x| x.to_string()).zip(
+            std::iter::once(0).chain(chr_sizes.into_iter().flatten().scan(0, |state, x| {
+                *state = *state + x;
+                Some(*state)
+            }))
+        ).collect();
+        Ok(Self(chrom_index))
+    }
+}
+
+impl GenomeIndex for GenomeBaseIndex {
+    fn lookup_region(&self, i: usize) -> GenomicRange {
+        let i_ = self.0.binary_search_by_key(
+            &i, |s| s.1.try_into().unwrap()
+        );
+        match i_  {
+            Ok(j) => GenomicRange::new(self.0[j].0.clone(), 0, 1),
+            Err(j) => {
+                let (chr, p) = self.0[j - 1].clone();
+                GenomicRange::new(chr, i as u64 - p, i as u64 - p + 1)
+            },
+        }
+    }
+}
+
+pub struct GenomeRegions(pub Vec<GenomicRange>);
+
+impl GenomeIndex for GenomeRegions {
+    fn lookup_region(&self, i: usize) -> GenomicRange { self.0[i].clone() }
+}
+
+pub struct InsertionIter<I, G> {
     pub iter: I,
-    pub chrom_index: Vec<(String, u64)>,
+    pub genome_index: G,
 }
 
-impl<I> Iterator for InsertionIter<I>
+impl<I, G, N> Iterator for InsertionIter<I, G>
 where
-    I: Iterator<Item = Vec<Vec<(usize, u8)>>>,
+    I: Iterator<Item = Vec<Vec<(usize, N)>>>,
+    G: GenomeIndex,
+    N: std::convert::TryInto<u32>,
+    <N as TryInto<u32>>::Error: Debug,
 {
     type Item = Vec<Insertions>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|items| items.into_iter().map(|item| { 
-            let ins = item.into_iter().map(|(i, x)| {
-                let locus = match self.chrom_index.binary_search_by_key(&i, |s| s.1.try_into().unwrap()) {
-                    Ok(i_) => GenomicRange::new(self.chrom_index[i_].0.clone(), 0, 1),
-                    Err(i_) => {
-                        let (chr, p) = self.chrom_index[i_ - 1].clone();
-                        GenomicRange::new(chr, i as u64 - p, i as u64 - p + 1)
-                    },
-                };
-                (locus, x as u32)
-            }).collect();
+            let ins = item.into_iter().map(|(i, x)|
+                (self.genome_index.lookup_region(i), x.try_into().unwrap())
+            ).collect();
             Insertions(ins)
         }).collect())
     }
 }
+

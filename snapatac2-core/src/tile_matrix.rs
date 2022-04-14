@@ -1,14 +1,15 @@
 use crate::{
     peak_matrix::create_feat_matrix,
-    utils::{get_chrom_index, InsertionIter},
+    utils::{GenomeBaseIndex, InsertionIter},
 };
 
+use nalgebra_sparse::CsrMatrix;
 use anndata_rs::{
     anndata::AnnData,
     iterator::IntoRowsIterator,
 };
 use polars::prelude::DataFrame;
-use hdf5::Result;
+use anyhow::Result;
 use bed_utils::bed::{
     GenomicRange,
     tree::{SparseBinnedCoverage},
@@ -39,13 +40,12 @@ where
         .map(|(s, chr)| GenomicRange::new(chr.unwrap(), 0, s.unwrap())).collect();
     let feature_counter: SparseBinnedCoverage<'_, _, u32> =
         SparseBinnedCoverage::new(&regions, bin_size);
-    let chrom_index = get_chrom_index(anndata)?;
     create_feat_matrix(
         anndata,
         InsertionIter {
             iter: anndata.get_obsm().inner().get("insertion").unwrap().inner()
-                .downcast().into_row_iter(500),
-            chrom_index,
+                .downcast::<CsrMatrix<u8>>().into_row_iter(500),
+            genome_index: GenomeBaseIndex::read_from_anndata(anndata)?,
         },
         feature_counter,
     )?;

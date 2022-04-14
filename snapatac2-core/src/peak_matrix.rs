@@ -1,13 +1,19 @@
-use crate::utils::{Insertions, FeatureCounter};
+use crate::utils::{Insertions, FeatureCounter,GenomeBaseIndex, InsertionIter};
 
 use anndata_rs::{
     anndata::AnnData,
-    iterator::CsrIterator,
+    iterator::{CsrIterator, IntoRowsIterator},
 };
 use polars::prelude::{NamedFrom, DataFrame, Series};
-use hdf5::Result;
+use anyhow::Result;
 use rayon::iter::ParallelIterator;
 use rayon::iter::IntoParallelIterator;
+use nalgebra_sparse::CsrMatrix;
+
+use bed_utils::bed::{
+    GenomicRange,
+    tree::{GenomeRegions, SparseCoverage},
+};
 
 /// Create cell by feature matrix, and compute qc matrix.
 /// 
@@ -45,5 +51,24 @@ where
         &DataFrame::new(vec![Series::new("Feature_ID", features)]).unwrap()
     ))?;
 
+    Ok(())
+}
+
+pub fn create_peak_matrix(
+    anndata: &AnnData,
+    peaks: &GenomeRegions<GenomicRange>,
+    ) -> Result<()>
+where
+{
+    let feature_counter: SparseCoverage<'_, _, u32> = SparseCoverage::new(&peaks);
+    create_feat_matrix(
+        anndata,
+        InsertionIter {
+            iter: anndata.get_obsm().inner().get("insertion").unwrap().inner()
+                .downcast::<CsrMatrix<u8>>().into_row_iter(500),
+            genome_index: GenomeBaseIndex::read_from_anndata(anndata)?,
+        },
+        feature_counter,
+    )?;
     Ok(())
 }

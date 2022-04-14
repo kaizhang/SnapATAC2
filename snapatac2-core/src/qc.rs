@@ -16,7 +16,7 @@ use itertools::{Itertools, GroupBy};
 use std::ops::Div;
 use std::collections::HashSet;
 use std::collections::HashMap;
-use hdf5::Result;
+use anyhow::Result;
 use rayon::iter::ParallelIterator;
 use rayon::iter::IntoParallelIterator;
 
