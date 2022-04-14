@@ -78,6 +78,9 @@ def make_peak_matrix(
     """
     Add a cell by peak count matrix to the AnnData object.
 
+    Add a cell by peak count matrix to the AnnData object. This will replace the "X"
+    in the AnnData object.
+
     Parameters
     ----------
     adata
