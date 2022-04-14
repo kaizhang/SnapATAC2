@@ -10,6 +10,7 @@ use anndata_rs::{
 };
 use polars::frame::DataFrame;
 use std::fmt::Debug;
+use nalgebra_sparse::CsrMatrix;
 
 pub trait Barcoded {
     fn get_barcode(&self) -> &str;
@@ -179,3 +180,19 @@ where
     }
 }
 
+pub fn read_insertions(
+    anndata: &AnnData
+) -> Result<InsertionIter<impl Iterator<Item = Vec<Vec<(usize, u8)>>>, GenomeBaseIndex>>
+{
+    Ok(InsertionIter {
+        iter: anndata.get_obsm().inner().get("insertion").unwrap()
+            .chunked(500).map(|x| {
+                let csr = *x.into_any().downcast::<CsrMatrix<u8>>().unwrap();
+                csr.row_iter().map(|row|
+                    row.col_indices().iter().zip(row.values())
+                        .map(|(i, v)| (*i, *v)).collect()
+                ).collect()
+            }),
+        genome_index: GenomeBaseIndex::read_from_anndata(anndata)?,
+    })
+}

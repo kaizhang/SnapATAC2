@@ -11,13 +11,9 @@ use bed_utils::{bed, bed::{GenomicRange, BEDLike}};
 use std::collections::BTreeMap;
 use std::ops::Deref;
 use rayon::ThreadPoolBuilder;
-use nalgebra_sparse::CsrMatrix;
 use polars::prelude::{NamedFrom, DataFrame, Series};
 
-use anndata_rs::{
-    anndata,
-    iterator::IntoRowsIterator,
-};
+use anndata_rs::anndata;
 use pyanndata::{
     AnnData, AnnDataSet,
     read, read_mtx, read_csv, create_dataset, read_dataset
@@ -28,7 +24,7 @@ use snapatac2_core::{
     peak_matrix::create_peak_matrix,
     gene_score::create_gene_matrix,
     qc,
-    utils::{gene::read_transcripts, Insertions, GenomeRegions, GenomeBaseIndex, InsertionIter},
+    utils::{gene::read_transcripts, Insertions, read_insertions},
 };
 
 #[pyfunction]
@@ -44,10 +40,9 @@ fn mk_gene_matrix(
         .into_values().collect();
     let inner = input.0.inner();
     let anndata = ThreadPoolBuilder::new().num_threads(num_cpu).build().unwrap().install(|| {
-        let x_guard;
-        let obsm_guard;
-        let insertion_guard;
         let insertions: Box<dyn Iterator<Item = Vec<Insertions>>> = if use_x {
+            panic!("This feature is not implemented")
+            /*
             x_guard = inner.get_x().inner();
             Box::new(InsertionIter {
                 genome_index: GenomeRegions(
@@ -56,13 +51,9 @@ fn mk_gene_matrix(
                 ),
                 iter: x_guard.into_csr_u32_iter(500),
             })
+            */
         } else {
-            obsm_guard = inner.get_obsm().inner();
-            insertion_guard = obsm_guard.get("insertion").unwrap().inner();
-            Box::new(InsertionIter {
-                iter: insertion_guard.downcast::<CsrMatrix<u8>>().into_row_iter(500),
-                genome_index: GenomeBaseIndex::read_from_anndata(inner.deref()).unwrap(),
-            })
+            Box::new(read_insertions(&inner).unwrap())
         };
         create_gene_matrix(output_file, insertions, transcripts).unwrap()
     });

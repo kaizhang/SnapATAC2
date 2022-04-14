@@ -1,14 +1,13 @@
-use crate::utils::{Insertions, FeatureCounter,GenomeBaseIndex, InsertionIter};
+use crate::utils::{read_insertions, Insertions, FeatureCounter};
 
 use anndata_rs::{
     anndata::AnnData,
-    iterator::{CsrIterator, IntoRowsIterator},
+    iterator::CsrIterator,
 };
 use polars::prelude::{NamedFrom, DataFrame, Series};
 use anyhow::Result;
 use rayon::iter::ParallelIterator;
 use rayon::iter::IntoParallelIterator;
-use nalgebra_sparse::CsrMatrix;
 
 use bed_utils::bed::{
     GenomicRange,
@@ -63,11 +62,7 @@ where
     let feature_counter: SparseCoverage<'_, _, u32> = SparseCoverage::new(&peaks);
     create_feat_matrix(
         anndata,
-        InsertionIter {
-            iter: anndata.get_obsm().inner().get("insertion").unwrap().inner()
-                .downcast::<CsrMatrix<u8>>().into_row_iter(500),
-            genome_index: GenomeBaseIndex::read_from_anndata(anndata)?,
-        },
+        read_insertions(anndata)?,
         feature_counter,
     )?;
     Ok(())
