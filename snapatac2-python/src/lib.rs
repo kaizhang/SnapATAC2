@@ -12,6 +12,7 @@ use std::collections::BTreeMap;
 use std::ops::Deref;
 use rayon::ThreadPoolBuilder;
 use polars::prelude::{NamedFrom, DataFrame, Series};
+use std::collections::HashSet;
 
 use anndata_rs::anndata;
 use pyanndata::{
@@ -100,6 +101,7 @@ fn import_fragments(
     min_num_fragment: u64,
     min_tsse: f64,
     fragment_is_sorted_by_name: bool,
+    white_list: Option<HashSet<String>>,
     num_cpu: usize,
     ) -> PyResult<AnnData>
 {
@@ -108,20 +110,22 @@ fn import_fragments(
         qc::read_tss(open_file(gtf_file))
     );
 
-    let white_list = if fragment_is_sorted_by_name {
-        None
-    } else if min_num_fragment > 0 {
+
+    let final_white_list = if fragment_is_sorted_by_name || min_num_fragment <= 0 {
+        white_list
+    } else {
         let mut barcode_count = qc::get_barcode_count(
             bed::io::Reader::new(
                 open_file(fragment_file),
                 Some("#".to_string()),
             ).into_records().map(Result::unwrap)
         );
-        Some(barcode_count.drain().filter_map(|(k, v)|
-            if v >= min_num_fragment { Some(k) } else { None }).collect()
-        )
-    } else {
-        None
+        let list: HashSet<String> = barcode_count.drain().filter_map(|(k, v)|
+            if v >= min_num_fragment { Some(k) } else { None }).collect();
+        match white_list {
+            None => Some(list),
+            Some(x) => Some(list.intersection(&x).map(Clone::clone).collect()),
+        }
     };
 
     ThreadPoolBuilder::new().num_threads(num_cpu).build().unwrap().install(||
@@ -133,7 +137,7 @@ fn import_fragments(
             ).into_records().map(Result::unwrap),
             &promoters,
             &chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect(),
-            white_list.as_ref(),
+            final_white_list.as_ref(),
             min_num_fragment,
             min_tsse,
             fragment_is_sorted_by_name,

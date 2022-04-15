@@ -1,6 +1,7 @@
+from optparse import Option
 import numpy as np
 import math
-from typing import Optional, Union, Mapping
+from typing import Optional, Union, Mapping, Set
 
 from snapatac2._snapatac2 import AnnData
 import snapatac2._snapatac2 as internal
@@ -13,6 +14,7 @@ def import_data(
     min_num_fragments: int = 200,
     min_tsse: float = 1,
     sorted_by_barcode: bool = True,
+    whitelist: Optional[Union[str, Set]] = None,
     n_jobs: int = 4,
 ) -> AnnData:
     """
@@ -36,6 +38,8 @@ def import_data(
     sorted_by_barcode
         Whether the fragment file has been sorted by cell barcodes. Pre-sort the
         fragment file will speed up the processing and require far less memory.
+    whitelist
+        File name or a set of strings. If filename, each line contains a valid barcode. 
     n_jobs
         number of CPUs to use
     
@@ -43,9 +47,12 @@ def import_data(
     -------
     AnnData
     """
+    if isinstance(whitelist, str):
+        with open(whitelist, "r") as fl:
+            whitelist = set([line.strip() for line in fl])
     return internal.import_fragments(
         file, fragment_file, gff_file, chrom_size,
-        min_num_fragments, min_tsse, sorted_by_barcode, n_jobs
+        min_num_fragments, min_tsse, sorted_by_barcode, whitelist, n_jobs
     )
 
 def make_tile_matrix(

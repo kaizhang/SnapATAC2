@@ -84,6 +84,14 @@ Clustering
    tl.dbscan
    tl.hdbscan
 
+Post-processing
+~~~~~~~~~~~~~~~
+
+.. autosummary::
+   :toctree: _autosummary
+
+   tl.aggregate_X
+
 Plotting: `pl`
 --------------
 
