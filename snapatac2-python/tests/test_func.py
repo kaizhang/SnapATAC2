@@ -1,5 +1,4 @@
 import unittest
-from matplotlib.pyplot import uninstall_repl_displayhook
 import numpy as np
 import snapatac2._snapatac2 as sa
 import snapatac2.tools._spectral as spectral

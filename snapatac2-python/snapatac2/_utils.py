@@ -1,3 +1,4 @@
+import chunk
 import numpy as np
 
 def binarize_inplace(X):
@@ -19,3 +20,12 @@ def get_igraph_from_adjacency(adj):
     weights = np.ravel(adj[(sources, targets)])
     gr = ig.Graph(n=vcount, edges=edgelist, edge_attrs={"weight": weights})
     return gr
+
+def chunks(mat, chunk_size: int):
+    """
+    Return chunks of the input matrix
+    """
+    n = mat.shape[0]
+    for i in range(0, n, chunk_size):
+        j = max(i + chunk_size, n)
+        yield mat[i:j, :]

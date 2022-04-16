@@ -6,7 +6,7 @@ import scipy.sparse as ss
 from typing import Optional, Union, Type, Tuple
 from sklearn.neighbors import NearestNeighbors
 
-from .._utils import get_binarized_matrix
+from .._utils import get_binarized_matrix, chunks
 from snapatac2._snapatac2 import AnnData
 from snapatac2.tools._spectral import Spectral
 
@@ -196,8 +196,10 @@ def scrub_doublets_core(
 
 def get_manifold(obs_norm, sim_norm, n_comps=30, random_state=0):
     model = Spectral(n_dim=n_comps, distance="jaccard").fit(obs_norm, verbose=0)
-    model.extend(obs_norm)
-    model.extend(sim_norm)
+    for c in chunks(obs_norm, 2000):
+        model.extend(c)
+    for c in chunks(sim_norm, 2000):
+        model.extend(c)
     manifold = np.asanyarray(model.transform()[1])
     n = obs_norm.shape[0]
     manifold_obs = manifold[0:n, ]

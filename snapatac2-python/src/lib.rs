@@ -6,6 +6,8 @@ use std::io::BufReader;
 use pyo3::{
     prelude::*,
     PyResult, Python,
+    type_object::PyTypeObject,
+    exceptions::PyTypeError,
 };
 use bed_utils::{bed, bed::{GenomicRange, BEDLike}};
 use std::collections::BTreeMap;
@@ -25,23 +27,45 @@ use snapatac2_core::{
     peak_matrix::create_peak_matrix,
     gene_score::create_gene_matrix,
     qc,
-    utils::{gene::read_transcripts, Insertions, read_insertions},
+    utils::{
+        gene::read_transcripts, Insertions, read_insertions,
+        read_insertions_from_anndataset,
+    },
 };
 
+fn get_insertion_iter<'py>(
+    py: Python<'py>,
+    data: &PyAny,
+) -> PyResult<Box<dyn Iterator<Item = Vec<Insertions>>>> {
+    if data.is_instance(AnnData::type_object(py))? {
+        let anndata: AnnData = data.extract()?;
+        let x: Box<dyn Iterator<Item = Vec<Insertions>>> = Box::new(
+            read_insertions(&anndata.0.inner()).unwrap()
+        );
+        Ok(x)
+    } else if data.is_instance(AnnDataSet::type_object(py))? {
+        let anndata: AnnDataSet = data.extract()?;
+        let x: Box<dyn Iterator<Item = Vec<Insertions>>> = Box::new(
+            read_insertions_from_anndataset(&anndata.0.inner()).unwrap()
+        );
+        Ok(x)
+    } else {
+        return Err(PyTypeError::new_err("expecting an AnnData or AnnDataSet object"));
+    }
+}
+
 #[pyfunction]
-fn mk_gene_matrix(
-    input: &AnnData,
+fn mk_gene_matrix<'py>(
+    py: Python<'py>,
+    input: &PyAny,
     gff_file: &str,
     output_file: &str,
     use_x: bool,
-    num_cpu: usize,
 ) -> PyResult<AnnData>
 {
     let transcripts = read_transcripts(BufReader::new(open_file(gff_file)))
         .into_values().collect();
-    let inner = input.0.inner();
-    let anndata = ThreadPoolBuilder::new().num_threads(num_cpu).build().unwrap().install(|| {
-        let insertions: Box<dyn Iterator<Item = Vec<Insertions>>> = if use_x {
+    let insertions: Box<dyn Iterator<Item = Vec<Insertions>>> = if use_x {
             panic!("This feature is not implemented")
             /*
             x_guard = inner.get_x().inner();
@@ -53,11 +77,10 @@ fn mk_gene_matrix(
                 iter: x_guard.into_csr_u32_iter(500),
             })
             */
-        } else {
-            Box::new(read_insertions(&inner).unwrap())
-        };
-        create_gene_matrix(output_file, insertions, transcripts).unwrap()
-    });
+    } else {
+        get_insertion_iter(py, input).unwrap()
+    };
+    let anndata = create_gene_matrix(output_file, insertions, transcripts).unwrap();
     Ok(AnnData::wrap(anndata))
 }
 

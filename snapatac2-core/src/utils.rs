@@ -1,16 +1,19 @@
 pub mod gene;
 
 use bed_utils::bed::{
+    OptionalFields,
     BEDLike, GenomicRange, BED,
     tree::{SparseCoverage, SparseBinnedCoverage},
 };
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use anndata_rs::{
-    anndata::AnnData,
+    anndata::{AnnData, AnnDataSet},
+    element::ElemCollection,
 };
 use polars::frame::DataFrame;
 use std::fmt::Debug;
 use nalgebra_sparse::CsrMatrix;
+use itertools::Itertools;
 
 pub trait Barcoded {
     fn get_barcode(&self) -> &str;
@@ -31,6 +34,18 @@ impl Barcoded for Fragment {
 }
 
 pub struct Insertions(pub Vec<(GenomicRange, u32)>);
+
+impl Insertions {
+    pub fn to_bed<'a>(&'a self, id: &'a str) -> impl Iterator<Item = BED<4>> + 'a {
+        self.0.iter().map(|(x, v)| {
+            let bed = BED::new(
+                x.chrom(), x.start(), x.end(), Some(id.to_string()), None, None,
+                OptionalFields::default(),
+            );
+            vec![bed; *v as usize]
+        }).flatten()
+    }
+}
 
 impl From<&Fragment> for Insertions {
     fn from(rec: &Fragment) -> Self {
@@ -120,19 +135,26 @@ trait GenomeIndex {
 pub struct GenomeBaseIndex(Vec<(String, u64)>);
 
 impl GenomeBaseIndex {
-    pub fn read_from_anndata(anndata: &AnnData) -> Result<Self> {
-        let df: Box<DataFrame> = anndata.get_uns().inner()
-            .get_mut("reference_sequences").unwrap().read()?.into_any().downcast().unwrap();
-        let chrs = df.column("reference_seq_name").unwrap().utf8().unwrap();
-        let chr_sizes = df.column("reference_seq_length").unwrap().u64().unwrap();
-        let chrom_index = chrs.into_iter().flatten().map(|x| x.to_string()).zip(
-            std::iter::once(0).chain(chr_sizes.into_iter().flatten().scan(0, |state, x| {
+    pub fn read_from_anndata(elems: &mut ElemCollection) -> Result<Self> {
+        let (chrs, chr_sizes): (Vec<_>, Vec<_>) = get_reference_seq_info(elems)?.into_iter().unzip();
+        let chrom_index = chrs.into_iter().zip(
+            std::iter::once(0).chain(chr_sizes.into_iter().scan(0, |state, x| {
                 *state = *state + x;
                 Some(*state)
             }))
         ).collect();
         Ok(Self(chrom_index))
     }
+}
+
+pub fn get_reference_seq_info(elems: &mut ElemCollection) -> Result<Vec<(String, u64)>> {
+    let df: Box<DataFrame> = elems.get_mut("reference_sequences").unwrap()
+        .read()?.into_any().downcast().unwrap();
+    let chrs = df.column("reference_seq_name").unwrap().utf8()?;
+    let chr_sizes = df.column("reference_seq_length").unwrap().u64()?;
+    Ok(chrs.into_iter().flatten().map(|x| x.to_string()).zip(
+        chr_sizes.into_iter().flatten()
+    ).collect())
 }
 
 impl GenomeIndex for GenomeBaseIndex {
@@ -193,6 +215,34 @@ pub fn read_insertions(
                         .map(|(i, v)| (*i, *v)).collect()
                 ).collect()
             }),
-        genome_index: GenomeBaseIndex::read_from_anndata(anndata)?,
+        genome_index: GenomeBaseIndex::read_from_anndata(&mut anndata.get_uns().inner())?,
+    })
+}
+
+pub fn read_insertions_from_anndataset(
+    anndata: &AnnDataSet
+) -> Result<InsertionIter<impl Iterator<Item = Vec<Vec<(usize, u8)>>>, GenomeBaseIndex>>
+{
+    let inner = anndata.anndatas.inner();
+    let ref_seq_same = inner.iter().map(|(_, adata)|
+        get_reference_seq_info(&mut adata.get_uns().inner()).unwrap()
+    ).all_equal();
+    if !ref_seq_same {
+        return Err(anyhow!("reference genome information mismatch"));
+    }
+    let genome_index = GenomeBaseIndex::read_from_anndata(
+        &mut inner.iter().next().unwrap().1.get_uns().inner()
+    )?;
+
+    Ok(InsertionIter {
+        iter: inner.obsm.data.get("insertion").unwrap()
+            .chunked(500).map(|x| {
+                let csr = *x.into_any().downcast::<CsrMatrix<u8>>().unwrap();
+                csr.row_iter().map(|row|
+                    row.col_indices().iter().zip(row.values())
+                        .map(|(i, v)| (*i, *v)).collect()
+                ).collect()
+            }),
+        genome_index,
     })
 }

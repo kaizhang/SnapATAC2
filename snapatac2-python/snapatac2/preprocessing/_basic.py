@@ -107,7 +107,6 @@ def make_gene_matrix(
     gff_file: str,
     file: str,
     use_x: bool = False,
-    n_jobs: int = 4,
 ) -> AnnData:
     """
     Generate cell by gene activity matrix.
@@ -121,14 +120,12 @@ def make_gene_matrix(
         File name of the gene annotation file in GFF format
     file
         File name of the h5ad file used to store the result
-    n_jobs
-        number of CPUs to use
     
     Returns
     -------
     AnnData
     """
-    anndata = internal.mk_gene_matrix(adata, gff_file, file, use_x, n_jobs)
+    anndata = internal.mk_gene_matrix(adata, gff_file, file, use_x)
     anndata.obs = adata.obs[...]
     return anndata
 
