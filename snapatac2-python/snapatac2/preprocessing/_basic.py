@@ -209,7 +209,7 @@ def select_features(
     False means the cell is removed.
     """
     count = np.zeros(adata.shape[1])
-    for batch in adata.X.chunked(5000):
+    for batch in adata.X.chunked(2000):
         count += np.ravel(batch.sum(axis = 0))
 
     selected_features = count != 0

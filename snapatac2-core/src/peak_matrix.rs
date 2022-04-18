@@ -42,7 +42,7 @@ where
                 counter.inserts(ins);
                 counter.get_counts()
             }).collect::<Vec<_>>()
-        ).flatten(),
+        ),
         num_cols: features.len(),
     })?;
 

@@ -1,21 +1,19 @@
 use anndata_rs::{
     anndata::AnnData,
-    anndata_trait::DataIO,
+    anndata_trait::{DataIO, DataPartialIO},
     iterator::CsrIterator,
 };
 use polars::prelude::{NamedFrom, DataFrame, Series};
 
-use std::io;
-use std::io::prelude::*;
-use std::io::BufReader;                                                                                                                                           
+use std::{
+    io, io::prelude::*, io::BufReader, ops::Div,
+    collections::{HashSet, HashMap},
+};
 use bed_utils::bed::{
     GenomicRange, BED, BEDLike, io::Reader,
     tree::{GenomeRegions, BedTree, SparseBinnedCoverage},
 };
 use itertools::{Itertools, GroupBy};
-use std::ops::Div;
-use std::collections::HashSet;
-use std::collections::HashMap;
 use anyhow::Result;
 use rayon::iter::ParallelIterator;
 use rayon::iter::IntoParallelIterator;
@@ -224,7 +222,7 @@ where
 }
 
 pub fn import_fragments<B, I>(
-    anndata: &mut AnnData,
+    anndata: &AnnData,
     fragments: I,
     promoter: &BedTree<bool>,
     regions: &GenomeRegions<B>,
@@ -240,11 +238,10 @@ where
     let num_features = SparseBinnedCoverage::<_, u8>::new(regions, 1).len;
     let mut saved_barcodes = Vec::new();
     let mut qc = Vec::new();
-    let mut obsm_guard = anndata.get_obsm().inner().0;
-    
+
     if fragment_is_sorted_by_name {
         let mut scanned_barcodes = HashSet::new();
-        obsm_guard.as_mut().unwrap().insert_from_row_iter(
+        anndata.get_obsm().inner().insert_from_row_iter(
             "insertion",
             CsrIterator {
                 iterator: fragments
@@ -271,7 +268,7 @@ where
                             },
                         }
                     }).collect::<Vec<_>>()
-                }).flatten(),
+                }),
                 num_cols: num_features,
             }
         )?;
@@ -298,7 +295,7 @@ where
                 }
             }
         });
-        let csr_rows = CsrIterator {
+        let csr_matrix: Box<dyn DataPartialIO> = Box::new(CsrIterator {
             iterator: scanned_barcodes.drain()
             .filter_map(|(barcode, (summary, binned_coverage))| {
                 let q = summary.get_qc();
@@ -313,8 +310,8 @@ where
                 }
             }),
             num_cols: num_features,
-        };
-        obsm_guard.as_mut().unwrap().insert_from_row_iter("insertion", csr_rows)?;
+        }.to_csr_matrix());
+        anndata.get_obsm().inner().add_data("insertion", &csr_matrix)?;
     }
 
     let chrom_sizes: Box<dyn DataIO> = Box::new(DataFrame::new(vec![

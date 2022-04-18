@@ -26,6 +26,7 @@ setup(
         "scikit-learn>=0.22",
         "tqdm>=4.62",
         "umap-learn>=0.3.10",
+        "natsort",
         "pandas",
         "python-igraph",
         "polars",

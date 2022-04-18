@@ -1,4 +1,4 @@
-from typing import Union, Optional, Dict
+from typing import Union, Optional, Dict, List
 import scipy.sparse as ss
 import numpy as np
 import functools
@@ -27,7 +27,7 @@ def _get_sizes(regions):
 
 def aggregate_X(
     adata: Union[AnnData, AnnDataSet],
-    group_by: Optional[str] = None,
+    group_by: Optional[Union[str, List]] = None,
     normalize: Optional[str] = None,
     inplace: bool = True,
 ) -> Union[np.ndarray, Dict, None]:
@@ -76,10 +76,16 @@ def aggregate_X(
         else:
             return row_sum
     else:
-        groups = adata.obs[group_by]
+        if isinstance(group_by, list):
+            groups = adata.obs[group_by]
+            groups = np.array(list(
+                '+'.join(map(lambda x: str(x), list(groups[i, :]))) for i in range(groups.shape[0])
+            ))
+        else:
+            groups = adata.obs[group_by]
         cur_row = 0
         result = {}
-        for chunk in adata.X.chunked(1000):
+        for chunk in adata.X.chunked(2000):
             n = chunk.shape[0]
             labels = groups[cur_row:cur_row+n]
             for key, mat in _group_by(chunk, labels).items():
@@ -92,7 +98,9 @@ def aggregate_X(
         for k, v in result.items():
             result[k] = norm(v)
         if inplace:
+            var = adata.var[:]
             for k, v in result.items():
-                adata.var[k] = v
+                var[k] = v
+            adata.var = var
         else:
             return result

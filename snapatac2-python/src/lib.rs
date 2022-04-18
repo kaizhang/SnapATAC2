@@ -85,15 +85,10 @@ fn mk_gene_matrix<'py>(
 }
 
 #[pyfunction]
-fn mk_tile_matrix(anndata: &AnnData,
-                  bin_size: u64,
-                  num_cpu: usize,
-                  ) -> PyResult<()>
-{
+fn mk_tile_matrix(anndata: &AnnData, bin_size: u64, num_cpu: usize) {
     ThreadPoolBuilder::new().num_threads(num_cpu).build().unwrap().install(||
         create_tile_matrix(anndata.0.inner().deref(), bin_size).unwrap()
     );
-    Ok(())
 } 
 
 #[pyfunction]
