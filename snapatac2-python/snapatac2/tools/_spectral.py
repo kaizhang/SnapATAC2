@@ -2,9 +2,9 @@ import scipy as sp
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel
 import gc
+from typing import Optional, Union
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet, jm_regress
-from typing import Optional, Union
 
 # FIXME: random state
 def spectral(

@@ -1,4 +1,3 @@
-from optparse import Option
 import numpy as np
 import math
 from typing import Optional, Union, Mapping, Set

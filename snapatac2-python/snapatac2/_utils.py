@@ -1,4 +1,3 @@
-import chunk
 import numpy as np
 
 def binarize_inplace(X):

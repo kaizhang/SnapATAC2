@@ -102,3 +102,11 @@ Plotting: `pl`
     pl.spectral_eigenvalues
     pl.scrublet
     pl.umap
+
+Exporting: `ex`
+--------------
+
+.. autosummary::
+    :toctree: _autosummary
+
+    ex.export_bed

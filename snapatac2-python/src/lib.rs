@@ -1,4 +1,7 @@
+mod export;
 mod utils;
+mod call_peaks;
+
 use utils::*;
 //pub mod extension;
 
@@ -179,6 +182,9 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(mk_tile_matrix, m)?)?;
     m.add_function(wrap_pyfunction!(mk_gene_matrix, m)?)?;
     m.add_function(wrap_pyfunction!(mk_peak_matrix, m)?)?;
+
+    m.add_function(wrap_pyfunction!(export::export_bed, m)?)?;
+    m.add_function(wrap_pyfunction!(call_peaks::call_peaks, m)?)?;
 
     m.add_function(wrap_pyfunction!(simple_lin_reg, m)?)?;
     m.add_function(wrap_pyfunction!(jm_regress, m)?)?;
