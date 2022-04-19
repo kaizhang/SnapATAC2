@@ -40,17 +40,20 @@ pub fn call_peaks<'py>(
         x
     } else if data.is_instance(AnnDataSet::type_object(py))? {
         let anndata: AnnDataSet = data.extract()?;
-        let x = get_reference_seq_info(&mut anndata.0.inner().get_uns().inner()).unwrap();
+        let x = get_reference_seq_info(
+            &mut anndata.0.inner().anndatas.inner().iter().next().unwrap()
+                .1.get_uns().inner()
+        ).unwrap();
         x
     } else {
         return Err(PyTypeError::new_err("expecting an AnnData or AnnDataSet object"));
     };
     let genome_size = ref_genome.iter().map(|(_, v)| *v).sum();
 
-    println!("calling peaks for {} files...", files.len());
+    println!("calling peaks for {} groups...", files.len());
     let m: HashMap<String, Box<dyn DataIO>> = files.into_par_iter().map(|(k, x)| {
         let df: Box<dyn DataIO> = Box::new(macs2(x, q_value, genome_size));
-        println!("{}: done!", k);
+        println!("group {}: done!", k);
         (k, df)
     }).collect();
     let mapping: Box<dyn DataIO> = Box::new(Mapping(m));
@@ -90,7 +93,7 @@ where
         "--call-summits",
         "--nomodel", "--shift", "-100", "--extsize", "200",
         "--nolambda",
-    ]).status().unwrap();
+    ]).output().unwrap();
 
     let file_path = dir.path().join("NA_peaks.narrowPeak");
     let column_names = [

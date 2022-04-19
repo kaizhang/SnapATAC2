@@ -108,7 +108,8 @@ def spectral(
         from tqdm import tqdm
         import math
         print("Perform Nystrom extension")
-        for batch in tqdm(data.X.chunked(chunk_size), total = math.ceil(n_sample / chunk_size)):
+        chunks_iter = data.X.chunked(chunk_size)
+        for batch in tqdm(chunks_iter, total = chunks_iter.n_chunks()):
             if distance_metric == "jaccard":
                 batch.data = np.ones(batch.indices.shape, dtype=np.float64)
             if features is not None: batch = batch[:, features]
