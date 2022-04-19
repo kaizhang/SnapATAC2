@@ -1,23 +1,30 @@
+from pathlib import Path
 import numpy as np
 import math
 from typing import Optional, Union, Mapping, Set
 
-from snapatac2._snapatac2 import AnnData
+from snapatac2._snapatac2 import AnnData, AnnDataSet
 import snapatac2._snapatac2 as internal
 
 def import_data(
-    fragment_file: str,
-    gff_file: str,
+    fragment_file: Path,
+    gff_file: Path,
     chrom_size: Mapping[str, int],
-    file: str,
+    file: Path,
     min_num_fragments: int = 200,
     min_tsse: float = 1,
     sorted_by_barcode: bool = True,
-    whitelist: Optional[Union[str, Set]] = None,
+    whitelist: Optional[Union[Path, Set[str]]] = None,
     n_jobs: int = 4,
 ) -> AnnData:
     """
     Import dataset and compute QC metrics.
+
+    This function will store fragments as base-resolution TN5 insertions in the
+    resulting h5ad file (in `.obsm['insertion']`), along with the chromosome
+    sizes (in `.uns['reference_sequences']`). Various QC metrics, including TSSe,
+    number of unique fragments, duplication rate, fraction of mitochondrial DNA
+    reads, will be computed.
 
     Parameters
     ----------
@@ -31,26 +38,28 @@ def import_data(
     file
         File name of the output h5ad file used to store the result
     min_num_fragments
-        Threshold used to filter cells
+        Number of unique fragments threshold used to filter cells
     min_tsse
-        Threshold used to filter cells
+        TSS enrichment threshold used to filter cells
     sorted_by_barcode
         Whether the fragment file has been sorted by cell barcodes. Pre-sort the
         fragment file will speed up the processing and require far less memory.
     whitelist
-        File name or a set of strings. If filename, each line contains a valid barcode. 
+        File name or a set of strings. If it is a file name, each line
+        must contain a valid barcode. 
     n_jobs
         number of CPUs to use
-    
+
     Returns
     -------
-    AnnData
+    An annotated data matrix of shape `n_obs` x `n_vars`.
+    Rows correspond to cells and columns to regions.
     """
-    if isinstance(whitelist, str):
+    if isinstance(whitelist, str) or isinstance(whitelist, Path):
         with open(whitelist, "r") as fl:
             whitelist = set([line.strip() for line in fl])
     return internal.import_fragments(
-        file, fragment_file, gff_file, chrom_size,
+        str(file), str(fragment_file), str(gff_file), chrom_size,
         min_num_fragments, min_tsse, sorted_by_barcode, whitelist, n_jobs
     )
 
@@ -62,69 +71,75 @@ def make_tile_matrix(
     """
     Generate cell by bin count matrix.
 
+    This function will generate and add a cell by bin count matrix to the AnnData
+    object in place.
+
     Parameters
     ----------
     adata
-        AnnData
+        The (annotated) data matrix of shape `n_obs` x `n_vars`.
+        Rows correspond to cells and columns to regions.
     bin_size
-        The size of consecutive genomic regions used to record the counts
+        The size of consecutive genomic regions used to record the counts.
     n_jobs
-        number of CPUs to use
-    
-    Returns
-    -------
+        number of CPUs to use.
     """
     internal.mk_tile_matrix(adata, bin_size, n_jobs)
 
 def make_peak_matrix(
     adata: AnnData,
-    peak_file: str,
+    peak_file: Path,
     n_jobs: int = 4
 ):
     """
     Add a cell by peak count matrix to the AnnData object.
 
-    Add a cell by peak count matrix to the AnnData object. This will replace the "X"
-    in the AnnData object.
+    This function will generate and add a cell by peak count matrix to
+    the AnnData object in place. If there is already a matrix in `.X`, it will
+    replace it.
 
     Parameters
     ----------
     adata
-        AnnData
+        The (annotated) data matrix of shape `n_obs` x `n_vars`.
+        Rows correspond to cells and columns to regions.
     peak_file
         Bed file containing the peaks
     n_jobs
         number of CPUs to use
-    
-    Returns
-    -------
     """
-    internal.mk_peak_matrix(adata, peak_file, n_jobs)
+    internal.mk_peak_matrix(adata, str(peak_file), n_jobs)
 
 def make_gene_matrix(
-    adata: AnnData,
-    gff_file: str,
-    file: str,
+    adata: Union[AnnData, AnnDataSet],
+    gff_file: Path,
+    file: Path,
     use_x: bool = False,
 ) -> AnnData:
     """
     Generate cell by gene activity matrix.
 
+    Generate cell by gene activity matrix by counting the TN5 insertions in gene
+    body regions. The result will be stored in a new file and a new AnnData object
+    will be created.
+
     Parameters
     ----------
     adata
-        An anndata instance or the file name of a h5ad file containing the
-        cell by bin count matrix
+        The (annotated) data matrix of shape `n_obs` x `n_vars`.
+        Rows correspond to cells and columns to regions.
     gff_file
-        File name of the gene annotation file in GFF format
+        File name of the gene annotation file in GFF format.
     file
-        File name of the h5ad file used to store the result
-    
+        File name of the h5ad file used to store the result.
+    use_x
+        NOT IMPLEMENTED
+
     Returns
     -------
-    AnnData
+    A new AnnData object, where rows correspond to cells and columns to genes.
     """
-    anndata = internal.mk_gene_matrix(adata, gff_file, file, use_x)
+    anndata = internal.mk_gene_matrix(adata, str(gff_file), str(file), use_x)
     anndata.obs = adata.obs[...]
     return anndata
 
@@ -160,11 +175,9 @@ def filter_cells(
 
     Returns
     -------
-    Depending on `inplace`, returns the following arrays or directly subsets
-    and annotates the data matrix:
-    cells_subset
-        Boolean index mask that does filtering. `True` means that the
-        cell is kept. `False` means the cell is removed.
+    If `inplace = True`, directly subsets the data matrix. Otherwise return 
+    a boolean index mask that does filtering, where `True` means that the
+    cell is kept, `False` means the cell is removed.
     """
     selected_cells = True
     if min_counts: selected_cells &= data.obs["n_fragment"] >= min_counts
@@ -175,10 +188,10 @@ def filter_cells(
     if inplace:
         data.subset(selected_cells)
     else:
-        raise NameError("Not implement")
+        return selected_cells
  
 def select_features(
-    adata: AnnData,
+    adata: Union[AnnData, AnnDataSet],
     variable_feature: bool = True,
     whitelist: Optional[str] = None,
     blacklist: Optional[str] = None,
@@ -190,7 +203,8 @@ def select_features(
     Parameters
     ----------
     adata
-        AnnData object
+        The (annotated) data matrix of shape `n_obs` x `n_vars`.
+        Rows correspond to cells and columns to regions.
     variable_feature
         Whether to perform feature selection using most variable features
     whitelist
@@ -204,8 +218,14 @@ def select_features(
     
     Returns
     -------
-    Boolean index mask that does filtering. True means that the cell is kept.
-    False means the cell is removed.
+    If `inplace = False`, return a boolean index mask that does filtering,
+    where `True` means that the feature is kept, `False` means the feature is removed.
+    Otherwise, store this index mask directly to `.var['selected']`.
+
+    Notes
+    -----
+    This function doesn't perform actual subsetting. The feature mask is used by
+    various functions to generate submatrices on the fly.
     """
     count = np.zeros(adata.shape[1])
     for batch in adata.X.chunked(2000):

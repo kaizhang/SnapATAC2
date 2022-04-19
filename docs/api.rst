@@ -90,6 +90,7 @@ Post-processing
 .. autosummary::
    :toctree: _autosummary
 
+   tl.call_peaks
    tl.aggregate_X
 
 Plotting: `pl`
@@ -104,7 +105,7 @@ Plotting: `pl`
     pl.umap
 
 Exporting: `ex`
---------------
+---------------
 
 .. autosummary::
     :toctree: _autosummary

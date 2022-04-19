@@ -27,7 +27,8 @@ def harmony(
     Parameters
     ----------
     adata
-        The annotated data matrix.
+        The (annotated) data matrix of shape `n_obs` x `n_vars`.
+        Rows correspond to cells and columns to regions.
     batch
         The name of the column in ``adata.obs`` that differentiates
         among experiments/batches.

@@ -18,7 +18,9 @@ pub trait Exporter {
         barcodes: &Vec<&str>,
         group_by: &Vec<&str>,
         selections: Option<HashSet<&str>>,
-        dir: P
+        dir: P,
+        prefix: &str,
+        suffix:&str,
     ) -> Result<HashMap<String, PathBuf>>;
 }
 
@@ -28,10 +30,13 @@ impl Exporter for AnnData {
         barcodes: &Vec<&str>,
         group_by: &Vec<&str>,
         selections: Option<HashSet<&str>>,
-        dir: P
+        dir: P,
+        prefix: &str,
+        suffix:&str,
     ) -> Result<HashMap<String, PathBuf>> {
         export_insertions_as_bed(
-            &mut read_insertions(self)?, barcodes, group_by, selections, dir
+            &mut read_insertions(self)?,
+            barcodes, group_by, selections, dir, prefix, suffix,
         )
     }
 }
@@ -42,11 +47,13 @@ impl Exporter for AnnDataSet {
         barcodes: &Vec<&str>,
         group_by: &Vec<&str>,
         selections: Option<HashSet<&str>>,
-        dir: P
+        dir: P,
+        prefix: &str,
+        suffix:&str,
     ) -> Result<HashMap<String, PathBuf>> {
         export_insertions_as_bed(
             &mut read_insertions_from_anndataset(self)?,
-            barcodes, group_by, selections, dir
+            barcodes, group_by, selections, dir, prefix, suffix,
         )
     }
 }
@@ -64,6 +71,8 @@ fn export_insertions_as_bed<I, P>(
     group_by: &Vec<&str>,
     selections: Option<HashSet<&str>>,
     dir: P,
+    prefix: &str,
+    suffix:&str,
 ) -> Result<HashMap<String, PathBuf>>
 where
     I: Iterator<Item = Vec<Insertions>>,
@@ -73,9 +82,13 @@ where
     if let Some(select) = selections { groups.retain(|x| select.contains(x)); }
     std::fs::create_dir_all(dir.clone())?;
     let mut files = groups.into_iter().map(|x| {
-        let filename = dir.as_ref().join(x.to_string() + ".bed.gz");
+        let filename = dir.as_ref().join(prefix.to_string() + x + suffix);
         let f = File::create(&filename)?;
-        let e = GzEncoder::new(BufWriter::new(f), Compression::default());
+        let e: Box<dyn Write> = if filename.ends_with(".gz") {
+            Box::new(GzEncoder::new(BufWriter::new(f), Compression::default()))
+        } else {
+            Box::new(BufWriter::new(f))
+        };
         Ok((x, (filename, e)))
     }).collect::<Result<HashMap<_, _>>>()?;
 

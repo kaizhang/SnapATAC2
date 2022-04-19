@@ -24,13 +24,14 @@ pub fn call_peaks<'py>(
     group_by: Vec<&str>,
     selections: Option<HashSet<&str>>,
     q_value: f64,
+    key_added: &str,
 ) -> PyResult<()> {
     let dir = tempdir().unwrap();
 
     println!("preparing input...");
     let files = export_bed(
         py, data, group_by.clone(), group_by, selections,
-        dir.path().to_str().unwrap()
+        dir.path().to_str().unwrap(), "", ".bed",
     )?;
 
     let ref_genome = if data.is_instance(AnnData::type_object(py))? {
@@ -56,10 +57,10 @@ pub fn call_peaks<'py>(
 
     if data.is_instance(AnnData::type_object(py))? {
         let anndata: AnnData = data.extract()?;
-        anndata.0.inner().get_uns().inner().add_data("peaks", &mapping).unwrap();
+        anndata.0.inner().get_uns().inner().add_data(key_added, &mapping).unwrap();
     } else if data.is_instance(AnnDataSet::type_object(py))? {
         let anndata: AnnDataSet = data.extract()?;
-        anndata.0.inner().get_uns().inner().add_data("peaks", &mapping).unwrap();
+        anndata.0.inner().get_uns().inner().add_data(key_added, &mapping).unwrap();
     } else {
         return Err(PyTypeError::new_err("expecting an AnnData or AnnDataSet object"));
     }
