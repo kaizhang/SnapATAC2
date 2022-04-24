@@ -1,4 +1,4 @@
-use crate::utils::{Insertions, read_insertions, read_insertions_from_anndataset};
+use crate::utils::{ChromValues, ChromValuesReader};
 
 use anndata_rs::anndata::{AnnData, AnnDataSet};
 use anyhow::Result;
@@ -35,7 +35,7 @@ impl Exporter for AnnData {
         suffix:&str,
     ) -> Result<HashMap<String, PathBuf>> {
         export_insertions_as_bed(
-            &mut read_insertions(self)?,
+            &mut self.read_insertions()?,
             barcodes, group_by, selections, dir, prefix, suffix,
         )
     }
@@ -52,7 +52,7 @@ impl Exporter for AnnDataSet {
         suffix:&str,
     ) -> Result<HashMap<String, PathBuf>> {
         export_insertions_as_bed(
-            &mut read_insertions_from_anndataset(self)?,
+            &mut self.read_insertions()?,
             barcodes, group_by, selections, dir, prefix, suffix,
         )
     }
@@ -75,7 +75,7 @@ fn export_insertions_as_bed<I, P>(
     suffix:&str,
 ) -> Result<HashMap<String, PathBuf>>
 where
-    I: Iterator<Item = Vec<Insertions>>,
+    I: Iterator<Item = Vec<ChromValues>>,
     P: AsRef<Path> + Clone,
 {
     let mut groups: HashSet<&str> = group_by.iter().map(|x| *x).unique().collect();
@@ -105,3 +105,20 @@ where
     })?;
     Ok(files.into_iter().map(|(k, (v, _))| (k.to_string(), v)).collect())
 }
+
+/*
+fn export_insertions_as_bigwig<I, P>(
+    insertions: &mut I,
+    group_by: &Vec<&str>,
+    selections: Option<HashSet<&str>>,
+    dir: P,
+    prefix: &str,
+    suffix:&str,
+) -> Result<HashMap<String, PathBuf>>
+where
+    I: Iterator<Item = Vec<ChromValues>>,
+    P: AsRef<Path>,
+{
+    todo!()
+}
+*/

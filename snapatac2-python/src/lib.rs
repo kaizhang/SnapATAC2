@@ -30,32 +30,8 @@ use snapatac2_core::{
     peak_matrix::create_peak_matrix,
     gene_score::create_gene_matrix,
     qc,
-    utils::{
-        gene::read_transcripts, Insertions, read_insertions,
-        read_insertions_from_anndataset,
-    },
+    utils::{gene::read_transcripts, ChromValuesReader},
 };
-
-fn get_insertion_iter<'py>(
-    py: Python<'py>,
-    data: &PyAny,
-) -> PyResult<Box<dyn Iterator<Item = Vec<Insertions>>>> {
-    if data.is_instance(AnnData::type_object(py))? {
-        let anndata: AnnData = data.extract()?;
-        let x: Box<dyn Iterator<Item = Vec<Insertions>>> = Box::new(
-            read_insertions(&anndata.0.inner()).unwrap()
-        );
-        Ok(x)
-    } else if data.is_instance(AnnDataSet::type_object(py))? {
-        let anndata: AnnDataSet = data.extract()?;
-        let x: Box<dyn Iterator<Item = Vec<Insertions>>> = Box::new(
-            read_insertions_from_anndataset(&anndata.0.inner()).unwrap()
-        );
-        Ok(x)
-    } else {
-        return Err(PyTypeError::new_err("expecting an AnnData or AnnDataSet object"));
-    }
-}
 
 #[pyfunction]
 fn mk_gene_matrix<'py>(
@@ -68,23 +44,29 @@ fn mk_gene_matrix<'py>(
 {
     let transcripts = read_transcripts(BufReader::new(open_file(gff_file)))
         .into_values().collect();
-    let insertions: Box<dyn Iterator<Item = Vec<Insertions>>> = if use_x {
-            panic!("This feature is not implemented")
-            /*
-            x_guard = inner.get_x().inner();
-            Box::new(InsertionIter {
-                genome_index: GenomeRegions(
-                    inner.get_var().read().unwrap()[0].utf8().unwrap().into_iter()
-                        .map(|x| str_to_genomic_region(x.unwrap()).unwrap()).collect()
-                ),
-                iter: x_guard.into_csr_u32_iter(500),
-            })
-            */
+
+    let result = if input.is_instance(AnnData::type_object(py))? {
+        let data: AnnData = input.extract()?;
+        if use_x {
+            let x = data.0.inner().read_chrom_values().unwrap();
+            create_gene_matrix(output_file, x, transcripts).unwrap()
+        } else {
+            let x = data.0.inner().read_insertions().unwrap();
+            create_gene_matrix(output_file, x, transcripts).unwrap()
+        }
+    } else if input.is_instance(AnnDataSet::type_object(py))? {
+        let data: AnnDataSet = input.extract()?;
+        if use_x {
+            let x = data.0.inner().read_chrom_values().unwrap();
+            create_gene_matrix(output_file, x, transcripts).unwrap()
+        } else {
+            let x = data.0.inner().read_insertions().unwrap();
+            create_gene_matrix(output_file, x, transcripts).unwrap()
+        }
     } else {
-        get_insertion_iter(py, input).unwrap()
+        return Err(PyTypeError::new_err("expecting an AnnData or AnnDataSet object"));
     };
-    let anndata = create_gene_matrix(output_file, insertions, transcripts).unwrap();
-    Ok(AnnData::wrap(anndata))
+    Ok(AnnData::wrap(result))
 }
 
 #[pyfunction]

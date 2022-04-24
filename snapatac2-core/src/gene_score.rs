@@ -1,5 +1,5 @@
 use crate::utils::{
-    Insertions,
+    ChromValues,
     FeatureCounter,
     gene::Transcript,
 };
@@ -90,7 +90,7 @@ pub fn create_gene_matrix<'a, I>(
     transcripts: Vec<Transcript>,
     ) -> Result<AnnData>
 where
-    I: Iterator<Item = Vec<Insertions>>,
+    I: Iterator<Item = Vec<ChromValues>>,
 {
     let mut anndata = AnnData::new(output, 0, 0)?;
     let promoters = Promoters::new(transcripts, 2000);

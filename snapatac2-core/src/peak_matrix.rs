@@ -1,4 +1,4 @@
-use crate::utils::{read_insertions, Insertions, FeatureCounter};
+use crate::utils::{ChromValues, FeatureCounter, ChromValuesReader};
 
 use anndata_rs::{
     anndata::AnnData,
@@ -32,7 +32,7 @@ pub fn create_feat_matrix<C, I>(
     ) -> Result<()>
 where
     C: FeatureCounter<Value = u32> + Clone + std::marker::Sync,
-    I: Iterator<Item = Vec<Insertions>>,
+    I: Iterator<Item = Vec<ChromValues>>,
 {
     let features = feature_counter.get_feature_ids();
     anndata.set_x_from_row_iter(CsrIterator {
@@ -62,7 +62,7 @@ where
     let feature_counter: SparseCoverage<'_, _, u32> = SparseCoverage::new(&peaks);
     create_feat_matrix(
         anndata,
-        read_insertions(anndata)?,
+        anndata.read_insertions()?,
         feature_counter,
     )?;
     Ok(())

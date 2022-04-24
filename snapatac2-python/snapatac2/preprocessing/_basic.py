@@ -133,7 +133,8 @@ def make_gene_matrix(
     file
         File name of the h5ad file used to store the result.
     use_x
-        NOT IMPLEMENTED
+        If True, use the matrix stored in `.X` to compute the gene activity.
+        Otherwise the base-resolution TN5 insertions are used.
 
     Returns
     -------

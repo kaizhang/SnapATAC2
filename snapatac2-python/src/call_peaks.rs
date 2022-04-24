@@ -7,7 +7,7 @@ use pyo3::{
     exceptions::PyTypeError,
 };
 use std::process::Command;
-use tempfile::tempdir;
+use tempfile::Builder;
 use std::path::Path;
 use polars::prelude::{DataFrame, CsvReader};
 use polars::prelude::SerReader;
@@ -26,12 +26,12 @@ pub fn call_peaks<'py>(
     q_value: f64,
     key_added: &str,
 ) -> PyResult<()> {
-    let dir = tempdir().unwrap();
+    let dir = Builder::new().tempdir_in("./").unwrap();
 
-    println!("preparing input...");
+    eprintln!("preparing input...");
     let files = export_bed(
         py, data, group_by.clone(), group_by, selections,
-        dir.path().to_str().unwrap(), "", ".bed",
+        dir.path().to_str().unwrap(), "", ".bed.gz",
     )?;
 
     let ref_genome = if data.is_instance(AnnData::type_object(py))? {
@@ -50,10 +50,10 @@ pub fn call_peaks<'py>(
     };
     let genome_size = ref_genome.iter().map(|(_, v)| *v).sum();
 
-    println!("calling peaks for {} groups...", files.len());
+    eprintln!("calling peaks for {} groups...", files.len());
     let m: HashMap<String, Box<dyn DataIO>> = files.into_par_iter().map(|(k, x)| {
-        let df: Box<dyn DataIO> = Box::new(macs2(x, q_value, genome_size));
-        println!("group {}: done!", k);
+        let df: Box<dyn DataIO> = Box::new(macs2(x, q_value, genome_size, dir.path()));
+        eprintln!("group {}: done!", k);
         (k, df)
     }).collect();
     let mapping: Box<dyn DataIO> = Box::new(Mapping(m));
@@ -72,15 +72,17 @@ pub fn call_peaks<'py>(
     Ok(())
 }
 
-fn macs2<P>(
-    bed_file: P,
+fn macs2<P1, P2>(
+    bed_file: P1,
     q_value: f64,
     genome_size: u64,
+    tmp_dir: P2,
 ) -> DataFrame
 where
-    P: AsRef<Path>
+    P1: AsRef<Path>,
+    P2: AsRef<Path>,
 {
-    let dir = tempdir().unwrap();
+    let dir = Builder::new().tempdir_in(tmp_dir).unwrap();
 
     Command::new("macs2").args([
         "callpeak",
@@ -93,6 +95,7 @@ where
         "--call-summits",
         "--nomodel", "--shift", "-100", "--extsize", "200",
         "--nolambda",
+        "--tempdir", format!("{}", dir.path().display()).as_str(),
     ]).output().unwrap();
 
     let file_path = dir.path().join("NA_peaks.narrowPeak");

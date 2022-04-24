@@ -1,6 +1,6 @@
 use crate::{
     peak_matrix::create_feat_matrix,
-    utils::read_insertions,
+    utils::ChromValuesReader,
 };
 
 use anndata_rs::anndata::AnnData;
@@ -40,7 +40,7 @@ where
         SparseBinnedCoverage::new(&regions, bin_size);
     create_feat_matrix(
         anndata,
-        read_insertions(anndata)?,
+        anndata.read_insertions()?,
         feature_counter,
     )?;
     Ok(())
