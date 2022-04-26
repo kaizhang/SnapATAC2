@@ -92,6 +92,7 @@ pub fn str_to_genomic_region(txt: &str) -> Option<GenomicRange> {
     Some(GenomicRange::new(chr, start, end))
 }
 
+/// Integer to genomic position lookup table.
 trait GenomeIndex {
     fn lookup_region(&self, i: usize) -> GenomicRange;
 }
@@ -169,6 +170,7 @@ where
 pub type TN5InsertionIter = ChromValueIter<Box<dyn Iterator<Item = Vec<Vec<(usize, u8)>>>>, GenomeBaseIndex>;
 pub type ChromValueIterator = ChromValueIter<Box<dyn Iterator<Item = Vec<Vec<(usize, u32)>>>>, GenomeRegions>;
 
+/// Read genomic region and its associated account
 pub trait ChromValuesReader {
     fn read_insertions(&self) -> Result<TN5InsertionIter>;
 

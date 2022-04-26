@@ -10,15 +10,43 @@ use std::{
     collections::{HashSet, HashMap},
 };
 use bed_utils::bed::{
-    GenomicRange, BED, BEDLike, io::Reader,
+    ParseError, GenomicRange, BEDLike,
     tree::{GenomeRegions, BedTree, SparseBinnedCoverage},
 };
-use itertools::{Itertools, GroupBy};
+use itertools::Itertools;
 use anyhow::Result;
 use rayon::iter::ParallelIterator;
 use rayon::iter::IntoParallelIterator;
 
 pub type CellBarcode = String;
+
+/// Fragments from single-cell ATAC-seq experiment. Each fragment is represented
+/// by a genomic coordinate, cell barcode and a integer value.
+pub struct Fragment {
+    pub chrom: String,
+    pub start: u64,
+    pub end: u64,
+    pub barcode: CellBarcode,
+    pub count: u32,
+}
+
+impl std::str::FromStr for Fragment {
+    type Err = ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut fields = s.split('\t');
+        let chrom = fields.next().ok_or(ParseError::MissingReferenceSequenceName)?.to_string();
+        let start = fields.next().ok_or(ParseError::MissingStartPosition)
+            .and_then(|s| s.parse().map_err(ParseError::InvalidStartPosition))?;
+        let end = fields.next().ok_or(ParseError::MissingEndPosition)
+            .and_then(|s| s.parse().map_err(ParseError::InvalidEndPosition))?;
+        let barcode = fields.next().ok_or(ParseError::MissingName)
+            .map(|s| s.into())?;
+        let count = fields.next().ok_or(ParseError::MissingScore)
+            .and_then(|s| s.parse().map_err(ParseError::InvalidStartPosition))?;
+        Ok(Fragment { chrom, start, end, barcode, count })
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct QualityControl {
@@ -91,9 +119,9 @@ impl<'a> FragmentSummary<'a> {
         }
     }
 
-    pub(crate) fn update(&mut self, fragment: &BED<5>) {
-        self.num_total_fragment += *fragment.score().unwrap() as u64;
-        match fragment.chrom() {
+    pub(crate) fn update(&mut self, fragment: &Fragment) {
+        self.num_total_fragment += fragment.count as u64;
+        match fragment.chrom.as_str() {
             "chrM" | "M" => self.num_mitochondrial += 1,
             _ => {
                 self.num_unique_fragment += 1;
@@ -207,18 +235,9 @@ pub fn make_promoter_map<I: Iterator<Item = (String, u64, bool)>>(iter: I) -> Be
         }).collect()
 }
 
-pub fn get_insertions(rec: &BED<5>) -> [GenomicRange; 2] {
-    [ GenomicRange::new(rec.chrom().to_string(), rec.start(), rec.start() + 1)
-    , GenomicRange::new(rec.chrom().to_string(), rec.end() - 1, rec.end()) ]
-}
-
-/// Read and group fragments according to cell barcodes.
-pub fn read_fragments<R>(r: R) -> GroupBy<CellBarcode, impl Iterator<Item = BED<5>>, impl FnMut(&BED<5>) -> CellBarcode>
-where
-    R: Read,
-{
-    Reader::new(r, None).into_records().map(Result::unwrap)
-        .group_by(|x: &BED<5>| { x.name().unwrap().to_string() })
+fn get_insertions(rec: &Fragment) -> [GenomicRange; 2] {
+    [ GenomicRange::new(rec.chrom.clone(), rec.start, rec.start + 1)
+    , GenomicRange::new(rec.chrom.clone(), rec.end - 1, rec.end) ]
 }
 
 pub fn import_fragments<B, I>(
@@ -233,7 +252,7 @@ pub fn import_fragments<B, I>(
     ) -> Result<()>
 where
     B: BEDLike + Clone + std::marker::Sync,
-    I: Iterator<Item = BED<5>>,
+    I: Iterator<Item = Fragment>,
 {
     let num_features = SparseBinnedCoverage::<_, u8>::new(regions, 1).len;
     let mut saved_barcodes = Vec::new();
@@ -245,10 +264,10 @@ where
             "insertion",
             CsrIterator {
                 iterator: fragments
-                .group_by(|x| { x.name().unwrap().to_string() }).into_iter()
+                .group_by(|x| { x.barcode.clone() }).into_iter()
                 .filter(|(key, _)| white_list.map_or(true, |x| x.contains(key)))
                 .chunks(2000).into_iter().map(|chunk| {
-                    let data: Vec<(String, Vec<BED<5>>)> = chunk
+                    let data: Vec<(String, Vec<Fragment>)> = chunk
                         .map(|(barcode, x)| (barcode, x.collect())).collect();
                     let result: Vec<_> = data.into_par_iter()
                         .map(|(barcode, x)| (
@@ -275,9 +294,9 @@ where
     } else {
         let mut scanned_barcodes = HashMap::new();
         fragments
-        .filter(|frag| white_list.map_or(true, |x| x.contains(frag.name().unwrap())))
+        .filter(|frag| white_list.map_or(true, |x| x.contains(frag.barcode.as_str())))
         .for_each(|frag| {
-            let key = frag.name().unwrap();
+            let key = frag.barcode.as_str();
             let ins = get_insertions(&frag);
             match scanned_barcodes.get_mut(key) {
                 None => {
@@ -330,7 +349,7 @@ where
 }
 
 fn compute_qc_count<B>(
-    fragments: Vec<BED<5>>,
+    fragments: Vec<Fragment>,
     promoter: &BedTree<bool>,
     regions: &GenomeRegions<B>,
     min_n_fragment: u64,
@@ -361,11 +380,11 @@ where
 /// barcode counting.
 pub fn get_barcode_count<I>(fragments: I) -> HashMap<String, u64>
 where
-    I: Iterator<Item = BED<5>>,
+    I: Iterator<Item = Fragment>,
 {
     let mut barcodes = HashMap::new();
     fragments.for_each(|frag| {
-        let key = frag.name().unwrap().to_string();
+        let key = frag.barcode.clone();
         *barcodes.entry(key).or_insert(0) += 1;
     });
     barcodes
