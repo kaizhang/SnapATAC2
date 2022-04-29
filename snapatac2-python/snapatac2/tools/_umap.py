@@ -1,10 +1,10 @@
 import numpy as np
 from typing import Optional, Union, List
 
-from snapatac2._snapatac2 import AnnData
+from snapatac2._snapatac2 import AnnData, AnnDataSet
 
 def umap(
-    adata: AnnData,
+    adata: Union[AnnData, AnnDataSet, np.ndarray],
     n_comps: int = 2,
     use_dims: Optional[Union[int, List[int]]] = None,
     use_rep: Optional[str] = None,
@@ -15,8 +15,8 @@ def umap(
     """
     Parameters
     ----------
-    data
-        AnnData.
+    adata
+        The annotated data matrix.
     n_comps
         The number of dimensions of the embedding.
     use_dims
@@ -36,13 +36,18 @@ def umap(
     """
     from umap import UMAP
 
-    if use_rep is None: use_rep = "X_spectral"
-    if use_dims is None:
+    if isinstance(adata, AnnData) or isinstance(adata, AnnDataSet):
+        if use_rep is None: use_rep = "X_spectral"
         data = adata.obsm[use_rep]
-    elif isinstance(use_dims, int):
-        data = adata.obsm[use_rep][:, :use_dims]
     else:
-        data = adata.obsm[use_rep][:, use_dims]
+        data = adata
+
+    if use_dims is not None:
+        if isinstance(use_dims, int):
+            data = data[:, :use_dims]
+        else:
+            data = data[:, use_dims]
+
     umap = UMAP(
         random_state=random_state, n_components=n_comps
         ).fit_transform(data)

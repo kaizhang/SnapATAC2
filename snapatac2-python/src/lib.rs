@@ -113,7 +113,6 @@ fn import_fragments(
         qc::read_tss(open_file(gtf_file))
     );
 
-
     let final_white_list = if fragment_is_sorted_by_name || min_num_fragment <= 0 {
         white_list
     } else {
