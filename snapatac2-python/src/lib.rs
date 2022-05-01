@@ -168,6 +168,7 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(call_peaks::call_peaks, m)?)?;
 
     m.add_function(wrap_pyfunction!(jaccard_similarity, m)?)?;
+    m.add_function(wrap_pyfunction!(cosine_similarity, m)?)?;
     m.add_function(wrap_pyfunction!(simple_lin_reg, m)?)?;
     m.add_function(wrap_pyfunction!(jm_regress, m)?)?;
     m.add_function(wrap_pyfunction!(intersect_bed, m)?)?;

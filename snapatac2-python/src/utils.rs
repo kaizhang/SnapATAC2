@@ -3,7 +3,7 @@ use pyo3::{
     types::PyIterator,
     PyResult, Python,
 };
-use numpy::{PyReadonlyArrayDyn, PyReadonlyArray, Ix1, Ix2, PyArray, IntoPyArray};
+use numpy::{Element, PyReadonlyArrayDyn, PyReadonlyArray, Ix1, Ix2, PyArray, IntoPyArray};
 use snapatac2_core::utils::similarity;
 
 use hdf5::H5Type;
@@ -19,6 +19,7 @@ use rand_core::SeedableRng;
 use rand_isaac::Isaac64Rng;
 use hora::core::ann_index::ANNIndex;
 use nalgebra_sparse::pattern::SparsityPattern;
+use nalgebra_sparse::CsrMatrix;
 
 #[pyfunction]
 pub(crate) fn jaccard_similarity<'py>(
@@ -39,13 +40,51 @@ pub(crate) fn jaccard_similarity<'py>(
 
 fn csr_to_pattern<'py>(csr: &'py PyAny) -> PyResult<SparsityPattern> {
     let shape: Vec<usize> = csr.getattr("shape")?.extract()?;
-    let indices: PyReadonlyArrayDyn<'_, i32> = csr.getattr("indices")?.extract()?;
-    let indptr: PyReadonlyArrayDyn<'_, i32> = csr.getattr("indptr")?.extract()?;
+    let indices = cast_pyarray(csr.getattr("indices")?)?;
+    let indptr = cast_pyarray(csr.getattr("indptr")?)?;
     Ok(SparsityPattern::try_from_offsets_and_indices(
-        shape[0], shape[1],
-        indptr.cast(false)?.to_vec().unwrap(),
-        indices.cast(false)?.to_vec().unwrap(),
+        shape[0], shape[1], indptr, indices,
     ).unwrap())
+}
+
+#[pyfunction]
+pub(crate) fn cosine_similarity<'py>(
+    py: Python<'py>,
+    mat: &'py PyAny,
+    other: Option<&'py PyAny>,
+) -> PyResult<&'py PyArray<f64, Ix2>> {
+    match other {
+        None => Ok(similarity::cosine(csr_to_rust(mat)?).into_pyarray(py)),
+        Some(mat2) => Ok(
+            similarity::cosine2(
+                csr_to_rust(mat)?,
+                csr_to_rust(mat2)?,
+            ).into_pyarray(py)
+        ),
+    }
+}
+
+fn csr_to_rust<'py>(csr: &'py PyAny) -> PyResult<CsrMatrix<f64>> {
+    let shape: Vec<usize> = csr.getattr("shape")?.extract()?;
+    let indices = cast_pyarray(csr.getattr("indices")?)?;
+    let indptr = cast_pyarray(csr.getattr("indptr")?)?;
+    let data = cast_pyarray(csr.getattr("data")?)?;
+    Ok(CsrMatrix::try_from_csr_data(
+        shape[0], shape[1], indptr, indices, data,
+    ).unwrap())
+}
+
+fn cast_pyarray<'py, T: Element>(arr: &'py PyAny) -> PyResult<Vec<T>> {
+    let vec = match arr.getattr("dtype")?.getattr("name")?.extract()? {
+        "uint32" => arr.extract::<PyReadonlyArrayDyn<u32>>()?.cast(false)?.to_vec().unwrap(),
+        "int32" => arr.extract::<PyReadonlyArrayDyn<i32>>()?.cast(false)?.to_vec().unwrap(),
+        "uint64" => arr.extract::<PyReadonlyArrayDyn<u64>>()?.cast(false)?.to_vec().unwrap(),
+        "int64" => arr.extract::<PyReadonlyArrayDyn<i64>>()?.cast(false)?.to_vec().unwrap(),
+        "float32" => arr.extract::<PyReadonlyArrayDyn<f32>>()?.cast(false)?.to_vec().unwrap(),
+        "float64" => arr.extract::<PyReadonlyArrayDyn<f64>>()?.cast(false)?.to_vec().unwrap(),
+        ty => panic!("cannot cast type {}", ty),
+    };
+    Ok(vec)
 }
 
 /// Simple linear regression

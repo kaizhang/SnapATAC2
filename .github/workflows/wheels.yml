@@ -23,7 +23,7 @@ jobs:
        CIBW_ENVIRONMENT: 'PATH="$PATH:$HOME/.cargo/bin"'
        CIBW_SKIP: "cp36-* pp* *-win32 *-musllinux*"
        #CIBW_MANYLINUX_X86_64_IMAGE: ghcr.io/h5py/manylinux2010_x86_64-hdf5:latest
-       CIBW_TEST_REQUIRES: pytest
+       CIBW_TEST_REQUIRES: pytest hypothesis
        CIBW_TEST_COMMAND: "pytest {project}/snapatac2-python/tests"
 
     steps:

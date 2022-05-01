@@ -1,10 +1,10 @@
 import scipy as sp
 import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel
+from sklearn.metrics.pairwise import rbf_kernel
 import gc
 from typing import Optional, Union
 
-from snapatac2._snapatac2 import AnnData, AnnDataSet, jm_regress, jaccard_similarity
+from snapatac2._snapatac2 import AnnData, AnnDataSet, jm_regress, jaccard_similarity, cosine_similarity
 
 # FIXME: random state
 def spectral(
