@@ -1,4 +1,5 @@
 pub mod gene;
+pub mod similarity;
 
 use bed_utils::bed::{
     OptionalFields,

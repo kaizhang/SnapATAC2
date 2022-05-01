@@ -32,7 +32,7 @@ jobs:
         pip install --user Pygments==2.6.1 sphinx==4.4.0 pandoc nbsphinx \
           sphinx-autodoc-typehints sphinx_rtd_theme \
           markupsafe==2.0.1 \
-          pytest
+          pytest hypothesis
 
     - name: Build and test package
       run: |

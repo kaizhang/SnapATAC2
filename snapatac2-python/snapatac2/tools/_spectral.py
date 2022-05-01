@@ -4,7 +4,7 @@ from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel
 import gc
 from typing import Optional, Union
 
-from snapatac2._snapatac2 import AnnData, AnnDataSet, jm_regress
+from snapatac2._snapatac2 import AnnData, AnnDataSet, jm_regress, jaccard_similarity
 
 # FIXME: random state
 def spectral(
@@ -148,14 +148,13 @@ class Spectral:
             self.normalizer.normalize(A, self.coverage, self.coverage)
             np.fill_diagonal(A, 0)
             # Remove outlier
-            self.normalizer.outlier = np.quantile(np.asarray(A), 0.999)
+            self.normalizer.outlier = np.quantile(A, 0.999)
             np.clip(A, a_min=0, a_max=self.normalizer.outlier, out=A)
         else:
             np.fill_diagonal(A, 0)
-            A = np.matrix(A)
 
         # M <- D^-1/2 * A * D^-1/2
-        D = np.sqrt(A.sum(axis=1))
+        D = np.sqrt(A.sum(axis=1)).reshape((-1, 1))
         np.divide(A, D, out=A)
         np.divide(A, D.T, out=A)
 
@@ -207,37 +206,6 @@ class Spectral:
             else:
                 self.evecs = Q
         return (self.evals[1:], self.evecs[:, 1:])
-
-def jaccard_similarity(m1, m2=None):
-    """
-    Compute pair-wise jaccard index
-
-    Parameters
-    ----------
-    mat1
-        n1 x m
-    mat2
-        n2 x m
-    
-    Returns
-    -------
-        Jaccard similarity matrix
-    """
-    s1 = m1.sum(axis=1)
-    if m2 is None:
-        d = m1.dot(m1.T).todense()
-        gc.collect()
-        t = np.negative(d)
-        t += s1
-        t += s1.T
-        d /= t
-    else:
-        s2 = m2.sum(axis=1)
-        d = m1.dot(m2.T).todense()
-        gc.collect()
-        d /= -d + s1 + s2.T
-    gc.collect()
-    return d
 
 class JaccardNormalizer:
     def __init__(self, jm, c):

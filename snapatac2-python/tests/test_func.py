@@ -1,7 +1,6 @@
 import unittest
 import numpy as np
 import snapatac2._snapatac2 as sa
-import snapatac2.tools._spectral as spectral
 from snapatac2.tools._counts import _group_by
 import random
 from scipy import sparse
@@ -65,6 +64,3 @@ class TestRegression(unittest.TestCase):
         (slope_, intersect_) = sa.simple_lin_reg(map(lambda x: (x, x*slope + intersect), data))
         self.assertAlmostEqual(slope_, slope, msg="slope different")
         self.assertAlmostEqual(intersect_, intersect_, msg="intersect different")
-
-if __name__ == '__main__':
-    unittest.main()

@@ -4,6 +4,7 @@ use pyo3::{
     PyResult, Python,
 };
 use numpy::{PyReadonlyArrayDyn, PyReadonlyArray, Ix1, Ix2, PyArray, IntoPyArray};
+use snapatac2_core::utils::similarity;
 
 use hdf5::H5Type;
 use bed_utils::{bed, bed::GenomicRange, bed::BED};
@@ -17,6 +18,35 @@ use linfa::traits::{Fit, Predict};
 use rand_core::SeedableRng;
 use rand_isaac::Isaac64Rng;
 use hora::core::ann_index::ANNIndex;
+use nalgebra_sparse::pattern::SparsityPattern;
+
+#[pyfunction]
+pub(crate) fn jaccard_similarity<'py>(
+    py: Python<'py>,
+    mat: &'py PyAny,
+    other: Option<&'py PyAny>,
+) -> PyResult<&'py PyArray<f64, Ix2>> {
+    match other {
+        None => Ok(similarity::jaccard(&csr_to_pattern(mat)?).into_pyarray(py)),
+        Some(mat2) => Ok(
+            similarity::jaccard2(
+                &csr_to_pattern(mat)?,
+                &csr_to_pattern(mat2)?,
+            ).into_pyarray(py)
+        ),
+    }
+}
+
+fn csr_to_pattern<'py>(csr: &'py PyAny) -> PyResult<SparsityPattern> {
+    let shape: Vec<usize> = csr.getattr("shape")?.extract()?;
+    let indices: PyReadonlyArrayDyn<'_, i32> = csr.getattr("indices")?.extract()?;
+    let indptr: PyReadonlyArrayDyn<'_, i32> = csr.getattr("indptr")?.extract()?;
+    Ok(SparsityPattern::try_from_offsets_and_indices(
+        shape[0], shape[1],
+        indptr.cast(false)?.to_vec().unwrap(),
+        indices.cast(false)?.to_vec().unwrap(),
+    ).unwrap())
+}
 
 /// Simple linear regression
 #[pyfunction]
