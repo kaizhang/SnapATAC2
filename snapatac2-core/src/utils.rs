@@ -173,17 +173,17 @@ pub type ChromValueIterator = ChromValueIter<Box<dyn Iterator<Item = Vec<Vec<(us
 
 /// Read genomic region and its associated account
 pub trait ChromValuesReader {
-    fn read_insertions(&self) -> Result<TN5InsertionIter>;
+    fn read_insertions(&self, chunk_size: usize) -> Result<TN5InsertionIter>;
 
     fn read_chrom_values(&self) -> Result<ChromValueIterator>;
 }
 
 
 impl ChromValuesReader for AnnData {
-    fn read_insertions(&self) -> Result<TN5InsertionIter> {
+    fn read_insertions(&self, chunk_size: usize) -> Result<TN5InsertionIter> {
        Ok(ChromValueIter {
             iter: Box::new(
-                self.get_obsm().inner().get("insertion").unwrap().chunked(500).map(|x| {
+                self.get_obsm().inner().get("insertion").unwrap().chunked(chunk_size).map(|x| {
                     let csr = *x.into_any().downcast::<CsrMatrix<u8>>().unwrap();
                     csr.row_iter().map(|row|
                         row.col_indices().iter().zip(row.values())
@@ -216,7 +216,7 @@ impl ChromValuesReader for AnnData {
 }
 
 impl ChromValuesReader for AnnDataSet {
-    fn read_insertions(&self) -> Result<TN5InsertionIter> {
+    fn read_insertions(&self, chunk_size: usize) -> Result<TN5InsertionIter> {
         let inner = self.anndatas.inner();
         let ref_seq_same = inner.iter().map(|(_, adata)|
             get_reference_seq_info(&mut adata.get_uns().inner()).unwrap()
@@ -230,7 +230,7 @@ impl ChromValuesReader for AnnDataSet {
 
         Ok(ChromValueIter {
             iter: Box::new(inner.obsm.data.get("insertion").unwrap()
-                .chunked(500).map(|x| {
+                .chunked(chunk_size).map(|x| {
                     let csr = *x.into_any().downcast::<CsrMatrix<u8>>().unwrap();
                     csr.row_iter().map(|row|
                         row.col_indices().iter().zip(row.values())

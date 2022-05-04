@@ -39,6 +39,7 @@ fn mk_gene_matrix<'py>(
     input: &PyAny,
     gff_file: &str,
     output_file: &str,
+    chunk_size: usize,
     use_x: bool,
 ) -> PyResult<AnnData>
 {
@@ -51,7 +52,7 @@ fn mk_gene_matrix<'py>(
             let x = data.0.inner().read_chrom_values().unwrap();
             create_gene_matrix(output_file, x, transcripts).unwrap()
         } else {
-            let x = data.0.inner().read_insertions().unwrap();
+            let x = data.0.inner().read_insertions(chunk_size).unwrap();
             create_gene_matrix(output_file, x, transcripts).unwrap()
         }
     } else if input.is_instance(AnnDataSet::type_object(py))? {
@@ -60,7 +61,7 @@ fn mk_gene_matrix<'py>(
             let x = data.0.inner().read_chrom_values().unwrap();
             create_gene_matrix(output_file, x, transcripts).unwrap()
         } else {
-            let x = data.0.inner().read_insertions().unwrap();
+            let x = data.0.inner().read_insertions(chunk_size).unwrap();
             create_gene_matrix(output_file, x, transcripts).unwrap()
         }
     } else {
@@ -70,9 +71,9 @@ fn mk_gene_matrix<'py>(
 }
 
 #[pyfunction]
-fn mk_tile_matrix(anndata: &AnnData, bin_size: u64, num_cpu: usize) {
+fn mk_tile_matrix(anndata: &AnnData, bin_size: u64, chunk_size: usize, num_cpu: usize) {
     ThreadPoolBuilder::new().num_threads(num_cpu).build().unwrap().install(||
-        create_tile_matrix(anndata.0.inner().deref(), bin_size).unwrap()
+        create_tile_matrix(anndata.0.inner().deref(), bin_size, chunk_size).unwrap()
     );
 } 
 
@@ -105,6 +106,7 @@ fn import_fragments(
     min_tsse: f64,
     fragment_is_sorted_by_name: bool,
     white_list: Option<HashSet<String>>,
+    chunk_size: usize,
     num_cpu: usize,
     ) -> PyResult<AnnData>
 {
@@ -143,6 +145,7 @@ fn import_fragments(
             min_num_fragment,
             min_tsse,
             fragment_is_sorted_by_name,
+            chunk_size,
         ).unwrap()
     );
     Ok(AnnData::wrap(anndata))

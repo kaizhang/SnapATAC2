@@ -62,7 +62,7 @@ where
     let feature_counter: SparseCoverage<'_, _, u32> = SparseCoverage::new(&peaks);
     create_feat_matrix(
         anndata,
-        anndata.read_insertions()?,
+        anndata.read_insertions(500)?,
         feature_counter,
     )?;
     Ok(())

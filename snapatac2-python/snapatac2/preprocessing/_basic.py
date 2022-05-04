@@ -15,6 +15,7 @@ def import_data(
     min_tsse: float = 1,
     sorted_by_barcode: bool = True,
     whitelist: Optional[Union[Path, Set[str]]] = None,
+    chunk_size: int = 2000,
     n_jobs: int = 4,
 ) -> AnnData:
     """
@@ -47,6 +48,8 @@ def import_data(
     whitelist
         File name or a set of strings. If it is a file name, each line
         must contain a valid barcode. 
+    chunk_size
+        chunk size
     n_jobs
         number of CPUs to use
 
@@ -60,12 +63,13 @@ def import_data(
             whitelist = set([line.strip() for line in fl])
     return internal.import_fragments(
         str(file), str(fragment_file), str(gff_file), chrom_size,
-        min_num_fragments, min_tsse, sorted_by_barcode, whitelist, n_jobs
+        min_num_fragments, min_tsse, sorted_by_barcode, whitelist, chunk_size, n_jobs
     )
 
 def make_tile_matrix(
     adata: AnnData,
     bin_size: int = 500,
+    chunk_size: int = 500,
     n_jobs: int = 4
 ):
     """
@@ -84,7 +88,7 @@ def make_tile_matrix(
     n_jobs
         number of CPUs to use.
     """
-    internal.mk_tile_matrix(adata, bin_size, n_jobs)
+    internal.mk_tile_matrix(adata, bin_size, chunk_size, n_jobs)
 
 def make_peak_matrix(
     adata: AnnData,
@@ -114,6 +118,7 @@ def make_gene_matrix(
     adata: Union[AnnData, AnnDataSet],
     gff_file: Path,
     file: Path,
+    chunk_size: int = 500,
     use_x: bool = False,
 ) -> AnnData:
     """
@@ -140,7 +145,7 @@ def make_gene_matrix(
     -------
     A new AnnData object, where rows correspond to cells and columns to genes.
     """
-    anndata = internal.mk_gene_matrix(adata, str(gff_file), str(file), use_x)
+    anndata = internal.mk_gene_matrix(adata, str(gff_file), str(file), chunk_size, use_x)
     anndata.obs = adata.obs[...]
     return anndata
 

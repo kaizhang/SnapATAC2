@@ -25,6 +25,7 @@ use bed_utils::bed::{
 pub fn create_tile_matrix(
     anndata: &AnnData,
     bin_size: u64,
+    chunk_size: usize,
     ) -> Result<()>
 where
 {
@@ -40,7 +41,7 @@ where
         SparseBinnedCoverage::new(&regions, bin_size);
     create_feat_matrix(
         anndata,
-        anndata.read_insertions()?,
+        anndata.read_insertions(chunk_size)?,
         feature_counter,
     )?;
     Ok(())

@@ -3,18 +3,17 @@ import scipy.sparse as ss
 import numpy as np
 import polars
 
-from snapatac2._snapatac2 import AnnData
+from snapatac2._snapatac2 import AnnData, AnnDataSet
 from .. import _utils
 
 def leiden(
-    adata: AnnData,
+    adata: Union[AnnData, AnnDataSet, ss.spmatrix],
     resolution: float = 1,
     objective_function: str = "modularity",
     min_cluster_size: int = 5,
     n_iterations: int = -1,
     random_state: int = 0,
     key_added: str = 'leiden',
-    adjacency: Optional[ss.spmatrix] = None,
     use_leidenalg: bool = False,
     inplace: bool = True,
 ) -> Optional[np.ndarray]:
@@ -29,7 +28,8 @@ def leiden(
     Parameters
     ----------
     adata
-        The annotated data matrix.
+        The annotated data matrix or sparse adjacency matrix of the graph,
+        defaults to neighbors connectivities.
     resolution
         A parameter value controlling the coarseness of the clustering.
         Higher values lead to more clusters.
@@ -48,8 +48,6 @@ def leiden(
         Change the initialization of the optimization.
     key_added
         `adata.obs` key under which to add the cluster labels.
-    adjacency
-        Sparse adjacency matrix of the graph, defaults to neighbors connectivities.
     use_leidenalg
         If `True`, `leidenalg` package is used. Otherwise, `python-igraph` is used.
     inplace
@@ -67,8 +65,11 @@ def leiden(
     """
     from collections import Counter
 
-    if adjacency is None:
-        adjacency = adata.obsp["distances"][...]
+    if isinstance(adata, AnnData) or isinstance(adata, AnnDataSet):
+        adjacency = adata.obsp["distances"]
+    else:
+        adjacency = adata
+    
     gr = _utils.get_igraph_from_adjacency(adjacency)
 
     if use_leidenalg or objective_function == "RBConfiguration":

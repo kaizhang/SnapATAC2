@@ -87,21 +87,13 @@ def spectral(
 
     if sample_size >= n_sample:
         X = data.X[...]
-        if distance_metric == "jaccard":
-            X.data = np.ones(X.indices.shape, dtype=np.float64)
-
         if features is not None: X = X[:, features]
-
         model = Spectral(n_dim=n_comps, distance=distance_metric)
         model.fit(X)
         result = model.transform()
     else:
         S = data.X.chunk(sample_size, replace=False)
-        if distance_metric == "jaccard":
-            S.data = np.ones(S.indices.shape, dtype=np.float64)
-
         if features is not None: S = S[:, features]
-
         model = Spectral(n_dim=n_comps, distance=distance_metric)
         model.fit(S)
 

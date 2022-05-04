@@ -249,6 +249,7 @@ pub fn import_fragments<B, I>(
     min_num_fragment: u64,
     min_tsse: f64,
     fragment_is_sorted_by_name: bool,
+    chunk_size: usize,
     ) -> Result<()>
 where
     B: BEDLike + Clone + std::marker::Sync,
@@ -266,7 +267,7 @@ where
                 iterator: fragments
                 .group_by(|x| { x.barcode.clone() }).into_iter()
                 .filter(|(key, _)| white_list.map_or(true, |x| x.contains(key)))
-                .chunks(2000).into_iter().map(|chunk| {
+                .chunks(chunk_size).into_iter().map(|chunk| {
                     let data: Vec<(String, Vec<Fragment>)> = chunk
                         .map(|(barcode, x)| (barcode, x.collect())).collect();
                     let result: Vec<_> = data.into_par_iter()
