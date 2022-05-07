@@ -12,14 +12,31 @@ use std::fs::File;
 use flate2::read::MultiGzDecoder;
 use hdf5;
 use linreg::lin_reg_imprecise;
-use linfa::DatasetBase;
+use linfa::{ DatasetBase, traits::{Fit, Predict}};
 use linfa_clustering::KMeans;
-use linfa::traits::{Fit, Predict};
 use rand_core::SeedableRng;
 use rand_isaac::Isaac64Rng;
 use hora::core::ann_index::ANNIndex;
-use nalgebra_sparse::pattern::SparsityPattern;
 use nalgebra_sparse::CsrMatrix;
+
+macro_rules! with_sparsity_pattern {
+    ($dtype:expr, $indices:expr, $indptr:expr, $n:expr, $fun:ident) => {
+        match $dtype {
+            "int32" => {
+                let indices_ = $indices.extract::<PyReadonlyArray<i32, Ix1>>()?;
+                let indptr_ = $indptr.extract::<PyReadonlyArray<i32, Ix1>>()?;
+                $fun!(to_sparsity_pattern(&indptr_, &indices_, $n)?)
+            },
+            "int64" => {
+                let indices_ = $indices.extract::<PyReadonlyArray<i64, Ix1>>()?;
+                let indptr_ = $indptr.extract::<PyReadonlyArray<i64, Ix1>>()?;
+                $fun!(to_sparsity_pattern(&indptr_, &indices_, $n)?)
+            },
+            ty => panic!("{}", ty),
+        }
+    }
+}
+ 
 
 #[pyfunction]
 pub(crate) fn jaccard_similarity<'py>(
@@ -27,24 +44,48 @@ pub(crate) fn jaccard_similarity<'py>(
     mat: &'py PyAny,
     other: Option<&'py PyAny>,
 ) -> PyResult<&'py PyArray<f64, Ix2>> {
-    match other {
-        None => Ok(similarity::jaccard(&csr_to_pattern(mat)?).into_pyarray(py)),
-        Some(mat2) => Ok(
-            similarity::jaccard2(
-                &csr_to_pattern(mat)?,
-                &csr_to_pattern(mat2)?,
-            ).into_pyarray(py)
-        ),
+    macro_rules! with_csr {
+        ($mat:expr) => {
+            match other {
+                None => Ok(similarity::jaccard($mat).into_pyarray(py)),
+                Some(mat2) => {
+                    macro_rules! xxx {
+                        ($m:expr) => { Ok(similarity::jaccard2($mat, $m).into_pyarray(py)) };
+                    }
+                    let shape: Vec<usize> = mat2.getattr("shape")?.extract()?;
+                    with_sparsity_pattern!(
+                        mat2.getattr("indices")?.getattr("dtype")?.getattr("name")?.extract()?,
+                        mat2.getattr("indices")?,
+                        mat2.getattr("indptr")?,
+                        shape[1],
+                        xxx
+                    )
+                },
+            }
+        };
     }
+
+    let shape: Vec<usize> = mat.getattr("shape")?.extract()?;
+    with_sparsity_pattern!(
+        mat.getattr("indices")?.getattr("dtype")?.getattr("name")?.extract()?,
+        mat.getattr("indices")?,
+        mat.getattr("indptr")?,
+        shape[1],
+        with_csr
+    )
 }
 
-fn csr_to_pattern<'py>(csr: &'py PyAny) -> PyResult<SparsityPattern> {
-    let shape: Vec<usize> = csr.getattr("shape")?.extract()?;
-    let indices = cast_pyarray(csr.getattr("indices")?)?;
-    let indptr = cast_pyarray(csr.getattr("indptr")?)?;
-    Ok(SparsityPattern::try_from_offsets_and_indices(
-        shape[0], shape[1], indptr, indices,
-    ).unwrap())
+fn to_sparsity_pattern<'py, I>(
+    indptr_: &'py PyReadonlyArray<I, Ix1>,
+    indices_: &'py PyReadonlyArray<I, Ix1>,
+    n: usize
+) -> PyResult<similarity::BorrowedSparsityPattern<'py, I>>
+where
+    I: Element,
+{
+    let indptr = indptr_.as_array().to_slice().unwrap();
+    let indices = indices_.as_array().to_slice().unwrap();
+    Ok(similarity::BorrowedSparsityPattern::new(indptr, indices, n))
 }
 
 #[pyfunction]

@@ -198,7 +198,7 @@ def filter_cells(
  
 def select_features(
     adata: Union[AnnData, AnnDataSet],
-    variable_feature: bool = True,
+    most_variable: Optional[Union[int, float]] = 1000000,
     whitelist: Optional[str] = None,
     blacklist: Optional[str] = None,
     inplace: bool = True,
@@ -211,8 +211,8 @@ def select_features(
     adata
         The (annotated) data matrix of shape `n_obs` x `n_vars`.
         Rows correspond to cells and columns to regions.
-    variable_feature
-        Whether to perform feature selection using most variable features
+    most_variable
+        If None, do not perform feature selection using most variable features
     whitelist
         A user provided bed file containing genome-wide whitelist regions.
         Features that are overlapped with these regions will be retained.
@@ -244,10 +244,12 @@ def select_features(
     if blacklist is not None:
         selected_features &= np.logical_not(internal.intersect_bed(list(adata.var_names), blacklist))
 
-    if variable_feature:
+    if most_variable is not None:
         mean = count[selected_features].mean()
         std = math.sqrt(count[selected_features].var())
-        selected_features &= np.absolute((count - mean) / std) < 1.65
+        zscores = np.absolute((count - mean) / std)
+        cutoff = np.sort(zscores)[most_variable - 1]
+        selected_features &= zscores <= cutoff
 
     if inplace:
         adata.var["selected"] = selected_features

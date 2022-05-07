@@ -86,8 +86,10 @@ def spectral(
             sample_size = int(sample_size * n_sample)
 
     if sample_size >= n_sample:
-        X = data.X[...]
-        if features is not None: X = X[:, features]
+        if features is not None:
+            X = data.X[:, features]
+        else:
+            X = data.X[...]
         model = Spectral(n_dim=n_comps, distance=distance_metric)
         model.fit(X)
         result = model.transform()

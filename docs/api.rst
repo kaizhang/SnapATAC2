@@ -10,7 +10,8 @@ Import snapatac2 as::
 Data IO
 -------
 
-(See more at `anndata-docs <https://anndata.readthedocs.io/en/latest/anndata.AnnData.html>`_)
+SnapATAC2 uses its own implementation of the AnnData format, for more details see
+`anndata-rs-docs <http://kzhang.org/anndata-rs/api.html`_.
 
 .. autosummary::
     :toctree: _autosummary
