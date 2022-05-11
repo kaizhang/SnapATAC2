@@ -91,28 +91,33 @@ def make_tile_matrix(
     internal.mk_tile_matrix(adata, bin_size, chunk_size, n_jobs)
 
 def make_peak_matrix(
-    adata: AnnData,
-    peak_file: Path,
-    n_jobs: int = 4
-):
+    adata: Union[AnnData, AnnDataSet],
+    file: Path,
+    use_rep: str = "peaks",
+    peak_file: Optional[Path] = None,
+) -> AnnData:
     """
-    Add a cell by peak count matrix to the AnnData object.
+    Generate cell by peak count matrix.
 
-    This function will generate and add a cell by peak count matrix to
-    the AnnData object in place. If there is already a matrix in `.X`, it will
-    replace it.
+    This function will create a new .h5ad file to store the cell by peak count matrix.
 
     Parameters
     ----------
     adata
         The (annotated) data matrix of shape `n_obs` x `n_vars`.
         Rows correspond to cells and columns to regions.
+    file
+        File name of the h5ad file used to store the result.
+    use_rep
+        This is used to read peak information from `.uns[use_rep]`.
     peak_file
-        Bed file containing the peaks
-    n_jobs
-        number of CPUs to use
+        Bed file containing the peaks. If provided, peak information will be read
+        from this file.
     """
-    internal.mk_peak_matrix(adata, str(peak_file), n_jobs)
+    peak_file = peak_file if peak_file is None else str(peak_file)
+    anndata = internal.mk_peak_matrix(adata, use_rep, peak_file, str(file))
+    anndata.obs = adata.obs[...]
+    return anndata
 
 def make_gene_matrix(
     adata: Union[AnnData, AnnDataSet],

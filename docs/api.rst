@@ -11,7 +11,7 @@ Data IO
 -------
 
 SnapATAC2 uses its own implementation of the AnnData format, for more details see
-`anndata-rs-docs <http://kzhang.org/anndata-rs/api.html`_.
+`anndata-rs-docs <http://kzhang.org/anndata-rs/api.html>`_.
 
 .. autosummary::
     :toctree: _autosummary

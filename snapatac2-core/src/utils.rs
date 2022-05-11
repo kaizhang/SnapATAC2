@@ -2,8 +2,8 @@ pub mod gene;
 pub mod similarity;
 
 use bed_utils::bed::{
-    OptionalFields,
-    BEDLike, GenomicRange, BED,
+    OptionalFields, NarrowPeak, BEDLike, GenomicRange, BED,
+    merge_bed_with,
     tree::{SparseCoverage, SparseBinnedCoverage},
 };
 use anyhow::{Result, anyhow};
@@ -102,7 +102,7 @@ pub struct GenomeBaseIndex(Vec<(String, u64)>);
 
 impl GenomeBaseIndex {
     pub fn read_from_anndata(elems: &mut ElemCollection) -> Result<Self> {
-        let (chrs, chr_sizes): (Vec<_>, Vec<_>) = get_reference_seq_info(elems)?.into_iter().unzip();
+        let (chrs, chr_sizes): (Vec<_>, Vec<_>) = get_reference_seq_info_(elems)?.into_iter().unzip();
         let chrom_index = chrs.into_iter().zip(
             std::iter::once(0).chain(chr_sizes.into_iter().scan(0, |state, x| {
                 *state = *state + x;
@@ -111,16 +111,6 @@ impl GenomeBaseIndex {
         ).collect();
         Ok(Self(chrom_index))
     }
-}
-
-pub fn get_reference_seq_info(elems: &mut ElemCollection) -> Result<Vec<(String, u64)>> {
-    let df: Box<DataFrame> = elems.get_mut("reference_sequences").unwrap()
-        .read()?.into_any().downcast().unwrap();
-    let chrs = df.column("reference_seq_name").unwrap().utf8()?;
-    let chr_sizes = df.column("reference_seq_length").unwrap().u64()?;
-    Ok(chrs.into_iter().flatten().map(|x| x.to_string()).zip(
-        chr_sizes.into_iter().flatten()
-    ).collect())
 }
 
 impl GenomeIndex for GenomeBaseIndex {
@@ -176,6 +166,8 @@ pub trait ChromValuesReader {
     fn read_insertions(&self, chunk_size: usize) -> Result<TN5InsertionIter>;
 
     fn read_chrom_values(&self) -> Result<ChromValueIterator>;
+
+    fn get_reference_seq_info(&self) -> Result<Vec<(String, u64)>>;
 }
 
 
@@ -213,13 +205,17 @@ impl ChromValuesReader for AnnData {
             ),
         })
     }
+
+    fn get_reference_seq_info(&self) -> Result<Vec<(String, u64)>> {
+        get_reference_seq_info_(&mut self.get_uns().inner())
+    }
 }
 
 impl ChromValuesReader for AnnDataSet {
     fn read_insertions(&self, chunk_size: usize) -> Result<TN5InsertionIter> {
         let inner = self.anndatas.inner();
         let ref_seq_same = inner.iter().map(|(_, adata)|
-            get_reference_seq_info(&mut adata.get_uns().inner()).unwrap()
+            get_reference_seq_info_(&mut adata.get_uns().inner()).unwrap()
         ).all_equal();
         if !ref_seq_same {
             return Err(anyhow!("reference genome information mismatch"));
@@ -259,4 +255,47 @@ impl ChromValuesReader for AnnDataSet {
             ),
         })
     }
+
+    fn get_reference_seq_info(&self) -> Result<Vec<(String, u64)>> {
+        get_reference_seq_info_(&mut self.anndatas.inner().iter().next().unwrap()
+            .1.get_uns().inner())
+    }
+}
+
+pub fn merge_peaks<I>(peaks: I, half_window_size: u64) -> impl Iterator<Item = Vec<NarrowPeak>>
+where
+    I: Iterator<Item = NarrowPeak>,
+{
+    merge_bed_with(
+        peaks.map(|mut x| {
+            let summit = x.start() + x.peak;
+            x.start = (summit - half_window_size).max(0);
+            x.end = summit + half_window_size + 1;
+            x.peak = half_window_size;
+            x
+        }),
+        iterative_merge,
+    )
+}
+
+fn iterative_merge(mut peaks: Vec<NarrowPeak>) -> Vec<NarrowPeak> {
+    let mut result = Vec::new();
+    while !peaks.is_empty() {
+        let best_peak = peaks.iter()
+            .max_by(|a, b| a.p_value.partial_cmp(&b.p_value).unwrap()).unwrap()
+            .clone();
+        peaks = peaks.into_iter().filter(|x| x.n_overlap(&best_peak) == 0).collect();
+        result.push(best_peak);
+    }
+    result
+}
+
+fn get_reference_seq_info_(elems: &mut ElemCollection) -> Result<Vec<(String, u64)>> {
+    let df: Box<DataFrame> = elems.get_mut("reference_sequences").unwrap()
+        .read()?.into_any().downcast().unwrap();
+    let chrs = df.column("reference_seq_name").unwrap().utf8()?;
+    let chr_sizes = df.column("reference_seq_length").unwrap().u64()?;
+    Ok(chrs.into_iter().flatten().map(|x| x.to_string()).zip(
+        chr_sizes.into_iter().flatten()
+    ).collect())
 }

@@ -3,7 +3,6 @@ mod utils;
 mod call_peaks;
 
 use utils::*;
-//pub mod extension;
 
 use std::io::BufReader;
 use pyo3::{
@@ -26,9 +25,7 @@ use pyanndata::{
 };
 
 use snapatac2_core::{
-    tile_matrix::create_tile_matrix,
-    peak_matrix::create_peak_matrix,
-    gene_score::create_gene_matrix,
+    matrix::{create_tile_matrix, create_peak_matrix, create_gene_matrix},
     qc,
     utils::{gene::read_transcripts, ChromValuesReader},
 };
@@ -78,23 +75,48 @@ fn mk_tile_matrix(anndata: &AnnData, bin_size: u64, chunk_size: usize, num_cpu: 
 } 
 
 #[pyfunction]
-fn mk_peak_matrix(anndata: &AnnData, peak_file: &str, num_cpu: usize) -> PyResult<()>
+fn mk_peak_matrix<'py>(
+    py: Python<'py>,
+    input: &PyAny,
+    use_rep: &str,
+    peak_file: Option<&str>,
+    output_file: &str,
+) -> PyResult<AnnData>
 {
-    let anndata_guard = anndata.0.inner();
-    let peaks = bed::io::Reader::new(open_file(peak_file), None).into_records()
-        .map(|x| x.unwrap()).collect();
-    ThreadPoolBuilder::new().num_threads(num_cpu).build().unwrap().install(||
-        create_peak_matrix(anndata_guard.deref(), &peaks).unwrap()
-    );
-    let var_names = Series::new(
-        "Peaks",
-        peaks.regions.into_iter()
-            .map(|x| format!("{}:{}-{}", x.chrom(), x.start(), x.end()))
-            .collect::<Series>(),
-    );
-    anndata_guard.set_var(Some(&DataFrame::new(vec![var_names]).unwrap())).unwrap();
-    Ok(())
-} 
+    let peaks = match peak_file {
+        None => {
+            let df: Box<DataFrame> = if input.is_instance(AnnData::type_object(py))? {
+                let data: AnnData = input.extract()?;
+                let x = data.0.inner().get_uns().inner().get_mut(use_rep).unwrap()
+                    .read().unwrap().into_any().downcast().unwrap();
+                x
+            } else if input.is_instance(AnnDataSet::type_object(py))? {
+                let data: AnnDataSet = input.extract()?;
+                let x = data.0.inner().get_uns().inner().get_mut(use_rep).unwrap()
+                    .read().unwrap().into_any().downcast().unwrap();
+                x
+            } else {
+                panic!("expecting an AnnData or AnnDataSet object");
+            };
+            df[0].utf8().into_iter().flatten()
+                .map(|x| str_to_genomic_region(x.unwrap()).unwrap()).collect()
+        },
+        Some(fl) => bed::io::Reader::new(open_file(fl), None).into_records()
+            .map(|x| x.unwrap()).collect(),
+    };
+    let result = if input.is_instance(AnnData::type_object(py))? {
+        let data: AnnData = input.extract()?;
+        let x = data.0.inner().read_insertions(500).unwrap();
+        create_peak_matrix(output_file, x, &peaks).unwrap()
+    } else if input.is_instance(AnnDataSet::type_object(py))? {
+        let data: AnnDataSet = input.extract()?;
+        let x = data.0.inner().read_insertions(500).unwrap();
+        create_peak_matrix(output_file, x, &peaks).unwrap()
+    } else {
+        panic!("expecting an AnnData or AnnDataSet object");
+    };
+    Ok(AnnData::wrap(result))
+}
 
 #[pyfunction]
 fn import_fragments(

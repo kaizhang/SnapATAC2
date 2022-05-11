@@ -11,7 +11,7 @@ use std::{
 };
 use bed_utils::bed::{
     ParseError, GenomicRange, BEDLike,
-    tree::{GenomeRegions, BedTree, SparseBinnedCoverage},
+    tree::{GenomeRegions, BedTree, SparseBinnedCoverage}, Strand,
 };
 use itertools::Itertools;
 use anyhow::Result;
@@ -30,6 +30,29 @@ pub struct Fragment {
     pub count: u32,
 }
 
+impl BEDLike for Fragment {
+    fn chrom(&self) -> &str { &self.chrom }
+    fn set_chrom(&mut self, chrom: &str) -> &mut Self {
+        self.chrom = chrom.to_string();
+        self
+    }
+    fn start(&self) -> u64 { self.start }
+    fn set_start(&mut self, start: u64) -> &mut Self {
+        self.start = start;
+        self
+    }
+    fn end(&self) -> u64 { self.end }
+    fn set_end(&mut self, end: u64) -> &mut Self {
+        self.end = end;
+        self
+    }
+    fn name(&self) -> Option<&str> { None }
+    fn score(&self) -> Option<bed_utils::bed::Score> { None }
+    fn strand(&self) -> Option<Strand> { None }
+}
+
+
+
 impl std::str::FromStr for Fragment {
     type Err = ParseError;
 
@@ -37,13 +60,13 @@ impl std::str::FromStr for Fragment {
         let mut fields = s.split('\t');
         let chrom = fields.next().ok_or(ParseError::MissingReferenceSequenceName)?.to_string();
         let start = fields.next().ok_or(ParseError::MissingStartPosition)
-            .and_then(|s| s.parse().map_err(ParseError::InvalidStartPosition))?;
+            .and_then(|s| lexical::parse(s).map_err(ParseError::InvalidStartPosition))?;
         let end = fields.next().ok_or(ParseError::MissingEndPosition)
-            .and_then(|s| s.parse().map_err(ParseError::InvalidEndPosition))?;
+            .and_then(|s| lexical::parse(s).map_err(ParseError::InvalidEndPosition))?;
         let barcode = fields.next().ok_or(ParseError::MissingName)
             .map(|s| s.into())?;
         let count = fields.next().ok_or(ParseError::MissingScore)
-            .and_then(|s| s.parse().map_err(ParseError::InvalidStartPosition))?;
+            .and_then(|s| lexical::parse(s).map_err(ParseError::InvalidStartPosition))?;
         Ok(Fragment { chrom, start, end, barcode, count })
     }
 }

@@ -8,8 +8,8 @@ def call_peaks(
     group_by: Union[str, Sequence[str]],
     selections: Optional[Set[str]] = None,
     q_value: float = 0.05,
+    out_dir: Optional[Path] = None,
     key_added: str = 'peaks',
-    n_jobs: int = 8,
 ):
     """
     Call peaks using MACS2.
@@ -32,11 +32,14 @@ def call_peaks(
         Call peaks for the selected groups only.
     q_value
         q_value cutoff used in MACS2.
+    out_dir
+        If provided, raw peak files from each group will be saved in the directory.
+        Otherwise, they will be stored in a temporary directory which will be removed
+        afterwards.
     key_added
         `.uns` key under which to add the peak information.
-    n_jobs
-        number of CPUs to use.
     """
     if isinstance(group_by, str):
         group_by = data.obs[group_by].astype("str")
-    _snapatac2.call_peaks(data, group_by, selections, q_value, key_added)
+    out_dir = out_dir if out_dir is None else str(out_dir)
+    _snapatac2.call_peaks(data, group_by, selections, q_value, out_dir, key_added)
