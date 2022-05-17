@@ -2,11 +2,6 @@ import numpy as np
 from scipy.stats import chi2
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss
-import statsmodels.api as sm
-from statsmodels.stats.multitest import multipletests
-import math
-import multiprocessing as mp
-from scipy.sparse import hstack
 
 def diff_analysis(mat, z, peaks=None, covariate=None):
     """
@@ -65,13 +60,6 @@ def _diff_test_helper(X, z, Y):
         )
     return result
 
-def computeFDR(X):
-    if X.size == 0:
-        return X
-    else:
-        pvals = np.array([multipletests(X[:, 4], method='fdr_bh')[1]]).T
-        return np.append(X, pvals, axis=1)
-
 def likelihood_ratio_test(X0, X1, y) -> float:
     """
     Comparing null model with alternative model using the likehood ratio test.
@@ -98,15 +86,3 @@ def likelihood_ratio_test(X0, X1, y) -> float:
     full = -log_loss(y, model.predict_proba(X1), normalize=False)
     chi = -2 * (reduced - full)
     return chi2.sf(chi, X1.shape[1] - X0.shape[1])
-
-def chunkIt(seq, num):
-    n = len(seq)
-    step = math.ceil(n / num)
-    last = 0
-    while last < n:
-        i = last + step
-        if i <= n:
-            yield (last, i)
-        else:
-            yield (last, n)
-        last += step
