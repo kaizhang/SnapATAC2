@@ -1,15 +1,15 @@
 Installation
 ============
 
-PyPI
-----
+Option 1: PyPI
+---------------
 
 ::
 
     pip install snapatac2
 
-Development Version
--------------------
+Option 2: Development Version
+------------------------------
 
 You need to install `rust <https://www.rust-lang.org/tools/install>`_ first
 in order to compile the library, which can be accomplished by running:

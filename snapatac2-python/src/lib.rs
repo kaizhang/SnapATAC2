@@ -11,11 +11,11 @@ use pyo3::{
     type_object::PyTypeObject,
     exceptions::PyTypeError,
 };
-use bed_utils::{bed, bed::{GenomicRange, BEDLike}};
+use bed_utils::{bed, bed::GenomicRange};
 use std::collections::BTreeMap;
 use std::ops::Deref;
 use rayon::ThreadPoolBuilder;
-use polars::prelude::{NamedFrom, DataFrame, Series};
+use polars::prelude::DataFrame;
 use std::collections::HashSet;
 
 use anndata_rs::anndata;

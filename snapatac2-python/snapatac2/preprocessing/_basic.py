@@ -249,7 +249,7 @@ def select_features(
     if blacklist is not None:
         selected_features &= np.logical_not(internal.intersect_bed(list(adata.var_names), blacklist))
 
-    if most_variable is not None:
+    if most_variable is not None and len(count[selected_features]) > most_variable:
         mean = count[selected_features].mean()
         std = math.sqrt(count[selected_features].var())
         zscores = np.absolute((count - mean) / std)

@@ -8,7 +8,7 @@ setup(
     author='Kai Zhang',
     author_email='kai@kzhang.org',
     license='MIT',
-    version="1.99.99.7",
+    version="1.99.99.8",
     rust_extensions=[
         RustExtension("snapatac2._snapatac2", binding=Binding.PyO3),
     ],
