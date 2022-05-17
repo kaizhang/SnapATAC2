@@ -30,6 +30,7 @@ default_role = 'code'
 # ones.
 extensions = [
     "nbsphinx",
+    "myst_parser",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.doctest",
@@ -37,6 +38,28 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
     "sphinx_autodoc_typehints",
+]
+
+source_suffix = {
+    '.rst': 'restructuredtext',
+    '.txt': 'markdown',
+    '.md': 'markdown',
+}
+
+myst_enable_extensions = [
+    "amsmath",
+    #"colon_fence",
+    #"deflist",
+    "dollarmath",
+    #"fieldlist",
+    #"html_admonition",
+    #"html_image",
+    #"linkify",
+    #"replacements",
+    #"smartquotes",
+    #"strikethrough",
+    #"substitution",
+    #"tasklist",
 ]
 
 # Generate the API documentation when building

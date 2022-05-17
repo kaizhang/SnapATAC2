@@ -170,7 +170,7 @@ mod tests {
                      chr1\tHAVANA\texon\t12613\t12721\t.\t+\t.\tgene_id=ENSG00000223972.5;transcript_id=ENST00000456328.2;gene_type=transcribed_unprocessed_pseudogene;gene_name=DDX11L1;transcript_type=processed_transcript;transcript_name=DDX11L1-202;exon_number=2\n\
                      chr1\tHAVANA\texon\t13221\t14409\t.\t+\t.\tgene_id=ENSG00000223972.5;transcript_id=ENST00000456328.2;gene_type=transcribed_unprocessed_pseudogene;gene_name=DDX11L1;transcript_type=processed_transcript;transcript_name=DDX11L1-202;exon_number=3";
         let expected = Transcript {
-            transcript_name: "DDX11L1-202".to_string(),
+            transcript_name: Some("DDX11L1-202".to_string()),
             transcript_id: "ENST00000456328.2".to_string(),
             gene_name: "DDX11L1".to_string(),
             gene_id: "ENSG00000223972.5".to_string(),
