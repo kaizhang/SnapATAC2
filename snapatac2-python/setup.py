@@ -1,9 +1,15 @@
 from setuptools import setup
 from setuptools_rust import Binding, RustExtension
 
+from pathlib import Path
+root_directory = Path(__file__).parent
+long_description = (root_directory / "../README.md").read_text()
+
 setup(
     name="snapatac2",
     description='SnapATAC: Single Nucleus Analysis Pipeline for ATAC-seq',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     url='https://kzhang.org/SnapATAC2/', 
     author='Kai Zhang',
     author_email='kai@kzhang.org',
