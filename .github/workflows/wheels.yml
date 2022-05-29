@@ -27,7 +27,7 @@ jobs:
          tar -xzvf hdf5-1.13.1.tar.gz &&
          pushd hdf5-1.13.1 &&
          chmod u+x autogen.sh &&
-         ./configure --enable-build-mode=production --with-szlib &&
+         ./configure --prefix=/usr/local/hdf5 --enable-build-mode=production --with-szlib &&
          make && make install
 
        CIBW_ARCHS_LINUX: "auto64"
