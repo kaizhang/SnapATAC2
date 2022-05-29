@@ -23,11 +23,11 @@ jobs:
          yum install -y openssl-devel zlib-devel &&
          pushd /tmp &&
          ldconfig &&
-         curl -fsSLO https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.13/hdf5-1.13.1/src/hdf5-1.13.1.tar.gz &&
-         tar -xzvf hdf5-1.13.1.tar.gz &&
-         pushd hdf5-1.13.1 &&
+         curl -fsSLO https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.12/hdf5-1.12.2/src/hdf5-1.12.2.tar.gz &&
+         tar -xzvf hdf5-1.12.2.tar.gz &&
+         pushd hdf5-1.12.2 &&
          chmod u+x autogen.sh &&
-         ./configure --enable-build-mode=production --with-szlib &&
+         ./configure --prefix=/usr --enable-build-mode=production --with-szlib &&
          make && make install
 
        CIBW_ARCHS_LINUX: "auto64"
