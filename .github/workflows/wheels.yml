@@ -28,7 +28,7 @@ jobs:
          pushd hdf5-1.13.1 &&
          chmod u+x autogen.sh &&
          ./configure --enable-build-mode=production --with-szlib &&
-         make && install
+         make && make install
 
        CIBW_ARCHS_LINUX: "auto64"
        CIBW_ENVIRONMENT: 'PATH="$PATH:$HOME/.cargo/bin"'
