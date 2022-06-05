@@ -6,6 +6,16 @@ from typing import Optional, Union
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet, jm_regress, jaccard_similarity, cosine_similarity
 
+def idf(data, features=None):
+    n, m = data.shape
+    count = np.zeros(m)
+    for batch in data.X.chunked(2000):
+        batch.data = np.ones(batch.indices.shape, dtype=np.float64)
+        count += np.ravel(batch.sum(axis = 0))
+    if features is not None:
+        count = count[features]
+    return np.log(n / count)
+
 # FIXME: random state
 def spectral(
     data: Union[AnnData, AnnDataSet],
@@ -15,6 +25,7 @@ def spectral(
     sample_size: Optional[Union[int, float]] = None,
     chunk_size: Optional[int] = None,
     distance_metric: str = "jaccard",
+    weighted: bool = True,
     inplace: bool = True,
 ) -> Optional[np.ndarray]:
     """
@@ -43,6 +54,8 @@ def spectral(
         Chunk size used in the Nystrom method
     distance_metric
         distance metric: "jaccard", "cosine".
+    weighted
+        Whether to weight features using "IDF".
     inplace
         Whether to store the result in the anndata object.
 
@@ -90,12 +103,20 @@ def spectral(
             X = data.X[:, features]
         else:
             X = data.X[...]
-        model = Spectral(n_dim=n_comps, distance=distance_metric)
+        if weighted:
+            model = Spectral(n_comps, distance_metric, idf(data, features))
+        else:
+            model = Spectral(n_comps, distance_metric)
         model.fit(X)
         result = model.transform()
     else:
         S = data.X.chunk(sample_size, replace=False)
         if features is not None: S = S[:, features]
+
+        if weighted:
+            model = Spectral(n_comps, distance_metric, idf(data, features))
+        else:
+            model = Spectral(n_comps, distance_metric)
         model = Spectral(n_dim=n_comps, distance=distance_metric)
         model.fit(S)
 
@@ -117,15 +138,15 @@ def spectral(
         return result
 
 class Spectral:
-    def __init__(self, n_dim: int = 30, distance: str = "jaccard"):
+    def __init__(self, n_dim: int = 30, distance: str = "jaccard", feature_weights = None):
 
         #self.dim = mat.get_shape()[1]
         self.n_dim = n_dim
         self.distance = distance
         if (self.distance == "jaccard"):
-            self.compute_similarity = jaccard_similarity
+            self.compute_similarity = lambda x, y=None: jaccard_similarity(x, y, feature_weights)
         elif (self.distance == "cosine"):
-            self.compute_similarity = cosine_similarity
+            self.compute_similarity = lambda x, y=None: cosine_similarity(x, y, feature_weights)
         else:
             self.compute_similarity = rbf_kernel
 

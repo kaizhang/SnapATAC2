@@ -43,14 +43,20 @@ pub(crate) fn jaccard_similarity<'py>(
     py: Python<'py>,
     mat: &'py PyAny,
     other: Option<&'py PyAny>,
+    weights: Option<PyReadonlyArray<f64, Ix1>>,
 ) -> PyResult<&'py PyArray<f64, Ix2>> {
+    let weights_ = match weights {
+        None => None,
+        Some(ref ws) => Some(ws.as_slice().unwrap()),
+    };
+
     macro_rules! with_csr {
         ($mat:expr) => {
             match other {
-                None => Ok(similarity::jaccard($mat).into_pyarray(py)),
+                None => Ok(similarity::jaccard($mat, weights_).into_pyarray(py)),
                 Some(mat2) => {
                     macro_rules! xxx {
-                        ($m:expr) => { Ok(similarity::jaccard2($mat, $m).into_pyarray(py)) };
+                        ($m:expr) => { Ok(similarity::jaccard2($mat, $m, weights_).into_pyarray(py)) };
                     }
                     let shape: Vec<usize> = mat2.getattr("shape")?.extract()?;
                     with_sparsity_pattern!(
@@ -83,8 +89,8 @@ fn to_sparsity_pattern<'py, I>(
 where
     I: Element,
 {
-    let indptr = indptr_.as_array().to_slice().unwrap();
-    let indices = indices_.as_array().to_slice().unwrap();
+    let indptr = indptr_.as_slice().unwrap();
+    let indices = indices_.as_slice().unwrap();
     Ok(similarity::BorrowedSparsityPattern::new(indptr, indices, n))
 }
 
@@ -93,13 +99,19 @@ pub(crate) fn cosine_similarity<'py>(
     py: Python<'py>,
     mat: &'py PyAny,
     other: Option<&'py PyAny>,
+    weights: Option<PyReadonlyArray<f64, Ix1>>,
 ) -> PyResult<&'py PyArray<f64, Ix2>> {
+    let weights_ = match weights {
+        None => None,
+        Some(ref ws) => Some(ws.as_slice().unwrap()),
+    };
     match other {
-        None => Ok(similarity::cosine(csr_to_rust(mat)?).into_pyarray(py)),
+        None => Ok(similarity::cosine(csr_to_rust(mat)?, weights_).into_pyarray(py)),
         Some(mat2) => Ok(
             similarity::cosine2(
                 csr_to_rust(mat)?,
                 csr_to_rust(mat2)?,
+                weights_,
             ).into_pyarray(py)
         ),
     }

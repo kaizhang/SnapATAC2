@@ -6,7 +6,10 @@ use nalgebra_sparse::{
 use std::ops::Deref;
 use ndarray::{Array2, Axis};
 
-pub fn jaccard<'a, I>(mat: BorrowedSparsityPattern<'a, I>) -> Array2<f64>
+pub fn jaccard<'a, I>(
+    mat: BorrowedSparsityPattern<'a, I>,
+    weights: Option<&[f64]>,
+) -> Array2<f64>
 where
     I: TryInto<usize> + Copy + TryFrom<usize> + num::Bounded + std::marker::Sync,
     <I as TryInto<usize>>::Error: std::fmt::Debug,
@@ -18,24 +21,28 @@ where
     {
         let mat_t = mat.transpose();
         res.axis_iter_mut(Axis(0)).into_par_iter().enumerate().for_each(|(i, mut row)| {
-            mat.get_lane(i).unwrap().into_iter().for_each(|k|
-                mat_t.get_lane((*k).try_into().unwrap()).unwrap().into_iter().for_each(|j| {
+            mat.get_lane(i).unwrap().into_iter().for_each(|k| {
+                let k_ = (*k).try_into().unwrap();
+                mat_t.get_lane(k_).unwrap().into_iter().for_each(|j| {
                     let j_ = (*j).try_into().unwrap();
-                    if j_ > i { row[[j_]] += 1.0; }
+                    if j_ > i { row[[j_]] += weights.map_or(1.0, |w| w[k_]); }
                 })
-            );
+            });
         });
     }
 
-    let sizes: Vec<usize> = (0..n).into_par_iter()
-        .map(|i| mat.get_lane(i).unwrap().len()).collect();
+    let sizes: Vec<f64> = (0..n).into_par_iter().map(|i|
+        mat.get_lane(i).unwrap().iter().map(|j|
+            weights.map_or(1.0, |w| w[(*j).try_into().unwrap()])
+        ).sum()
+    ).collect();
 
     (0..n).combinations(2).for_each(|x| {
         let i = x[0];
         let j = x[1];
         let u = sizes[i] + sizes[j];
         let intersect = res[[i, j]];
-        let v = if u == 0 { 1.0 } else { intersect / (u as f64 - intersect) };
+        let v = if u == 0.0 { 1.0 } else { intersect / (u - intersect) };
         res[[i, j]] = v;
         res[[j, i]] = v;
     });
@@ -45,6 +52,7 @@ where
 pub fn jaccard2<'a, I1, I2>(
     mat1: BorrowedSparsityPattern<'a, I1>,
     mat2: BorrowedSparsityPattern<'a, I2>,
+    weights: Option<&[f64]>,
 ) -> Array2<f64>
 where
     I1: TryInto<usize> + Copy + TryFrom<usize> + num::Bounded + std::marker::Sync,
@@ -61,32 +69,48 @@ where
     {
         let mat2_t = mat2.transpose();
         res.axis_iter_mut(Axis(0)).into_par_iter().enumerate().for_each(|(i, mut row)| {
-            mat1.get_lane(i).unwrap().into_iter().for_each(|k|
-                mat2_t.get_lane((*k).try_into().unwrap()).unwrap().into_iter().for_each(|j| {
-                    row[[(*j).try_into().unwrap()]] += 1.0;
+            mat1.get_lane(i).unwrap().into_iter().for_each(|k| {
+                let k_ = (*k).try_into().unwrap();
+                mat2_t.get_lane(k_).unwrap().into_iter().for_each(|j| {
+                    row[[(*j).try_into().unwrap()]] += weights.map_or(1.0, |w| w[k_]);
                 })
-            );
+            });
         });
     }
 
-    let sizes1: Vec<usize> = (0..n).into_par_iter()
-        .map(|i| mat1.get_lane(i).unwrap().len()).collect();
-    let sizes2: Vec<usize> = (0..m).into_par_iter()
-        .map(|i| mat2.get_lane(i).unwrap().len()).collect();
+    let sizes1: Vec<f64> = (0..n).into_par_iter().map(|i|
+        mat1.get_lane(i).unwrap().iter().map(|j|
+            weights.map_or(1.0, |w| w[(*j).try_into().unwrap()])
+        ).sum()
+    ).collect();
+    let sizes2: Vec<f64> = (0..m).into_par_iter().map(|i|
+        mat2.get_lane(i).unwrap().iter().map(|j|
+            weights.map_or(1.0, |w| w[(*j).try_into().unwrap()])
+        ).sum()
+    ).collect();
     res.indexed_iter_mut().for_each(|((i,j), x)| {
         let u = sizes1[i] + sizes2[j];
-        let v = if u == 0 { 1.0 } else { *x / (u as f64 - *x) };
+        let v = if u == 0.0 { 1.0 } else { *x / (u - *x) };
         *x = v;
     });
     res
 }
 
-pub fn cosine(mut mat: CsrMatrix<f64>) -> Array2<f64> {
+pub fn cosine(
+    mut mat: CsrMatrix<f64>,
+    weights: Option<&[f64]>,
+) -> Array2<f64> {
     let n = mat.nrows();
     let mut res = Array2::zeros((n, n));
 
     {
-        let norms: Vec<f64> = mat.row_iter_mut().map(l2_norm).collect();
+        let norms: Vec<f64> = mat.row_iter_mut().map(|mut x| {
+            if let Some(w) = weights {
+                let (indices, values) = x.cols_and_values_mut();
+                indices.into_iter().zip(values).for_each(|(i, v)| *v = *v * w[*i].sqrt());
+            }
+            l2_norm(x)
+        }).collect();
         norms.into_iter().enumerate().for_each(|(i, x)| if x != 0. {
             res[[i, i]] = 1.;
         });
@@ -113,13 +137,32 @@ pub fn cosine(mut mat: CsrMatrix<f64>) -> Array2<f64> {
     res
 }
 
-pub fn cosine2(mut mat1: CsrMatrix<f64>, mut mat2: CsrMatrix<f64>) -> Array2<f64> {
+pub fn cosine2(
+    mut mat1: CsrMatrix<f64>,
+    mut mat2: CsrMatrix<f64>,
+    weights: Option<&[f64]>,
+) -> Array2<f64> {
     let n = mat1.nrows();
     let m = mat2.nrows();
     let mut res = Array2::zeros((n, m));
 
-    mat1.row_iter_mut().for_each(|x| { l2_norm(x); });
-    mat2.row_iter_mut().for_each(|x| { l2_norm(x); });
+    {
+        mat1.row_iter_mut().for_each(|mut x| {
+            if let Some(w) = weights {
+                let (indices, values) = x.cols_and_values_mut();
+                indices.into_iter().zip(values).for_each(|(i, v)| *v = *v * w[*i].sqrt());
+            }
+            l2_norm(x);
+        });
+
+        mat2.row_iter_mut().for_each(|mut x| {
+            if let Some(w) = weights {
+                let (indices, values) = x.cols_and_values_mut();
+                indices.into_iter().zip(values).for_each(|(i, v)| *v = *v * w[*i].sqrt());
+            }
+            l2_norm(x);
+        });
+    }
 
     {
         let mat2_t = mat2.transpose();
