@@ -78,9 +78,15 @@ def aggregate_X(
     else:
         if isinstance(group_by, list):
             groups = adata.obs[group_by]
+            groups = [tuple(groups[i, :]) for i in range(groups.shape[0])]
+            out = np.empty(len(groups), dtype=object)
+            out[:] = groups
+            groups = out
+            '''
             groups = np.array(list(
                 '+'.join(map(lambda x: str(x), list(groups[i, :]))) for i in range(groups.shape[0])
             ))
+            '''
         else:
             groups = adata.obs[group_by]
         cur_row = 0

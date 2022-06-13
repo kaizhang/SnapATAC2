@@ -2,11 +2,11 @@ from typing import Optional, Union, Type
 import numpy as np
 import polars
 
-from snapatac2._snapatac2 import AnnData
+from snapatac2._snapatac2 import AnnData, AnnDataSet
 import snapatac2._snapatac2 as _snapatac2
 
 def kmeans(
-    adata: AnnData,
+    adata: Union[AnnData, AnnDataSet, np.ndarray],
     n_clusters: int,
     n_iterations: int = -1,
     random_state: int = 0,
@@ -46,7 +46,10 @@ def kmeans(
     """
     if use_rep is None: use_rep = "X_spectral"
 
-    data = adata.obsm[use_rep][...]
+    if isinstance(adata, AnnData) or isinstance(adata, AnnDataSet):
+        data = adata.obsm[use_rep]
+    else:
+        data = adata
     groups = _snapatac2.kmeans(n_clusters, data)
     groups = np.array(groups, dtype=np.compat.unicode)
     if inplace:

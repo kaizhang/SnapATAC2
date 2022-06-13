@@ -14,18 +14,18 @@ def idf(data, features=None):
         count += np.ravel(batch.sum(axis = 0))
     if features is not None:
         count = count[features]
-    return np.log(n / count)
+    return np.log(n / (1 + count))
 
 # FIXME: random state
 def spectral(
     data: Union[AnnData, AnnDataSet],
-    n_comps: Optional[int] = None,
+    n_comps: int = 50,
     features: Optional[Union[str, np.ndarray]] = "selected",
     random_state: int = 0,
     sample_size: Optional[Union[int, float]] = None,
-    chunk_size: Optional[int] = None,
+    chunk_size: int = 20000,
     distance_metric: str = "jaccard",
-    weighted: bool = True,
+    feature_weights: Optional[Union[str, np.ndarray]] = "idf",
     inplace: bool = True,
 ) -> Optional[np.ndarray]:
     """
@@ -38,9 +38,9 @@ def spectral(
     Parameters
     ----------
     data
-        AnnData or AnnDataSet object
+        AnnData or AnnDataSet object.
     n_comps
-        Number of dimensions to keep
+        Number of dimensions to keep.
     features
         Boolean index mask. True means that the feature is kept.
         False means the feature is removed.
@@ -54,7 +54,7 @@ def spectral(
         Chunk size used in the Nystrom method
     distance_metric
         distance metric: "jaccard", "cosine".
-    weighted
+    feature_weights
         Whether to weight features using "IDF".
     inplace
         Whether to store the result in the anndata object.
@@ -75,14 +75,17 @@ def spectral(
         else:
             raise NameError("Please call `select_features` first or explicitly set `features = None`")
 
+    if feature_weights is None:
+        weights = None
+    elif isinstance(feature_weights, np.ndarray):
+        weights = feature_weights if features is None else feature_weights[features]
+    elif feature_weights == "idf":
+        weights = idf(data, features)
+    else:
+        raise NameError("Invalid feature_weights")
+
     np.random.seed(random_state)
-    if n_comps is None:
-        min_dim = min(data.n_vars, data.n_obs)
-        if 50 >= min_dim:
-            n_comps = min_dim - 1
-        else:
-            n_comps = 50
-    if chunk_size is None: chunk_size = 20000
+    n_comps = min(data.n_vars - 1, data.n_obs - 1, n_comps)
 
     (n_sample, _) = data.shape
     if sample_size is None:
@@ -103,21 +106,14 @@ def spectral(
             X = data.X[:, features]
         else:
             X = data.X[...]
-        if weighted:
-            model = Spectral(n_comps, distance_metric, idf(data, features))
-        else:
-            model = Spectral(n_comps, distance_metric)
+        model = Spectral(n_comps, distance_metric, weights)
         model.fit(X)
         result = model.transform()
     else:
         S = data.X.chunk(sample_size, replace=False)
         if features is not None: S = S[:, features]
 
-        if weighted:
-            model = Spectral(n_comps, distance_metric, idf(data, features))
-        else:
-            model = Spectral(n_comps, distance_metric)
-        model = Spectral(n_dim=n_comps, distance=distance_metric)
+        model = Spectral(n_comps, distance_metric, weights)
         model.fit(S)
 
         from tqdm import tqdm
@@ -136,6 +132,7 @@ def spectral(
         data.obsm['X_spectral'] = result[1]
     else:
         return result
+
 
 class Spectral:
     def __init__(self, n_dim: int = 30, distance: str = "jaccard", feature_weights = None):

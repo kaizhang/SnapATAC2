@@ -65,8 +65,11 @@ impl std::str::FromStr for Fragment {
             .and_then(|s| lexical::parse(s).map_err(ParseError::InvalidEndPosition))?;
         let barcode = fields.next().ok_or(ParseError::MissingName)
             .map(|s| s.into())?;
-        let count = fields.next().ok_or(ParseError::MissingScore)
-            .and_then(|s| lexical::parse(s).map_err(ParseError::InvalidStartPosition))?;
+        let count = fields.next().map_or(Ok(1), |s| if s == "." {
+            Ok(1)
+        } else {
+            lexical::parse(s).map_err(ParseError::InvalidStartPosition)
+        })?;
         Ok(Fragment { chrom, start, end, barcode, count })
     }
 }
