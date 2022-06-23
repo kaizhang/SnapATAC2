@@ -3,7 +3,7 @@ from setuptools_rust import Binding, RustExtension
 
 from pathlib import Path
 root_directory = Path(__file__).parent
-long_description = (root_directory / "../README.md").read_text()
+long_description = (root_directory / "README.md").read_text()
 
 setup(
     name="snapatac2",
@@ -14,7 +14,7 @@ setup(
     author='Kai Zhang',
     author_email='kai@kzhang.org',
     license='MIT',
-    version="1.99.99.8",
+    version="1.99.99.9",
     rust_extensions=[
         RustExtension("snapatac2._snapatac2", binding=Binding.PyO3),
     ],
