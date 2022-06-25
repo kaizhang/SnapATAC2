@@ -7,4 +7,4 @@
 
    pbmc
    integration
-   integration2
+   modality
