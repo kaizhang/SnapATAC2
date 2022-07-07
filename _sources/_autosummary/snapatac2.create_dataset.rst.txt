@@ -1,0 +1,6 @@
+﻿snapatac2.create\_dataset
+=========================
+
+.. currentmodule:: snapatac2
+
+.. autofunction:: create_dataset

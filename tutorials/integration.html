@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multi-sample Pipeline: analyzing snATAC-seq data of human colon samples &mdash; SnapATAC2 2.0.0 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+        <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Multi-modality pipeline: analyzing single-cell multiome data (ATAC + Gene Expression)" href="modality.html" />
+    <link rel="prev" title="Standard pipeline: analyzing 5K PBMC dataset from 10X genomics" href="pbmc.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> SnapATAC2
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Tutorials</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="pbmc.html">Standard pipeline: analyzing 5K PBMC dataset from 10X genomics</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Multi-sample Pipeline: analyzing snATAC-seq data of human colon samples</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#Introduction">Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Creating-AnnDataSet-object">Creating AnnDataSet object</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Batch-correction">Batch correction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Clustering">Clustering</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#AnnDataSet-object-IO">AnnDataSet object IO</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="modality.html">Multi-modality pipeline: analyzing single-cell multiome data (ATAC + Gene Expression)</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../algorithms/index.html">Algorithms</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">SnapATAC2</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="index.html">Tutorials</a> &raquo;</li>
+      <li>Multi-sample Pipeline: analyzing snATAC-seq data of human colon samples</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/tutorials/integration.ipynb.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  
+<style>
+/* CSS for nbsphinx extension */
+
+/* remove conflicting styling from Sphinx themes */
+div.nbinput.container div.prompt *,
+div.nboutput.container div.prompt *,
+div.nbinput.container div.input_area pre,
+div.nboutput.container div.output_area pre,
+div.nbinput.container div.input_area .highlight,
+div.nboutput.container div.output_area .highlight {
+    border: none;
+    padding: 0;
+    margin: 0;
+    box-shadow: none;
+}
+
+div.nbinput.container > div[class*=highlight],
+div.nboutput.container > div[class*=highlight] {
+    margin: 0;
+}
+
+div.nbinput.container div.prompt *,
+div.nboutput.container div.prompt * {
+    background: none;
+}
+
+div.nboutput.container div.output_area .highlight,
+div.nboutput.container div.output_area pre {
+    background: unset;
+}
+
+div.nboutput.container div.output_area div.highlight {
+    color: unset;  /* override Pygments text color */
+}
+
+/* avoid gaps between output lines */
+div.nboutput.container div[class*=highlight] pre {
+    line-height: normal;
+}
+
+/* input/output containers */
+div.nbinput.container,
+div.nboutput.container {
+    display: -webkit-flex;
+    display: flex;
+    align-items: flex-start;
+    margin: 0;
+    width: 100%;
+}
+@media (max-width: 540px) {
+    div.nbinput.container,
+    div.nboutput.container {
+        flex-direction: column;
+    }
+}
+
+/* input container */
+div.nbinput.container {
+    padding-top: 5px;
+}
+
+/* last container */
+div.nblast.container {
+    padding-bottom: 5px;
+}
+
+/* input prompt */
+div.nbinput.container div.prompt pre {
+    color: #307FC1;
+}
+
+/* output prompt */
+div.nboutput.container div.prompt pre {
+    color: #BF5B3D;
+}
+
+/* all prompts */
+div.nbinput.container div.prompt,
+div.nboutput.container div.prompt {
+    width: 4.5ex;
+    padding-top: 5px;
+    position: relative;
+    user-select: none;
+}
+
+div.nbinput.container div.prompt > div,
+div.nboutput.container div.prompt > div {
+    position: absolute;
+    right: 0;
+    margin-right: 0.3ex;
+}
+
+@media (max-width: 540px) {
+    div.nbinput.container div.prompt,
+    div.nboutput.container div.prompt {
+        width: unset;
+        text-align: left;
+        padding: 0.4em;
+    }
+    div.nboutput.container div.prompt.empty {
+        padding: 0;
+    }
+
+    div.nbinput.container div.prompt > div,
+    div.nboutput.container div.prompt > div {
+        position: unset;
+    }
+}
+
+/* disable scrollbars on prompts */
+div.nbinput.container div.prompt pre,
+div.nboutput.container div.prompt pre {
+    overflow: hidden;
+}
+
+/* input/output area */
+div.nbinput.container div.input_area,
+div.nboutput.container div.output_area {
+    -webkit-flex: 1;
+    flex: 1;
+    overflow: auto;
+}
+@media (max-width: 540px) {
+    div.nbinput.container div.input_area,
+    div.nboutput.container div.output_area {
+        width: 100%;
+    }
+}
+
+/* input area */
+div.nbinput.container div.input_area {
+    border: 1px solid #e0e0e0;
+    border-radius: 2px;
+    /*background: #f5f5f5;*/
+}
+
+/* override MathJax center alignment in output cells */
+div.nboutput.container div[class*=MathJax] {
+    text-align: left !important;
+}
+
+/* override sphinx.ext.imgmath center alignment in output cells */
+div.nboutput.container div.math p {
+    text-align: left;
+}
+
+/* standard error */
+div.nboutput.container div.output_area.stderr {
+    background: #fdd;
+}
+
+/* ANSI colors */
+.ansi-black-fg { color: #3E424D; }
+.ansi-black-bg { background-color: #3E424D; }
+.ansi-black-intense-fg { color: #282C36; }
+.ansi-black-intense-bg { background-color: #282C36; }
+.ansi-red-fg { color: #E75C58; }
+.ansi-red-bg { background-color: #E75C58; }
+.ansi-red-intense-fg { color: #B22B31; }
+.ansi-red-intense-bg { background-color: #B22B31; }
+.ansi-green-fg { color: #00A250; }
+.ansi-green-bg { background-color: #00A250; }
+.ansi-green-intense-fg { color: #007427; }
+.ansi-green-intense-bg { background-color: #007427; }
+.ansi-yellow-fg { color: #DDB62B; }
+.ansi-yellow-bg { background-color: #DDB62B; }
+.ansi-yellow-intense-fg { color: #B27D12; }
+.ansi-yellow-intense-bg { background-color: #B27D12; }
+.ansi-blue-fg { color: #208FFB; }
+.ansi-blue-bg { background-color: #208FFB; }
+.ansi-blue-intense-fg { color: #0065CA; }
+.ansi-blue-intense-bg { background-color: #0065CA; }
+.ansi-magenta-fg { color: #D160C4; }
+.ansi-magenta-bg { background-color: #D160C4; }
+.ansi-magenta-intense-fg { color: #A03196; }
+.ansi-magenta-intense-bg { background-color: #A03196; }
+.ansi-cyan-fg { color: #60C6C8; }
+.ansi-cyan-bg { background-color: #60C6C8; }
+.ansi-cyan-intense-fg { color: #258F8F; }
+.ansi-cyan-intense-bg { background-color: #258F8F; }
+.ansi-white-fg { color: #C5C1B4; }
+.ansi-white-bg { background-color: #C5C1B4; }
+.ansi-white-intense-fg { color: #A1A6B2; }
+.ansi-white-intense-bg { background-color: #A1A6B2; }
+
+.ansi-default-inverse-fg { color: #FFFFFF; }
+.ansi-default-inverse-bg { background-color: #000000; }
+
+.ansi-bold { font-weight: bold; }
+.ansi-underline { text-decoration: underline; }
+
+
+div.nbinput.container div.input_area div[class*=highlight] > pre,
+div.nboutput.container div.output_area div[class*=highlight] > pre,
+div.nboutput.container div.output_area div[class*=highlight].math,
+div.nboutput.container div.output_area.rendered_html,
+div.nboutput.container div.output_area > div.output_javascript,
+div.nboutput.container div.output_area:not(.rendered_html) > img{
+    padding: 5px;
+    margin: 0;
+}
+
+/* fix copybtn overflow problem in chromium (needed for 'sphinx_copybutton') */
+div.nbinput.container div.input_area > div[class^='highlight'],
+div.nboutput.container div.output_area > div[class^='highlight']{
+    overflow-y: hidden;
+}
+
+/* hide copybtn icon on prompts (needed for 'sphinx_copybutton') */
+.prompt .copybtn {
+    display: none;
+}
+
+/* Some additional styling taken form the Jupyter notebook CSS */
+.jp-RenderedHTMLCommon table,
+div.rendered_html table {
+  border: none;
+  border-collapse: collapse;
+  border-spacing: 0;
+  color: black;
+  font-size: 12px;
+  table-layout: fixed;
+}
+.jp-RenderedHTMLCommon thead,
+div.rendered_html thead {
+  border-bottom: 1px solid black;
+  vertical-align: bottom;
+}
+.jp-RenderedHTMLCommon tr,
+.jp-RenderedHTMLCommon th,
+.jp-RenderedHTMLCommon td,
+div.rendered_html tr,
+div.rendered_html th,
+div.rendered_html td {
+  text-align: right;
+  vertical-align: middle;
+  padding: 0.5em 0.5em;
+  line-height: normal;
+  white-space: normal;
+  max-width: none;
+  border: none;
+}
+.jp-RenderedHTMLCommon th,
+div.rendered_html th {
+  font-weight: bold;
+}
+.jp-RenderedHTMLCommon tbody tr:nth-child(odd),
+div.rendered_html tbody tr:nth-child(odd) {
+  background: #f5f5f5;
+}
+.jp-RenderedHTMLCommon tbody tr:hover,
+div.rendered_html tbody tr:hover {
+  background: rgba(66, 165, 245, 0.2);
+}
+
+/* CSS overrides for sphinx_rtd_theme */
+
+/* 24px margin */
+.nbinput.nblast.container,
+.nboutput.nblast.container {
+    margin-bottom: 19px;  /* padding has already 5px */
+}
+
+/* ... except between code cells! */
+.nblast.container + .nbinput.container {
+    margin-top: -19px;
+}
+
+.admonition > p:before {
+    margin-right: 4px;  /* make room for the exclamation icon */
+}
+
+/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
+.math {
+    text-align: unset;
+}
+</style>
+<section id="Multi-sample-Pipeline:-analyzing-snATAC-seq-data-of-human-colon-samples">
+<h1>Multi-sample Pipeline: analyzing snATAC-seq data of human colon samples<a class="headerlink" href="#Multi-sample-Pipeline:-analyzing-snATAC-seq-data-of-human-colon-samples" title="Permalink to this headline"></a></h1>
+<section id="Introduction">
+<h2>Introduction<a class="headerlink" href="#Introduction" title="Permalink to this headline"></a></h2>
+<p>In this tutorial, we will perform integrative analysis of snATAC-seq data of colon sample from multiple donors.</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import snapatac2 as snap
+
+gene_annotation = &quot;data/gencode.v39.basic.annotation.gff3.gz&quot;
+</pre></div>
+</div>
+</div>
+<p>These are the fragment files we are going to analyze.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>files = !ls data/*_fragments.bed.gz
+files
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+[&#39;data/colon_transverse_SM-A9HOW_rep1_fragments.bed.gz&#39;,
+ &#39;data/colon_transverse_SM-A9VP4_rep1_fragments.bed.gz&#39;,
+ &#39;data/colon_transverse_SM-ACCQ1_rep1_fragments.bed.gz&#39;,
+ &#39;data/colon_transverse_SM-BZ2ZS_rep1_fragments.bed.gz&#39;,
+ &#39;data/colon_transverse_SM-CSSDA_rep1_fragments.bed.gz&#39;]
+</pre></div></div>
+</div>
+<p>First we perform preprocessing for each dataset separately.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%time
+for fl in files:
+    name = fl.split(&quot;/&quot;)[-1].split(&quot;_rep1_fragments&quot;)[0]
+    data = snap.pp.import_data(
+        fl,
+        gene_annotation,
+        snap.genome.hg38,
+        file = name + &quot;.h5ad&quot;,
+    )
+    snap.pp.filter_cells(data, min_tsse = 7, min_counts = 1000)
+    snap.pp.make_tile_matrix(data)
+    snap.pp.select_features(data)
+    snap.pp.scrublet(data)
+    snap.pp.call_doublets(data)
+    data.close()
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Simulating doublets...
+Spectral embedding ...
+Calculating doublet scores...
+Simulating doublets...
+Spectral embedding ...
+Calculating doublet scores...
+Simulating doublets...
+Spectral embedding ...
+Calculating doublet scores...
+Simulating doublets...
+Spectral embedding ...
+Calculating doublet scores...
+Simulating doublets...
+Spectral embedding ...
+Calculating doublet scores...
+CPU times: user 24min 40s, sys: 1min 30s, total: 26min 11s
+Wall time: 16min 12s
+</pre></div></div>
+</div>
+<p>Let’s collect the newly generated h5ad files and attach each of them with an unique identifier. We store this information in a list.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>files = !ls colon*.h5ad
+datasets = []
+for fl in files:
+    name = fl.split(&quot;/&quot;)[-1].split(&quot;.h5ad&quot;)[0]
+    datasets.append((name, fl))
+datasets
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+[(&#39;colon_transverse_SM-A9HOW&#39;, &#39;colon_transverse_SM-A9HOW.h5ad&#39;),
+ (&#39;colon_transverse_SM-A9VP4&#39;, &#39;colon_transverse_SM-A9VP4.h5ad&#39;),
+ (&#39;colon_transverse_SM-ACCQ1&#39;, &#39;colon_transverse_SM-ACCQ1.h5ad&#39;),
+ (&#39;colon_transverse_SM-BZ2ZS&#39;, &#39;colon_transverse_SM-BZ2ZS.h5ad&#39;),
+ (&#39;colon_transverse_SM-CSSDA&#39;, &#39;colon_transverse_SM-CSSDA.h5ad&#39;)]
+</pre></div></div>
+</div>
+</section>
+<section id="Creating-AnnDataSet-object">
+<h2>Creating AnnDataSet object<a class="headerlink" href="#Creating-AnnDataSet-object" title="Permalink to this headline"></a></h2>
+<p>We then use <code class="docutils literal notranslate"><span class="pre">create_dataset</span></code> to create an <code class="docutils literal notranslate"><span class="pre">AnnDataSet</span></code> object which contains links to individual data. The data are not loaded into memory so it can scale to very large dataset.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%time
+data = snap.create_dataset(datasets, storage = &quot;colon.h5ads&quot;)
+data
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+CPU times: user 13.5 s, sys: 1.4 s, total: 14.9 s
+Wall time: 15.9 s
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+AnnDataSet object with n_obs x n_vars = 41678 x 6176550 backed at &#39;colon.h5ads&#39;
+contains 5 AnnData objects with keys: colon_transverse_SM-A9HOW, colon_transverse_SM-A9VP4, colon_transverse_SM-ACCQ1, colon_transverse_SM-BZ2ZS, colon_transverse_SM-CSSDA
+    obs: Cell, batch
+    var: Feature_ID
+</pre></div></div>
+</div>
+<p>Here we use a whitelist containing all peaks we previously identified in human tissues (Zhang et al., Cell, 2021) to filter the bins. This file can be downloaded using this <a class="reference external" href="http://renlab.sdsc.edu/kai/Key_Processed_Data/cCRE_hg38.tsv.gz">link</a>.</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>snap.pp.select_features(data, whitelist=&quot;data/cCRE_hg38.bed.gz&quot;)
+</pre></div>
+</div>
+</div>
+<p>Although this dataset is small enough to fit into memory, for illustration purpose we will show how to use subsampling to efficiently perform the dimension reduction. Subsampling significantly reduces the memory usage and speeds up the computation.</p>
+<p>It is as simple as spectifying <code class="docutils literal notranslate"><span class="pre">sample_size=10000</span></code> in the <code class="docutils literal notranslate"><span class="pre">tl.spectral</span></code> function, which randomly selects 10,000 cells as the landmarks to get an initial embedding, and then uses the Nystrom method to compute the embedding for the rest of cells.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%time
+snap.tl.spectral(data, sample_size = 10000)
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Compute similarity matrix
+Normalization
+Perform decomposition
+Perform Nystrom extension
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+5it [01:03, 12.62s/it]
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+CPU times: user 2min 51s, sys: 20.6 s, total: 3min 12s
+Wall time: 1min 55s
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>snap.pl.spectral_eigenvalues(data, interactive=False)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/tutorials_integration_16_0.png" src="../_images/tutorials_integration_16_0.png" />
+</div>
+</div>
+<p>We next perform UMAP embedding and visualize the result.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>snap.tl.umap(data, use_dims = 12)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+/home/kaizhang/data/software/miniconda3/lib/python3.8/site-packages/umap/__init__.py:9: UserWarning:
+
+Tensorflow not installed; ParametricUMAP will be unavailable
+
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>snap.pl.umap(data, color=&quot;batch&quot;, interactive=False, width = 800)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/tutorials_integration_19_0.png" src="../_images/tutorials_integration_19_0.png" />
+</div>
+</div>
+</section>
+<section id="Batch-correction">
+<h2>Batch correction<a class="headerlink" href="#Batch-correction" title="Permalink to this headline"></a></h2>
+<p>From the UMAP plot above we can clearly see some donor/individual specific effects. Although these donor differences are interesting to study on their own, it obscures the clustering procedure for identifying shared cell states across individuals.</p>
+<p>Here we apply two different approaches, Harmony and modified MNNCorrect, to remove donor specific differences.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%time
+snap.pp.mnc_correct(data, &quot;batch&quot;, use_dims = 12)
+snap.pp.harmony(data, &quot;batch&quot;, use_dims = 12, max_iter_harmony = 20)
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+2022-04-12 13:15:06,441 - harmonypy - INFO - Iteration 1 of 20
+2022-04-12 13:15:27,126 - harmonypy - INFO - Iteration 2 of 20
+2022-04-12 13:15:50,397 - harmonypy - INFO - Iteration 3 of 20
+2022-04-12 13:16:13,529 - harmonypy - INFO - Iteration 4 of 20
+2022-04-12 13:16:39,792 - harmonypy - INFO - Iteration 5 of 20
+2022-04-12 13:17:03,686 - harmonypy - INFO - Iteration 6 of 20
+2022-04-12 13:17:28,782 - harmonypy - INFO - Iteration 7 of 20
+2022-04-12 13:17:54,192 - harmonypy - INFO - Iteration 8 of 20
+2022-04-12 13:18:19,267 - harmonypy - INFO - Iteration 9 of 20
+2022-04-12 13:18:42,536 - harmonypy - INFO - Converged after 9 iterations
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+CPU times: user 8min 40s, sys: 7min 55s, total: 16min 35s
+Wall time: 4min 27s
+</pre></div></div>
+</div>
+<p>Visualizing the result of MNNCorrect.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>snap.tl.umap(data, use_rep=&quot;X_spectral_mnn&quot;)
+snap.pl.umap(data, color=&quot;batch&quot;, interactive=False, width=800)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/tutorials_integration_24_0.png" src="../_images/tutorials_integration_24_0.png" />
+</div>
+</div>
+<p>Visualize the result of Harmony.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>snap.tl.umap(data, use_rep=&quot;X_spectral_harmony&quot;)
+snap.pl.umap(data, color=&quot;batch&quot;, interactive=False, width=800)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/tutorials_integration_26_0.png" src="../_images/tutorials_integration_26_0.png" />
+</div>
+</div>
+</section>
+<section id="Clustering">
+<h2>Clustering<a class="headerlink" href="#Clustering" title="Permalink to this headline"></a></h2>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>snap.pp.knn(data, use_rep=&quot;X_spectral_harmony&quot;, use_dims = 12)
+</pre></div>
+</div>
+</div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>snap.tl.leiden(data, resolution = 0.3)
+</pre></div>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>snap.pl.umap(data, color=&quot;leiden&quot;, interactive=False, width=800)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/tutorials_integration_30_0.png" src="../_images/tutorials_integration_30_0.png" />
+</div>
+</div>
+</section>
+<section id="AnnDataSet-object-IO">
+<h2>AnnDataSet object IO<a class="headerlink" href="#AnnDataSet-object-IO" title="Permalink to this headline"></a></h2>
+<p>Just like the AnnData object, AnnDataSet object is synchronized with the content of the HDF5 file. Therefore, there is no need to manually save the result. After the analysis is finished, simply close the file by:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>data.close()
+data
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Closed AnnDataSet object
+</pre></div></div>
+</div>
+<p>The AnnDataSet object is stored as a standard h5ad file, in which the links to individual anndata file was saved in <code class="docutils literal notranslate"><span class="pre">uns['AnnDataSet']</span></code> and can be reopened by <code class="docutils literal notranslate"><span class="pre">snap.read_dataset</span></code>.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>data = snap.read_dataset(&quot;colon.h5ads&quot;)
+data
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+AnnDataSet object with n_obs x n_vars = 41678 x 6176550 backed at &#39;colon.h5ads&#39;
+contains 5 AnnData objects with keys: colon_transverse_SM-A9HOW, colon_transverse_SM-A9VP4, colon_transverse_SM-ACCQ1, colon_transverse_SM-BZ2ZS, colon_transverse_SM-CSSDA
+    obs: Cell, batch
+    var: Feature_ID, selected
+    obsm: X_umap, X_spectral_harmony, X_spectral, X_spectral_mnn
+</pre></div></div>
+</div>
+<p>Because the AnnDataSet object does not copy the underlying AnnData objects, if you move the component h5ad files then it won’t be able to find them. In this case, you can supply the new locations using the <code class="docutils literal notranslate"><span class="pre">data_files</span></code> variable:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>data.close()
+data = snap.read_dataset(&quot;colon.h5ads&quot;, data_files = {&quot;colon_transverse_SM-CSSDA&quot;: &quot;colon_transverse_SM-CSSDA.h5ad&quot;})
+data
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+AnnDataSet object with n_obs x n_vars = 41678 x 6176550 backed at &#39;colon.h5ads&#39;
+contains 5 AnnData objects with keys: colon_transverse_SM-A9HOW, colon_transverse_SM-A9VP4, colon_transverse_SM-ACCQ1, colon_transverse_SM-BZ2ZS, colon_transverse_SM-CSSDA
+    obs: Cell, batch
+    var: Feature_ID, selected
+    obsm: X_spectral, X_umap, X_spectral_mnn, X_spectral_harmony
+</pre></div></div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="pbmc.html" class="btn btn-neutral float-left" title="Standard pipeline: analyzing 5K PBMC dataset from 10X genomics" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="modality.html" class="btn btn-neutral float-right" title="Multi-modality pipeline: analyzing single-cell multiome data (ATAC + Gene Expression)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Kai Zhang.</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

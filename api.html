@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API &mdash; SnapATAC2 2.0.0 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="snapatac2.read" href="_autosummary/snapatac2.read.html" />
+    <link rel="prev" title="Installation" href="install.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="index.html" class="icon icon-home"> SnapATAC2
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="tutorials/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#data-io">Data IO</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="_autosummary/snapatac2.read.html">snapatac2.read</a></li>
+<li class="toctree-l3"><a class="reference internal" href="_autosummary/snapatac2.read_mtx.html">snapatac2.read_mtx</a></li>
+<li class="toctree-l3"><a class="reference internal" href="_autosummary/snapatac2.read_dataset.html">snapatac2.read_dataset</a></li>
+<li class="toctree-l3"><a class="reference internal" href="_autosummary/snapatac2.create_dataset.html">snapatac2.create_dataset</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#preprocessing-pp">Preprocessing: <code class="code docutils literal notranslate"><span class="pre">pp</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#basic-preprocessing">Basic Preprocessing</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="_autosummary/snapatac2.pp.import_data.html">snapatac2.pp.import_data</a></li>
+<li class="toctree-l4"><a class="reference internal" href="_autosummary/snapatac2.pp.make_tile_matrix.html">snapatac2.pp.make_tile_matrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="_autosummary/snapatac2.pp.make_peak_matrix.html">snapatac2.pp.make_peak_matrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="_autosummary/snapatac2.pp.make_gene_matrix.html">snapatac2.pp.make_gene_matrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="_autosummary/snapatac2.pp.filter_cells.html">snapatac2.pp.filter_cells</a></li>
+<li class="toctree-l4"><a class="reference internal" href="_autosummary/snapatac2.pp.select_features.html">snapatac2.pp.select_features</a></li>
+<li class="toctree-l4"><a class="reference internal" href="_autosummary/snapatac2.pp.knn.html">snapatac2.pp.knn</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#doublet-removal">Doublet removal</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="_autosummary/snapatac2.pp.scrublet.html">snapatac2.pp.scrublet</a></li>
+<li class="toctree-l4"><a class="reference internal" href="_autosummary/snapatac2.pp.call_doublets.html">snapatac2.pp.call_doublets</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#data-integration">Data Integration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="_autosummary/snapatac2.pp.mnc_correct.html">snapatac2.pp.mnc_correct</a></li>
+<li class="toctree-l4"><a class="reference internal" href="_autosummary/snapatac2.pp.harmony.html">snapatac2.pp.harmony</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#tools-tl">Tools: <code class="code docutils literal notranslate"><span class="pre">tl</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#embeddings">Embeddings</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="_autosummary/snapatac2.tl.spectral.html">snapatac2.tl.spectral</a></li>
+<li class="toctree-l4"><a class="reference internal" href="_autosummary/snapatac2.tl.laplacian.html">snapatac2.tl.laplacian</a></li>
+<li class="toctree-l4"><a class="reference internal" href="_autosummary/snapatac2.tl.umap.html">snapatac2.tl.umap</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#clustering">Clustering</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="_autosummary/snapatac2.tl.leiden.html">snapatac2.tl.leiden</a></li>
+<li class="toctree-l4"><a class="reference internal" href="_autosummary/snapatac2.tl.kmeans.html">snapatac2.tl.kmeans</a></li>
+<li class="toctree-l4"><a class="reference internal" href="_autosummary/snapatac2.tl.dbscan.html">snapatac2.tl.dbscan</a></li>
+<li class="toctree-l4"><a class="reference internal" href="_autosummary/snapatac2.tl.hdbscan.html">snapatac2.tl.hdbscan</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#post-processing">Post-processing</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="_autosummary/snapatac2.tl.call_peaks.html">snapatac2.tl.call_peaks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="_autosummary/snapatac2.tl.aggregate_X.html">snapatac2.tl.aggregate_X</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#plotting-pl">Plotting: <code class="code docutils literal notranslate"><span class="pre">pl</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="_autosummary/snapatac2.pl.tsse.html">snapatac2.pl.tsse</a></li>
+<li class="toctree-l3"><a class="reference internal" href="_autosummary/snapatac2.pl.spectral_eigenvalues.html">snapatac2.pl.spectral_eigenvalues</a></li>
+<li class="toctree-l3"><a class="reference internal" href="_autosummary/snapatac2.pl.scrublet.html">snapatac2.pl.scrublet</a></li>
+<li class="toctree-l3"><a class="reference internal" href="_autosummary/snapatac2.pl.umap.html">snapatac2.pl.umap</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#exporting-ex">Exporting: <code class="code docutils literal notranslate"><span class="pre">ex</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="_autosummary/snapatac2.ex.export_bed.html">snapatac2.ex.export_bed</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/index.html">Algorithms</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">SnapATAC2</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home"></a> &raquo;</li>
+      <li>API</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/api.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  
+<style>
+/* CSS overrides for sphinx_rtd_theme */
+
+/* 24px margin */
+.nbinput.nblast.container,
+.nboutput.nblast.container {
+    margin-bottom: 19px;  /* padding has already 5px */
+}
+
+/* ... except between code cells! */
+.nblast.container + .nbinput.container {
+    margin-top: -19px;
+}
+
+.admonition > p:before {
+    margin-right: 4px;  /* make room for the exclamation icon */
+}
+
+/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
+.math {
+    text-align: unset;
+}
+</style>
+<span class="target" id="module-snapatac2"></span><section id="api">
+<h1>API<a class="headerlink" href="#api" title="Permalink to this headline"></a></h1>
+<p>Import snapatac2 as:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">snapatac2</span> <span class="k">as</span> <span class="nn">snap</span>
+</pre></div>
+</div>
+<section id="data-io">
+<h2>Data IO<a class="headerlink" href="#data-io" title="Permalink to this headline"></a></h2>
+<p>SnapATAC2 uses its own implementation of the AnnData format, for more details see
+<a class="reference external" href="http://kzhang.org/anndata-rs/api.html">anndata-rs-docs</a>.</p>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/snapatac2.read.html#snapatac2.read" title="snapatac2.read"><code class="xref py py-obj docutils literal notranslate"><span class="pre">read</span></code></a>(filename, mode)</p></td>
+<td><p>Read <code class="code docutils literal notranslate"><span class="pre">.h5ad</span></code>-formatted hdf5 file.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="_autosummary/snapatac2.read_mtx.html#snapatac2.read_mtx" title="snapatac2.read_mtx"><code class="xref py py-obj docutils literal notranslate"><span class="pre">read_mtx</span></code></a>(input, output, sorted)</p></td>
+<td><p>Read Matrix Market file.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/snapatac2.read_dataset.html#snapatac2.read_dataset" title="snapatac2.read_dataset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">read_dataset</span></code></a>(filename, ...)</p></td>
+<td><p>Read AnnDataSet object.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="_autosummary/snapatac2.create_dataset.html#snapatac2.create_dataset" title="snapatac2.create_dataset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">create_dataset</span></code></a>(files, storage)</p></td>
+<td><p>Read and stack vertically multiple <code class="code docutils literal notranslate"><span class="pre">.h5ad</span></code>-formatted hdf5 files.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="preprocessing-pp">
+<h2>Preprocessing: <code class="code docutils literal notranslate"><span class="pre">pp</span></code><a class="headerlink" href="#preprocessing-pp" title="Permalink to this headline"></a></h2>
+<section id="basic-preprocessing">
+<h3>Basic Preprocessing<a class="headerlink" href="#basic-preprocessing" title="Permalink to this headline"></a></h3>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/snapatac2.pp.import_data.html#snapatac2.pp.import_data" title="snapatac2.pp.import_data"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pp.import_data</span></code></a>(fragment_file, gff_file, ...)</p></td>
+<td><p>Import dataset and compute QC metrics.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="_autosummary/snapatac2.pp.make_tile_matrix.html#snapatac2.pp.make_tile_matrix" title="snapatac2.pp.make_tile_matrix"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pp.make_tile_matrix</span></code></a>(adata[, bin_size, ...])</p></td>
+<td><p>Generate cell by bin count matrix.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/snapatac2.pp.make_peak_matrix.html#snapatac2.pp.make_peak_matrix" title="snapatac2.pp.make_peak_matrix"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pp.make_peak_matrix</span></code></a>(adata, file[, use_rep, ...])</p></td>
+<td><p>Generate cell by peak count matrix.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="_autosummary/snapatac2.pp.make_gene_matrix.html#snapatac2.pp.make_gene_matrix" title="snapatac2.pp.make_gene_matrix"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pp.make_gene_matrix</span></code></a>(adata, gff_file, file[, ...])</p></td>
+<td><p>Generate cell by gene activity matrix.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/snapatac2.pp.filter_cells.html#snapatac2.pp.filter_cells" title="snapatac2.pp.filter_cells"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pp.filter_cells</span></code></a>(data[, min_counts, ...])</p></td>
+<td><p>Filter cell outliers based on counts and numbers of genes expressed.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="_autosummary/snapatac2.pp.select_features.html#snapatac2.pp.select_features" title="snapatac2.pp.select_features"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pp.select_features</span></code></a>(adata[, most_variable, ...])</p></td>
+<td><p>Perform feature selection.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/snapatac2.pp.knn.html#snapatac2.pp.knn" title="snapatac2.pp.knn"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pp.knn</span></code></a>(adata[, n_neighbors, use_dims, ...])</p></td>
+<td><p>Compute a neighborhood graph of observations.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="doublet-removal">
+<h3>Doublet removal<a class="headerlink" href="#doublet-removal" title="Permalink to this headline"></a></h3>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/snapatac2.pp.scrublet.html#snapatac2.pp.scrublet" title="snapatac2.pp.scrublet"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pp.scrublet</span></code></a>(adata[, features, n_comps, ...])</p></td>
+<td><p>Compute probability of being a doublet using the scrublet algorithm.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="_autosummary/snapatac2.pp.call_doublets.html#snapatac2.pp.call_doublets" title="snapatac2.pp.call_doublets"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pp.call_doublets</span></code></a>(adata[, threshold, ...])</p></td>
+<td><p>Find doublet score threshold for calling doublets.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="data-integration">
+<h3>Data Integration<a class="headerlink" href="#data-integration" title="Permalink to this headline"></a></h3>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/snapatac2.pp.mnc_correct.html#snapatac2.pp.mnc_correct" title="snapatac2.pp.mnc_correct"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pp.mnc_correct</span></code></a>(data, batch[, n_neighbors, ...])</p></td>
+<td><p>A modified MNN-Correct algorithm based on cluster centroid.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="_autosummary/snapatac2.pp.harmony.html#snapatac2.pp.harmony" title="snapatac2.pp.harmony"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pp.harmony</span></code></a>(adata, batch[, use_dims, ...])</p></td>
+<td><p>Use harmonypy to integrate different experiments.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="tools-tl">
+<h2>Tools: <code class="code docutils literal notranslate"><span class="pre">tl</span></code><a class="headerlink" href="#tools-tl" title="Permalink to this headline"></a></h2>
+<p>Any transformation of the data matrix that is not <em>preprocessing</em>.
+In contrast to a <em>preprocessing</em> function, a <em>tool</em> usually adds an easily
+interpretable annotation to the data matrix, which can then be visualized with
+a corresponding plotting function.</p>
+<section id="embeddings">
+<h3>Embeddings<a class="headerlink" href="#embeddings" title="Permalink to this headline"></a></h3>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/snapatac2.tl.spectral.html#snapatac2.tl.spectral" title="snapatac2.tl.spectral"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tl.spectral</span></code></a>(data[, n_comps, features, ...])</p></td>
+<td><p>Compute Laplacian Eigenmaps of chromatin accessibility profiles.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="_autosummary/snapatac2.tl.laplacian.html#snapatac2.tl.laplacian" title="snapatac2.tl.laplacian"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tl.laplacian</span></code></a>(data[, n_comps, features, ...])</p></td>
+<td><p>Convert chromatin accessibility profiles of cells into lower dimensional representations.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/snapatac2.tl.umap.html#snapatac2.tl.umap" title="snapatac2.tl.umap"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tl.umap</span></code></a>(adata[, n_comps, use_dims, use_rep, ...])</p></td>
+<td><p><dl class="field-list simple">
+<dt class="field-odd">type adata</dt>
+<dd class="field-odd"><p><code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">AnnData</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">AnnDataSet</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code>]</p>
+</dd>
+</dl>
+</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="clustering">
+<h3>Clustering<a class="headerlink" href="#clustering" title="Permalink to this headline"></a></h3>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/snapatac2.tl.leiden.html#snapatac2.tl.leiden" title="snapatac2.tl.leiden"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tl.leiden</span></code></a>(adata[, resolution, ...])</p></td>
+<td><p>Cluster cells into subgroups <span id="id1">[Traag18]</span>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="_autosummary/snapatac2.tl.kmeans.html#snapatac2.tl.kmeans" title="snapatac2.tl.kmeans"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tl.kmeans</span></code></a>(adata, n_clusters[, n_iterations, ...])</p></td>
+<td><p>Cluster cells into subgroups using the K-means algorithm.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/snapatac2.tl.dbscan.html#snapatac2.tl.dbscan" title="snapatac2.tl.dbscan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tl.dbscan</span></code></a>(adata[, eps, min_samples, ...])</p></td>
+<td><p>Cluster cells into subgroups using the DBSCAN algorithm.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="_autosummary/snapatac2.tl.hdbscan.html#snapatac2.tl.hdbscan" title="snapatac2.tl.hdbscan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tl.hdbscan</span></code></a>(adata[, min_cluster_size, ...])</p></td>
+<td><p>Cluster cells into subgroups using the HDBSCAN algorithm.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="post-processing">
+<h3>Post-processing<a class="headerlink" href="#post-processing" title="Permalink to this headline"></a></h3>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/snapatac2.tl.call_peaks.html#snapatac2.tl.call_peaks" title="snapatac2.tl.call_peaks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tl.call_peaks</span></code></a>(data, group_by[, selections, ...])</p></td>
+<td><p>Call peaks using MACS2.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="_autosummary/snapatac2.tl.aggregate_X.html#snapatac2.tl.aggregate_X" title="snapatac2.tl.aggregate_X"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tl.aggregate_X</span></code></a>(adata[, group_by, normalize, ...])</p></td>
+<td><p>Aggregate values in adata.X in a row-wise fashion.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="plotting-pl">
+<h2>Plotting: <code class="code docutils literal notranslate"><span class="pre">pl</span></code><a class="headerlink" href="#plotting-pl" title="Permalink to this headline"></a></h2>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/snapatac2.pl.tsse.html#snapatac2.pl.tsse" title="snapatac2.pl.tsse"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pl.tsse</span></code></a>(adata[, show_cells, show, ...])</p></td>
+<td><p>Plot the TSS enrichment vs.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="_autosummary/snapatac2.pl.spectral_eigenvalues.html#snapatac2.pl.spectral_eigenvalues" title="snapatac2.pl.spectral_eigenvalues"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pl.spectral_eigenvalues</span></code></a>(adata[, ...])</p></td>
+<td><p><dl class="field-list simple">
+<dt class="field-odd">rtype</dt>
+<dd class="field-odd"><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code></p>
+</dd>
+</dl>
+</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/snapatac2.pl.scrublet.html#snapatac2.pl.scrublet" title="snapatac2.pl.scrublet"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pl.scrublet</span></code></a>(adata[, show, interactive, out_file])</p></td>
+<td><p>Plot doublets</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="_autosummary/snapatac2.pl.umap.html#snapatac2.pl.umap" title="snapatac2.pl.umap"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pl.umap</span></code></a>(adata, color[, use_rep, ...])</p></td>
+<td><p>Plot UMAP embedding</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="exporting-ex">
+<h2>Exporting: <code class="code docutils literal notranslate"><span class="pre">ex</span></code><a class="headerlink" href="#exporting-ex" title="Permalink to this headline"></a></h2>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="_autosummary/snapatac2.ex.export_bed.html#snapatac2.ex.export_bed" title="snapatac2.ex.export_bed"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ex.export_bed</span></code></a>(adata, group_by[, selections, ...])</p></td>
+<td><p>Export base-resolution TN5 insertion sites as BED format file.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="install.html" class="btn btn-neutral float-left" title="Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="_autosummary/snapatac2.read.html" class="btn btn-neutral float-right" title="snapatac2.read" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Kai Zhang.</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

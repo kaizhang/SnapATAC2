@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SnapATAC2: Single Nucleus Analysis Pipeline for ATAC-seq &mdash; SnapATAC2 2.0.0 documentation</title>
+      <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+        <script src="_static/jquery.js"></script>
+        <script src="_static/underscore.js"></script>
+        <script src="_static/doctools.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Tutorials" href="tutorials/index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="#" class="icon icon-home"> SnapATAC2
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="algorithms/index.html">Algorithms</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">SnapATAC2</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home"></a> &raquo;</li>
+      <li>SnapATAC2: Single Nucleus Analysis Pipeline for ATAC-seq</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  
+<style>
+/* CSS overrides for sphinx_rtd_theme */
+
+/* 24px margin */
+.nbinput.nblast.container,
+.nboutput.nblast.container {
+    margin-bottom: 19px;  /* padding has already 5px */
+}
+
+/* ... except between code cells! */
+.nblast.container + .nbinput.container {
+    margin-top: -19px;
+}
+
+.admonition > p:before {
+    margin-right: 4px;  /* make room for the exclamation icon */
+}
+
+/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
+.math {
+    text-align: unset;
+}
+</style>
+<section id="snapatac2-single-nucleus-analysis-pipeline-for-atac-seq">
+<h1>SnapATAC2: Single Nucleus Analysis Pipeline for ATAC-seq<a class="headerlink" href="#snapatac2-single-nucleus-analysis-pipeline-for-atac-seq" title="Permalink to this headline"></a></h1>
+<p>SnapATAC2 is the successor of the SnapATAC R package, featuring:</p>
+<ul class="simple">
+<li><p>Faster and less memory usage, scale to &gt;1M cells.</p></li>
+<li><p>Improved dimension reduction and sampling algorithm.</p></li>
+</ul>
+<section id="benchmark">
+<h2>Benchmark<a class="headerlink" href="#benchmark" title="Permalink to this headline"></a></h2>
+<section id="impact-of-dimension-reduction-algorithms-on-clustering-accuracy">
+<h3>Impact of dimension reduction algorithms on clustering accuracy<a class="headerlink" href="#impact-of-dimension-reduction-algorithms-on-clustering-accuracy" title="Permalink to this headline"></a></h3>
+<p>Same matrices were given to each algorithm to perform dimension reduction, the
+result was then input to the same clustering procedure (KNN + leiden) to get clusters and compare
+with ground truth.
+During the clustering step, we tested a wide range of parameters for each method and the
+best outcome was recorded.</p>
+<img alt="_images/benchmark.svg" src="_images/benchmark.svg" /></section>
+<section id="subsampling-test">
+<h3>Subsampling test<a class="headerlink" href="#subsampling-test" title="Permalink to this headline"></a></h3>
+<img alt="_images/benchmark_subsample.svg" src="_images/benchmark_subsample.svg" /></section>
+<section id="running-time-and-space-complexity">
+<h3>Running time and space complexity<a class="headerlink" href="#running-time-and-space-complexity" title="Permalink to this headline"></a></h3>
+<img alt="_images/benchmark_performance.svg" src="_images/benchmark_performance.svg" /></section>
+<section id="example-visualization">
+<h3>Example visualization<a class="headerlink" href="#example-visualization" title="Permalink to this headline"></a></h3>
+<img alt="_images/Zhang_Cell_2021_GI.png" src="_images/Zhang_Cell_2021_GI.png" />
+<div class="toctree-wrapper compound">
+</div>
+</section>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="tutorials/index.html" class="btn btn-neutral float-right" title="Tutorials" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Kai Zhang.</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

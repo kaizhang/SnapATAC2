@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multi-modality pipeline: analyzing single-cell multiome data (ATAC + Gene Expression) &mdash; SnapATAC2 2.0.0 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/underscore.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+        <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+        <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Installation" href="../install.html" />
+    <link rel="prev" title="Multi-sample Pipeline: analyzing snATAC-seq data of human colon samples" href="integration.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../index.html" class="icon icon-home"> SnapATAC2
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Tutorials</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="pbmc.html">Standard pipeline: analyzing 5K PBMC dataset from 10X genomics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="integration.html">Multi-sample Pipeline: analyzing snATAC-seq data of human colon samples</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Multi-modality pipeline: analyzing single-cell multiome data (ATAC + Gene Expression)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#Introduction">Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Analyze-gene-expression-data">Analyze gene expression data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Analyze-chromatin-accessibility-data">Analyze chromatin accessibility data</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#Perform-data-integration">Perform data integration</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../install.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../api.html">API</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../algorithms/index.html">Algorithms</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">SnapATAC2</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="index.html">Tutorials</a> &raquo;</li>
+      <li>Multi-modality pipeline: analyzing single-cell multiome data (ATAC + Gene Expression)</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/tutorials/modality.ipynb.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  
+<style>
+/* CSS for nbsphinx extension */
+
+/* remove conflicting styling from Sphinx themes */
+div.nbinput.container div.prompt *,
+div.nboutput.container div.prompt *,
+div.nbinput.container div.input_area pre,
+div.nboutput.container div.output_area pre,
+div.nbinput.container div.input_area .highlight,
+div.nboutput.container div.output_area .highlight {
+    border: none;
+    padding: 0;
+    margin: 0;
+    box-shadow: none;
+}
+
+div.nbinput.container > div[class*=highlight],
+div.nboutput.container > div[class*=highlight] {
+    margin: 0;
+}
+
+div.nbinput.container div.prompt *,
+div.nboutput.container div.prompt * {
+    background: none;
+}
+
+div.nboutput.container div.output_area .highlight,
+div.nboutput.container div.output_area pre {
+    background: unset;
+}
+
+div.nboutput.container div.output_area div.highlight {
+    color: unset;  /* override Pygments text color */
+}
+
+/* avoid gaps between output lines */
+div.nboutput.container div[class*=highlight] pre {
+    line-height: normal;
+}
+
+/* input/output containers */
+div.nbinput.container,
+div.nboutput.container {
+    display: -webkit-flex;
+    display: flex;
+    align-items: flex-start;
+    margin: 0;
+    width: 100%;
+}
+@media (max-width: 540px) {
+    div.nbinput.container,
+    div.nboutput.container {
+        flex-direction: column;
+    }
+}
+
+/* input container */
+div.nbinput.container {
+    padding-top: 5px;
+}
+
+/* last container */
+div.nblast.container {
+    padding-bottom: 5px;
+}
+
+/* input prompt */
+div.nbinput.container div.prompt pre {
+    color: #307FC1;
+}
+
+/* output prompt */
+div.nboutput.container div.prompt pre {
+    color: #BF5B3D;
+}
+
+/* all prompts */
+div.nbinput.container div.prompt,
+div.nboutput.container div.prompt {
+    width: 4.5ex;
+    padding-top: 5px;
+    position: relative;
+    user-select: none;
+}
+
+div.nbinput.container div.prompt > div,
+div.nboutput.container div.prompt > div {
+    position: absolute;
+    right: 0;
+    margin-right: 0.3ex;
+}
+
+@media (max-width: 540px) {
+    div.nbinput.container div.prompt,
+    div.nboutput.container div.prompt {
+        width: unset;
+        text-align: left;
+        padding: 0.4em;
+    }
+    div.nboutput.container div.prompt.empty {
+        padding: 0;
+    }
+
+    div.nbinput.container div.prompt > div,
+    div.nboutput.container div.prompt > div {
+        position: unset;
+    }
+}
+
+/* disable scrollbars on prompts */
+div.nbinput.container div.prompt pre,
+div.nboutput.container div.prompt pre {
+    overflow: hidden;
+}
+
+/* input/output area */
+div.nbinput.container div.input_area,
+div.nboutput.container div.output_area {
+    -webkit-flex: 1;
+    flex: 1;
+    overflow: auto;
+}
+@media (max-width: 540px) {
+    div.nbinput.container div.input_area,
+    div.nboutput.container div.output_area {
+        width: 100%;
+    }
+}
+
+/* input area */
+div.nbinput.container div.input_area {
+    border: 1px solid #e0e0e0;
+    border-radius: 2px;
+    /*background: #f5f5f5;*/
+}
+
+/* override MathJax center alignment in output cells */
+div.nboutput.container div[class*=MathJax] {
+    text-align: left !important;
+}
+
+/* override sphinx.ext.imgmath center alignment in output cells */
+div.nboutput.container div.math p {
+    text-align: left;
+}
+
+/* standard error */
+div.nboutput.container div.output_area.stderr {
+    background: #fdd;
+}
+
+/* ANSI colors */
+.ansi-black-fg { color: #3E424D; }
+.ansi-black-bg { background-color: #3E424D; }
+.ansi-black-intense-fg { color: #282C36; }
+.ansi-black-intense-bg { background-color: #282C36; }
+.ansi-red-fg { color: #E75C58; }
+.ansi-red-bg { background-color: #E75C58; }
+.ansi-red-intense-fg { color: #B22B31; }
+.ansi-red-intense-bg { background-color: #B22B31; }
+.ansi-green-fg { color: #00A250; }
+.ansi-green-bg { background-color: #00A250; }
+.ansi-green-intense-fg { color: #007427; }
+.ansi-green-intense-bg { background-color: #007427; }
+.ansi-yellow-fg { color: #DDB62B; }
+.ansi-yellow-bg { background-color: #DDB62B; }
+.ansi-yellow-intense-fg { color: #B27D12; }
+.ansi-yellow-intense-bg { background-color: #B27D12; }
+.ansi-blue-fg { color: #208FFB; }
+.ansi-blue-bg { background-color: #208FFB; }
+.ansi-blue-intense-fg { color: #0065CA; }
+.ansi-blue-intense-bg { background-color: #0065CA; }
+.ansi-magenta-fg { color: #D160C4; }
+.ansi-magenta-bg { background-color: #D160C4; }
+.ansi-magenta-intense-fg { color: #A03196; }
+.ansi-magenta-intense-bg { background-color: #A03196; }
+.ansi-cyan-fg { color: #60C6C8; }
+.ansi-cyan-bg { background-color: #60C6C8; }
+.ansi-cyan-intense-fg { color: #258F8F; }
+.ansi-cyan-intense-bg { background-color: #258F8F; }
+.ansi-white-fg { color: #C5C1B4; }
+.ansi-white-bg { background-color: #C5C1B4; }
+.ansi-white-intense-fg { color: #A1A6B2; }
+.ansi-white-intense-bg { background-color: #A1A6B2; }
+
+.ansi-default-inverse-fg { color: #FFFFFF; }
+.ansi-default-inverse-bg { background-color: #000000; }
+
+.ansi-bold { font-weight: bold; }
+.ansi-underline { text-decoration: underline; }
+
+
+div.nbinput.container div.input_area div[class*=highlight] > pre,
+div.nboutput.container div.output_area div[class*=highlight] > pre,
+div.nboutput.container div.output_area div[class*=highlight].math,
+div.nboutput.container div.output_area.rendered_html,
+div.nboutput.container div.output_area > div.output_javascript,
+div.nboutput.container div.output_area:not(.rendered_html) > img{
+    padding: 5px;
+    margin: 0;
+}
+
+/* fix copybtn overflow problem in chromium (needed for 'sphinx_copybutton') */
+div.nbinput.container div.input_area > div[class^='highlight'],
+div.nboutput.container div.output_area > div[class^='highlight']{
+    overflow-y: hidden;
+}
+
+/* hide copybtn icon on prompts (needed for 'sphinx_copybutton') */
+.prompt .copybtn {
+    display: none;
+}
+
+/* Some additional styling taken form the Jupyter notebook CSS */
+.jp-RenderedHTMLCommon table,
+div.rendered_html table {
+  border: none;
+  border-collapse: collapse;
+  border-spacing: 0;
+  color: black;
+  font-size: 12px;
+  table-layout: fixed;
+}
+.jp-RenderedHTMLCommon thead,
+div.rendered_html thead {
+  border-bottom: 1px solid black;
+  vertical-align: bottom;
+}
+.jp-RenderedHTMLCommon tr,
+.jp-RenderedHTMLCommon th,
+.jp-RenderedHTMLCommon td,
+div.rendered_html tr,
+div.rendered_html th,
+div.rendered_html td {
+  text-align: right;
+  vertical-align: middle;
+  padding: 0.5em 0.5em;
+  line-height: normal;
+  white-space: normal;
+  max-width: none;
+  border: none;
+}
+.jp-RenderedHTMLCommon th,
+div.rendered_html th {
+  font-weight: bold;
+}
+.jp-RenderedHTMLCommon tbody tr:nth-child(odd),
+div.rendered_html tbody tr:nth-child(odd) {
+  background: #f5f5f5;
+}
+.jp-RenderedHTMLCommon tbody tr:hover,
+div.rendered_html tbody tr:hover {
+  background: rgba(66, 165, 245, 0.2);
+}
+
+/* CSS overrides for sphinx_rtd_theme */
+
+/* 24px margin */
+.nbinput.nblast.container,
+.nboutput.nblast.container {
+    margin-bottom: 19px;  /* padding has already 5px */
+}
+
+/* ... except between code cells! */
+.nblast.container + .nbinput.container {
+    margin-top: -19px;
+}
+
+.admonition > p:before {
+    margin-right: 4px;  /* make room for the exclamation icon */
+}
+
+/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
+.math {
+    text-align: unset;
+}
+</style>
+<section id="Multi-modality-pipeline:-analyzing-single-cell-multiome-data-(ATAC-+-Gene-Expression)">
+<h1>Multi-modality pipeline: analyzing single-cell multiome data (ATAC + Gene Expression)<a class="headerlink" href="#Multi-modality-pipeline:-analyzing-single-cell-multiome-data-(ATAC-+-Gene-Expression)" title="Permalink to this headline"></a></h1>
+<section id="Introduction">
+<h2>Introduction<a class="headerlink" href="#Introduction" title="Permalink to this headline"></a></h2>
+<p>In this tutorial we will analyze single-cell multiome data data from Peripheral blood mononuclear cells (PBMCs). The dataset used in this tutorial can be found here: <a class="reference external" href="http://renlab.sdsc.edu/kai/10x-Multiome/">http://renlab.sdsc.edu/kai/10x-Multiome/</a>.</p>
+<p>In addition to SnapATAC2, we will utilize <a class="reference external" href="https://scanpy.readthedocs.io/en/stable/">scanpy</a> and <a class="reference external" href="https://scglue.readthedocs.io/en/latest/index.html">scglue</a> to perform the integration.</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import scanpy as sc
+import snapatac2 as snap
+import anndata as ad
+import scglue
+import itertools
+</pre></div>
+</div>
+</div>
+</section>
+<section id="Analyze-gene-expression-data">
+<h2>Analyze gene expression data<a class="headerlink" href="#Analyze-gene-expression-data" title="Permalink to this headline"></a></h2>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>rna = sc.read_h5ad(&quot;10x-Multiome-Pbmc10k-RNA.h5ad&quot;)
+rna
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+AnnData object with n_obs × n_vars = 9631 × 29095
+    obs: &#39;domain&#39;, &#39;cell_type&#39;
+    var: &#39;gene_ids&#39;, &#39;feature_types&#39;
+</pre></div></div>
+</div>
+<p>First we backup the raw counts in anndata and perform the preprocessing.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>rna.layers[&quot;counts&quot;] = rna.X.copy()
+sc.pp.normalize_total(rna)
+sc.pp.log1p(rna)
+sc.pp.highly_variable_genes(rna)
+rna = rna[:, rna.var.highly_variable]
+sc.pp.scale(rna, max_value=10)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+/home/kaizhang/data/software/miniconda3/lib/python3.8/site-packages/scanpy/preprocessing/_simple.py:843: UserWarning: Received a view of an AnnData. Making a copy.
+  view_to_actual(adata)
+</pre></div></div>
+</div>
+<p>We then perform the dimension reduction, followed by UMAP embedding.</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>sc.tl.pca(rna)
+sc.pp.neighbors(rna)
+sc.tl.umap(rna)
+</pre></div>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>sc.pl.umap(rna, color=&quot;cell_type&quot;)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/tutorials_modality_9_0.png" src="../_images/tutorials_modality_9_0.png" />
+</div>
+</div>
+</section>
+<section id="Analyze-chromatin-accessibility-data">
+<h2>Analyze chromatin accessibility data<a class="headerlink" href="#Analyze-chromatin-accessibility-data" title="Permalink to this headline"></a></h2>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>atac = snap.read(&quot;10x-Multiome-Pbmc10k-ATAC.h5ad&quot;)
+atac
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+AnnData object with n_obs x n_vars = 9631 x 107194 backed at &#39;10x-Multiome-Pbmc10k-ATAC.h5ad&#39;
+    obs: cells, domain, cell_type
+    var: peaks, feature_types
+    obsm: X_umap, X_spectral
+    uns: spectral_eigenvalue
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>snap.tl.spectral(atac, features=None, n_comps=30)
+snap.tl.umap(atac)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Compute similarity matrix
+Normalization
+Perform decomposition
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>snap.pl.umap(atac, color=&quot;cell_type&quot;, interactive = False)
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+/home/kaizhang/data/software/miniconda3/lib/python3.8/site-packages/polars/internals/frame.py:1675: UserWarning: setting a DataFrame by indexing is deprecated; Consider using DataFrame.with_column
+  warnings.warn(
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/tutorials_modality_13_1.png" src="../_images/tutorials_modality_13_1.png" />
+</div>
+</div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>atac.close()
+</pre></div>
+</div>
+</div>
+</section>
+<section id="Perform-data-integration">
+<h2>Perform data integration<a class="headerlink" href="#Perform-data-integration" title="Permalink to this headline"></a></h2>
+<p>First we need to assign genomic coordinates to the genes in scRNA-seq experiment. To do this, we need to download gene annotations from <a class="reference external" href="https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_40/gencode.v40.chr_patch_hapl_scaff.annotation.gtf.gz">here</a>.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>scglue.data.get_gene_annotation(
+    rna, gtf=&quot;gencode.v40.chr_patch_hapl_scaff.annotation.gtf.gz&quot;,
+    gtf_by=&quot;gene_name&quot;
+)
+rna = rna[:, rna.var.dropna().index.to_numpy()]
+rna.var.loc[:, [&quot;chrom&quot;, &quot;chromStart&quot;, &quot;chromEnd&quot;]].head()
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>chrom</th>
+      <th>chromStart</th>
+      <th>chromEnd</th>
+    </tr>
+    <tr>
+      <th>genes</th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>MEGF6</th>
+      <td>chr1</td>
+      <td>3487950.0</td>
+      <td>3611508.0</td>
+    </tr>
+    <tr>
+      <th>TNFRSF25</th>
+      <td>chr1</td>
+      <td>6460785.0</td>
+      <td>6466175.0</td>
+    </tr>
+    <tr>
+      <th>CAMTA1</th>
+      <td>chr1</td>
+      <td>6785453.0</td>
+      <td>7769706.0</td>
+    </tr>
+    <tr>
+      <th>SLC25A33</th>
+      <td>chr1</td>
+      <td>9539464.0</td>
+      <td>9585173.0</td>
+    </tr>
+    <tr>
+      <th>DHRS3</th>
+      <td>chr1</td>
+      <td>12567909.0</td>
+      <td>12618210.0</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>atac = ad.read(&quot;10x-Multiome-Pbmc10k-ATAC.h5ad&quot;)
+sc.pp.neighbors(atac, use_rep=&quot;X_spectral&quot;)
+atac
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+AnnData object with n_obs × n_vars = 9631 × 107194
+    obs: &#39;domain&#39;, &#39;cell_type&#39;
+    var: &#39;feature_types&#39;
+    uns: &#39;spectral_eigenvalue&#39;, &#39;neighbors&#39;
+    obsm: &#39;X_spectral&#39;, &#39;X_umap&#39;
+    obsp: &#39;distances&#39;, &#39;connectivities&#39;
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>split = atac.var_names.str.split(r&quot;[:-]&quot;)
+atac.var[&quot;chrom&quot;] = split.map(lambda x: x[0])
+atac.var[&quot;chromStart&quot;] = split.map(lambda x: x[1])
+atac.var[&quot;chromEnd&quot;] = split.map(lambda x: x[2])
+atac.var.head()
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>feature_types</th>
+      <th>chrom</th>
+      <th>chromStart</th>
+      <th>chromEnd</th>
+    </tr>
+    <tr>
+      <th>peaks</th>
+      <th></th>
+      <th></th>
+      <th></th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>chr1:816881-817647</th>
+      <td>Peaks</td>
+      <td>chr1</td>
+      <td>816881</td>
+      <td>817647</td>
+    </tr>
+    <tr>
+      <th>chr1:819912-823500</th>
+      <td>Peaks</td>
+      <td>chr1</td>
+      <td>819912</td>
+      <td>823500</td>
+    </tr>
+    <tr>
+      <th>chr1:825827-825889</th>
+      <td>Peaks</td>
+      <td>chr1</td>
+      <td>825827</td>
+      <td>825889</td>
+    </tr>
+    <tr>
+      <th>chr1:826612-827979</th>
+      <td>Peaks</td>
+      <td>chr1</td>
+      <td>826612</td>
+      <td>827979</td>
+    </tr>
+    <tr>
+      <th>chr1:841243-843059</th>
+      <td>Peaks</td>
+      <td>chr1</td>
+      <td>841243</td>
+      <td>843059</td>
+    </tr>
+  </tbody>
+</table>
+</div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>graph = scglue.genomics.rna_anchored_prior_graph(rna, atac)
+graph
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<script type="application/vnd.jupyter.widget-view+json">{"model_id": "890e369c0ab84c9a918ba2911ec3182e", "version_major": 2, "version_minor": 0}</script></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+&lt;networkx.classes.multidigraph.MultiDiGraph at 0x2ba410869e50&gt;
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>scglue.models.configure_dataset(
+    rna, &quot;NB&quot;, use_highly_variable=True,
+    use_layer=&quot;counts&quot;, use_rep=&quot;X_pca&quot;
+)
+
+scglue.models.configure_dataset(
+    atac, &quot;NB&quot;, use_highly_variable=True,
+    use_rep=&quot;X_spectral&quot;
+)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+/home/kaizhang/.local/lib/python3.8/site-packages/anndata/compat/_overloaded_dict.py:106: ImplicitModificationWarning:
+
+Trying to modify attribute `._uns` of view, initializing view as actual.
+
+</pre></div></div>
+</div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>graph = graph.subgraph(itertools.chain(
+    rna.var.query(&quot;highly_variable&quot;).index,
+    atac.var.query(&quot;highly_variable&quot;).index
+))
+</pre></div>
+</div>
+</div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span># This is patch for numpy &gt;= 1.21 to fix a bug mentioned in
+# https://github.com/lmcinnes/pynndescent/issues/163
+import pynndescent
+import numba
+import numpy as np
+@numba.njit(fastmath=True)
+def correct_alternative_cosine(ds):
+    result = np.empty_like(ds)
+    for i in range(ds.shape[0]):
+        result[i] = 1.0 - np.power(2.0, ds[i])
+    return result
+pynn_dist_fns_fda = pynndescent.distances.fast_distance_alternatives
+pynn_dist_fns_fda[&quot;cosine&quot;][&quot;correction&quot;] = correct_alternative_cosine
+pynn_dist_fns_fda[&quot;dot&quot;][&quot;correction&quot;] = correct_alternative_cosine
+</pre></div>
+</div>
+</div>
+<p>We now start training the model.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>glue = scglue.models.fit_SCGLUE(
+    {&quot;rna&quot;: rna, &quot;atac&quot;: atac}, graph,
+    fit_kws={&quot;directory&quot;: &quot;glue&quot;}
+)
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+[INFO] fit_SCGLUE: Pretraining SCGLUE model...
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+[WARNING] SCGLUEModel: It is recommended that `use_rep` dimensionality be equal or larger than `latent_dim`.
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+[INFO] autodevice: Using GPU 4 as computation device.
+[INFO] SCGLUEModel: Setting `graph_batch_size` = 12615
+[INFO] SCGLUEModel: Setting `max_epochs` = 178
+[INFO] SCGLUEModel: Setting `patience` = 15
+[INFO] SCGLUEModel: Setting `reduce_lr_patience` = 8
+[INFO] SCGLUETrainer: Using training directory: &#34;glue/pretrain&#34;
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+/home/kaizhang/data/software/miniconda3/lib/python3.8/site-packages/torch/distributions/negative_binomial.py:97: UserWarning:
+
+Specified kernel cache directory could not be created! This disables kernel caching. Specified directory is /home/kaizhang/.cache/torch/kernels. This warning will appear only once per process. (Triggered internally at  ../aten/src/ATen/native/cuda/jit_utils.cpp:860.)
+
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+[INFO] SCGLUETrainer: [Epoch 10] train={&#39;g_nll&#39;: 0.515, &#39;g_kl&#39;: 0.016, &#39;g_elbo&#39;: 0.53, &#39;x_rna_nll&#39;: 0.428, &#39;x_rna_kl&#39;: 0.009, &#39;x_rna_elbo&#39;: 0.437, &#39;x_atac_nll&#39;: 0.282, &#39;x_atac_kl&#39;: 0.002, &#39;x_atac_elbo&#39;: 0.283, &#39;dsc_loss&#39;: 0.689, &#39;vae_loss&#39;: 0.742, &#39;gen_loss&#39;: 0.707}, val={&#39;g_nll&#39;: 0.513, &#39;g_kl&#39;: 0.016, &#39;g_elbo&#39;: 0.529, &#39;x_rna_nll&#39;: 0.433, &#39;x_rna_kl&#39;: 0.01, &#39;x_rna_elbo&#39;: 0.443, &#39;x_atac_nll&#39;: 0.279, &#39;x_atac_kl&#39;: 0.002, &#39;x_atac_elbo&#39;: 0.28, &#39;dsc_loss&#39;: 0.69, &#39;vae_loss&#39;: 0.744, &#39;gen_loss&#39;: 0.71}, 4.7s elapsed
+[INFO] SCGLUETrainer: [Epoch 20] train={&#39;g_nll&#39;: 0.483, &#39;g_kl&#39;: 0.015, &#39;g_elbo&#39;: 0.498, &#39;x_rna_nll&#39;: 0.425, &#39;x_rna_kl&#39;: 0.009, &#39;x_rna_elbo&#39;: 0.434, &#39;x_atac_nll&#39;: 0.277, &#39;x_atac_kl&#39;: 0.001, &#39;x_atac_elbo&#39;: 0.278, &#39;dsc_loss&#39;: 0.688, &#39;vae_loss&#39;: 0.733, &#39;gen_loss&#39;: 0.698}, val={&#39;g_nll&#39;: 0.482, &#39;g_kl&#39;: 0.015, &#39;g_elbo&#39;: 0.497, &#39;x_rna_nll&#39;: 0.427, &#39;x_rna_kl&#39;: 0.009, &#39;x_rna_elbo&#39;: 0.436, &#39;x_atac_nll&#39;: 0.276, &#39;x_atac_kl&#39;: 0.002, &#39;x_atac_elbo&#39;: 0.278, &#39;dsc_loss&#39;: 0.69, &#39;vae_loss&#39;: 0.734, &#39;gen_loss&#39;: 0.699}, 47.1s elapsed
+Epoch 00023: reducing learning rate of group 0 to 2.0000e-04.
+Epoch 00023: reducing learning rate of group 0 to 2.0000e-04.
+[INFO] LRScheduler: Learning rate reduction: step 1
+[INFO] SCGLUETrainer: [Epoch 30] train={&#39;g_nll&#39;: 0.477, &#39;g_kl&#39;: 0.015, &#39;g_elbo&#39;: 0.492, &#39;x_rna_nll&#39;: 0.424, &#39;x_rna_kl&#39;: 0.009, &#39;x_rna_elbo&#39;: 0.433, &#39;x_atac_nll&#39;: 0.276, &#39;x_atac_kl&#39;: 0.001, &#39;x_atac_elbo&#39;: 0.278, &#39;dsc_loss&#39;: 0.689, &#39;vae_loss&#39;: 0.731, &#39;gen_loss&#39;: 0.696}, val={&#39;g_nll&#39;: 0.477, &#39;g_kl&#39;: 0.015, &#39;g_elbo&#39;: 0.492, &#39;x_rna_nll&#39;: 0.427, &#39;x_rna_kl&#39;: 0.009, &#39;x_rna_elbo&#39;: 0.436, &#39;x_atac_nll&#39;: 0.273, &#39;x_atac_kl&#39;: 0.001, &#39;x_atac_elbo&#39;: 0.274, &#39;dsc_loss&#39;: 0.686, &#39;vae_loss&#39;: 0.73, &#39;gen_loss&#39;: 0.696}, 47.6s elapsed
+[INFO] SCGLUETrainer: [Epoch 40] train={&#39;g_nll&#39;: 0.476, &#39;g_kl&#39;: 0.015, &#39;g_elbo&#39;: 0.491, &#39;x_rna_nll&#39;: 0.422, &#39;x_rna_kl&#39;: 0.009, &#39;x_rna_elbo&#39;: 0.431, &#39;x_atac_nll&#39;: 0.277, &#39;x_atac_kl&#39;: 0.001, &#39;x_atac_elbo&#39;: 0.278, &#39;dsc_loss&#39;: 0.69, &#39;vae_loss&#39;: 0.729, &#39;gen_loss&#39;: 0.695}, val={&#39;g_nll&#39;: 0.477, &#39;g_kl&#39;: 0.015, &#39;g_elbo&#39;: 0.492, &#39;x_rna_nll&#39;: 0.425, &#39;x_rna_kl&#39;: 0.009, &#39;x_rna_elbo&#39;: 0.434, &#39;x_atac_nll&#39;: 0.275, &#39;x_atac_kl&#39;: 0.001, &#39;x_atac_elbo&#39;: 0.276, &#39;dsc_loss&#39;: 0.686, &#39;vae_loss&#39;: 0.73, &#39;gen_loss&#39;: 0.696}, 49.6s elapsed
+Epoch 00042: reducing learning rate of group 0 to 2.0000e-05.
+Epoch 00042: reducing learning rate of group 0 to 2.0000e-05.
+[INFO] LRScheduler: Learning rate reduction: step 2
+[INFO] SCGLUETrainer: [Epoch 50] train={&#39;g_nll&#39;: 0.476, &#39;g_kl&#39;: 0.015, &#39;g_elbo&#39;: 0.491, &#39;x_rna_nll&#39;: 0.423, &#39;x_rna_kl&#39;: 0.009, &#39;x_rna_elbo&#39;: 0.432, &#39;x_atac_nll&#39;: 0.276, &#39;x_atac_kl&#39;: 0.001, &#39;x_atac_elbo&#39;: 0.277, &#39;dsc_loss&#39;: 0.689, &#39;vae_loss&#39;: 0.729, &#39;gen_loss&#39;: 0.695}, val={&#39;g_nll&#39;: 0.476, &#39;g_kl&#39;: 0.015, &#39;g_elbo&#39;: 0.491, &#39;x_rna_nll&#39;: 0.422, &#39;x_rna_kl&#39;: 0.009, &#39;x_rna_elbo&#39;: 0.431, &#39;x_atac_nll&#39;: 0.274, &#39;x_atac_kl&#39;: 0.001, &#39;x_atac_elbo&#39;: 0.276, &#39;dsc_loss&#39;: 0.689, &#39;vae_loss&#39;: 0.726, &#39;gen_loss&#39;: 0.692}, 44.5s elapsed
+Epoch 00056: reducing learning rate of group 0 to 2.0000e-06.
+Epoch 00056: reducing learning rate of group 0 to 2.0000e-06.
+[INFO] LRScheduler: Learning rate reduction: step 3
+[INFO] SCGLUETrainer: [Epoch 60] train={&#39;g_nll&#39;: 0.476, &#39;g_kl&#39;: 0.015, &#39;g_elbo&#39;: 0.491, &#39;x_rna_nll&#39;: 0.424, &#39;x_rna_kl&#39;: 0.009, &#39;x_rna_elbo&#39;: 0.433, &#39;x_atac_nll&#39;: 0.276, &#39;x_atac_kl&#39;: 0.001, &#39;x_atac_elbo&#39;: 0.278, &#39;dsc_loss&#39;: 0.689, &#39;vae_loss&#39;: 0.73, &#39;gen_loss&#39;: 0.696}, val={&#39;g_nll&#39;: 0.476, &#39;g_kl&#39;: 0.015, &#39;g_elbo&#39;: 0.491, &#39;x_rna_nll&#39;: 0.424, &#39;x_rna_kl&#39;: 0.009, &#39;x_rna_elbo&#39;: 0.433, &#39;x_atac_nll&#39;: 0.278, &#39;x_atac_kl&#39;: 0.001, &#39;x_atac_elbo&#39;: 0.28, &#39;dsc_loss&#39;: 0.688, &#39;vae_loss&#39;: 0.733, &#39;gen_loss&#39;: 0.698}, 47.7s elapsed
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+2022-06-25 12:44:53,779 ignite.handlers.early_stopping.EarlyStopping INFO: EarlyStopping: Stop training
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+[INFO] EarlyStopping: Restoring checkpoint &#34;56&#34;...
+[INFO] fit_SCGLUE: Estimating balancing weight...
+[INFO] estimate_balancing_weight: Clustering cells...
+[INFO] estimate_balancing_weight: Matching clusters...
+[INFO] estimate_balancing_weight: Matching array shape = (17, 16)...
+[INFO] estimate_balancing_weight: Estimating balancing weight...
+[INFO] fit_SCGLUE: Fine-tuning SCGLUE model...
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+[WARNING] SCGLUEModel: It is recommended that `use_rep` dimensionality be equal or larger than `latent_dim`.
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+[INFO] SCGLUEModel: Setting `graph_batch_size` = 12615
+[INFO] SCGLUEModel: Setting `align_burnin` = 30
+[INFO] SCGLUEModel: Setting `max_epochs` = 178
+[INFO] SCGLUEModel: Setting `patience` = 15
+[INFO] SCGLUEModel: Setting `reduce_lr_patience` = 8
+[INFO] SCGLUETrainer: Using training directory: &#34;glue/fine-tune&#34;
+[INFO] SCGLUETrainer: [Epoch 10] train={&#39;g_nll&#39;: 0.472, &#39;g_kl&#39;: 0.015, &#39;g_elbo&#39;: 0.486, &#39;x_rna_nll&#39;: 0.424, &#39;x_rna_kl&#39;: 0.009, &#39;x_rna_elbo&#39;: 0.432, &#39;x_atac_nll&#39;: 0.277, &#39;x_atac_kl&#39;: 0.001, &#39;x_atac_elbo&#39;: 0.279, &#39;dsc_loss&#39;: 0.691, &#39;vae_loss&#39;: 0.73, &#39;gen_loss&#39;: 0.696}, val={&#39;g_nll&#39;: 0.472, &#39;g_kl&#39;: 0.015, &#39;g_elbo&#39;: 0.487, &#39;x_rna_nll&#39;: 0.43, &#39;x_rna_kl&#39;: 0.009, &#39;x_rna_elbo&#39;: 0.439, &#39;x_atac_nll&#39;: 0.275, &#39;x_atac_kl&#39;: 0.001, &#39;x_atac_elbo&#39;: 0.277, &#39;dsc_loss&#39;: 0.691, &#39;vae_loss&#39;: 0.735, &#39;gen_loss&#39;: 0.701}, 4.4s elapsed
+[INFO] SCGLUETrainer: [Epoch 20] train={&#39;g_nll&#39;: 0.469, &#39;g_kl&#39;: 0.014, &#39;g_elbo&#39;: 0.483, &#39;x_rna_nll&#39;: 0.424, &#39;x_rna_kl&#39;: 0.009, &#39;x_rna_elbo&#39;: 0.432, &#39;x_atac_nll&#39;: 0.276, &#39;x_atac_kl&#39;: 0.001, &#39;x_atac_elbo&#39;: 0.278, &#39;dsc_loss&#39;: 0.689, &#39;vae_loss&#39;: 0.729, &#39;gen_loss&#39;: 0.695}, val={&#39;g_nll&#39;: 0.469, &#39;g_kl&#39;: 0.014, &#39;g_elbo&#39;: 0.483, &#39;x_rna_nll&#39;: 0.426, &#39;x_rna_kl&#39;: 0.008, &#39;x_rna_elbo&#39;: 0.434, &#39;x_atac_nll&#39;: 0.276, &#39;x_atac_kl&#39;: 0.001, &#39;x_atac_elbo&#39;: 0.277, &#39;dsc_loss&#39;: 0.695, &#39;vae_loss&#39;: 0.731, &#39;gen_loss&#39;: 0.697}, 5.3s elapsed
+[INFO] SCGLUETrainer: [Epoch 30] train={&#39;g_nll&#39;: 0.466, &#39;g_kl&#39;: 0.014, &#39;g_elbo&#39;: 0.48, &#39;x_rna_nll&#39;: 0.425, &#39;x_rna_kl&#39;: 0.008, &#39;x_rna_elbo&#39;: 0.433, &#39;x_atac_nll&#39;: 0.276, &#39;x_atac_kl&#39;: 0.001, &#39;x_atac_elbo&#39;: 0.278, &#39;dsc_loss&#39;: 0.687, &#39;vae_loss&#39;: 0.73, &#39;gen_loss&#39;: 0.696}, val={&#39;g_nll&#39;: 0.466, &#39;g_kl&#39;: 0.014, &#39;g_elbo&#39;: 0.48, &#39;x_rna_nll&#39;: 0.427, &#39;x_rna_kl&#39;: 0.008, &#39;x_rna_elbo&#39;: 0.436, &#39;x_atac_nll&#39;: 0.273, &#39;x_atac_kl&#39;: 0.001, &#39;x_atac_elbo&#39;: 0.274, &#39;dsc_loss&#39;: 0.695, &#39;vae_loss&#39;: 0.729, &#39;gen_loss&#39;: 0.694}, 4.5s elapsed
+[INFO] SCGLUETrainer: [Epoch 40] train={&#39;g_nll&#39;: 0.464, &#39;g_kl&#39;: 0.014, &#39;g_elbo&#39;: 0.478, &#39;x_rna_nll&#39;: 0.423, &#39;x_rna_kl&#39;: 0.008, &#39;x_rna_elbo&#39;: 0.431, &#39;x_atac_nll&#39;: 0.277, &#39;x_atac_kl&#39;: 0.001, &#39;x_atac_elbo&#39;: 0.278, &#39;dsc_loss&#39;: 0.688, &#39;vae_loss&#39;: 0.728, &#39;gen_loss&#39;: 0.694}, val={&#39;g_nll&#39;: 0.465, &#39;g_kl&#39;: 0.014, &#39;g_elbo&#39;: 0.478, &#39;x_rna_nll&#39;: 0.425, &#39;x_rna_kl&#39;: 0.008, &#39;x_rna_elbo&#39;: 0.433, &#39;x_atac_nll&#39;: 0.275, &#39;x_atac_kl&#39;: 0.001, &#39;x_atac_elbo&#39;: 0.276, &#39;dsc_loss&#39;: 0.695, &#39;vae_loss&#39;: 0.729, &#39;gen_loss&#39;: 0.694}, 4.2s elapsed
+Epoch 00042: reducing learning rate of group 0 to 2.0000e-04.
+Epoch 00042: reducing learning rate of group 0 to 2.0000e-04.
+[INFO] LRScheduler: Learning rate reduction: step 1
+[INFO] SCGLUETrainer: [Epoch 50] train={&#39;g_nll&#39;: 0.463, &#39;g_kl&#39;: 0.013, &#39;g_elbo&#39;: 0.476, &#39;x_rna_nll&#39;: 0.423, &#39;x_rna_kl&#39;: 0.008, &#39;x_rna_elbo&#39;: 0.431, &#39;x_atac_nll&#39;: 0.276, &#39;x_atac_kl&#39;: 0.001, &#39;x_atac_elbo&#39;: 0.277, &#39;dsc_loss&#39;: 0.69, &#39;vae_loss&#39;: 0.727, &#39;gen_loss&#39;: 0.693}, val={&#39;g_nll&#39;: 0.464, &#39;g_kl&#39;: 0.013, &#39;g_elbo&#39;: 0.477, &#39;x_rna_nll&#39;: 0.422, &#39;x_rna_kl&#39;: 0.008, &#39;x_rna_elbo&#39;: 0.43, &#39;x_atac_nll&#39;: 0.274, &#39;x_atac_kl&#39;: 0.001, &#39;x_atac_elbo&#39;: 0.276, &#39;dsc_loss&#39;: 0.685, &#39;vae_loss&#39;: 0.724, &#39;gen_loss&#39;: 0.69}, 6.4s elapsed
+Epoch 00056: reducing learning rate of group 0 to 2.0000e-05.
+Epoch 00056: reducing learning rate of group 0 to 2.0000e-05.
+[INFO] LRScheduler: Learning rate reduction: step 2
+[INFO] SCGLUETrainer: [Epoch 60] train={&#39;g_nll&#39;: 0.463, &#39;g_kl&#39;: 0.013, &#39;g_elbo&#39;: 0.476, &#39;x_rna_nll&#39;: 0.423, &#39;x_rna_kl&#39;: 0.008, &#39;x_rna_elbo&#39;: 0.431, &#39;x_atac_nll&#39;: 0.276, &#39;x_atac_kl&#39;: 0.001, &#39;x_atac_elbo&#39;: 0.278, &#39;dsc_loss&#39;: 0.689, &#39;vae_loss&#39;: 0.728, &#39;gen_loss&#39;: 0.694}, val={&#39;g_nll&#39;: 0.463, &#39;g_kl&#39;: 0.013, &#39;g_elbo&#39;: 0.477, &#39;x_rna_nll&#39;: 0.424, &#39;x_rna_kl&#39;: 0.008, &#39;x_rna_elbo&#39;: 0.432, &#39;x_atac_nll&#39;: 0.278, &#39;x_atac_kl&#39;: 0.001, &#39;x_atac_elbo&#39;: 0.28, &#39;dsc_loss&#39;: 0.696, &#39;vae_loss&#39;: 0.731, &#39;gen_loss&#39;: 0.696}, 4.5s elapsed
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+2022-06-25 12:55:43,212 ignite.handlers.early_stopping.EarlyStopping INFO: EarlyStopping: Stop training
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+[INFO] EarlyStopping: Restoring checkpoint &#34;56&#34;...
+</pre></div></div>
+</div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>rna.obsm[&quot;X_glue&quot;] = glue.encode_data(&quot;rna&quot;, rna)
+atac.obsm[&quot;X_glue&quot;] = glue.encode_data(&quot;atac&quot;, atac)
+</pre></div>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>combined = ad.concat([rna, atac])
+sc.pp.neighbors(combined, use_rep=&quot;X_glue&quot;, metric=&quot;cosine&quot;)
+sc.tl.umap(combined)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+/home/kaizhang/.local/lib/python3.8/site-packages/anndata/_core/anndata.py:1828: UserWarning:
+
+Observation names are not unique. To make them unique, call `.obs_names_make_unique`.
+
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>sc.pl.umap(combined, color=[&quot;cell_type&quot;, &quot;domain&quot;], wspace=0.45)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/tutorials_modality_28_0.png" src="../_images/tutorials_modality_28_0.png" />
+</div>
+</div>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="integration.html" class="btn btn-neutral float-left" title="Multi-sample Pipeline: analyzing snATAC-seq data of human colon samples" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../install.html" class="btn btn-neutral float-right" title="Installation" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Kai Zhang.</p>
+  </div>
+
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
