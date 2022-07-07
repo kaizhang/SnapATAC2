@@ -33,6 +33,8 @@ rand_core = "0.6"
 hora = "0.1.1"
 polars = { version = "0.20.0", features = ["ndarray", "dtype-categorical"] }
 tempfile = "3.3.0"
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+tikv-jemallocator = {version = "0.5", features = ["disable_initial_exec_tls"]}
 
 [dependencies.pyo3]
 version = "0.16.2"

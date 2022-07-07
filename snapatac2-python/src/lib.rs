@@ -30,6 +30,13 @@ use snapatac2_core::{
     utils::{gene::read_transcripts, ChromValuesReader},
 };
 
+#[cfg(not(target_env = "msvc"))]
+use tikv_jemallocator::Jemalloc;
+
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
+
 #[pyfunction]
 fn mk_gene_matrix<'py>(
     py: Python<'py>,
