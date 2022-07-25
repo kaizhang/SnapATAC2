@@ -2,9 +2,9 @@ pub mod gene;
 pub mod similarity;
 
 use bed_utils::bed::{
-    OptionalFields, NarrowPeak, BEDLike, GenomicRange, BED,
+    ParseError, OptionalFields, NarrowPeak, BEDLike, GenomicRange, BED,
     merge_bed_with,
-    tree::{SparseCoverage, SparseBinnedCoverage},
+    tree::{SparseCoverage,  SparseBinnedCoverage}, Strand,
 };
 use anyhow::{Result, anyhow};
 use anndata_rs::{
@@ -16,6 +16,68 @@ use std::fmt::Debug;
 use nalgebra_sparse::CsrMatrix;
 use itertools::Itertools;
 
+pub type CellBarcode = String;
+
+/// Fragments from single-cell ATAC-seq experiment. Each fragment is represented
+/// by a genomic coordinate, cell barcode and a integer value.
+pub struct Fragment {
+    pub chrom: String,
+    pub start: u64,
+    pub end: u64,
+    pub barcode: CellBarcode,
+    pub count: u32,
+    pub strand: Option<Strand>,
+}
+
+impl BEDLike for Fragment {
+    fn chrom(&self) -> &str { &self.chrom }
+    fn set_chrom(&mut self, chrom: &str) -> &mut Self {
+        self.chrom = chrom.to_string();
+        self
+    }
+    fn start(&self) -> u64 { self.start }
+    fn set_start(&mut self, start: u64) -> &mut Self {
+        self.start = start;
+        self
+    }
+    fn end(&self) -> u64 { self.end }
+    fn set_end(&mut self, end: u64) -> &mut Self {
+        self.end = end;
+        self
+    }
+    fn name(&self) -> Option<&str> { None }
+    fn score(&self) -> Option<bed_utils::bed::Score> { None }
+    fn strand(&self) -> Option<Strand> { None }
+}
+
+impl std::str::FromStr for Fragment {
+    type Err = ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut fields = s.split('\t');
+        let chrom = fields.next().ok_or(ParseError::MissingReferenceSequenceName)?.to_string();
+        let start = fields.next().ok_or(ParseError::MissingStartPosition)
+            .and_then(|s| lexical::parse(s).map_err(ParseError::InvalidStartPosition))?;
+        let end = fields.next().ok_or(ParseError::MissingEndPosition)
+            .and_then(|s| lexical::parse(s).map_err(ParseError::InvalidEndPosition))?;
+        let barcode = fields.next().ok_or(ParseError::MissingName)
+            .map(|s| s.into())?;
+        let count = fields.next().map_or(Ok(1), |s| if s == "." {
+            Ok(1)
+        } else {
+            lexical::parse(s).map_err(ParseError::InvalidStartPosition)
+        })?;
+        let strand = fields.next().map_or(Ok(None), |s| if s == "." {
+            Ok(None)
+        } else {
+            s.parse().map(Some).map_err(ParseError::InvalidStrand)
+        })?;
+        Ok(Fragment { chrom, start, end, barcode, count, strand })
+    }
+}
+
+
+/// Genomic interval associating with integer values
 pub struct ChromValues(pub Vec<(GenomicRange, u32)>);
 
 impl ChromValues {
@@ -30,12 +92,14 @@ impl ChromValues {
     }
 }
 
+/// Storing feature counts.
 pub trait FeatureCounter {
     type Value;
 
-    /// Reset the counter
+    /// Reset the counter.
     fn reset(&mut self);
 
+    /// Update counter according to the region and the assocated count.
     fn insert<B: BEDLike>(&mut self, tag: &B, count: u32);
 
     fn inserts<B: Into<ChromValues>>(&mut self, data: B) {
@@ -43,10 +107,13 @@ pub trait FeatureCounter {
         ins.into_iter().for_each(|(i, v)| self.insert(&i, v));
     }
 
+    /// Retrieve feature ids.
     fn get_feature_ids(&self) -> Vec<String>;
 
+    /// Retrieve feature names.
     fn get_feature_names(&self) -> Option<Vec<String>> { None }
 
+    /// Retrieve stored counts.
     fn get_counts(&self) -> Vec<(usize, Self::Value)>;
 }
 
@@ -93,11 +160,13 @@ pub fn str_to_genomic_region(txt: &str) -> Option<GenomicRange> {
     Some(GenomicRange::new(chr, start, end))
 }
 
-/// Integer to genomic position lookup table.
+/// GenomeIndex stores genomic loci in a compact way. It maps
+/// integers to genomic intervals.
 trait GenomeIndex {
     fn lookup_region(&self, i: usize) -> GenomicRange;
 }
 
+/// Compact representation of consecutive genomic loci.
 pub struct GenomeBaseIndex(Vec<(String, u64)>);
 
 impl GenomeBaseIndex {
@@ -128,9 +197,10 @@ impl GenomeIndex for GenomeBaseIndex {
     }
 }
 
-pub struct GenomeRegions(pub Vec<GenomicRange>);
+/// A set of genomic loci.
+pub struct GenomeRegionIndex(pub Vec<GenomicRange>);
 
-impl GenomeIndex for GenomeRegions {
+impl GenomeIndex for GenomeRegionIndex {
     fn lookup_region(&self, i: usize) -> GenomicRange { self.0[i].clone() }
 }
 
@@ -159,7 +229,7 @@ where
 }
 
 pub type TN5InsertionIter = ChromValueIter<Box<dyn Iterator<Item = Vec<Vec<(usize, u8)>>>>, GenomeBaseIndex>;
-pub type ChromValueIterator = ChromValueIter<Box<dyn Iterator<Item = Vec<Vec<(usize, u32)>>>>, GenomeRegions>;
+pub type ChromValueIterator = ChromValueIter<Box<dyn Iterator<Item = Vec<Vec<(usize, u32)>>>>, GenomeRegionIndex>;
 
 /// Read genomic region and its associated account
 pub trait ChromValuesReader {
@@ -190,7 +260,7 @@ impl ChromValuesReader for AnnData {
     fn read_chrom_values(&self) -> Result<ChromValueIterator>
     {
         Ok(ChromValueIter {
-            genome_index: GenomeRegions(
+            genome_index: GenomeRegionIndex(
                 self.var_names()?.into_iter()
                     .map(|x| str_to_genomic_region(x.as_str()).unwrap()).collect()
             ),
@@ -240,7 +310,7 @@ impl ChromValuesReader for AnnDataSet {
     fn read_chrom_values(&self) -> Result<ChromValueIterator>
     {
         Ok(ChromValueIter {
-            genome_index: GenomeRegions(
+            genome_index: GenomeRegionIndex(
                 self.var_names()?.into_iter()
                     .map(|x| str_to_genomic_region(x.as_str()).unwrap()).collect()
             ),

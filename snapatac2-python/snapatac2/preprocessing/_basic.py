@@ -203,6 +203,7 @@ def filter_cells(
  
 def select_features(
     adata: Union[AnnData, AnnDataSet],
+    min_cells: int = 1,
     most_variable: Optional[Union[int, float]] = 1000000,
     whitelist: Optional[str] = None,
     blacklist: Optional[str] = None,
@@ -216,6 +217,8 @@ def select_features(
     adata
         The (annotated) data matrix of shape `n_obs` x `n_vars`.
         Rows correspond to cells and columns to regions.
+    min_cells
+        Minimum number of cells.
     most_variable
         If None, do not perform feature selection using most variable features
     whitelist
@@ -240,9 +243,10 @@ def select_features(
     """
     count = np.zeros(adata.shape[1])
     for batch in adata.X.chunked(2000):
+        batch.data = np.ones(batch.indices.shape, dtype=np.float64)
         count += np.ravel(batch.sum(axis = 0))
 
-    selected_features = count != 0
+    selected_features = count >= min_cells
 
     if whitelist is not None:
         selected_features &= internal.intersect_bed(list(adata.var_names), whitelist)

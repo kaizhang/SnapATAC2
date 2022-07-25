@@ -1,78 +1,23 @@
+use crate::utils::{CellBarcode, Fragment};
+
 use anndata_rs::{
     anndata::AnnData,
     anndata_trait::{DataIO, DataPartialIO},
     iterator::CsrIterator,
 };
 use polars::prelude::{NamedFrom, DataFrame, Series};
-
 use std::{
     io, io::prelude::*, io::BufReader, ops::Div,
     collections::{HashSet, HashMap},
 };
 use bed_utils::bed::{
-    ParseError, GenomicRange, BEDLike,
+    GenomicRange, BEDLike,
     tree::{GenomeRegions, BedTree, SparseBinnedCoverage}, Strand,
 };
 use itertools::Itertools;
 use anyhow::Result;
 use rayon::iter::ParallelIterator;
 use rayon::iter::IntoParallelIterator;
-
-pub type CellBarcode = String;
-
-/// Fragments from single-cell ATAC-seq experiment. Each fragment is represented
-/// by a genomic coordinate, cell barcode and a integer value.
-pub struct Fragment {
-    pub chrom: String,
-    pub start: u64,
-    pub end: u64,
-    pub barcode: CellBarcode,
-    pub count: u32,
-}
-
-impl BEDLike for Fragment {
-    fn chrom(&self) -> &str { &self.chrom }
-    fn set_chrom(&mut self, chrom: &str) -> &mut Self {
-        self.chrom = chrom.to_string();
-        self
-    }
-    fn start(&self) -> u64 { self.start }
-    fn set_start(&mut self, start: u64) -> &mut Self {
-        self.start = start;
-        self
-    }
-    fn end(&self) -> u64 { self.end }
-    fn set_end(&mut self, end: u64) -> &mut Self {
-        self.end = end;
-        self
-    }
-    fn name(&self) -> Option<&str> { None }
-    fn score(&self) -> Option<bed_utils::bed::Score> { None }
-    fn strand(&self) -> Option<Strand> { None }
-}
-
-
-
-impl std::str::FromStr for Fragment {
-    type Err = ParseError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut fields = s.split('\t');
-        let chrom = fields.next().ok_or(ParseError::MissingReferenceSequenceName)?.to_string();
-        let start = fields.next().ok_or(ParseError::MissingStartPosition)
-            .and_then(|s| lexical::parse(s).map_err(ParseError::InvalidStartPosition))?;
-        let end = fields.next().ok_or(ParseError::MissingEndPosition)
-            .and_then(|s| lexical::parse(s).map_err(ParseError::InvalidEndPosition))?;
-        let barcode = fields.next().ok_or(ParseError::MissingName)
-            .map(|s| s.into())?;
-        let count = fields.next().map_or(Ok(1), |s| if s == "." {
-            Ok(1)
-        } else {
-            lexical::parse(s).map_err(ParseError::InvalidStartPosition)
-        })?;
-        Ok(Fragment { chrom, start, end, barcode, count })
-    }
-}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct QualityControl {
@@ -261,9 +206,19 @@ pub fn make_promoter_map<I: Iterator<Item = (String, u64, bool)>>(iter: I) -> Be
         }).collect()
 }
 
-fn get_insertions(rec: &Fragment) -> [GenomicRange; 2] {
-    [ GenomicRange::new(rec.chrom.clone(), rec.start, rec.start + 1)
-    , GenomicRange::new(rec.chrom.clone(), rec.end - 1, rec.end) ]
+fn get_insertions(rec: &Fragment) -> Vec<GenomicRange> {
+    match rec.strand {
+        None => vec![
+            GenomicRange::new(rec.chrom.clone(), rec.start, rec.start + 1),
+            GenomicRange::new(rec.chrom.clone(), rec.end - 1, rec.end),
+        ],
+        Some(Strand::Forward) => vec![
+            GenomicRange::new(rec.chrom.clone(), rec.start, rec.start + 1)
+        ],
+        Some(Strand::Reverse) => vec![
+            GenomicRange::new(rec.chrom.clone(), rec.end - 1, rec.end)
+        ],
+    }
 }
 
 pub fn import_fragments<B, I>(
@@ -324,20 +279,17 @@ where
         .filter(|frag| white_list.map_or(true, |x| x.contains(frag.barcode.as_str())))
         .for_each(|frag| {
             let key = frag.barcode.as_str();
-            let ins = get_insertions(&frag);
             match scanned_barcodes.get_mut(key) {
                 None => {
                     let mut summary= FragmentSummary::new(promoter);
                     let mut counts = SparseBinnedCoverage::new(regions, 1);
                     summary.update(&frag);
-                    counts.insert(&ins[0], 1);
-                    counts.insert(&ins[1], 1);
+                    get_insertions(&frag).into_iter().for_each(|x| counts.insert(&x, 1));
                     scanned_barcodes.insert(key.to_string(), (summary, counts));
                 },
                 Some((summary, counts)) => {
                     summary.update(&frag);
-                    counts.insert(&ins[0], 1);
-                    counts.insert(&ins[1], 1);
+                    get_insertions(&frag).into_iter().for_each(|x| counts.insert(&x, 1));
                 }
             }
         });
@@ -394,9 +346,7 @@ where
     } else {
         let mut binned_coverage = SparseBinnedCoverage::new(regions, 1);
         fragments.iter().for_each(|fragment| {
-            let ins = get_insertions(fragment);
-            binned_coverage.insert(&ins[0], 1);
-            binned_coverage.insert(&ins[1], 1);
+            get_insertions(fragment).into_iter().for_each(|x| binned_coverage.insert(&x, 1));
         });
         let count: Vec<(usize, u8)> = binned_coverage.get_coverage()
             .iter().map(|(k, v)| (*k, *v)).collect();
