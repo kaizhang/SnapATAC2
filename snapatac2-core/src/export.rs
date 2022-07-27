@@ -1,7 +1,7 @@
 use crate::utils::{ChromValues, ChromValuesReader};
 
 use anndata_rs::anndata::{AnnData, AnnDataSet};
-use anyhow::Result;
+use anyhow::{Result, ensure};
 use flate2::Compression;
 use flate2::write::GzEncoder;
 use itertools::Itertools;
@@ -14,6 +14,7 @@ use std::{
 };
 use tempfile::Builder;
 use rayon::iter::{ParallelIterator, IntoParallelIterator};
+use which::which;
 
 pub trait Exporter: ChromValuesReader {
     fn export_bed<P: AsRef<Path>>(
@@ -36,6 +37,10 @@ pub trait Exporter: ChromValuesReader {
         suffix:&str,
     ) -> Result<HashMap<String, PathBuf>>
     {
+        // Check if the command is in the PATH
+        ensure!(which("macs2").is_ok(), "Cannot find macs2; please make sure macs2 has been installed");
+
+
         std::fs::create_dir_all(&dir)?;
         let tmp_dir = Builder::new().tempdir_in(&dir).unwrap();
 

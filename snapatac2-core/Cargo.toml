@@ -25,6 +25,7 @@ polars = { version = "0.20.0", features = ["ndarray", "dtype-categorical"] }
 anyhow = "1.0"
 lexical = "6.1"
 tempfile = "3.3.0"
+which = "4.2"
 
 [dev-dependencies]
 criterion = "0.3"
