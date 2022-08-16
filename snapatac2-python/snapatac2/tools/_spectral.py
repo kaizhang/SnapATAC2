@@ -66,6 +66,8 @@ def spectral(
     `adata.uns["spectral_eigenvalue"]`,
     otherwise it returns the result as a numpy array.
     """
+    np.random.seed(random_state)
+
     if not (isinstance(data, AnnData) or isinstance(data, AnnDataSet)):
         raise ValueError("input should be AnnData or AnnDataSet")
 
@@ -84,10 +86,9 @@ def spectral(
     else:
         raise NameError("Invalid feature_weights")
 
-    np.random.seed(random_state)
     n_comps = min(data.n_vars - 1, data.n_obs - 1, n_comps)
 
-    (n_sample, _) = data.shape
+    n_sample, _ = data.shape
     if sample_size is None:
         sample_size = n_sample
     elif isinstance(sample_size, int):

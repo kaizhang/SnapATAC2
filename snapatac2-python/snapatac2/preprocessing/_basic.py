@@ -2,6 +2,7 @@ from pathlib import Path
 import numpy as np
 import math
 from typing import Optional, Union, Mapping, Set
+from __future__ import annotations
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
 import snapatac2._snapatac2 as internal
@@ -93,7 +94,7 @@ def make_tile_matrix(
 def make_peak_matrix(
     adata: Union[AnnData, AnnDataSet],
     file: Path,
-    use_rep: str = "peaks",
+    use_rep: Union[str, list[str]] = "peaks",
     peak_file: Optional[Path] = None,
 ) -> AnnData:
     """
@@ -110,6 +111,8 @@ def make_peak_matrix(
         File name of the h5ad file used to store the result.
     use_rep
         This is used to read peak information from `.uns[use_rep]`.
+        The peaks can also be provided by a list of strings:
+        ["chr1:1-100", "chr2:2-200"].
     peak_file
         Bed file containing the peaks. If provided, peak information will be read
         from this file.
