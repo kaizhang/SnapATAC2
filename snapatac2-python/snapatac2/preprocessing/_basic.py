@@ -1,8 +1,9 @@
+from __future__ import annotations
+
 from pathlib import Path
 import numpy as np
 import math
 from typing import Optional, Union, Mapping, Set
-from __future__ import annotations
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
 import snapatac2._snapatac2 as internal
