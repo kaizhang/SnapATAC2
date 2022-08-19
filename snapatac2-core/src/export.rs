@@ -1,7 +1,7 @@
 use crate::utils::{ChromValues, ChromValuesReader};
 
 use anndata_rs::anndata::{AnnData, AnnDataSet};
-use anyhow::{Result, ensure};
+use anyhow::{Context, Result, ensure};
 use flate2::Compression;
 use flate2::write::GzEncoder;
 use itertools::Itertools;
@@ -38,20 +38,23 @@ pub trait Exporter: ChromValuesReader {
     ) -> Result<HashMap<String, PathBuf>>
     {
         // Check if the command is in the PATH
-        ensure!(which("macs2").is_ok(), "Cannot find macs2; please make sure macs2 has been installed");
-
+        ensure!(
+            which("macs2").is_ok(),
+            "Cannot find macs2; please make sure macs2 has been installed"
+        );
 
         std::fs::create_dir_all(&dir)?;
-        let tmp_dir = Builder::new().tempdir_in(&dir).unwrap();
+        let tmp_dir = Builder::new().tempdir_in(&dir)
+            .context("failed to create tmperorary directory")?;
 
         eprintln!("preparing input...");
         let files = self.export_bed(
             group_by, group_by, selections, &tmp_dir, "", ".bed.gz"
-        )?;
+        ).with_context(|| format!("cannot save bed file to {}", tmp_dir.path().display()))?;
         let genome_size = self.get_reference_seq_info()?.into_iter().map(|(_, v)| v).sum();
         eprintln!("calling peaks for {} groups...", files.len());
         files.into_par_iter().map(|(key, fl)| {
-            let out_file = dir.as_ref().join(prefix.to_string() + key.as_str() + suffix);
+            let out_file = dir.as_ref().join(prefix.to_string() + &key.as_str().replace("/", "+") + suffix);
             macs2(fl, q_value, genome_size, &tmp_dir, &out_file)?;
             eprintln!("group {}: done!", key);
             Ok((key, out_file))
@@ -115,10 +118,12 @@ where
 {
     let mut groups: HashSet<&str> = group_by.iter().map(|x| *x).unique().collect();
     if let Some(select) = selections { groups.retain(|x| select.contains(x)); }
-    std::fs::create_dir_all(&dir)?;
+    std::fs::create_dir_all(&dir)
+        .with_context(|| format!("cannot create directory: {}", dir.as_ref().display()))?;
     let mut files = groups.into_iter().map(|x| {
-        let filename = dir.as_ref().join(prefix.to_string() + x + suffix);
-        let f = File::create(&filename)?;
+        let filename = dir.as_ref().join(prefix.to_string() + &x.replace("/", "+") + suffix);
+        let f = File::create(&filename)
+            .with_context(|| format!("cannot create file: {}", filename.display()))?;
         let e: Box<dyn Write> = if filename.ends_with(".gz") {
             Box::new(GzEncoder::new(BufWriter::new(f), Compression::default()))
         } else {
@@ -167,14 +172,17 @@ where
         "--nomodel", "--shift", "-100", "--extsize", "200",
         "--nolambda",
         "--tempdir", format!("{}", dir.path().display()).as_str(),
-    ]).output()?;
+    ]).output().context("macs2 command did not exit properly")?;
 
-    let file_path = dir.path().join("NA_peaks.narrowPeak");
-    let reader = BufReader::new(File::open(file_path)?);
+    let reader = BufReader::new(File::open(
+        dir.path().join("NA_peaks.narrowPeak"))
+            .context("NA_peaks.narrowPeak: cannot find the peak file")?
+    );
     let mut writer: Box<dyn Write> = if out_file.as_ref().extension().unwrap() == "gz" {
-        Box::new(BufWriter::new(
-            GzEncoder::new(File::create(out_file)?, Compression::default())
-        ))
+        Box::new(BufWriter::new(GzEncoder::new(
+            File::create(out_file)?,
+            Compression::default(),
+        )))
     } else {
         Box::new(BufWriter::new(File::create(out_file)?))
     };

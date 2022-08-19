@@ -244,8 +244,9 @@ pub trait ChromValuesReader {
 impl ChromValuesReader for AnnData {
     fn read_insertions(&self, chunk_size: usize) -> Result<TN5InsertionIter> {
        Ok(ChromValueIter {
-            iter: Box::new(
-                self.get_obsm().inner().get("insertion").unwrap().chunked(chunk_size).map(|x| {
+            iter: Box::new(self.get_obsm().inner().get("insertion")
+                .expect("cannot find 'insertion' in .obsm")
+                .chunked(chunk_size).map(|x| {
                     let csr = *x.into_any().downcast::<CsrMatrix<u8>>().unwrap();
                     csr.row_iter().map(|row|
                         row.col_indices().iter().zip(row.values())
