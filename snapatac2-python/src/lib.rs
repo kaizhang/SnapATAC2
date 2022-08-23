@@ -29,6 +29,7 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(matrix::mk_peak_matrix, m)?)?;
 
     m.add_function(wrap_pyfunction!(export::export_bed, m)?)?;
+    m.add_function(wrap_pyfunction!(export::export_bigwig, m)?)?;
     m.add_function(wrap_pyfunction!(call_peaks::call_peaks, m)?)?;
 
     m.add_function(wrap_pyfunction!(utils::jaccard_similarity, m)?)?;

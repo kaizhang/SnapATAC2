@@ -2,8 +2,8 @@ pub mod gene;
 pub mod similarity;
 
 use bed_utils::bed::{
-    ParseError, OptionalFields, NarrowPeak, BEDLike, GenomicRange, BED,
-    merge_bed_with,
+    BEDLike, GenomicRange, BedGraph, NarrowPeak,
+    ParseError, merge_bed_with,
     tree::{SparseCoverage,  SparseBinnedCoverage}, Strand,
 };
 use anyhow::{Result, anyhow};
@@ -12,7 +12,7 @@ use anndata_rs::{
     element::ElemCollection,
 };
 use polars::frame::DataFrame;
-use std::fmt::Debug;
+use std::{fmt::Debug, str::FromStr};
 use nalgebra_sparse::CsrMatrix;
 use itertools::Itertools;
 
@@ -78,21 +78,9 @@ impl std::str::FromStr for Fragment {
 
 
 /// Genomic interval associating with integer values
-pub struct ChromValues(pub Vec<(GenomicRange, u32)>);
+pub type ChromValues = Vec<BedGraph<u32>>;
 
-impl ChromValues {
-    pub fn to_bed<'a>(&'a self, id: &'a str) -> impl Iterator<Item = BED<4>> + 'a {
-        self.0.iter().map(|(x, v)| {
-            let bed = BED::new(
-                x.chrom(), x.start(), x.end(), Some(id.to_string()), None, None,
-                OptionalFields::default(),
-            );
-            vec![bed; *v as usize]
-        }).flatten()
-    }
-}
-
-/// Storing feature counts.
+/// A structure that stores the feature counts.
 pub trait FeatureCounter {
     type Value;
 
@@ -103,8 +91,7 @@ pub trait FeatureCounter {
     fn insert<B: BEDLike>(&mut self, tag: &B, count: u32);
 
     fn inserts<B: Into<ChromValues>>(&mut self, data: B) {
-        let ChromValues(ins) = data.into();
-        ins.into_iter().for_each(|(i, v)| self.insert(&i, v));
+        data.into().into_iter().for_each(|x| self.insert(&x, x.value));
     }
 
     /// Retrieve feature ids.
@@ -125,7 +112,7 @@ impl<D: BEDLike + Clone> FeatureCounter for SparseBinnedCoverage<'_, D, u32> {
     fn insert<B: BEDLike>(&mut self, tag: &B, count: u32) { self.insert(tag, count); }
 
     fn get_feature_ids(&self) -> Vec<String> {
-        self.get_regions().flatten().map(|x| x.to_string()).collect()
+        self.get_regions().flatten().map(|x| x.pretty_show()).collect()
     }
 
     fn get_counts(&self) -> Vec<(usize, Self::Value)> {
@@ -141,7 +128,7 @@ impl<D: BEDLike> FeatureCounter for SparseCoverage<'_, D, u32> {
     fn insert<B: BEDLike>(&mut self, tag: &B, count: u32) { self.insert(tag, count); }
 
     fn get_feature_ids(&self) -> Vec<String> {
-        self.get_regions().map(|x| x.to_string()).collect()
+        self.get_regions().map(|x| x.pretty_show()).collect()
     }
 
     fn get_counts(&self) -> Vec<(usize, Self::Value)> {
@@ -149,27 +136,16 @@ impl<D: BEDLike> FeatureCounter for SparseCoverage<'_, D, u32> {
     }
 }
 
-
-// Convert string such as "chr1:134-2222" to `GenomicRange`.
-pub fn str_to_genomic_region(txt: &str) -> Option<GenomicRange> {
-    let mut iter1 = txt.splitn(2, ":");
-    let chr = iter1.next()?;
-    let mut iter2 = iter1.next().map(|x| x.splitn(2, "-"))?;
-    let start: u64 = iter2.next().map_or(None, |x| x.parse().ok())?;
-    let end: u64 = iter2.next().map_or(None, |x| x.parse().ok())?;
-    Some(GenomicRange::new(chr, start, end))
-}
-
 /// GenomeIndex stores genomic loci in a compact way. It maps
 /// integers to genomic intervals.
-trait GenomeIndex {
+pub(crate) trait GenomeIndex {
     fn lookup_region(&self, i: usize) -> GenomicRange;
 }
 
-/// Compact representation of consecutive genomic loci.
-pub struct GenomeBaseIndex(Vec<(String, u64)>);
+/// Base-resolution compact representation of genomic.
+pub struct GBaseIndex(Vec<(String, u64)>);
 
-impl GenomeBaseIndex {
+impl GBaseIndex {
     pub fn read_from_anndata(elems: &mut ElemCollection) -> Result<Self> {
         let (chrs, chr_sizes): (Vec<_>, Vec<_>) = get_reference_seq_info_(elems)?.into_iter().unzip();
         let chrom_index = chrs.into_iter().zip(
@@ -182,7 +158,7 @@ impl GenomeBaseIndex {
     }
 }
 
-impl GenomeIndex for GenomeBaseIndex {
+impl GenomeIndex for GBaseIndex {
     fn lookup_region(&self, i: usize) -> GenomicRange {
         let i_ = self.0.binary_search_by_key(
             &i, |s| s.1.try_into().unwrap()
@@ -198,15 +174,15 @@ impl GenomeIndex for GenomeBaseIndex {
 }
 
 /// A set of genomic loci.
-pub struct GenomeRegionIndex(pub Vec<GenomicRange>);
+pub struct GIntervalIndex(pub Vec<GenomicRange>);
 
-impl GenomeIndex for GenomeRegionIndex {
+impl GenomeIndex for GIntervalIndex {
     fn lookup_region(&self, i: usize) -> GenomicRange { self.0[i].clone() }
 }
 
 pub struct ChromValueIter<I, G> {
-    pub iter: I,
-    pub genome_index: G,
+    iter: I,
+    genome_index: G,
 }
 
 impl<I, G, N> Iterator for ChromValueIter<I, G>
@@ -219,24 +195,29 @@ where
     type Item = Vec<ChromValues>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|items| items.into_iter().map(|item| { 
-            let ins = item.into_iter().map(|(i, x)|
-                (self.genome_index.lookup_region(i), x.try_into().unwrap())
-            ).collect();
-            ChromValues(ins)
-        }).collect())
+        self.iter.next().map(|items| items.into_iter().map(|item|
+            item.into_iter().map(|(i, x)|
+                BedGraph::from_bed(
+                    &self.genome_index.lookup_region(i),
+                    x.try_into().unwrap(),
+                )
+            ).collect()
+        ).collect())
     }
 }
 
-pub type TN5InsertionIter = ChromValueIter<Box<dyn Iterator<Item = Vec<Vec<(usize, u8)>>>>, GenomeBaseIndex>;
-pub type ChromValueIterator = ChromValueIter<Box<dyn Iterator<Item = Vec<Vec<(usize, u32)>>>>, GenomeRegionIndex>;
+pub type TN5InsertionIter = ChromValueIter<Box<dyn Iterator<Item = Vec<Vec<(usize, u8)>>>>, GBaseIndex>;
+pub type ChromValueIterator = ChromValueIter<Box<dyn Iterator<Item = Vec<Vec<(usize, u32)>>>>, GIntervalIndex>;
 
 /// Read genomic region and its associated account
 pub trait ChromValuesReader {
+    /// Return values in .obsm['insertion']
     fn read_insertions(&self, chunk_size: usize) -> Result<TN5InsertionIter>;
 
+    /// Return values in .X
     fn read_chrom_values(&self) -> Result<ChromValueIterator>;
 
+    /// Return chromosome names and sizes.
     fn get_reference_seq_info(&self) -> Result<Vec<(String, u64)>>;
 }
 
@@ -254,16 +235,16 @@ impl ChromValuesReader for AnnData {
                     ).collect::<Vec<_>>()
                 })
             ),
-            genome_index: GenomeBaseIndex::read_from_anndata(&mut self.get_uns().inner())?,
+            genome_index: GBaseIndex::read_from_anndata(&mut self.get_uns().inner())?,
         })
     }
 
     fn read_chrom_values(&self) -> Result<ChromValueIterator>
     {
         Ok(ChromValueIter {
-            genome_index: GenomeRegionIndex(
+            genome_index: GIntervalIndex(
                 self.var_names()?.into_iter()
-                    .map(|x| str_to_genomic_region(x.as_str()).unwrap()).collect()
+                    .map(|x| GenomicRange::from_str(x.as_str()).unwrap()).collect()
             ),
             iter: Box::new(
                 self.get_x().chunked(500).map(|x| {
@@ -291,7 +272,7 @@ impl ChromValuesReader for AnnDataSet {
         if !ref_seq_same {
             return Err(anyhow!("reference genome information mismatch"));
         }
-        let genome_index = GenomeBaseIndex::read_from_anndata(
+        let genome_index = GBaseIndex::read_from_anndata(
             &mut inner.iter().next().unwrap().1.get_uns().inner()
         )?;
 
@@ -311,9 +292,9 @@ impl ChromValuesReader for AnnDataSet {
     fn read_chrom_values(&self) -> Result<ChromValueIterator>
     {
         Ok(ChromValueIter {
-            genome_index: GenomeRegionIndex(
+            genome_index: GIntervalIndex(
                 self.var_names()?.into_iter()
-                    .map(|x| str_to_genomic_region(x.as_str()).unwrap()).collect()
+                    .map(|x| GenomicRange::from_str(x.as_str()).unwrap()).collect()
             ),
             iter: Box::new(
                 self.anndatas.inner().x.chunked(500).map(|x| {

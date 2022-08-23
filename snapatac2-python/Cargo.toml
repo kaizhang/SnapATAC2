@@ -17,7 +17,7 @@ pyanndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "39ac193
 snapatac2-core = { path = "../snapatac2-core" }
 #anndata-rs = { path = "../../anndata-rs/anndata-rs" }
 #pyanndata = { path = "../../anndata-rs/pyanndata" }
-bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "75554f7596f51a654711236b385008043efc50bf" }
+bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "cded506230e8d259f7c909df1ef6f53d6fea095a" }
 itertools = "0.8"
 flate2 = "1.0"
 hdf5 = "0.8.1"

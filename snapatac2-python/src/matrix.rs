@@ -1,6 +1,12 @@
 use crate::utils::*;
 
-use std::io::BufReader;
+use std::{
+    io::BufReader,
+    str::FromStr,
+    collections::BTreeMap,
+    ops::Deref,
+    collections::HashSet,
+};
 use pyo3::{
     prelude::*,
     PyResult, Python,
@@ -8,11 +14,8 @@ use pyo3::{
     exceptions::PyTypeError,
 };
 use bed_utils::{bed, bed::GenomicRange};
-use std::collections::BTreeMap;
-use std::ops::Deref;
 use rayon::ThreadPoolBuilder;
 use polars::prelude::DataFrame;
-use std::collections::HashSet;
 
 use anndata_rs::anndata;
 use pyanndata::{AnnData, AnnDataSet};
@@ -156,10 +159,10 @@ pub(crate) fn mk_peak_matrix<'py>(
                     panic!("expecting an AnnData or AnnDataSet object");
                 };
                 df[0].utf8().into_iter().flatten()
-                    .map(|x| str_to_genomic_region(x.unwrap()).unwrap()).collect()
+                    .map(|x| GenomicRange::from_str(x.unwrap()).unwrap()).collect()
             },
             PeakRep::StringVec(list_rep) => list_rep.into_iter()
-                .map(|x| str_to_genomic_region(&x).unwrap()).collect(),
+                .map(|x| GenomicRange::from_str(&x).unwrap()).collect(),
         },
         Some(fl) => bed::io::Reader::new(open_file(fl), None).into_records()
             .map(|x| x.unwrap()).collect(),

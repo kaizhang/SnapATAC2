@@ -8,7 +8,7 @@ use snapatac2_core::utils::similarity;
 
 use hdf5::H5Type;
 use bed_utils::{bed, bed::GenomicRange, bed::BED};
-use std::fs::File;
+use std::{str::FromStr, fs::File};
 use flate2::read::MultiGzDecoder;
 use hdf5;
 use linreg::lin_reg_imprecise;
@@ -166,7 +166,7 @@ pub(crate) fn intersect_bed(regions: Vec<&str>, bed_file: &str) -> PyResult<Vec<
     let bed_tree: bed::tree::BedTree<()> = bed::io::Reader::new(open_file(bed_file), None)
         .into_records().map(|x: Result<BED<3>, _>| (x.unwrap(), ())).collect();
     Ok(regions.into_iter()
-        .map(|x| bed_tree.is_overlapped(&str_to_genomic_region(x).unwrap()))
+        .map(|x| bed_tree.is_overlapped(&GenomicRange::from_str(x).unwrap()))
         .collect()
     )
 }
@@ -232,16 +232,6 @@ where
     });
     indptr.push(n.try_into().unwrap());
     (data, indices, indptr)
-}
-
-// Convert string such as "chr1:134-2222" to `GenomicRange`.
-pub(crate) fn str_to_genomic_region(txt: &str) -> Option<GenomicRange> {
-    let mut iter1 = txt.splitn(2, ":");
-    let chr = iter1.next()?;
-    let mut iter2 = iter1.next().map(|x| x.splitn(2, "-"))?;
-    let start: u64 = iter2.next().map_or(None, |x| x.parse().ok())?;
-    let end: u64 = iter2.next().map_or(None, |x| x.parse().ok())?;
-    Some(GenomicRange::new(chr, start, end))
 }
 
 pub(crate) fn open_file(file: &str) -> Box<dyn std::io::Read> {

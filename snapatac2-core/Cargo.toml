@@ -13,7 +13,7 @@ keywords = ["single-cell", "biology"]
 [dependencies]
 flate2 = "1.0"
 itertools = "0.8"
-bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "75554f7596f51a654711236b385008043efc50bf" }
+bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "cded506230e8d259f7c909df1ef6f53d6fea095a" }
 anndata-rs = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "39ac1930cc6f50c014e9d53e5346e2058b855f99" }
 #anndata-rs = { path = "../../anndata-rs/anndata-rs" }
 ndarray = { version = "0.15.4", features = ["rayon"] }
@@ -26,6 +26,8 @@ anyhow = "1.0"
 lexical = "6.1"
 tempfile = "3.3.0"
 which = "4.2"
+bigtools = "0.1"
+futures = "0.3.23"
 
 [dev-dependencies]
 criterion = "0.3"
