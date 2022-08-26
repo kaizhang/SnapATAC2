@@ -1,19 +1,12 @@
 use snapatac2_core::{export::Exporter, utils::merge_peaks};
 
-use anndata_rs::anndata_trait::DataIO;
-use pyo3::{
-    prelude::*,
-    PyResult, Python,
-    type_object::PyTypeObject,
-};
+use pyanndata::{AnnData, AnnDataSet, utils::conversion::to_py_df};
+use pyo3::{prelude::*, PyResult, Python, type_object::PyTypeObject};
 use bed_utils::bed::{BEDLike, GenomicRange, io::Reader, tree::BedTree};
 use flate2::read::MultiGzDecoder;
 use tempfile::Builder;
 use std::fs::File;
-use polars::prelude::DataFrame;
-use polars::series::Series;
-use polars::prelude::NamedFrom;
-use pyanndata::{AnnData, AnnDataSet};
+use polars::{prelude::{DataFrame, NamedFrom}, series::Series};
 use std::collections::HashSet;
 
 #[pyfunction]
@@ -24,8 +17,7 @@ pub fn call_peaks<'py>(
     selections: Option<HashSet<&str>>,
     q_value: f64,
     out_dir: Option<&str>,
-    key_added: &str,
-) -> PyResult<()> {
+) -> PyResult<PyObject> {
     let dir = Builder::new().tempdir_in("./").unwrap();
 
     let peak_files = if data.is_instance(AnnData::type_object(py))? {
@@ -69,10 +61,15 @@ pub fn call_peaks<'py>(
         Series::new(key.as_str(), values)
     });
 
-    let df: Box<dyn DataIO> = Box::new(DataFrame::new(
+    let df = DataFrame::new(
         std::iter::once(peaks_str).chain(iter).collect()
-    ).unwrap());
+    ).unwrap();
 
+    dir.close().unwrap();
+
+    to_py_df(df)
+
+    /*
     if data.is_instance(AnnData::type_object(py))? {
         let anndata: AnnData = data.extract()?;
         anndata.0.inner().get_uns().inner().add_data(key_added, &df).unwrap();
@@ -80,7 +77,5 @@ pub fn call_peaks<'py>(
         let anndata: AnnDataSet = data.extract()?;
         anndata.0.inner().get_uns().inner().add_data(key_added, &df).unwrap();
     }
-
-    dir.close().unwrap();
-    Ok(())
+    */
 }

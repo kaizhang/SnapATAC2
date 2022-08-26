@@ -1,3 +1,4 @@
+from optparse import Option
 from pathlib import Path
 from typing import Optional, Union, Sequence, Set
 from snapatac2._snapatac2 import AnnData, AnnDataSet
@@ -10,6 +11,7 @@ def call_peaks(
     q_value: float = 0.05,
     out_dir: Optional[Path] = None,
     key_added: str = 'peaks',
+    inplace: bool = True,
 ):
     """
     Call peaks using MACS2.
@@ -38,8 +40,14 @@ def call_peaks(
         afterwards.
     key_added
         `.uns` key under which to add the peak information.
+    inplace
+        Whether to store the result inplace.
     """
     if isinstance(group_by, str):
         group_by = data.obs[group_by].astype("str")
     out_dir = out_dir if out_dir is None else str(out_dir)
-    _snapatac2.call_peaks(data, group_by, selections, q_value, out_dir, key_added)
+    res = _snapatac2.call_peaks(data, group_by, selections, q_value, out_dir)
+    if inplace:
+        data.uns[key_added] = res
+    else:
+        return res
