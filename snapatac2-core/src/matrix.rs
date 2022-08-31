@@ -1,5 +1,5 @@
 use crate::utils::{ChromValues, FeatureCounter, ChromValuesReader};
-use crate::utils::gene::{Promoters, PromoterCoverage, Transcript};
+use crate::utils::gene::{Promoters, TranscriptCount, GeneCount, Transcript};
 
 use anndata_rs::{
     anndata::AnnData,
@@ -108,13 +108,41 @@ pub fn create_gene_matrix<I>(
     output: &str,
     fragments: I,
     transcripts: Vec<Transcript>,
+    id_type: &str, 
     ) -> Result<AnnData>
 where
     I: Iterator<Item = Vec<ChromValues>>,
 {
     let mut anndata = AnnData::new(output, 0, 0)?;
-    let promoters = Promoters::new(transcripts, 2000);
-    let feature_counter: PromoterCoverage<'_> = PromoterCoverage::new(&promoters);
-    create_feat_matrix(&mut anndata, fragments, feature_counter)?;
+    let promoters = Promoters::new(transcripts, 2000, 0, true);
+
+    match id_type {
+        "transcript_id" => {
+            let feature_counter: TranscriptCount<'_> = TranscriptCount::new(&promoters);
+            let gene_names: Vec<String> = feature_counter.gene_names().iter()
+                .map(|x| x.clone()).collect();
+            create_feat_matrix(&mut anndata, fragments, feature_counter)?;
+            let mut var = anndata.get_var().read()?;
+            var.insert_at_idx(1, Series::new("gene_name", gene_names))?;
+            anndata.set_var(Some(&var))?;
+        },
+        "gene_id" | "gene_name" => {
+            let feature_counter: GeneCount<'_> = GeneCount::new(
+                TranscriptCount::new(&promoters)
+            );
+            let gene_names: Vec<String> = feature_counter.gene_names().iter()
+                .map(|x| x.clone()).collect();
+            create_feat_matrix(&mut anndata, fragments, feature_counter)?;
+            let mut var = anndata.get_var().read()?;
+            if id_type == "gene_id" {
+                var.insert_at_idx(1, Series::new("gene_name", gene_names))?;
+            } else {
+                var.insert_at_idx(0, Series::new("gene_name", gene_names))?;
+            }
+            anndata.set_var(Some(&var))?;
+        },
+        _ => panic!("id_type must be one of transcript_id, gene_id or gene_name"),
+    }
+
     Ok(anndata)
 }

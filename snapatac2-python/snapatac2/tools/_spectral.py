@@ -118,7 +118,6 @@ def spectral(
         model.fit(S)
 
         from tqdm import tqdm
-        import math
         print("Perform Nystrom extension")
         chunks_iter = data.X.chunked(chunk_size)
         for batch in tqdm(chunks_iter, total = chunks_iter.n_chunks()):

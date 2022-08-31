@@ -2,6 +2,7 @@ mod export;
 mod utils;
 mod call_peaks;
 mod matrix;
+mod network;
 
 use pyo3::{prelude::*, PyResult, Python};
 use pyanndata;
@@ -31,6 +32,8 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(export::export_bed, m)?)?;
     m.add_function(wrap_pyfunction!(export::export_bigwig, m)?)?;
     m.add_function(wrap_pyfunction!(call_peaks::call_peaks, m)?)?;
+
+    m.add_function(wrap_pyfunction!(network::link_region_to_gene, m)?)?;
 
     m.add_function(wrap_pyfunction!(utils::jaccard_similarity, m)?)?;
     m.add_function(wrap_pyfunction!(utils::cosine_similarity, m)?)?;

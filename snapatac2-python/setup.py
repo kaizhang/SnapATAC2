@@ -38,6 +38,7 @@ setup(
         "python-igraph",
         "polars",
         "pyarrow",
-        "plotly>=5.6.0"
+        "plotly>=5.6.0",
+        "retworkx",
     ],
 )

@@ -1,5 +1,5 @@
-from typing import Union, Optional, Dict, List
-import scipy.sparse as ss
+from __future__ import annotations
+
 import numpy as np
 import functools
 
@@ -26,11 +26,11 @@ def _get_sizes(regions):
     return np.array(list(size(x) for x in regions))
 
 def aggregate_X(
-    adata: Union[AnnData, AnnDataSet],
-    group_by: Optional[Union[str, List]] = None,
-    normalize: Optional[str] = None,
+    adata: AnnData | AnnDataSet,
+    group_by: str | list[str] | None,
+    normalize: str | None = None,
     inplace: bool = True,
-) -> Union[np.ndarray, Dict, None]:
+) -> np.ndarray | dict[str, np.ndarray] | None:
     """
     Aggregate values in adata.X in a row-wise fashion.
 

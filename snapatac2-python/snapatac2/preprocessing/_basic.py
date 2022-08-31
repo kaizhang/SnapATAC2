@@ -129,6 +129,7 @@ def make_gene_matrix(
     file: Path,
     chunk_size: int = 500,
     use_x: bool = False,
+    id_type: str = "gene_name",
 ) -> AnnData:
     """
     Generate cell by gene activity matrix.
@@ -149,12 +150,14 @@ def make_gene_matrix(
     use_x
         If True, use the matrix stored in `.X` to compute the gene activity.
         Otherwise the base-resolution TN5 insertions are used.
+    id_type
+        "gene_name", "gene_id" or "transcript_id".
 
     Returns
     -------
     A new AnnData object, where rows correspond to cells and columns to genes.
     """
-    anndata = internal.mk_gene_matrix(adata, str(gff_file), str(file), chunk_size, use_x)
+    anndata = internal.mk_gene_matrix(adata, str(gff_file), str(file), chunk_size, use_x, id_type)
     anndata.obs = adata.obs[...]
     return anndata
 

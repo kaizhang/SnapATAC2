@@ -89,6 +89,7 @@ pub(crate) fn mk_gene_matrix<'py>(
     output_file: &str,
     chunk_size: usize,
     use_x: bool,
+    id_type: &str,
 ) -> PyResult<AnnData>
 {
     let transcripts = read_transcripts(BufReader::new(open_file(gff_file)))
@@ -98,19 +99,19 @@ pub(crate) fn mk_gene_matrix<'py>(
         let data: AnnData = input.extract()?;
         if use_x {
             let x = data.0.inner().read_chrom_values().unwrap();
-            create_gene_matrix(output_file, x, transcripts).unwrap()
+            create_gene_matrix(output_file, x, transcripts, id_type).unwrap()
         } else {
             let x = data.0.inner().read_insertions(chunk_size).unwrap();
-            create_gene_matrix(output_file, x, transcripts).unwrap()
+            create_gene_matrix(output_file, x, transcripts, id_type).unwrap()
         }
     } else if input.is_instance(AnnDataSet::type_object(py))? {
         let data: AnnDataSet = input.extract()?;
         if use_x {
             let x = data.0.inner().read_chrom_values().unwrap();
-            create_gene_matrix(output_file, x, transcripts).unwrap()
+            create_gene_matrix(output_file, x, transcripts, id_type).unwrap()
         } else {
             let x = data.0.inner().read_insertions(chunk_size).unwrap();
-            create_gene_matrix(output_file, x, transcripts).unwrap()
+            create_gene_matrix(output_file, x, transcripts, id_type).unwrap()
         }
     } else {
         return Err(PyTypeError::new_err("expecting an AnnData or AnnDataSet object"));
