@@ -31,7 +31,7 @@ Basic Preprocessing
     :toctree: _autosummary
 
     pp.import_data
-    pp.make_tile_matrix
+    pp.add_tile_matrix
     pp.make_peak_matrix
     pp.make_gene_matrix
     pp.filter_cells

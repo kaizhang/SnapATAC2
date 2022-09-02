@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 import numpy as np
 import math
-from typing import Optional, Union, Mapping, Set
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
 import snapatac2._snapatac2 as internal
@@ -11,12 +10,12 @@ import snapatac2._snapatac2 as internal
 def import_data(
     fragment_file: Path,
     gff_file: Path,
-    chrom_size: Mapping[str, int],
+    chrom_size: dict[str, int],
     file: Path,
     min_num_fragments: int = 200,
     min_tsse: float = 1,
     sorted_by_barcode: bool = True,
-    whitelist: Optional[Union[Path, Set[str]]] = None,
+    whitelist: Path | set[str] | None = None,
     chunk_size: int = 2000,
     n_jobs: int = 4,
 ) -> AnnData:
@@ -68,12 +67,12 @@ def import_data(
         min_num_fragments, min_tsse, sorted_by_barcode, whitelist, chunk_size, n_jobs
     )
 
-def make_tile_matrix(
+def add_tile_matrix(
     adata: AnnData,
     bin_size: int = 500,
     chunk_size: int = 500,
     n_jobs: int = 4
-):
+) -> None:
     """
     Generate cell by bin count matrix.
 
@@ -93,10 +92,10 @@ def make_tile_matrix(
     internal.mk_tile_matrix(adata, bin_size, chunk_size, n_jobs)
 
 def make_peak_matrix(
-    adata: Union[AnnData, AnnDataSet],
+    adata: AnnData | AnnDataSet,
     file: Path,
-    use_rep: Union[str, list[str]] = "peaks",
-    peak_file: Optional[Path] = None,
+    use_rep: str | list[str] = "peaks",
+    peak_file: Path | None = None,
 ) -> AnnData:
     """
     Generate cell by peak count matrix.
@@ -117,6 +116,10 @@ def make_peak_matrix(
     peak_file
         Bed file containing the peaks. If provided, peak information will be read
         from this file.
+
+    Returns
+    -------
+    Peak matrix
     """
     peak_file = peak_file if peak_file is None else str(peak_file)
     anndata = internal.mk_peak_matrix(adata, use_rep, peak_file, str(file))
@@ -124,7 +127,7 @@ def make_peak_matrix(
     return anndata
 
 def make_gene_matrix(
-    adata: Union[AnnData, AnnDataSet],
+    adata: AnnData | AnnDataSet,
     gff_file: Path,
     file: Path,
     chunk_size: int = 500,
@@ -163,12 +166,12 @@ def make_gene_matrix(
 
 def filter_cells(
     data: AnnData,
-    min_counts: Optional[int] = 1000,
-    min_tsse: Optional[float] = 5.0,
-    max_counts: Optional[int] = None,
-    max_tsse: Optional[float] = None,
+    min_counts: int | None = 1000,
+    min_tsse: float | None = 5.0,
+    max_counts: int | None = None,
+    max_tsse: float | None = None,
     inplace: bool = True,
-) -> Optional[np.ndarray]:
+) -> np.ndarray | None:
     """
     Filter cell outliers based on counts and numbers of genes expressed.
     For instance, only keep cells with at least `min_counts` counts or
@@ -209,13 +212,13 @@ def filter_cells(
         return selected_cells
  
 def select_features(
-    adata: Union[AnnData, AnnDataSet],
+    adata: AnnData | AnnDataSet,
     min_cells: int = 1,
-    most_variable: Optional[Union[int, float]] = 1000000,
-    whitelist: Optional[str] = None,
-    blacklist: Optional[str] = None,
+    most_variable: int | float | None = 1000000,
+    whitelist: str | None = None,
+    blacklist: str | None = None,
     inplace: bool = True,
-) -> Optional[np.ndarray]:
+) -> np.ndarray | None:
     """
     Perform feature selection.
 

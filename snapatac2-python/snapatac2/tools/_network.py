@@ -5,13 +5,9 @@ from pathlib import Path
 import numpy as np
 import retworkx
 
-from snapatac2._snapatac2 import AnnData, AnnDataSet, link_region_to_gene, NodeData, LinkData
-
-def aggregate_cells():
-    """
-    Aggregate cells.
-    """
-    pass
+from snapatac2._snapatac2 import (
+    AnnData, AnnDataSet, link_region_to_gene, NodeData, LinkData
+)
 
 def init_network_from_annotation(
     regions: list[str],
@@ -24,10 +20,27 @@ def init_network_from_annotation(
     """
     Build CRE-gene network from gene annotations.
 
-    Link CREs to genes if they are within genes' promoter regions.
+    Link CREs to genes if they are close to genes' promoter regions.
 
+    Parameters
+    ----------
+    regions:
+        A list of peaks/regions, e.g., `["chr1:100-1000", "chr2:55-222"]`.
+    anno_file
+        The GFF file containing the transcript level annotations.
+    upstream
+        Upstream extension to the transcription start site.
+    downstream
+        Downstream extension to the transcription start site.
     id_type
         "gene_name", "gene_id" or "transcript_id".
+    coding_gene_only
+        Retain only coding genes in the network.
+
+    Returns
+    -------
+    A network where peaks/regions point towards genes if they are within genes'
+    regulatory domains.
     """
     region_added = {}
     graph = retworkx.PyDiGraph()

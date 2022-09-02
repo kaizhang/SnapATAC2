@@ -1,8 +1,9 @@
+from __future__ import annotations
+
 import scipy as sp
 import numpy as np
 from sklearn.metrics.pairwise import rbf_kernel
 import gc
-from typing import Optional, Union
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet, jm_regress, jaccard_similarity, cosine_similarity
 
@@ -18,16 +19,16 @@ def idf(data, features=None):
 
 # FIXME: random state
 def spectral(
-    data: Union[AnnData, AnnDataSet],
+    data: AnnData | AnnDataSet,
     n_comps: int = 50,
-    features: Optional[Union[str, np.ndarray]] = "selected",
+    features: str | np.ndarray | None = "selected",
     random_state: int = 0,
-    sample_size: Optional[Union[int, float]] = None,
+    sample_size: int | float | None = None,
     chunk_size: int = 20000,
     distance_metric: str = "jaccard",
-    feature_weights: Optional[Union[str, np.ndarray]] = "idf",
+    feature_weights: str | np.ndarray | None = "idf",
     inplace: bool = True,
-) -> Optional[np.ndarray]:
+) -> np.ndarray | None:
     """
     Compute Laplacian Eigenmaps of chromatin accessibility profiles.
 

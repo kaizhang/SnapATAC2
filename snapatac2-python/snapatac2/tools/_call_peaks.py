@@ -1,15 +1,15 @@
-from optparse import Option
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Optional, Union, Sequence, Set
 from snapatac2._snapatac2 import AnnData, AnnDataSet
 import snapatac2._snapatac2 as _snapatac2
 
 def call_peaks(
-    data: Union[AnnData, AnnDataSet],
-    group_by: Union[str, Sequence[str]],
-    selections: Optional[Set[str]] = None,
+    data: AnnData | AnnDataSet,
+    group_by: str | list[str],
+    selections: set[str] | None = None,
     q_value: float = 0.05,
-    out_dir: Optional[Path] = None,
+    out_dir: Path | None = None,
     key_added: str = 'peaks',
     inplace: bool = True,
 ):

@@ -1,17 +1,18 @@
+from __future__ import annotations
+
 import numpy as np
-from typing import Optional, Union, List
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
 
 def umap(
-    adata: Union[AnnData, AnnDataSet, np.ndarray],
+    adata: AnnData | AnnDataSet | np.ndarray,
     n_comps: int = 2,
-    use_dims: Optional[Union[int, List[int]]] = None,
-    use_rep: Optional[str] = None,
+    use_dims: int | list[int] | None = None,
+    use_rep: str | None = None,
     key_added: str = 'umap',
     random_state: int = 0,
     inplace: bool = True,
-) -> Optional[np.ndarray]:
+) -> np.ndarray | None:
     """
     Parameters
     ----------

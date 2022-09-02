@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
 import numpy as np
+import polars as pl
 import functools
+from natsort import natsorted
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
 
@@ -29,8 +32,8 @@ def aggregate_X(
     adata: AnnData | AnnDataSet,
     group_by: str | list[str] | None = None,
     normalize: str | None = None,
-    inplace: bool = True,
-) -> np.ndarray | dict[str, np.ndarray] | None:
+    file: Path | None = None,
+) -> np.ndarray | dict[str, np.ndarray] | AnnData:
     """
     Aggregate values in adata.X in a row-wise fashion.
 
@@ -42,17 +45,17 @@ def aggregate_X(
     adata
         The AnnData or AnnDataSet object.
     group_by
-        Group information, as adata.obs[group_by].
+        Group the cells into different groups. If a `str`, groups are obtained from
+        `.obs[group_by]`.
     normalize
         normalization method: "RPM" or "RPKM".
-    inplace
-        if True, results are added to adata.var.
+    file
+        if provided, the results will be saved to a new h5ad file.
 
     Returns
     -------
-        If inplace=False, return the result as numpy array.
+        If file=None, return the result as numpy array.
     """
- 
     def norm(x):
         if normalize is None:
             return x
@@ -71,24 +74,20 @@ def aggregate_X(
         )
         row_sum = norm(row_sum)
 
-        if inplace:
-            adata.var["aggregate_X"] = row_sum
-        else:
+        if file is None:
             return row_sum
-    else:
-        if isinstance(group_by, list):
-            groups = adata.obs[group_by]
-            groups = [tuple(groups[i, :]) for i in range(groups.shape[0])]
-            out = np.empty(len(groups), dtype=object)
-            out[:] = groups
-            groups = out
-            '''
-            groups = np.array(list(
-                '+'.join(map(lambda x: str(x), list(groups[i, :]))) for i in range(groups.shape[0])
-            ))
-            '''
         else:
-            groups = adata.obs[group_by]
+            out_adata = AnnData(
+                filename = file,
+                X = np.array([row_sum]),
+                var = None if adata.var is None else adata.var[:],
+            )
+            return out_adata
+    else:
+        groups = adata.obs[group_by] if isinstance(group_by, str) else np.array(group_by)
+        if len(groups) != adata.n_obs:
+            raise NameError("the length of `group_by` should equal to the number of obervations")
+
         cur_row = 0
         result = {}
         for chunk in adata.X.chunked(2000):
@@ -103,10 +102,17 @@ def aggregate_X(
             cur_row = cur_row + n
         for k, v in result.items():
             result[k] = norm(v)
-        if inplace:
-            var = adata.var[:]
-            for k, v in result.items():
-                var[k] = v
-            adata.var = var
+
+        result = natsorted(result.items())
+        if file is None:
+            return dict(result)
         else:
-            return result
+            keys, values = zip(*result)
+            column_name = group_by if isinstance(group_by, str) else "_index"
+            out_adata = AnnData(
+                filename = file,
+                X = np.array(values),
+                obs = pl.DataFrame({ column_name: np.array(keys) }),
+                var = None if adata.var is None else adata.var[:],
+            )
+            return out_adata
