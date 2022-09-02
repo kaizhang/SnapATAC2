@@ -1,7 +1,6 @@
 use pyo3::{
-    prelude::*,
+    prelude::*, PyTypeInfo,
     PyResult, Python,
-    type_object::PyTypeObject,
     exceptions::PyTypeError,
 };
 use std::collections::{HashSet, HashMap};

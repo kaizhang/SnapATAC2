@@ -33,6 +33,8 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(export::export_bigwig, m)?)?;
     m.add_function(wrap_pyfunction!(call_peaks::call_peaks, m)?)?;
 
+    m.add_class::<network::NodeData>().unwrap();
+    m.add_class::<network::LinkData>().unwrap();
     m.add_function(wrap_pyfunction!(network::link_region_to_gene, m)?)?;
 
     m.add_function(wrap_pyfunction!(utils::jaccard_similarity, m)?)?;

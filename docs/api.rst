@@ -94,6 +94,17 @@ Post-processing
    tl.call_peaks
    tl.aggregate_X
 
+Transcriptional regulatory network (beta)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+   :toctree: _autosummary
+
+   tl.init_network_from_annotation
+   tl.add_cor_scores
+   tl.add_regr_scores
+   tl.prune_network
+
 Plotting: `pl`
 --------------
 

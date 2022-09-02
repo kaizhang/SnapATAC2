@@ -1,7 +1,7 @@
 use snapatac2_core::{export::Exporter, utils::merge_peaks};
 
 use pyanndata::{AnnData, AnnDataSet, utils::conversion::to_py_df};
-use pyo3::{prelude::*, PyResult, Python, type_object::PyTypeObject};
+use pyo3::{prelude::*, PyResult, Python, PyTypeInfo};
 use bed_utils::bed::{BEDLike, GenomicRange, io::Reader, tree::BedTree};
 use flate2::read::MultiGzDecoder;
 use tempfile::Builder;

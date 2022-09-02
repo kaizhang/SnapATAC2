@@ -8,9 +8,9 @@ use std::{
     collections::HashSet,
 };
 use pyo3::{
+    PyTypeInfo,
     prelude::*,
     PyResult, Python,
-    type_object::PyTypeObject,
     exceptions::PyTypeError,
 };
 use bed_utils::{bed, bed::GenomicRange};

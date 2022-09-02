@@ -36,7 +36,7 @@ setup(
         "natsort",
         "pandas",
         "python-igraph",
-        "polars",
+        "polars==0.13.*",
         "pyarrow",
         "plotly>=5.6.0",
         "retworkx",

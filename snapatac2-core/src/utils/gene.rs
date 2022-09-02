@@ -27,6 +27,16 @@ pub struct Transcript {
     pub utr: Vec<(i32, i32)>,
 }
 
+impl Transcript {
+    pub fn get_tss(&self) -> Option<i32> {
+        match self.strand {
+            Strand::Forward => Some(self.left),
+            Strand::Reverse => Some(self.right),
+            _ => None,
+        }
+    }
+}
+
 pub fn read_transcripts<R>(input: R) -> HashMap<String, Transcript>
 where
     R: BufRead, 
@@ -91,9 +101,7 @@ where
 
 pub struct Promoters {
     pub regions: GenomeRegions<GenomicRange>,
-    pub transcript_ids: Vec<String>,
-    pub gene_ids: Vec<String>,
-    pub gene_names: Vec<String>,
+    pub transcripts: Vec<Transcript>,
 }
 
 impl Promoters {
@@ -104,10 +112,7 @@ impl Promoters {
         include_gene_body: bool,
     ) -> Self
     {
-        let mut transcript_ids = Vec::new();
-        let mut gene_ids = Vec::new();
-        let mut gene_names = Vec::new();
-        let regions = transcripts.into_iter().map(|transcript| {
+        let regions = transcripts.iter().map(|transcript| {
             let (start, end) = match transcript.strand {
                 Strand::Forward => (
                     (transcript.left as u64).saturating_sub(upstream),
@@ -119,12 +124,9 @@ impl Promoters {
                 ),
                 _ => panic!("Miss strand information for {}", transcript.transcript_id),
             };
-            transcript_ids.push(transcript.transcript_id);
-            gene_ids.push(transcript.gene_id);
-            gene_names.push(transcript.gene_name);
-            GenomicRange::new(transcript.chrom, start, end)
+            GenomicRange::new(transcript.chrom.clone(), start, end)
         }).collect();
-        Promoters { regions, transcript_ids, gene_ids, gene_names }
+        Promoters { regions, transcripts }
     }
 }
 
@@ -142,8 +144,8 @@ impl<'a> TranscriptCount<'a> {
         }
     }
     
-    pub fn gene_names(&self) -> &[String] {
-        &self.promoters.gene_names
+    pub fn gene_names(&self) -> Vec<String> {
+        self.promoters.transcripts.iter().map(|x| x.gene_name.clone()).collect()
     }
 }
 
@@ -155,7 +157,7 @@ impl FeatureCounter for TranscriptCount<'_> {
     fn insert<B: BEDLike>(&mut self, tag: &B, count: u32) { self.counter.insert(tag, count); }
 
     fn get_feature_ids(&self) -> Vec<String> {
-        self.promoters.transcript_ids.clone()
+        self.promoters.transcripts.iter().map(|x| x.transcript_id.clone()).collect()
     }
 
     fn get_counts(&self) -> Vec<(usize, Self::Value)> {
@@ -166,26 +168,24 @@ impl FeatureCounter for TranscriptCount<'_> {
 #[derive(Clone)]
 pub struct GeneCount<'a> {
     counter: TranscriptCount<'a>,
-    gene_id_to_idx: IndexMap<String, usize>,
-    gene_names: Vec<String>,
+    gene_id_to_idx: IndexMap<&'a str, usize>,
+    gene_names: Vec<&'a str>,
 }
 
 impl<'a> GeneCount<'a> {
     pub fn new(counter: TranscriptCount<'a>) -> Self {
-        let gene_id_to_idx: IndexMap<_, _> = counter.promoters.gene_ids
-            .iter().map(|x| x.clone())
-            .collect::<HashSet<_>>().into_iter()
+        let gene_id_to_idx: IndexMap<_, _> = counter.promoters.transcripts.iter()
+            .map(|x| x.gene_id.as_str()).collect::<HashSet<_>>().into_iter()
             .enumerate().map(|(a,b)| (b,a)).collect();
-        let gene_id_to_name: HashMap<_, _> = counter.promoters.gene_ids.iter().zip(
-            counter.promoters.gene_names.iter()
-        ).collect();
+        let gene_id_to_name: HashMap<_, _> = counter.promoters.transcripts.iter()
+            .map(|x| (x.gene_id.as_str(), x.gene_name.as_str())).collect();
         let gene_names = gene_id_to_idx.keys()
-            .map(|k| gene_id_to_name.get(k).unwrap().to_string()).collect();
+            .map(|k| *gene_id_to_name.get(k).unwrap()).collect();
         Self { counter, gene_id_to_idx, gene_names }
     }
 
-    pub fn gene_names(&self) -> &[String] {
-        &self.gene_names
+    pub fn gene_names(&self) -> Vec<String> {
+        self.gene_names.iter().map(|x| x.to_string()).collect()
     }
 }
 
@@ -197,13 +197,15 @@ impl FeatureCounter for GeneCount<'_> {
     fn insert<B: BEDLike>(&mut self, tag: &B, count: u32) { self.counter.insert(tag, count); }
 
     fn get_feature_ids(&self) -> Vec<String> {
-        self.gene_id_to_idx.keys().map(|x| x.clone()).collect()
+        self.gene_id_to_idx.keys().map(|x| x.to_string()).collect()
     }
 
     fn get_counts(&self) -> Vec<(usize, Self::Value)> {
         let mut counts = BTreeMap::new();
         self.counter.get_counts().into_iter().for_each(|(k, v)| {
-            let idx = *self.gene_id_to_idx.get(&self.counter.promoters.gene_ids[k]).unwrap();
+            let idx = *self.gene_id_to_idx.get(
+                self.counter.promoters.transcripts[k].gene_id.as_str()
+            ).unwrap();
             let current_v = counts.entry(idx).or_insert(v);
             if *current_v < v { *current_v = v }
         });

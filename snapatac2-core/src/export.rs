@@ -67,7 +67,9 @@ pub trait Exporter: ChromValuesReader {
         let genome_size = self.get_reference_seq_info()?.into_iter().map(|(_, v)| v).sum();
         eprintln!("calling peaks for {} groups...", files.len());
         files.into_par_iter().map(|(key, fl)| {
-            let out_file = dir.as_ref().join(prefix.to_string() + &key.as_str().replace("/", "+") + suffix);
+            let out_file = dir.as_ref().join(
+                prefix.to_string() + key.as_str().replace("/", "+").as_str() + suffix
+            );
             macs2(fl, q_value, genome_size, &tmp_dir, &out_file)?;
             eprintln!("group {}: done!", key);
             Ok((key, out_file))
@@ -109,7 +111,9 @@ impl Exporter for AnnData {
         std::fs::create_dir_all(&dir)
             .with_context(|| format!("cannot create directory: {}", dir.as_ref().display()))?;
         groups.into_iter().map(|x| {
-            let filename = dir.as_ref().join(prefix.to_string() + &x.replace("/", "+") + suffix);
+            let filename = dir.as_ref().join(
+                prefix.to_string() + x.replace("/", "+").as_str() + suffix
+            );
             let insertion: Box<CsrMatrix<u8>> = self.get_obsm().inner()
                 .get("insertion").expect(".obsm does not contain key: insertion")
                 .read().unwrap().into_any().downcast().unwrap();
@@ -159,7 +163,9 @@ impl Exporter for AnnDataSet {
         std::fs::create_dir_all(&dir)
             .with_context(|| format!("cannot create directory: {}", dir.as_ref().display()))?;
         groups.into_iter().map(|x| {
-            let filename = dir.as_ref().join(prefix.to_string() + &x.replace("/", "+") + suffix);
+            let filename = dir.as_ref().join(
+                prefix.to_string() + x.replace("/", "+").as_str() + suffix
+            );
             let insertion: Box<CsrMatrix<u8>> = self.get_obsm().inner()
                 .get("insertion").expect(".obsm does not contain key: insertion")
                 .read().unwrap().into_any().downcast().unwrap();
@@ -200,7 +206,9 @@ where
     std::fs::create_dir_all(&dir)
         .with_context(|| format!("cannot create directory: {}", dir.as_ref().display()))?;
     let mut files = groups.into_iter().map(|x| {
-        let filename = dir.as_ref().join(prefix.to_string() + &x.replace("/", "+") + suffix);
+        let filename = dir.as_ref().join(
+            prefix.to_string() + x.replace("/", "+").as_str() + suffix
+        );
         let f = File::create(&filename)
             .with_context(|| format!("cannot create file: {}", filename.display()))?;
         let e: Box<dyn Write> = if filename.ends_with(".gz") {

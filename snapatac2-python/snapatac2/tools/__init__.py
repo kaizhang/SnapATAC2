@@ -9,4 +9,4 @@ from ._umap import umap
 from ._counts import aggregate_X
 from ._call_peaks import call_peaks
 from ._diff import diff_analysis
-from ._network import init_network_from_annotation
+from ._network import prune_network, init_network_from_annotation, add_cor_scores, add_regr_scores

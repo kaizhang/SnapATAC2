@@ -27,7 +27,7 @@ def _get_sizes(regions):
 
 def aggregate_X(
     adata: AnnData | AnnDataSet,
-    group_by: str | list[str] | None,
+    group_by: str | list[str] | None = None,
     normalize: str | None = None,
     inplace: bool = True,
 ) -> np.ndarray | dict[str, np.ndarray] | None:
