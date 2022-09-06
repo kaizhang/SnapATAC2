@@ -20,7 +20,7 @@ def h5ad(dir=Path("./")):
     groups = st.lists(st.integers(min_value=0, max_value=5), min_size=500, max_size=500),
     var = st.lists(st.integers(min_value=0, max_value=100000), min_size=50, max_size=50),
 )
-@settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+@settings(deadline=None, suppress_health_check = [HealthCheck.function_scoped_fixture])
 def test_aggregation(x, groups, var, tmp_path):
     def assert_equal(a, b):
         assert a.keys() == b.keys()

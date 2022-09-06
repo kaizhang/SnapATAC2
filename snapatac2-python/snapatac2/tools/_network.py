@@ -4,6 +4,7 @@ from typing import Callable
 from pathlib import Path
 import numpy as np
 import retworkx
+import scipy.sparse as sp
 
 from snapatac2._snapatac2 import (
     AnnData, AnnDataSet, link_region_to_gene, NodeData, LinkData
@@ -95,10 +96,13 @@ def add_cor_scores(
         return network
 
     for (nd_X, X), (nd_y, y) in tqdm(_get_data_iter(network, peak_mat, gene_mat)):
-        X = X.tocsc()
-        for i in range(len(nd_X)):
-            r = spearmanr(X[:, i].todense(), y.todense())[0]
-            network.get_edge_data(nd_X[i], nd_y).correlation_score = r
+        if sp.issparse(X):
+            X = X.todense()
+        if sp.issparse(y):
+            y = y.todense()
+        scores = np.apply_along_axis(lambda x: spearmanr(y, x)[0], 0, X)
+        for nd, sc in zip(nd_X, scores):
+            network.get_edge_data(nd, nd_y).correlation_score = sc
 
 def add_regr_scores(
     network: retworkx.PyDiGraph,
@@ -138,6 +142,7 @@ def add_regr_scores(
     tree_method = "gpu_hist" if use_gpu else "hist"
 
     for (nd_X, X), (nd_y, y) in tqdm(_get_data_iter(network, peak_mat, gene_mat)):
+        y = y.todense() if sp.issparse(y) else y
         scores = gbTree(X, y, tree_method=tree_method)
         for nd, sc in zip(nd_X, scores):
             network.get_edge_data(nd, nd_y).regr_score = sc
@@ -247,4 +252,4 @@ def elastic_net(X, y):
 def gbTree(X, y, tree_method = "hist"):
     import xgboost as xgb
     model = xgb.XGBRegressor(tree_method = tree_method)
-    return model.fit(X, y.todense()).feature_importances_
+    return model.fit(X, y).feature_importances_

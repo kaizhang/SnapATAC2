@@ -18,6 +18,7 @@ SnapATAC2 uses its own implementation of the AnnData format, for more details se
 
     read
     read_mtx
+    read_10x_mtx
     read_dataset
     create_dataset
 
