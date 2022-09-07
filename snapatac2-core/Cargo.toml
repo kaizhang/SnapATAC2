@@ -14,8 +14,8 @@ keywords = ["single-cell", "biology"]
 flate2 = "1.0"
 itertools = "0.8"
 bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "cded506230e8d259f7c909df1ef6f53d6fea095a" }
-anndata-rs = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "27cedd1aa077ce762ee847249e714f2236c74a1d" }
-#anndata-rs = { path = "../../anndata-rs/anndata-rs" }
+#anndata-rs = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "27cedd1aa077ce762ee847249e714f2236c74a1d" }
+anndata-rs = { path = "../../anndata-rs/anndata-rs" }
 ndarray = { version = "0.15", features = ["rayon"] }
 num = "0.4"
 noodles-gff = "0.5"

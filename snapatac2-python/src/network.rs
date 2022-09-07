@@ -4,7 +4,7 @@ use pyo3::{
     prelude::*,
     PyResult, Python,
     basic::CompareOp,
-    exceptions::PyTypeError,
+    types::{PyDict, PyInt, PyFloat},
 };
 
 use snapatac2_core::{
@@ -21,8 +21,8 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-#[pyclass]
-#[derive(Default, Debug)]
+#[pyclass(mapping, module = "snapatac2", subclass)]
+#[derive(Debug, Default, PartialEq)]
 pub(crate) struct LinkData {
     #[pyo3(get, set)]
     distance: u64,
@@ -42,10 +42,36 @@ impl LinkData {
     fn __repr__(&self) -> String { format!("{:?}", self) }
 
     fn __str__(&self) -> String { self.__repr__() }
+
+    fn __richcmp__(&self, other: PyRef<LinkData>, op: CompareOp) -> Py<PyAny> {
+        let py = other.py();
+        match op {
+            CompareOp::Eq => (PartialEq::eq(self, &other)).into_py(py),
+            CompareOp::Ne => (PartialEq::ne(self, &other)).into_py(py),
+            _ => py.NotImplemented(),
+        }
+    }
+
+    fn __setstate__(&mut self, py: Python, state: PyObject) -> PyResult<()> {
+        let dict_state = state.cast_as::<PyDict>(py)?;
+        self.distance = dict_state.get_item("distance").unwrap().extract()?;
+        self.regr_score = dict_state.get_item("regr_score").unwrap().extract()?;
+        self.correlation_score = dict_state.get_item("correlation_score")
+            .unwrap().extract()?;
+        Ok(())
+    }
+
+    fn __getstate__(&self, py: Python) -> PyResult<PyObject> {
+        let out_dict = PyDict::new(py);
+        out_dict.set_item("distance", self.distance)?;
+        out_dict.set_item("regr_score", self.regr_score)?;
+        out_dict.set_item("correlation_score", self.correlation_score)?;
+        Ok(out_dict.into())
+    }
 }
 
-#[pyclass]
-#[derive(Hash, Eq, PartialEq, Debug)]
+#[pyclass(mapping, module = "snapatac2", subclass)]
+#[derive(Hash, Eq, PartialEq, Debug, Default)]
 pub(crate) struct NodeData {
     #[pyo3(get, set)]
     id: String,
@@ -57,9 +83,7 @@ pub(crate) struct NodeData {
 #[pymethods]
 impl NodeData {
     #[new]
-    fn new(id: String, ty: String) -> PyResult<Self> {
-        Ok(NodeData { id, r#type: ty })
-    }
+    fn new() -> Self { NodeData::default() }
  
     fn __hash__(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
@@ -74,6 +98,20 @@ impl NodeData {
             CompareOp::Ne => (PartialEq::ne(self, &other)).into_py(py),
             _ => py.NotImplemented(),
         }
+    }
+
+    fn __setstate__(&mut self, py: Python, state: PyObject) -> PyResult<()> {
+        let dict_state = state.cast_as::<PyDict>(py)?;
+        self.id = dict_state.get_item("id").unwrap().extract()?;
+        self.r#type = dict_state.get_item("type").unwrap().extract()?;
+        Ok(())
+    }
+
+    fn __getstate__(&self, py: Python) -> PyResult<PyObject> {
+        let out_dict = PyDict::new(py);
+        out_dict.set_item("id", &self.id)?;
+        out_dict.set_item("type", &self.r#type)?;
+        Ok(out_dict.into())
     }
 
     fn __repr__(&self) -> String { format!("{:?}", self) }
