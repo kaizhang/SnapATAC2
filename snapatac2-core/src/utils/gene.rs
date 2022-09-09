@@ -208,10 +208,8 @@ mod tests {
             left: 11869,
             right: 14409,
             strand: Strand::Forward,
-            exons: vec![(11869, 12227), (12613, 12721), (13221, 14409)],
-            utr: Vec::new(),
         };
-        assert_eq!(read_transcripts(input.as_bytes()).into_values().collect::<Vec<_>>()[0], expected)
+        assert_eq!(read_transcripts(input.as_bytes())[0], expected)
     }
 
 }
