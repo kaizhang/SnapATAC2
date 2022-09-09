@@ -92,8 +92,7 @@ pub(crate) fn mk_gene_matrix<'py>(
     id_type: &str,
 ) -> PyResult<AnnData>
 {
-    let transcripts = read_transcripts(BufReader::new(open_file(gff_file)))
-        .into_values().collect();
+    let transcripts = read_transcripts(BufReader::new(open_file(gff_file)));
 
     let result = if input.is_instance(AnnData::type_object(py))? {
         let data: AnnData = input.extract()?;

@@ -73,7 +73,8 @@ pub fn create_tile_matrix(
 where
 {
     let df: Box<DataFrame> = {
-        anndata.get_uns().inner().get_mut("reference_sequences").unwrap()
+        anndata.get_uns().inner().get_mut("reference_sequences")
+            .expect("No reference sequence information is available in the anndata object")
             .read()?.into_any().downcast().unwrap()
     };
     let regions = df.column("reference_seq_length")

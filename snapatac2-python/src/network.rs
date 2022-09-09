@@ -130,8 +130,7 @@ pub(crate) fn link_region_to_gene(
 ) -> HashMap<NodeData, Vec<(NodeData, LinkData)>>
 {
     let promoters = Promoters::new(
-        read_transcripts(BufReader::new(open_file(annot_fl)))
-            .into_iter().map(|(_, v)| v)
+        read_transcripts(BufReader::new(open_file(annot_fl))).into_iter()
             .filter(|x| if coding_gene_only { x.is_coding.unwrap_or(true) } else { true })
             .collect(),
         upstream,

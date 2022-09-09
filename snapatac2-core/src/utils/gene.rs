@@ -4,7 +4,7 @@ use noodles_gff::record::Strand;
 use noodles_gff as gff;
 use std::io::BufRead;
 use std::collections::HashMap;
-use std::collections::{BTreeSet, BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 use indexmap::map::IndexMap;
 use bed_utils::bed::{
     GenomicRange, BEDLike, tree::GenomeRegions,
@@ -23,8 +23,6 @@ pub struct Transcript {
     pub left: i32,
     pub right: i32,
     pub strand: Strand,
-    pub exons: Vec<(i32, i32)>,
-    pub utr: Vec<(i32, i32)>,
 }
 
 impl Transcript {
@@ -37,66 +35,41 @@ impl Transcript {
     }
 }
 
-pub fn read_transcripts<R>(input: R) -> HashMap<String, Transcript>
+pub fn read_transcripts<R>(input: R) -> Vec<Transcript>
 where
     R: BufRead, 
 {
-    let mut all_transcripts = HashMap::new();
-    let mut exons = HashMap::new();
-    let mut utrs = HashMap::new();
-    gff::Reader::new(input).records().for_each(|r| {
+    gff::Reader::new(input).records().flat_map(|r| {
         let record = r.unwrap();
-        let attributes: HashMap<&str, &str> = record.attributes().iter()
-            .map(|x| (x.key(), x.value())).collect();
-        let left = record.start();
-        let right = record.end();
-        match record.ty() {
-            "transcript" => {
-                let transcript_id = attributes.get("transcript_id")
-                    .expect("'transcript_id' is missing").to_string();
-                let transcript = Transcript {
-                    transcript_name: attributes.get("transcript_name")
+        if record.ty() == "transcript" {
+            let err_msg = |x: &str| -> String {
+                format!("failed to find '{}' in record: {}", x, record)
+            };
+            let left = record.start();
+            let right = record.end();
+            let attributes: HashMap<&str, &str> = record.attributes().iter()
+                .map(|x| (x.key(), x.value())).collect();
+            Some(Transcript {
+                transcript_name: attributes.get("transcript_name")
                         .map(|x| x.to_string()),
-                    transcript_id: transcript_id.clone(),
-                    gene_name: attributes.get("gene_name")
-                        .expect("'gene_name' is missing").to_string(),
-                    gene_id: attributes.get("gene_id")
-                        .expect("'gene_id' is missing").to_string(),
-                    is_coding: attributes.get("transcript_type").map(|x| *x == "protein_coding"),
-                    chrom: record.reference_sequence_name().to_string(),
-                    left,
-                    right,
-                    strand: record.strand(),
-                    exons: Vec::new(),
-                    utr: Vec::new(),
-                };
-                all_transcripts.insert(transcript_id, transcript);
-            },
-            "exon" => {
-                let transcript_id = attributes.get("transcript_id").unwrap().to_string();
-                let set = exons.entry(transcript_id).or_insert(BTreeSet::new());
-                set.insert((left, right));
-            },
-            "utr" => {
-                let transcript_id = attributes.get("transcript_id").unwrap().to_string();
-                let set = utrs.entry(transcript_id).or_insert(BTreeSet::new());
-                set.insert((left, right));
-            },
-            "gene" => {},
-            _ => {},
+                transcript_id: attributes.get("transcript_id")
+                    .expect(&err_msg("transcript_id"))
+                    .to_string(),
+                gene_name: attributes.get("gene_name")
+                    .expect(&err_msg("gene_name"))
+                    .to_string(),
+                gene_id: attributes.get("gene_id")
+                    .expect(&err_msg("gene_id"))
+                    .to_string(),
+                is_coding: attributes.get("transcript_type")
+                    .map(|x| *x == "protein_coding"),
+                chrom: record.reference_sequence_name().to_string(),
+                left, right, strand: record.strand(),
+            })
+        } else {
+            None
         }
-    });
-    exons.drain().for_each(|(k, v)| {
-        if let Some(x) = all_transcripts.get_mut(&k) {
-            x.exons = v.into_iter().collect();
-        }
-    });
-    utrs.drain().for_each(|(k, v)| {
-        if let Some(x) = all_transcripts.get_mut(&k) {
-            x.utr = v.into_iter().collect();
-        }
-    });
-    all_transcripts
+    }).collect()
 }
 
 pub struct Promoters {
