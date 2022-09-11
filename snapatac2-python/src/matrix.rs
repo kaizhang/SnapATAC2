@@ -21,8 +21,10 @@ use anndata_rs::anndata;
 use pyanndata::{AnnData, AnnDataSet};
 
 use snapatac2_core::{
-    matrix::{create_tile_matrix, create_peak_matrix, create_gene_matrix},
-    qc,
+    preprocessing::{
+        matrix::{create_tile_matrix, create_peak_matrix, create_gene_matrix},
+        qc,
+    },
     utils::{gene::read_transcripts, ChromValuesReader},
 };
 
