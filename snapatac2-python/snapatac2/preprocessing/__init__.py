@@ -1,3 +1,4 @@
+from snapatac2._snapatac2 import make_fragment_file
 from ._basic import (
     import_data,
     add_tile_matrix,

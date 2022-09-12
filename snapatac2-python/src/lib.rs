@@ -24,6 +24,7 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(pyanndata::create_dataset, m)?)?;
     m.add_function(wrap_pyfunction!(pyanndata::read_dataset, m)?)?;
  
+    m.add_function(wrap_pyfunction!(matrix::make_fragment_file, m)?)?;
     m.add_function(wrap_pyfunction!(matrix::import_fragments, m)?)?;
     m.add_function(wrap_pyfunction!(matrix::mk_tile_matrix, m)?)?;
     m.add_function(wrap_pyfunction!(matrix::mk_gene_matrix, m)?)?;

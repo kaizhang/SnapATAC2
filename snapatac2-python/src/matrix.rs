@@ -1,7 +1,8 @@
 use crate::utils::*;
 
 use std::{
-    io::BufReader,
+    fs::File,
+    io::{BufWriter, BufReader, Write},
     str::FromStr,
     collections::BTreeMap,
     ops::Deref,
@@ -13,20 +14,98 @@ use pyo3::{
     PyResult, Python,
     exceptions::PyTypeError,
 };
+use flate2::{Compression, write::GzEncoder};
 use bed_utils::{bed, bed::GenomicRange};
 use rayon::ThreadPoolBuilder;
 use polars::prelude::DataFrame;
-
+use noodles::bam;
+use noodles::sam::Header;
+use noodles::sam::record::data::field::Tag;
 use anndata_rs::anndata;
 use pyanndata::{AnnData, AnnDataSet};
+use regex::Regex;
 
 use snapatac2_core::{
     preprocessing::{
+        mark_duplicates::{BarcodeLocation, convert_bam_to_fragment},
         matrix::{create_tile_matrix, create_peak_matrix, create_gene_matrix},
         qc,
     },
     utils::{gene::read_transcripts, ChromValuesReader},
 };
+
+/// Convert a BAM file to a fragment file.
+/// 
+/// Convert a BAM file to a fragment file by performing the following steps:
+/// 
+/// 1. Filtering: remove reads that are unmapped, not primary alignment,
+///    fails platform/vendor quality checks, or optical duplicate.
+///    For paired-end sequencing, it also removes reads that are not properly aligned.
+/// 2. Deduplicate: Sort the reads by cell barcodes and remove duplicated reads
+///    for each unique cell barcode.
+/// 3. Output: Convert BAM records to fragments (if paired-end) or single-end reads.
+///
+/// Parameters
+/// ----------
+///
+/// bam_file 
+///     File name of the BAM file.
+/// output_file
+///     File name of the output fragment file.
+/// is_paired
+///     Indicate whether the BAM file contain paired-end reads
+/// barcode_tag
+///     Extract barcodes from TAG fields of BAM records, e.g., `barcode_tag = "CB"`.
+/// barcode_regex
+///     Extract barcodes from read names of BAM records using regular expressions.
+///     Reguler expressions should contain exactly one capturing group that matches
+///     the barcodes. For example, `barcode_regex = "(..:..:..:..):\w+$"`
+///     extracts `bd:69:Y6:10` from
+///     `A01535:24:HW2MMDSX2:2:1359:8513:3458:bd:69:Y6:10:TGATAGGTTG`.
+#[pyfunction(is_paired = "true", barcode_tag = "None", barcode_regex = "None")]
+#[pyo3(text_signature = "(bam_file, output_file, is_paired, barcode_tag, barcode_regex)")]
+pub(crate) fn make_fragment_file(
+    bam_file: &str,
+    output_file: &str,
+    is_paired: bool,
+    barcode_tag: Option<[u8; 2]>,
+    barcode_regex: Option<&str>,
+)
+{
+    println!("Warning: make_fragment_file is a unstable function!");
+
+    if barcode_regex.is_some() && barcode_tag.is_some() {
+        panic!("Can only set barcode_tag or barcode_regex but not both");
+    }
+
+    let barcode = match barcode_tag {
+        Some(tag) => BarcodeLocation::InData(Tag::try_from(tag).unwrap()),
+        None => match barcode_regex {
+            Some(regex) => BarcodeLocation::Regex(Regex::new(regex).unwrap()),
+            None => BarcodeLocation::InReadName,
+        }
+    };
+    let mut reader = File::open(bam_file).map(bam::Reader::new)
+        .expect(&format!("cannot open bam file: {}", bam_file));
+    let header: Header = reader.read_header().unwrap().parse().unwrap();
+    reader.read_reference_sequences().unwrap();
+
+    let f = File::create(output_file)
+        .expect(&format!("cannot create file: {}", output_file));
+    let mut output: Box<dyn Write> = if output_file.ends_with(".gz") {
+        Box::new(GzEncoder::new(BufWriter::new(f), Compression::default()))
+    } else {
+        Box::new(BufWriter::new(f))
+    };
+
+    convert_bam_to_fragment(
+        &header,
+        reader.lazy_records().map(|x| x.unwrap()),
+        &barcode,
+        is_paired,
+    ).unique_records().for_each(|x| writeln!(output, "{}", x).unwrap());
+}
+ 
 
 #[pyfunction]
 pub(crate) fn import_fragments(
@@ -40,7 +119,7 @@ pub(crate) fn import_fragments(
     white_list: Option<HashSet<String>>,
     chunk_size: usize,
     num_cpu: usize,
-    ) -> PyResult<AnnData>
+) -> PyResult<AnnData>
 {
     let mut anndata = anndata::AnnData::new(output_file, 0, 0).unwrap();
     let promoters = qc::make_promoter_map(

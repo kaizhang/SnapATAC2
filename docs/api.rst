@@ -31,6 +31,7 @@ Basic Preprocessing
 .. autosummary::
     :toctree: _autosummary
 
+    pp.make_fragment_file
     pp.import_data
     pp.add_tile_matrix
     pp.make_peak_matrix

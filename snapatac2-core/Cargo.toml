@@ -11,25 +11,27 @@ homepage = "https://github.com/"
 keywords = ["single-cell", "biology"]
 
 [dependencies]
-flate2 = "1.0"
-itertools = "0.8"
-bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "cded506230e8d259f7c909df1ef6f53d6fea095a" }
-anndata-rs = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "0791a171836c026b89fe2cd9bc9d3d2f73c0d923" }
 #anndata-rs = { path = "../../anndata-rs/anndata-rs" }
+anndata-rs = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "0791a171836c026b89fe2cd9bc9d3d2f73c0d923" }
+anyhow = "1.0"
+bigtools = "0.1"
+bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "cded506230e8d259f7c909df1ef6f53d6fea095a" }
+extsort = "0.4"
+flate2 = "1.0"
+futures = "0.3"
+itertools = "0.8"
+indexmap = "1.9"
+lexical = "6.1"
 ndarray = { version = "0.15", features = ["rayon"] }
 num = "0.4"
 noodles-gff = "0.5"
-rayon = "1.5"
+noodles = { version = "0.26.0", features = ["bam", "sam"] }
 nalgebra-sparse = "0.7"
 polars = { version = "0.23", features = ["ndarray", "dtype-categorical"] }
-noodles = { version = "0.26.0", features = ["bam", "sam"] }
-indexmap = "1.9"
-anyhow = "1.0"
-lexical = "6.1"
+rayon = "1.5"
+regex = "1.6"
 tempfile = "3.3"
 which = "4.2"
-bigtools = "0.1"
-futures = "0.3"
 
 [dev-dependencies]
 criterion = "0.3"
