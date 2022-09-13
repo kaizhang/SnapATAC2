@@ -18,7 +18,6 @@
 // if it's a PCR duplicate, it will be guaranteed to be the same at that end
 // but not at the 3' end.
 
-//use noodles::sam::alignment::Record;
 use noodles::{
     bam::lazy::Record,
     sam::{
@@ -63,13 +62,50 @@ use regex::Regex;
 #[derive(Eq, PartialEq, Debug, Hash)]
 pub enum Orientation { FR, FF, RR, RF }
 
-// Reads are considered duplicates if and only if they have the same fingerprint.
+
+/// Where to extract the barcode information from the BAM records.
+#[derive(Debug)]
+pub enum BarcodeLocation {
+    InData(Tag),
+    Regex(Regex),
+    InReadName,
+}
+
+impl BarcodeLocation {
+    pub fn extract(&self, rec: &Record) -> Result<String> {
+        match self {
+            BarcodeLocation::InData(tag) => match Data::try_from(rec.data())?
+                .get(*tag).ok_or(anyhow!("No data: {}", tag))?.value()
+                {
+                    Value::String(barcode) => Ok(barcode.to_string()),
+                    _ => bail!("Not a String"),
+                },
+            BarcodeLocation::Regex(re) => {
+                let read_name = rec.read_name()?.ok_or(anyhow!("No read name"))?;
+                let mat = re.captures(read_name.as_ref()).and_then(|x| x.get(1))
+                    .ok_or(anyhow!("The regex must contain exactly one capturing group matching the barcode"))?
+                    .as_str().to_string();
+                Ok(mat)
+            },
+            BarcodeLocation::InReadName => {
+                let read_name = rec.read_name()?.ok_or(anyhow!("No read name"))?;
+                Ok(<ReadName as AsRef<str>>::as_ref(&read_name).split_once(':')
+                    .unwrap().0.to_string()
+                )
+            },
+        }
+    }
+}
+
+
+/// Reads are considered duplicates if and only if they have the same fingerprint.
 #[derive(Eq, PartialEq, Debug, Hash)]
 pub enum FingerPrint {
     SingleRead {
         reference_id: usize,
         coord_5p: usize,
         orientation: Orientation,
+        barcode: Option<String>,
     },
     PairedRead {
         left_reference_id: usize,
@@ -77,11 +113,15 @@ pub enum FingerPrint {
         left_coord_5p: usize,
         right_coord_5p: usize,
         orientation: Orientation,
-    }
+        barcode: Option<String>,
+    },
 }
 
 impl FingerPrint {
-    pub fn from_single_read(read: &Record) -> Result<FingerPrint> {
+    pub fn from_single_read(
+        read: &Record,
+        barcode_loc: Option<&BarcodeLocation>,
+    ) -> Result<FingerPrint> {
         let orientation = if read.flags()?.is_reverse_complemented() {
             Orientation::RR
         } else {
@@ -95,10 +135,21 @@ impl FingerPrint {
                 unclipped_end(read)?
             },
             orientation,
+            barcode: barcode_loc.map(|x| x.extract(read)).transpose()?,
         })
     }
 
-    pub fn from_paired_reads(this: &Record, other: &Record) -> Result<FingerPrint> {
+    pub fn from_paired_reads(
+        this: &Record,
+        other: &Record,
+        barcode_loc: Option<&BarcodeLocation>,
+    ) -> Result<FingerPrint> {
+        let this_barcode = barcode_loc.map(|x| x.extract(this)).transpose()?;
+        let other_barcode = barcode_loc.map(|x| x.extract(other)).transpose()?;
+        if this_barcode != other_barcode {
+            bail!("barcode mismatch");
+        }
+
         let this_flags = this.flags()?;
         let other_flags = other.flags()?;
         let this_ref = this.reference_sequence_id()?.ok_or(anyhow!("No reference id"))?;
@@ -144,91 +195,18 @@ impl FingerPrint {
             left_coord_5p: read1.2,
             right_coord_5p: read2.2,
             orientation,
+            barcode: this_barcode,
         })
     }
 }
 
-#[derive(Debug)]
-pub enum BarcodeLocation {
-    InData(Tag),
-    Regex(Regex),
-    InReadName,
-}
-
-pub struct RecordGroups<'a, I, F>
-    where
-        I: Iterator<Item = (String, Record)>,
-        F: FnMut(&(String, Record)) -> String,
-{
-    header: &'a Header,
-    is_paired:  bool,
-    groups: itertools::GroupBy<String, I, F>,
-}
-
-impl<'a, I, F> RecordGroups<'a, I, F>
-where
-    I: Iterator<Item = (String, Record)>,
-    F: FnMut(&(String, Record)) -> String,
-{
-    pub fn unique_records(&self) -> impl Iterator<Item = BED<6>> + '_ {
-        self.groups.into_iter().flat_map(move |(bc, data)| {
-            if self.is_paired {
-                rm_dup_pair(data.map(|x| x.1)).flat_map(move |(k, _, _, c)| match k {
-                    // FIXME: should not use unclipped start and end
-                    FingerPrint::PairedRead { left_reference_id, right_reference_id, left_coord_5p, right_coord_5p, .. } => {
-                        if left_reference_id != right_reference_id { return None; }
-                        let bed: BED<6> = BED::new(
-                            self.header.reference_sequences()[left_reference_id].name().as_str(),
-                            left_coord_5p as u64 - 1,
-                            right_coord_5p as u64,
-                            Some(bc.clone()),
-                            Some(Score::try_from(u16::try_from(c).unwrap()).unwrap()),
-                            None,
-                            Default::default(),
-                        );
-                        Some(bed)
-                    },
-                    _ => { None }
-                }).collect::<Vec<_>>()
-            } else {
-                rm_dup_single(data.map(|x| x.1)).map(move |(r, c)| {
-                    let cigar = Cigar::try_from(r.cigar()).unwrap();
-                    let start = usize::from(r.alignment_start().unwrap().unwrap());
-                    let alignment_span = cigar.alignment_span();
-                    let end = start + alignment_span - 1;
-                    let ref_id = r.reference_sequence_id().unwrap().unwrap();
-                    BED::new(
-                        self.header.reference_sequences()[ref_id].name().as_str(),
-                        start as u64 - 1,
-                        end as u64,
-                        Some(bc.clone()),
-                        Some(Score::try_from(u16::try_from(c).unwrap()).unwrap()),
-                        Some(if r.flags().unwrap().is_reverse_complemented() {
-                            Strand::Reverse
-                        } else {
-                            Strand::Forward
-                        }),
-                        Default::default(),
-                    )
-                }).collect::<Vec<_>>()
-            }
-        })
-    }
-}
-
-// Convert Bam records to fragments (paired-end) or insertion sites (single-end).
-pub fn convert_bam_to_fragment<'a, I>(
-    header: &'a Header,
+/// Filter Bam records.
+pub fn filter_bam<I>(
     reads: I,
-    barcode: &'a BarcodeLocation,
     is_paired: bool,
-) -> RecordGroups< 
-    'a,
-    impl Iterator<Item = (String, Record)> + 'a,
-    impl FnMut(&(String, Record)) -> String + 'a
->
+) -> impl Iterator<Item = Record>
 where
-    I: Iterator<Item = Record> + 'a,
+    I: Iterator<Item = Record>,
 {
     // flag (1804) meaning:
     //   - read unmapped
@@ -237,40 +215,134 @@ where
     //   - read fails platform/vendor quality checks
     //   - read is PCR or optical duplicate
     let flag_failed = Flags::from_bits(1804).unwrap();
-
-    let iter = reads.filter_map(move |r| {
+    reads.filter(move |r| {
         let flag = r.flags().unwrap();
-        let pass_qc = (if is_paired { flag.is_properly_aligned() } else { true }) && 
-            !flag.intersects(flag_failed);
+        (if is_paired { flag.is_properly_aligned() } else { true }) && 
+            !flag.intersects(flag_failed)
             //r.mapping_quality().unwrap().unwrap() >= MappingQuality::new(30).unwrap();
-        if pass_qc {
-            Some((extract_barcode(&r, barcode).unwrap(), r))
-        } else {
-            None
-        }
-    });
+    })
+}
+
+/// Sort and group BAM
+pub fn group_bam_by_barcode<'a, I>(
+    reads: I,
+    barcode: &'a BarcodeLocation,
+    is_paired: bool,
+) -> RecordGroups< 
+    impl Iterator<Item = (String, Record)> + 'a,
+    impl FnMut(&(String, Record)) -> String + 'a
+>
+where
+    I: Iterator<Item = Record> + 'a,
+{
+    fn sort_bam<I>(reads: I) -> impl Iterator<Item = (String, Record)>
+    where
+        I: Iterator<Item = (String, Record)>,
+    {
+        let mut vec: Vec<_> = reads.collect();
+        vec.sort_by_key(|x| x.0.clone());
+        vec.into_iter()
+    }
+
     RecordGroups {
-        header, is_paired, groups: sort_bam(iter).group_by(|x| x.0.clone()),
+        is_paired,
+        groups: sort_bam(reads.map(|x| (barcode.extract(&x).unwrap(), x)))
+            .group_by(|x| x.0.clone()),
     }
 }
 
-fn sort_bam<I>(reads: I) -> impl Iterator<Item = (String, Record)>
-where
-    I: Iterator<Item = (String, Record)>,
+pub struct RecordGroups<I, F>
+    where
+        I: Iterator<Item = (String, Record)>,
+        F: FnMut(&(String, Record)) -> String,
 {
-    let mut vec: Vec<_> = reads.collect();
-    vec.sort_by_key(|x| x.0.clone());
-    vec.into_iter()
+    is_paired:  bool,
+    groups: itertools::GroupBy<String, I, F>,
 }
 
-fn rm_dup_single<I>(reads: I) -> impl Iterator<Item = (Record, usize)>
+impl<I, F> RecordGroups<I, F>
+where
+    I: Iterator<Item = (String, Record)>,
+    F: FnMut(&(String, Record)) -> String,
+{
+    pub fn into_fragments<'a>(
+        &'a self,
+        header: &'a Header,
+        umi_loc: Option<&'a BarcodeLocation>,
+    ) -> impl Iterator<Item = BED<6>> + '_ {
+        self.groups.into_iter().flat_map(move |(bc, data)|
+            get_unique_fragments(data.map(|x| x.1), header, &bc, self.is_paired, umi_loc)
+        )
+    }
+}
+
+fn get_unique_fragments<I>(
+    reads: I,
+    header: &Header,
+    cell_barcode: &String,
+    is_paired: bool,
+    umi_loc: Option<&BarcodeLocation>,
+) -> Vec<BED<6>>
+where
+    I: Iterator<Item = Record>,
+{
+    if is_paired {
+        rm_dup_pair(reads, umi_loc).flat_map(move |(_, rec1, rec2, c)| {
+            let ref_id1 = rec1.reference_sequence_id().unwrap().unwrap();
+            let ref_id2 = rec2.reference_sequence_id().unwrap().unwrap();
+            if ref_id1 != ref_id2 { return None; }
+            let rec1_5p = alignment_5p(&rec1).unwrap();
+            let rec2_5p = alignment_5p(&rec2).unwrap();
+            let (start, end) = if rec1_5p < rec2_5p {
+                (rec1_5p, rec2_5p)
+            } else {
+                (rec2_5p, rec1_5p)
+            };
+            Some(BED::new(
+                header.reference_sequences()[ref_id1].name().as_str(),
+                start as u64 - 1,
+                end as u64,
+                Some(cell_barcode.clone()),
+                Some(Score::try_from(u16::try_from(c).unwrap()).unwrap()),
+                None,
+                Default::default(),
+            ))
+        }).collect()
+    } else {
+        rm_dup_single(reads, umi_loc).map(move |(r, c)| {
+            let cigar = Cigar::try_from(r.cigar()).unwrap();
+            let start = usize::from(r.alignment_start().unwrap().unwrap());
+            let alignment_span = cigar.alignment_span();
+            let end = start + alignment_span - 1;
+            let ref_id = r.reference_sequence_id().unwrap().unwrap();
+            BED::new(
+                header.reference_sequences()[ref_id].name().as_str(),
+                start as u64 - 1,
+                end as u64,
+                Some(cell_barcode.clone()),
+                Some(Score::try_from(u16::try_from(c).unwrap()).unwrap()),
+                Some(if r.flags().unwrap().is_reverse_complemented() {
+                    Strand::Reverse
+                } else {
+                    Strand::Forward
+                }),
+                Default::default(),
+            )
+        }).collect()
+    }
+}
+
+fn rm_dup_single<I>(
+    reads: I,
+    barcode_loc: Option<&BarcodeLocation>,
+) -> impl Iterator<Item = (Record, usize)>
 where
     I: Iterator<Item = Record>,
 {
     let mut result = HashMap::new();
     reads.for_each(|read| {
         let score = sum_of_qual_score(&read);
-        let key = FingerPrint::from_single_read(&read).unwrap();
+        let key = FingerPrint::from_single_read(&read, barcode_loc).unwrap();
         match result.get_mut(&key) {
             None => { result.insert(key, (read, score, 1)); },
             Some(val) => {
@@ -285,7 +357,10 @@ where
     result.into_values().map(|x| (x.0, x.2))
 }
 
-fn rm_dup_pair<I>(reads: I) -> impl Iterator<Item = (FingerPrint, Record, Record, usize)>
+fn rm_dup_pair<I>(
+    reads: I,
+    barcode_loc: Option<&BarcodeLocation>,
+) -> impl Iterator<Item = (FingerPrint, Record, Record, usize)>
 where
     I: Iterator<Item = Record>,
 {
@@ -304,7 +379,7 @@ where
         };
         let score1 = sum_of_qual_score(&read1);
         let score2 = sum_of_qual_score(&read2);
-        let key = FingerPrint::from_paired_reads(&read1, &read2).unwrap();
+        let key = FingerPrint::from_paired_reads(&read1, &read2, barcode_loc).unwrap();
         match result.get_mut(&key) {
             None => { result.insert(key, (read1, score1, read2, score2, 1)); },
             Some(val) => {
@@ -323,38 +398,21 @@ where
     result.into_iter().map(|(k, x)| (k, x.0, x.2, x.4))
 }
 
-fn extract_barcode(
-    record: &Record,
-    location: &BarcodeLocation,
-) -> Result<String>
-{
-    match location {
-        BarcodeLocation::InData(tag) => match Data::try_from(record.data())?
-            .get(*tag).ok_or(anyhow!("No data: {}", tag))?.value()
-            {
-                Value::String(barcode) => Ok(barcode.to_string()),
-                _ => bail!("Not a String"),
-            },
-        BarcodeLocation::Regex(re) => {
-            let read_name = record.read_name()?.ok_or(anyhow!("No read name"))?;
-            let mat = re.captures(read_name.as_ref()).and_then(|x| x.get(1))
-                .ok_or(anyhow!("The regex must contain exactly one capturing group matching the barcode"))?
-                .as_str().to_string();
-            Ok(mat)
-        },
-        BarcodeLocation::InReadName => {
-            let read_name = record.read_name()?.ok_or(anyhow!("No read name"))?;
-            Ok(<ReadName as AsRef<str>>::as_ref(&read_name).split_once(':')
-                .unwrap().0.to_string()
-            )
-        },
-    }
-}
-
 // The sum of all base qualities in the record above 15.
 fn sum_of_qual_score(read: &Record) -> usize {
     read.quality_scores().as_ref().iter().map(|x| u8::from(*x) as usize)
         .filter(|x| *x >= 15).sum()
+}
+
+fn alignment_5p(read: &Record) -> Result<usize> {
+    let start: usize = read.alignment_start()?
+        .ok_or(anyhow!("Missing alignment information"))?.into();
+    if read.flags()?.is_reverse_complemented() {
+        let alignment_span = Cigar::try_from(read.cigar())?.alignment_span();
+        Ok(start + alignment_span - 1)
+    } else {
+        Ok(start)
+    }
 }
 
 fn unclipped_start(read: &Record) -> Result<usize> {

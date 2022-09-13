@@ -27,7 +27,7 @@ use regex::Regex;
 
 use snapatac2_core::{
     preprocessing::{
-        mark_duplicates::{BarcodeLocation, convert_bam_to_fragment},
+        mark_duplicates::{BarcodeLocation, filter_bam, group_bam_by_barcode},
         matrix::{create_tile_matrix, create_peak_matrix, create_gene_matrix},
         qc,
     },
@@ -62,14 +62,24 @@ use snapatac2_core::{
 ///     the barcodes. For example, `barcode_regex = "(..:..:..:..):\w+$"`
 ///     extracts `bd:69:Y6:10` from
 ///     `A01535:24:HW2MMDSX2:2:1359:8513:3458:bd:69:Y6:10:TGATAGGTTG`.
-#[pyfunction(is_paired = "true", barcode_tag = "None", barcode_regex = "None")]
-#[pyo3(text_signature = "(bam_file, output_file, is_paired, barcode_tag, barcode_regex)")]
+/// umi_tag
+/// umi_regex
+#[pyfunction(
+    is_paired = "true",
+    barcode_tag = "None",
+    barcode_regex = "None",
+    umi_tag = "None",
+    umi_regex = "None",
+)]
+#[pyo3(text_signature = "(bam_file, output_file, is_paired, barcode_tag, barcode_regex, umi_tag, umi_regex)")]
 pub(crate) fn make_fragment_file(
     bam_file: &str,
     output_file: &str,
     is_paired: bool,
     barcode_tag: Option<[u8; 2]>,
     barcode_regex: Option<&str>,
+    umi_tag: Option<[u8; 2]>,
+    umi_regex: Option<&str>,
 )
 {
     println!("Warning: make_fragment_file is a unstable function!");
@@ -77,7 +87,9 @@ pub(crate) fn make_fragment_file(
     if barcode_regex.is_some() && barcode_tag.is_some() {
         panic!("Can only set barcode_tag or barcode_regex but not both");
     }
-
+    if umi_regex.is_some() && umi_tag.is_some() {
+        panic!("Can only set umi_tag or umi_regex but not both");
+    }
     let barcode = match barcode_tag {
         Some(tag) => BarcodeLocation::InData(Tag::try_from(tag).unwrap()),
         None => match barcode_regex {
@@ -85,6 +97,14 @@ pub(crate) fn make_fragment_file(
             None => BarcodeLocation::InReadName,
         }
     };
+    let umi = match umi_tag {
+        Some(tag) => Some(BarcodeLocation::InData(Tag::try_from(tag).unwrap())),
+        None => match umi_regex {
+            Some(regex) => Some(BarcodeLocation::Regex(Regex::new(regex).unwrap())),
+            None => None,
+        }
+    };
+ 
     let mut reader = File::open(bam_file).map(bam::Reader::new)
         .expect(&format!("cannot open bam file: {}", bam_file));
     let header: Header = reader.read_header().unwrap().parse().unwrap();
@@ -98,12 +118,12 @@ pub(crate) fn make_fragment_file(
         Box::new(BufWriter::new(f))
     };
 
-    convert_bam_to_fragment(
-        &header,
-        reader.lazy_records().map(|x| x.unwrap()),
-        &barcode,
-        is_paired,
-    ).unique_records().for_each(|x| writeln!(output, "{}", x).unwrap());
+    let filtered_records = filter_bam(
+        reader.lazy_records().map(|x| x.unwrap()), is_paired
+    );
+    group_bam_by_barcode(filtered_records, &barcode, is_paired)
+        .into_fragments(&header, umi.as_ref())
+        .for_each(|x| writeln!(output, "{}", x).unwrap());
 }
  
 
