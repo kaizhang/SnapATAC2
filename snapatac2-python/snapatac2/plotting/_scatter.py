@@ -1,19 +1,20 @@
-from typing import Optional, Union
+from __future__ import annotations
+
 from snapatac2._snapatac2 import AnnData
 import numpy as np
 from ._utils import render_plot
 
 def umap(
     adata: AnnData,
-    color: Union[str, np.ndarray],
-    use_rep: Optional[str] = None,
+    color: str | np.ndarray,
+    use_rep: str | None = None,
     marker_size: float = 2,
     marker_opacity: float = 0.5,
     width: float = 550,
     height: float = 500,
     show: bool = True,
     interactive: bool = True,
-    out_file: Optional[str] = None,
+    out_file: str | None = None,
 ):
     """
     Plot UMAP embedding
@@ -50,6 +51,7 @@ def umap(
         groups = adata.obs[color]
     else:
         groups = color
+        color = "color"
 
     idx = index_natsorted(groups)
     embedding = embedding[idx, :]

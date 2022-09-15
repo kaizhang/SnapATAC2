@@ -96,6 +96,14 @@ Post-processing
    tl.call_peaks
    tl.aggregate_X
 
+Differential analysis
+~~~~~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+   :toctree: _autosummary
+
+   tl.diff_test
+
 Transcriptional regulatory network (beta)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
