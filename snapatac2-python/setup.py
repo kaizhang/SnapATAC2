@@ -41,6 +41,7 @@ setup(
         "scikit-learn>=0.22",
         "seaborn",
         "tqdm>=4.62",
+        "typing_extensions",
         "umap-learn>=0.3.10",
     ],
 )
