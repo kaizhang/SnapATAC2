@@ -102,6 +102,7 @@ Differential analysis
 .. autosummary::
    :toctree: _autosummary
 
+   tl.marker_regions
    tl.diff_test
 
 Transcriptional regulatory network (beta)

@@ -39,7 +39,7 @@ the latest features, enhancements, and bug fixes that haven't been released.
 The nightly build can be unstable and include some untested features.
 
 You can download the wheel files of the latest Nightly build from this
-`link <https://nightly.link/kaizhang/SnapATAC2/workflows/wheels/main/artifact.zip>`_
+`link <https://nightly.link/kaizhang/SnapATAC2/workflows/wheels/main/artifact.zip>`_.
 
 After downloading the file, unzip it and then select the appropriate wheel file
 for your platform and use `pip install` to install it.

@@ -44,7 +44,7 @@ def call_peaks(
         Whether to store the result inplace.
     """
     if isinstance(group_by, str):
-        group_by = data.obs[group_by].astype("str")
+        group_by = data.obs[group_by].astype("str").tolist()
     out_dir = out_dir if out_dir is None else str(out_dir)
     res = _snapatac2.call_peaks(data, group_by, selections, q_value, out_dir)
     if inplace:

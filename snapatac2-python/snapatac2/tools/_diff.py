@@ -1,13 +1,39 @@
 from __future__ import annotations
+from typing import Literal
 
 import numpy as np
-import pandas as pd
+import polars as pl
 from scipy.stats import chi2
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss
 import sys
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
+from snapatac2.tools._counts import aggregate_X
+
+def marker_regions(
+    data: AnnData | AnnDataSet,
+    group_by: str | list[str],
+    pvalue: float = 0.01,
+) -> dict[str, list[str]]:
+    """
+    A quick-and-dirty way to get marker regions.
+    """
+    import scipy.stats
+
+    count = pl.DataFrame(aggregate_X(data, group_by, normalize="RPKM"))
+    names = np.array(data.var_names)
+    z = scipy.stats.zscore(
+        np.log2(1 + count.to_numpy()),
+        axis = 1,
+    )
+    peaks = {}
+    for i in range(z.shape[1]):
+        pvals = scipy.stats.norm.sf(z[:, i])
+        select = pvals < pvalue
+        if np.where(select)[0].size >= 1:
+            peaks[count.columns[i]] = names[select]
+    return peaks
 
 def diff_test(
     data: AnnData | AnnDataSet,
@@ -15,9 +41,10 @@ def diff_test(
     cell_group2: list[int] | list[str] | 'np.ndarray[bool]',
     features : list[str] | list[int] | 'np.ndarray[bool]' | None = None,
     covariates: list[str] | None = None,
+    direction: Literal["positive", "negative", "both"] = "both",
     min_log_fc: float = 0.25,
     min_pct: float = 0.05,
-) -> pd.DataFrame:
+) -> pl.DataFrame:
     """
     Identify differentially accessible regions.
 
@@ -34,12 +61,21 @@ def diff_test(
     features
         Features/peaks to test. If None, all features are tested.
     covariates
+    direction
+        "positive", "negative", or "both".
+        "positive": return features that are enriched in group 1.
+        "negative": return features that are enriched in group 2.
+        "both": return features that are enriched in group 1 or group 2.
     min_log_fc
         Limit testing to features which show, on average, at least
         X-fold difference (log2-scale) between the two groups of cells.
     min_pct
         Only test features that are detected in a minimum fraction of min_pct
         cells in either of the two populations. 
+
+    Returns
+    -------
+    A DataFrame
     """
     def to_indices(xs, n, type):
         if isinstance(xs, np.ndarray):
@@ -74,25 +110,38 @@ def diff_test(
         raise NameError("covariates is not implemented")
 
     features = range(data.n_vars) if features is None else to_indices(features, data.n_vars, "var")
-    print("Input has {} features ...".format(len(features)), file=sys.stderr)
-    print("Filtering features ...", file=sys.stderr)
+    print("Input contains {} features, now perform filtering ...".format(len(features)), file=sys.stderr)
     features, log_fc = zip(*_filter_features(
         cell_by_peak[:n_group1, :],
         cell_by_peak[n_group1:, :],
         features,
+        direction,
         min_pct,
         min_log_fc,
     ))
 
     print("Testing {} features ...".format(len(features)), file=sys.stderr)
     pvals = _diff_test_helper(cell_by_peak, test_var, features, covariates)
-    return pd.DataFrame({
-        "feature_id": [data.var_names[i] for i in features],
+    var_names = data.var_names
+    return pl.DataFrame({
+        "feature name": [var_names[i] for i in features],
         "log2(fold_change)": log_fc,
         "p-value": pvals,
-    })
+        "adjusted p-value": _p_adjust_bh(pvals),
+    }).sort("adjusted p-value")
 
-def _filter_features(mat1, mat2, peak_indices, min_pct, min_log_fc, pseudo_count = 1):
+def _p_adjust_bh(p):
+    """Benjamini-Hochberg p-value correction for multiple hypothesis testing."""
+    p = np.asfarray(p)
+    by_descend = p.argsort()[::-1]
+    by_orig = by_descend.argsort()
+    steps = float(len(p)) / np.arange(len(p), 0, -1)
+    q = np.minimum(1, np.minimum.accumulate(steps * p[by_descend]))
+    return q[by_orig]
+
+def _filter_features(mat1, mat2, peak_indices, direction,
+    min_pct, min_log_fc, pseudo_count = 1,
+):
     def rpm(m):
         x = np.ravel(np.sum(m, axis = 0)) + pseudo_count
         s = x.sum()
@@ -103,9 +152,19 @@ def _filter_features(mat1, mat2, peak_indices, min_pct, min_log_fc, pseudo_count
         cond2 = mat2[:, i].count_nonzero() / mat2.shape[0] >= min_pct 
         return cond1 or cond2
 
+    def adjust_sign(fc):
+        if direction == "both":
+            return abs(fc)
+        elif direction == "positive":
+            return fc
+        elif direction == "negative":
+            return -fc
+        else:
+            raise NameError("direction must be 'positive', 'negative' or 'both'")
+
     log_fc = np.log2(rpm(mat1) / rpm(mat2))
     peak_indices = [i for i in peak_indices if pass_min_pct(i)]
-    return [(i, log_fc[i])  for i in peak_indices if abs(log_fc[i]) >= min_log_fc]
+    return [(i, log_fc[i])  for i in peak_indices if adjust_sign(log_fc[i]) >= min_log_fc]
 
 def _diff_test_helper(mat, z, peaks=None, covariate=None) -> list[float]:
     """

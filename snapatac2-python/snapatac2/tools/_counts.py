@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Literal
 
 from pathlib import Path
 import numpy as np
@@ -8,30 +9,10 @@ from natsort import natsorted
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
 
-def _group_by(x, groups):
-    idx = groups.argsort()
-    groups = groups[idx]
-    x = x[idx]
-    u, indices = np.unique(groups, return_index=True)
-    splits = np.split(np.arange(x.shape[0]), indices[1:])
-    return dict((label, x[indices, :]) for (label, indices) in zip(u, splits))
-
-def _normalize(x, size_factor = None):
-    result = x / (x.sum() / 1000000.0)
-    if size_factor is not None:
-        result /= size_factor
-    return result
-
-def _get_sizes(regions):
-    def size(x):
-        x = x.split(':')[1].split("-")
-        return int(x[1]) - int(x[0])
-    return np.array(list(size(x) for x in regions))
-
 def aggregate_X(
     adata: AnnData | AnnDataSet,
     group_by: str | list[str] | None = None,
-    normalize: str | None = None,
+    normalize: Literal["RPM", "RPKM"] | None = None,
     file: Path | None = None,
 ) -> np.ndarray | dict[str, np.ndarray] | AnnData:
     """
@@ -116,3 +97,23 @@ def aggregate_X(
                 var = None if adata.var is None else adata.var[:],
             )
             return out_adata
+
+def _group_by(x, groups):
+    idx = groups.argsort()
+    groups = groups[idx]
+    x = x[idx]
+    u, indices = np.unique(groups, return_index=True)
+    splits = np.split(np.arange(x.shape[0]), indices[1:])
+    return dict((label, x[indices, :]) for (label, indices) in zip(u, splits))
+
+def _normalize(x, size_factor = None):
+    result = x / (x.sum() / 1000000.0)
+    if size_factor is not None:
+        result /= size_factor
+    return result
+
+def _get_sizes(regions):
+    def size(x):
+        x = x.split(':')[1].split("-")
+        return int(x[1]) - int(x[0])
+    return np.array(list(size(x) for x in regions))
