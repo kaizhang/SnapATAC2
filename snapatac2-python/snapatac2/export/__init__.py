@@ -7,7 +7,7 @@ import snapatac2._snapatac2 as internal
 
 def export_bed(
     adata: Union[AnnData, AnnDataSet],
-    group_by: Union[str, Sequence[str]],
+    groupby: Union[str, Sequence[str]],
     selections: Optional[Set[str]] = None,
     ids: Optional[Union[str, np.ndarray]] = None,
     out_dir: Path = "./",
@@ -22,9 +22,9 @@ def export_bed(
     adata
         The (annotated) data matrix of shape `n_obs` x `n_vars`.
         Rows correspond to cells and columns to regions.
-    group_by
+    groupby
         Group the cells. If a `str`, groups are obtained from
-        `.obs[group_by]`.
+        `.obs[groupby]`.
     selections
         Export only the selected groups.
     ids
@@ -41,8 +41,8 @@ def export_bed(
     A dictionary contains `(groupname, filename)` pairs. The file names are
     formatted as `{prefix}{groupname}{suffix}`.
     """
-    if isinstance(group_by, str):
-        group_by = adata.obs[group_by].astype("str")
+    if isinstance(groupby, str):
+        groupby = adata.obs[groupby].astype("str")
     
     if ids is None:
         ids = adata.obs[:, 0].astype("str")
@@ -50,13 +50,13 @@ def export_bed(
         ids = adata.obs[ids].astype("str")
 
     return internal.export_bed(
-        adata, list(ids), list(group_by), selections, str(out_dir), prefix, suffix,
+        adata, list(ids), list(groupby), selections, str(out_dir), prefix, suffix,
     )
 
 
 def export_bigwig(
     adata: Union[AnnData, AnnDataSet],
-    group_by: Union[str, Sequence[str]],
+    groupby: Union[str, Sequence[str]],
     selections: Optional[Set[str]] = None,
     resolution: int = 1,
     out_dir: Path = "./",
@@ -71,9 +71,9 @@ def export_bigwig(
     adata
         The (annotated) data matrix of shape `n_obs` x `n_vars`.
         Rows correspond to cells and columns to regions.
-    group_by
+    groupby
         Group the cells. If a `str`, groups are obtained from
-        `.obs[group_by]`.
+        `.obs[groupby]`.
     selections
         Export only the selected groups.
     resolution
@@ -90,9 +90,9 @@ def export_bigwig(
     A dictionary contains `(groupname, filename)` pairs. The file names are
     formatted as `{prefix}{groupname}{suffix}`.
     """
-    if isinstance(group_by, str):
-        group_by = adata.obs[group_by].astype("str")
+    if isinstance(groupby, str):
+        groupby = adata.obs[groupby].astype("str")
     
     return internal.export_bigwig(
-        adata, list(group_by), selections, resolution, str(out_dir), prefix, suffix,
+        adata, list(groupby), selections, resolution, str(out_dir), prefix, suffix,
     )

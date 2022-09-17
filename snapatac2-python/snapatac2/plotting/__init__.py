@@ -1,6 +1,7 @@
 from ._qc import tsse, scrublet
 from ._scatter import umap
 from ._network import network_scores
+from ._diff import regions
 
 from typing import Optional
 from snapatac2._snapatac2 import AnnData

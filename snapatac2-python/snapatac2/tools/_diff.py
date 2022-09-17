@@ -13,7 +13,7 @@ from snapatac2.tools._counts import aggregate_X
 
 def marker_regions(
     data: AnnData | AnnDataSet,
-    group_by: str | list[str],
+    groupby: str | list[str],
     pvalue: float = 0.01,
 ) -> dict[str, list[str]]:
     """
@@ -21,7 +21,7 @@ def marker_regions(
     """
     import scipy.stats
 
-    count = pl.DataFrame(aggregate_X(data, group_by, normalize="RPKM"))
+    count = pl.DataFrame(aggregate_X(data, groupby, normalize="RPKM"))
     names = np.array(data.var_names)
     z = scipy.stats.zscore(
         np.log2(1 + count.to_numpy()),

@@ -1,7 +1,6 @@
 from ._io import read_10x_mtx
 from . import preprocessing as pp
 from . import tools as tl
-from . import genome
 from . import plotting as pl
 from . import export as ex
 

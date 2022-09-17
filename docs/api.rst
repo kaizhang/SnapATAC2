@@ -135,3 +135,22 @@ Exporting: `ex`
 
     ex.export_bed
     ex.export_bigwig
+
+Utilities
+---------
+
+Genome
+~~~~~~
+
+.. autosummary::
+    :toctree: _autosummary
+
+    genome.Genome
+    genome.GRCh37
+    genome.GRCh38
+    genome.GRCm38
+    genome.GRCm39
+    genome.hg19
+    genome.hg38
+    genome.mm10
+    genome.mm39

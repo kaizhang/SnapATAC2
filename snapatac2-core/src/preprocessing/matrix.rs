@@ -118,7 +118,7 @@ where
     let promoters = Promoters::new(transcripts, 2000, 0, true);
 
     match id_type {
-        "transcript_id" => {
+        "transcript" => {
             let feature_counter: TranscriptCount<'_> = TranscriptCount::new(&promoters);
             let gene_names: Vec<String> = feature_counter.gene_names().iter()
                 .map(|x| x.clone()).collect();
@@ -127,22 +127,13 @@ where
             var.insert_at_idx(1, Series::new("gene_name", gene_names))?;
             anndata.set_var(Some(&var))?;
         },
-        "gene_id" | "gene_name" => {
+        "gene" => {
             let feature_counter: GeneCount<'_> = GeneCount::new(
                 TranscriptCount::new(&promoters)
             );
-            let gene_names: Vec<String> = feature_counter.gene_names().iter()
-                .map(|x| x.clone()).collect();
             create_feat_matrix(&mut anndata, fragments, feature_counter)?;
-            let mut var = anndata.get_var().read()?;
-            if id_type == "gene_id" {
-                var.insert_at_idx(1, Series::new("gene_name", gene_names))?;
-            } else {
-                var.insert_at_idx(0, Series::new("gene_name", gene_names))?;
-            }
-            anndata.set_var(Some(&var))?;
         },
-        _ => panic!("id_type must be one of transcript_id, gene_id or gene_name"),
+        _ => panic!("id_type must be 'transcript' or 'gene'"),
     }
 
     Ok(anndata)

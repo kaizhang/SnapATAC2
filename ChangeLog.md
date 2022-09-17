@@ -9,10 +9,12 @@ Major changes:
 - Add various functions to perform transcriptional regulatory network analysis.
 - Add "read_10x_mtx" for reading files produced by 10X CellRanger pipeline.
 - Add "ex.export_bigwig" to generate bigwig files.
+- Add the "Genome" class for automatic download of gene annotation files.
 
 Breaking changes:
 
 - "pp.make_tile_matrix" has been renamed to "pp.add_tile_matrix".
+- Objects in "snap.genome.*" are now instances of the Genome object.
 
 v2.0.0 (2022-07-07)
 ===================

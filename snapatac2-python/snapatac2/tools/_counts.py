@@ -11,7 +11,7 @@ from snapatac2._snapatac2 import AnnData, AnnDataSet
 
 def aggregate_X(
     adata: AnnData | AnnDataSet,
-    group_by: str | list[str] | None = None,
+    groupby: str | list[str] | None = None,
     normalize: Literal["RPM", "RPKM"] | None = None,
     file: Path | None = None,
 ) -> np.ndarray | dict[str, np.ndarray] | AnnData:
@@ -25,9 +25,9 @@ def aggregate_X(
     ----------
     adata
         The AnnData or AnnDataSet object.
-    group_by
+    groupby
         Group the cells into different groups. If a `str`, groups are obtained from
-        `.obs[group_by]`.
+        `.obs[groupby]`.
     normalize
         normalization method: "RPM" or "RPKM".
     file
@@ -48,7 +48,7 @@ def aggregate_X(
         else:
             raise NameError("Normalization method must be 'RPKM' or 'RPM'")
 
-    if group_by is None:
+    if groupby is None:
         row_sum = functools.reduce(
             lambda a, b: a + b,
             (np.ravel(chunk.sum(axis=0)) for chunk in adata.X.chunked(1000)),
@@ -65,16 +65,16 @@ def aggregate_X(
             )
             return out_adata
     else:
-        groups = adata.obs[group_by] if isinstance(group_by, str) else np.array(group_by)
+        groups = adata.obs[groupby] if isinstance(groupby, str) else np.array(groupby)
         if len(groups) != adata.n_obs:
-            raise NameError("the length of `group_by` should equal to the number of obervations")
+            raise NameError("the length of `groupby` should equal to the number of obervations")
 
         cur_row = 0
         result = {}
         for chunk in adata.X.chunked(2000):
             n = chunk.shape[0]
             labels = groups[cur_row:cur_row+n]
-            for key, mat in _group_by(chunk, labels).items():
+            for key, mat in _groupby(chunk, labels).items():
                 s = np.ravel(mat.sum(axis = 0))
                 if key in result:
                     result[key] += s
@@ -89,7 +89,7 @@ def aggregate_X(
             return dict(result)
         else:
             keys, values = zip(*result)
-            column_name = group_by if isinstance(group_by, str) else "_index"
+            column_name = groupby if isinstance(groupby, str) else "_index"
             out_adata = AnnData(
                 filename = file,
                 X = np.array(values),
@@ -98,7 +98,7 @@ def aggregate_X(
             )
             return out_adata
 
-def _group_by(x, groups):
+def _groupby(x, groups):
     idx = groups.argsort()
     groups = groups[idx]
     x = x[idx]

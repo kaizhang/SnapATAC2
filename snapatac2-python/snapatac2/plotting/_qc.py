@@ -1,4 +1,5 @@
-from typing import Optional
+from __future__ import annotations
+
 from snapatac2._snapatac2 import AnnData
 import numpy as np
 from ._utils import render_plot
@@ -8,7 +9,7 @@ def tsse(
     show_cells: bool = False,
     show: bool = True,
     interactive: bool = True,
-    out_file: Optional[str] = None,
+    out_file: str | None = None,
     min_fragment: int = 500,
 ):
     """

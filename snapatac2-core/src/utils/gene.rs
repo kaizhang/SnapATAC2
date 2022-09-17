@@ -141,24 +141,15 @@ impl FeatureCounter for TranscriptCount<'_> {
 #[derive(Clone)]
 pub struct GeneCount<'a> {
     counter: TranscriptCount<'a>,
-    gene_id_to_idx: IndexMap<&'a str, usize>,
-    gene_names: Vec<&'a str>,
+    gene_name_to_idx: IndexMap<&'a str, usize>,
 }
 
 impl<'a> GeneCount<'a> {
     pub fn new(counter: TranscriptCount<'a>) -> Self {
-        let gene_id_to_idx: IndexMap<_, _> = counter.promoters.transcripts.iter()
-            .map(|x| x.gene_id.as_str()).collect::<HashSet<_>>().into_iter()
+        let gene_name_to_idx: IndexMap<_, _> = counter.promoters.transcripts.iter()
+            .map(|x| x.gene_name.as_str()).collect::<HashSet<_>>().into_iter()
             .enumerate().map(|(a,b)| (b,a)).collect();
-        let gene_id_to_name: HashMap<_, _> = counter.promoters.transcripts.iter()
-            .map(|x| (x.gene_id.as_str(), x.gene_name.as_str())).collect();
-        let gene_names = gene_id_to_idx.keys()
-            .map(|k| *gene_id_to_name.get(k).unwrap()).collect();
-        Self { counter, gene_id_to_idx, gene_names }
-    }
-
-    pub fn gene_names(&self) -> Vec<String> {
-        self.gene_names.iter().map(|x| x.to_string()).collect()
+        Self { counter, gene_name_to_idx }
     }
 }
 
@@ -170,14 +161,14 @@ impl FeatureCounter for GeneCount<'_> {
     fn insert<B: BEDLike>(&mut self, tag: &B, count: u32) { self.counter.insert(tag, count); }
 
     fn get_feature_ids(&self) -> Vec<String> {
-        self.gene_id_to_idx.keys().map(|x| x.to_string()).collect()
+        self.gene_name_to_idx.keys().map(|x| x.to_string()).collect()
     }
 
     fn get_counts(&self) -> Vec<(usize, Self::Value)> {
         let mut counts = BTreeMap::new();
         self.counter.get_counts().into_iter().for_each(|(k, v)| {
-            let idx = *self.gene_id_to_idx.get(
-                self.counter.promoters.transcripts[k].gene_id.as_str()
+            let idx = *self.gene_name_to_idx.get(
+                self.counter.promoters.transcripts[k].gene_name.as_str()
             ).unwrap();
             let current_v = counts.entry(idx).or_insert(v);
             if *current_v < v { *current_v = v }

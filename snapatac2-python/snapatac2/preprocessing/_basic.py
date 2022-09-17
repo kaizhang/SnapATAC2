@@ -6,12 +6,15 @@ import math
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
 import snapatac2._snapatac2 as internal
+from snapatac2.genome import Genome
 
 def import_data(
     fragment_file: Path,
-    gff_file: Path,
-    chrom_size: dict[str, int],
+    *,
     file: Path,
+    genome: Genome | None = None,
+    gff_file: Path | None = None,
+    chrom_size: dict[str, int] | None = None,
     min_num_fragments: int = 200,
     min_tsse: float = 1,
     sorted_by_barcode: bool = True,
@@ -31,14 +34,18 @@ def import_data(
     Parameters
     ----------
     fragment_file
-        File name of the fragment file
-    gff_file
-        File name of the gene annotation file in GFF format
-    chrom_size
-        A dictionary containing chromosome sizes, for example,
-        `{"chr1": 2393, "chr2": 2344, ...}`
+        File name of the fragment file.
     file
         File name of the output h5ad file used to store the result
+    genome
+        A Genome object. If not set, `gff_file` and `chrom_size` must be provided.
+    gff_file
+        File name of the gene annotation file in GFF format.
+        This is required if `genome` is not set.
+    chrom_size
+        A dictionary containing chromosome sizes, for example,
+        `{"chr1": 2393, "chr2": 2344, ...}`.
+        This is required if `genome` is not set.
     min_num_fragments
         Number of unique fragments threshold used to filter cells
     min_tsse
@@ -59,6 +66,10 @@ def import_data(
     An annotated data matrix of shape `n_obs` x `n_vars`.
     Rows correspond to cells and columns to regions.
     """
+    if genome is not None:
+        chrom_size = genome.chrom_sizes
+        gff_file = genome.fetch_annotations()
+
     if isinstance(whitelist, str) or isinstance(whitelist, Path):
         with open(whitelist, "r") as fl:
             whitelist = set([line.strip() for line in fl])
@@ -128,11 +139,11 @@ def make_peak_matrix(
 
 def make_gene_matrix(
     adata: AnnData | AnnDataSet,
-    gff_file: Path,
+    gff_file: Genome | Path,
     file: Path,
     chunk_size: int = 500,
     use_x: bool = False,
-    id_type: str = "gene_name",
+    id_type: str = "gene",
 ) -> AnnData:
     """
     Generate cell by gene activity matrix.
@@ -147,7 +158,7 @@ def make_gene_matrix(
         The (annotated) data matrix of shape `n_obs` x `n_vars`.
         Rows correspond to cells and columns to regions.
     gff_file
-        File name of the gene annotation file in GFF format.
+        Either a Genome object or the path of a gene annotation file in GFF format.
     file
         File name of the h5ad file used to store the result.
     use_x
@@ -160,6 +171,9 @@ def make_gene_matrix(
     -------
     A new AnnData object, where rows correspond to cells and columns to genes.
     """
+    if isinstance(gff_file, Genome):
+        gff_file = gff_file.fetch_annotations()
+
     anndata = internal.mk_gene_matrix(adata, str(gff_file), str(file), chunk_size, use_x, id_type)
     anndata.obs = adata.obs[...]
     return anndata

@@ -6,7 +6,7 @@ import snapatac2._snapatac2 as _snapatac2
 
 def call_peaks(
     data: AnnData | AnnDataSet,
-    group_by: str | list[str],
+    groupby: str | list[str],
     selections: set[str] | None = None,
     q_value: float = 0.05,
     out_dir: Path | None = None,
@@ -27,9 +27,9 @@ def call_peaks(
     data
         The (annotated) data matrix of shape `n_obs` x `n_vars`.
         Rows correspond to cells and columns to regions.
-    group_by
+    groupby
         Group the cells before peak calling. If a `str`, groups are obtained from
-        `.obs[group_by]`.
+        `.obs[groupby]`.
     selections
         Call peaks for the selected groups only.
     q_value
@@ -43,10 +43,10 @@ def call_peaks(
     inplace
         Whether to store the result inplace.
     """
-    if isinstance(group_by, str):
-        group_by = data.obs[group_by].astype("str").tolist()
+    if isinstance(groupby, str):
+        groupby = data.obs[groupby].astype("str").tolist()
     out_dir = out_dir if out_dir is None else str(out_dir)
-    res = _snapatac2.call_peaks(data, group_by, selections, q_value, out_dir)
+    res = _snapatac2.call_peaks(data, groupby, selections, q_value, out_dir)
     if inplace:
         data.uns[key_added] = res
     else:
