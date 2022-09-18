@@ -229,8 +229,8 @@ def select_features(
     adata: AnnData | AnnDataSet,
     min_cells: int = 1,
     most_variable: int | float | None = 1000000,
-    whitelist: str | None = None,
-    blacklist: str | None = None,
+    whitelist: Path | None = None,
+    blacklist: Path | None = None,
     inplace: bool = True,
 ) -> np.ndarray | None:
     """
@@ -273,9 +273,9 @@ def select_features(
     selected_features = count >= min_cells
 
     if whitelist is not None:
-        selected_features &= internal.intersect_bed(list(adata.var_names), whitelist)
+        selected_features &= internal.intersect_bed(list(adata.var_names), str(whitelist))
     if blacklist is not None:
-        selected_features &= np.logical_not(internal.intersect_bed(list(adata.var_names), blacklist))
+        selected_features &= np.logical_not(internal.intersect_bed(list(adata.var_names), str(blacklist)))
 
     if most_variable is not None and len(count[selected_features]) > most_variable:
         mean = count[selected_features].mean()

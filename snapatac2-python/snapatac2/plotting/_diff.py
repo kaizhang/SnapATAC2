@@ -10,8 +10,8 @@ def regions(
     data: AnnData | AnnDataSet,
     groupby: str | list[str],
     peaks: dict[str, list[str]],
-    width: float = 800,
-    height: float = 600,
+    width: float = 600,
+    height: float = 400,
     show: bool = True,
     interactive: bool = True,
     out_file: str | None = None,
@@ -40,12 +40,12 @@ def regions(
     mat = np.log2(1 + count.to_numpy()[idx, :])
 
     trace = go.Heatmap(
-        x = list(peaks.keys()),
-        y = None,
+        x = count.columns,
+        y = np.concatenate(list(peaks.values()))[::-1],
         z = mat,
         type = 'heatmap',
         colorscale = 'Viridis',
-        colorbar={"title": "log2(1 + RPKM)"},
+        colorbar={ "title": "log2(1 + RPKM)" },
     )
     data = [trace]
     layout = {

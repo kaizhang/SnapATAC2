@@ -1,19 +1,19 @@
-from typing import Optional, Union, List
+from __future__ import annotations
+
 import numpy as np
 from scipy.sparse import csr_matrix
 
-from snapatac2._snapatac2 import AnnData, AnnDataSet
-import snapatac2._snapatac2 as internal
+from snapatac2._snapatac2 import AnnData, AnnDataSet, approximate_nearest_neighbors
 
 def knn(
-    adata: Union[AnnData, AnnDataSet, np.ndarray],
+    adata: AnnData | AnnDataSet | np.ndarray,
     n_neighbors: int = 50,
-    use_dims: Optional[Union[int, List[int]]] = None,
-    use_rep: Optional[str] = None,
+    use_dims: int | list[int] | None = None,
+    use_rep: str | None = None,
     use_approximate_search: bool = True,
     n_jobs: int = -1,
     inplace: bool = True,
-) -> Optional[csr_matrix]:
+) -> csr_matrix | None:
     """
     Compute a neighborhood graph of observations.
 
@@ -53,7 +53,7 @@ def knn(
 
     n = data.shape[0]
     if use_approximate_search:
-        (d, indices, indptr) = internal.approximate_nearest_neighbors(data.astype(np.float32), n_neighbors)
+        (d, indices, indptr) = approximate_nearest_neighbors(data.astype(np.float32), n_neighbors)
         adj = csr_matrix((d, indices, indptr), shape=(n, n))
     else:
         from sklearn.neighbors import kneighbors_graph

@@ -1,22 +1,23 @@
 """ Implementation of the scrublet algorithm for single-cell ATAC-seq data
 """
-from tokenize import Name
+from __future__ import annotations
+
 import numpy as np
 import scipy.sparse as ss
-from typing import Optional, Union, Type, Tuple
 from sklearn.neighbors import NearestNeighbors
+from scipy.sparse import csr_matrix
 
 from .._utils import get_binarized_matrix, chunks
-from snapatac2._snapatac2 import AnnData
+from snapatac2._snapatac2 import AnnData, approximate_nearest_neighbors
 from snapatac2.tools._spectral import Spectral
 
 def scrublet(
     adata: AnnData,
-    features: Optional[Union[str, np.ndarray]] = "selected",
+    features: str | np.ndarray | None = "selected",
     n_comps: int = 15,
     sim_doublet_ratio: float = 2.0,
     expected_doublet_rate: float = 0.1,
-    n_neighbors: Optional[int] = None,
+    n_neighbors: int | None = None,
     use_approx_neighbors=True,
     random_state: int = 0,
 ) -> None:
@@ -72,6 +73,7 @@ def scrublet(
     (doublet_scores_obs, doublet_scores_sim, manifold_obs, manifold_sim) = scrub_doublets_core(
         count_matrix, n_neighbors, sim_doublet_ratio, expected_doublet_rate,
         n_comps=n_comps,
+        use_approx_neighbors = use_approx_neighbors,
         random_state=random_state
         )
     adata.obs["doublet_score"] = doublet_scores_obs
@@ -79,10 +81,10 @@ def scrublet(
 
 def call_doublets(
     adata: AnnData,
-    threshold: Union[str, float] = "gmm",
+    threshold: str | float = "gmm",
     random_state: int = 0,
     inplace: bool = True,
-) -> Optional[Tuple[np.ndarray, float]]:
+) -> tuple[np.ndarray, float] | None:
     """
     Find doublet score threshold for calling doublets.
 
@@ -141,6 +143,7 @@ def scrub_doublets_core(
     expected_doublet_rate: float,
     synthetic_doublet_umi_subsampling: float =1.0,
     n_comps: int = 30,
+    use_approx_neighbors: bool = True,
     random_state: int = 0,
 ) -> None:
     """
@@ -189,6 +192,7 @@ def scrub_doublets_core(
     (doublet_scores_obs, doublet_scores_sim) = calculate_doublet_scores(
         manifold_obs, manifold_sim, k = n_neighbors,
         exp_doub_rate = expected_doublet_rate,
+        use_approx_neighbors = use_approx_neighbors,
         random_state = random_state,
     )
 
@@ -212,7 +216,7 @@ def simulate_doublets(
     sim_doublet_ratio: int = 2,
     synthetic_doublet_umi_subsampling: float = 1.0,
     random_state: int = 0,
-) -> Tuple[ss.spmatrix, np.ndarray, np.ndarray]:
+) -> tuple[ss.spmatrix, np.ndarray, np.ndarray]:
     """
     Simulate doublets by adding the counts of random cell pairs.
 
@@ -257,6 +261,7 @@ def calculate_doublet_scores(
     k: int = 40,
     exp_doub_rate: float = 0.1,
     stdev_doub_rate: float = 0.03,
+    use_approx_neighbors=True,
     random_state: int = 0,
 ) -> None:
     """
@@ -284,9 +289,15 @@ def calculate_doublet_scores(
     k_adj = int(round(k * (1 + n_sim / float(n_obs))))
     
     # Find k_adj nearest neighbors
-    neighbors = NearestNeighbors(
-        n_neighbors=k_adj, metric="euclidean"
-        ).fit(manifold).kneighbors(return_distance=False)
+    if use_approx_neighbors:
+        _, indices, indptr = approximate_nearest_neighbors(manifold.astype(np.float32), k_adj)
+        neighbors = np.vstack(
+            [indices[indptr[i]:indptr[i+1]] for i in range(len(indptr) - 1)]
+        )
+    else:
+        neighbors = NearestNeighbors(
+            n_neighbors=k_adj, metric="euclidean"
+            ).fit(manifold).kneighbors(return_distance=False)
     
     # Calculate doublet score based on ratio of simulated cell neighbors vs. observed cell neighbors
     doub_neigh_mask = doub_labels[neighbors] == 1

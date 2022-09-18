@@ -154,3 +154,13 @@ Genome
     genome.hg38
     genome.mm10
     genome.mm39
+
+Datasets
+~~~~~~~~
+
+.. autosummary::
+    :toctree: _autosummary
+
+    datasets.pbmc5k
+    datasets.colon
+    datasets.cre_HEA

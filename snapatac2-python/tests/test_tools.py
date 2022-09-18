@@ -55,9 +55,9 @@ def test_aggregation(x, groups, var, tmp_path):
         snap.tl.aggregate_X(adata, file = h5ad(tmp_path)).X[:],
     )
 
-    assert_equal(expected, snap.tl.aggregate_X(adata, group_by=groups))
-    assert_equal(expected, snap.tl.aggregate_X(adata, group_by="groups"))
+    assert_equal(expected, snap.tl.aggregate_X(adata, groupby=groups))
+    assert_equal(expected, snap.tl.aggregate_X(adata, groupby="groups"))
     np.testing.assert_array_equal(
         np.array(list(expected.values())),
-        snap.tl.aggregate_X(adata, file = h5ad(tmp_path), group_by=groups).X[:],
+        snap.tl.aggregate_X(adata, file = h5ad(tmp_path), groupby=groups).X[:],
     )

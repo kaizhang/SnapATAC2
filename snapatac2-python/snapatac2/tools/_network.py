@@ -6,13 +6,14 @@ import numpy as np
 import retworkx
 import scipy.sparse as sp
 
+from snapatac2.genome import Genome
 from snapatac2._snapatac2 import (
     AnnData, AnnDataSet, link_region_to_gene, NodeData, LinkData
 )
 
 def init_network_from_annotation(
     regions: list[str],
-    anno_file: Path,
+    anno_file: Path | Genome,
     upstream: int = 250000,
     downstream: int = 250000,
     id_type: str = "gene_name",
@@ -43,6 +44,9 @@ def init_network_from_annotation(
     A network where peaks/regions point towards genes if they are within genes'
     regulatory domains.
     """
+    if isinstance(anno_file, Genome):
+        anno_file = anno_file.fetch_annotations()
+        
     region_added = {}
     graph = retworkx.PyDiGraph()
     links = link_region_to_gene(

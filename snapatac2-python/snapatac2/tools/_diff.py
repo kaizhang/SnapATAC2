@@ -125,8 +125,8 @@ def diff_test(
     var_names = data.var_names
     return pl.DataFrame({
         "feature name": [var_names[i] for i in features],
-        "log2(fold_change)": log_fc,
-        "p-value": pvals,
+        "log2(fold_change)": np.array(log_fc),
+        "p-value": np.array(pvals),
         "adjusted p-value": _p_adjust_bh(pvals),
     }).sort("adjusted p-value")
 

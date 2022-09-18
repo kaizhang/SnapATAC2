@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 import snapatac2._snapatac2 as sa
-from snapatac2.tools._counts import _group_by
+from snapatac2.tools._counts import _groupby
 import random
 from scipy import sparse
 import pytest
@@ -23,7 +23,7 @@ def test_group_arr():
     np.random.shuffle(merged)
     labels = merged[:, 0]
     mats = merged[:, 1:]
-    result = _group_by(mats, labels)
+    result = _groupby(mats, labels)
     output = {}
     for (k, v) in result.items():
         output[k] = np.ravel(v.sum(axis = 0))
@@ -43,7 +43,7 @@ def test_group_csr():
     np.random.shuffle(merged)
     labels = merged[:, 0]
     mats = sparse.csr_matrix(merged[:, 1:])
-    result = _group_by(mats, labels)
+    result = _groupby(mats, labels)
     output = {}
     for (k, v) in result.items():
         output[k] = np.ravel(v.sum(axis = 0))
