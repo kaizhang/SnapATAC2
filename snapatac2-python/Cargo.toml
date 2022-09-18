@@ -1,6 +1,6 @@
 [package]
 name = "snapatac2"
-version = "2.0.0"
+version = "2.1.0"
 edition = "2021"
 authors = ["Kai Zhang <kai@kzhang.org>"]
 description = "Rust APIs"
@@ -15,8 +15,8 @@ keywords = ["single-cell", "biology"]
 #pyanndata = { path = "../../anndata-rs/pyanndata" }
 anndata-rs = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "0791a171836c026b89fe2cd9bc9d3d2f73c0d923" }
 pyanndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "0791a171836c026b89fe2cd9bc9d3d2f73c0d923" }
-#snapatac2-core = { git = "https://github.com/kaizhang/SnapATAC2.git", rev = "c7ef4a3d5f3a61472a88deeb990e192d7a2e52a3" }
-snapatac2-core = { path = "../snapatac2-core" }
+snapatac2-core = { git = "https://github.com/kaizhang/SnapATAC2.git", rev = "bccfcbaab16a0ac879bbb57a1a1a39019d632683" }
+#snapatac2-core = { path = "../snapatac2-core" }
 bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "cded506230e8d259f7c909df1ef6f53d6fea095a" }
 itertools = "0.8"
 flate2 = "1.0"

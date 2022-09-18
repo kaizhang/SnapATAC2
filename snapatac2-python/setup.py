@@ -2,8 +2,13 @@ from setuptools import setup
 from setuptools_rust import Binding, RustExtension
 
 from pathlib import Path
+
 root_directory = Path(__file__).parent
 long_description = (root_directory / "README.md").read_text()
+
+version = {}
+with open(root_directory / "snapatac2/_version.py") as fp:
+    exec(fp.read(), version)
 
 setup(
     name="snapatac2",
@@ -14,7 +19,7 @@ setup(
     author='Kai Zhang',
     author_email='kai@kzhang.org',
     license='MIT',
-    version="2.0.0.1",
+    version=version['__version__'],
     rust_extensions=[
         RustExtension("snapatac2._snapatac2", binding=Binding.PyO3),
     ],
