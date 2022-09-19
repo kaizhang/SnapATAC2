@@ -1,12 +1,17 @@
 from snapatac2.datasets import _datasets
+from pooch import Decompress
 
 class Genome:
-    def __init__(self, chrom_sizes, annotation_filename) -> None:
+    def __init__(self, chrom_sizes, annotation_filename, fasta = None) -> None:
         self.chrom_sizes = chrom_sizes
         self._annotation_filename = annotation_filename
+        self._fasta_filename = fasta
 
     def fetch_annotations(self):
         return _datasets.fetch(self._annotation_filename)
+
+    def fetch_fasta(self):
+        return _datasets.fetch(self._fasta_filename, processor = Decompress(method = "gzip"))
 
 GRCh37 = Genome(
     {
@@ -35,7 +40,8 @@ GRCh37 = Genome(
         "chr22": 51304566,
         "chr21": 48129895,
     },
-    "gencode_v19_GRCh37.gff3.gz",
+    "gencode_v41_GRCh37.gff3.gz",
+    "gencode_v41_GRCh37.fa.gz",
 )
 
 hg19 = GRCh37
@@ -68,6 +74,7 @@ GRCh38 = Genome(
         "chrY": 57227415
     },
     "gencode_v41_GRCh38.gff3.gz",
+    "gencode_v41_GRCh38.fa.gz",
 )
 
 hg38 = GRCh38
@@ -97,6 +104,7 @@ GRCm39 = Genome(
         "Y": 91455967,
     },
     "gencode_vM30_GRCm39.gff3.gz",
+    "gencode_vM30_GRCm39.fa.gz",
 )
 
 mm39 = GRCm39
@@ -126,6 +134,7 @@ GRCm38 = Genome(
         "chrY": 91744698,
     },
     "gencode_vM25_GRCm38.gff3.gz",
+    "gencode_vM25_GRCm38.fa.gz",
 )
 
 mm10 = GRCm38

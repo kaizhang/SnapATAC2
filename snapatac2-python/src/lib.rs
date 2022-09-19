@@ -3,6 +3,7 @@ mod utils;
 mod call_peaks;
 mod matrix;
 mod network;
+mod motif;
 
 use pyo3::{prelude::*, PyResult, Python};
 use pyanndata;
@@ -23,6 +24,10 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(pyanndata::read_csv, m)?)?;
     m.add_function(wrap_pyfunction!(pyanndata::create_dataset, m)?)?;
     m.add_function(wrap_pyfunction!(pyanndata::read_dataset, m)?)?;
+
+    m.add_class::<motif::PyDNAMotif>().unwrap();
+    m.add_class::<motif::PyDNAMotifScanner>().unwrap();
+    m.add_function(wrap_pyfunction!(motif::read_motifs, m)?)?;
  
     m.add_function(wrap_pyfunction!(matrix::make_fragment_file, m)?)?;
     m.add_function(wrap_pyfunction!(matrix::import_fragments, m)?)?;

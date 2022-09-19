@@ -12,7 +12,7 @@ use std::{str::FromStr, fs::File};
 use flate2::read::MultiGzDecoder;
 use hdf5;
 use linreg::lin_reg_imprecise;
-use linfa::{ DatasetBase, traits::{Fit, Predict}};
+use linfa::{DatasetBase, traits::{Fit, Predict}};
 use linfa_clustering::KMeans;
 use rand_core::SeedableRng;
 use rand_isaac::Isaac64Rng;
