@@ -3,6 +3,7 @@ use numpy::{Ix2, PyReadonlyArray};
 use std::fs::File;
 use std::path::Path;
 use std::io::Read;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use snapatac2_core::{
     motif,
@@ -10,6 +11,7 @@ use snapatac2_core::{
 
 #[pyclass]
 #[repr(transparent)]
+#[derive(Clone)]
 pub struct PyDNAMotif(pub motif::DNAMotif);
 
 #[pymethods]
@@ -28,29 +30,97 @@ impl PyDNAMotif {
         PyDNAMotif(motif)
     }
 
-    fn with_background(&self, a: f64, c: f64, g: f64, t: f64) -> PyDNAMotifScanner {
+    #[getter]
+    fn name(&self) -> String { self.0.name.clone() }
+
+    #[args(
+        a = "0.25",
+        c = "0.25",
+        g = "0.25",
+        t = "0.25",
+    )]
+    fn with_nucl_prob(&self, a: f64, c: f64, g: f64, t: f64) -> PyDNAMotifScanner {
         PyDNAMotifScanner(self.0.clone().to_scanner(motif::BackgroundProb([a, c, g, t])))
     }
 }
 
 #[pyclass]
 #[repr(transparent)]
+#[derive(Clone)]
 pub struct PyDNAMotifScanner(pub motif::DNAMotifScanner);
 
 #[pymethods]
 impl PyDNAMotifScanner {
+    #[getter]
+    fn name(&self) -> String { self.0.motif.name.clone() }
+
+    #[args(
+        seq,
+        pvalue = "1e-5",
+    )]
     fn find(&self, seq: &str, pvalue: f64) -> Vec<(usize, f64)> {
         self.0.find(seq.as_bytes(), pvalue).collect()
     }
 
-    fn exist(&self, seq: &str, pvalue: f64) -> bool {
-        self.0.find(seq.as_bytes(), pvalue).next().is_some()
+    #[args(
+        seq,
+        pvalue = "1e-5",
+        rc = "true",
+    )]
+    fn exist(&self, seq: &str, pvalue: f64, rc: bool) -> bool {
+        self.0.find(seq.as_bytes(), pvalue).next().is_some() ||
+            (rc && self.0.find(rev_compl(seq).as_bytes(), pvalue).next().is_some())
+    }
+
+    #[args(
+        seqs,
+        pvalue = "1e-5",
+    )]
+    fn with_background(&self, seqs: Vec<&str>, pvalue: f64) -> PyDNAMotifTest {
+        let n = seqs.len();
+        PyDNAMotifTest {
+            scanner: self.clone(),
+            pvalue,
+            occurrence_background: seqs.into_par_iter().filter(|x| self.exist(x, pvalue, true)).count(),
+            total_background: n,
+        }
+    }
+}
+
+fn rev_compl(dna: &str) -> String {
+    dna.chars().rev().map(|x| match x {
+        'A' | 'a' => 'T',
+        'C' | 'c' => 'G',
+        'G' | 'g' => 'C',
+        'T' | 't' => 'A',
+        c => c,
+    }).collect()
+}
+
+#[pyclass]
+pub struct PyDNAMotifTest {
+    scanner: PyDNAMotifScanner,
+    pvalue: f64,
+    occurrence_background: usize,
+    total_background: usize,
+}
+
+#[pymethods]
+impl PyDNAMotifTest {
+    #[getter]
+    fn name(&self) -> String { self.scanner.name() }
+
+    fn test(&self, seqs: Vec<&str>) -> f64 {
+        let n = seqs.len();
+        let occurrence = seqs.into_par_iter().filter(|x| self.scanner.exist(x, self.pvalue, true)).count();
+        let fc = (occurrence as f64 / n as f64) /
+            (self.occurrence_background as f64 / self.total_background as f64);
+        fc.log2()
     }
 }
 
 #[pyfunction]
-pub(crate) fn read_motifs<'py>(
-    py: Python<'py>,
+pub(crate) fn read_motifs(
     filename: &str,
 ) -> Vec<PyDNAMotif> {
     let path = Path::new(filename);

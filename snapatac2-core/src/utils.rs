@@ -142,7 +142,9 @@ pub(crate) trait GenomeIndex {
     fn lookup_region(&self, i: usize) -> GenomicRange;
 }
 
-/// Base-resolution compact representation of genomic.
+/// Base-resolution compact representation of genomic, stored as a vector of
+/// chromosome names and their accumulated lengths.
+/// The accumulated lengths start from 0.
 pub struct GBaseIndex(Vec<(String, u64)>);
 
 impl GBaseIndex {
@@ -156,14 +158,25 @@ impl GBaseIndex {
         ).collect();
         Ok(Self(chrom_index))
     }
+
+    pub(crate) fn index_downsampled(&self, ori_idx: usize, sample_size: usize) -> usize {
+        if sample_size <= 1 {
+            ori_idx
+        } else { 
+            match self.0.binary_search_by_key(&ori_idx, |s| s.1.try_into().unwrap()) {
+                Ok(_) => ori_idx,
+                Err(j) => {
+                    let p: usize = self.0[j - 1].1.try_into().unwrap();
+                    (ori_idx - p) / sample_size * sample_size + p
+                },
+            }
+        }
+    }
 }
 
 impl GenomeIndex for GBaseIndex {
     fn lookup_region(&self, i: usize) -> GenomicRange {
-        let i_ = self.0.binary_search_by_key(
-            &i, |s| s.1.try_into().unwrap()
-        );
-        match i_  {
+        match self.0.binary_search_by_key(&i, |s| s.1.try_into().unwrap()) {
             Ok(j) => GenomicRange::new(self.0[j].0.clone(), 0, 1),
             Err(j) => {
                 let (chr, p) = self.0[j - 1].clone();
@@ -353,5 +366,45 @@ fn get_reference_seq_info_(elems: &mut ElemCollection) -> Result<Vec<(String, u6
                 chr_sizes.into_iter().flatten()
             ).collect())
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn genome_index() {
+        let gindex = GBaseIndex(vec![("1".to_owned(), 0), ("2".to_owned(), 13), ("3".to_owned(), 84)]);
+
+        [
+            (0, ("1", 0)),
+            (12, ("1", 12)),
+            (13, ("2", 0)),
+            (100, ("3", 16)),
+        ].into_iter().for_each(|(i, (chr, s))|
+            assert_eq!(gindex.lookup_region(i), GenomicRange::new(chr, s, s+1))
+        );
+
+        [
+            (0, 2, 0),
+            (1, 2, 0),
+            (2, 2, 2),
+            (3, 2, 2),
+            (10, 2, 10),
+            (11, 2, 10),
+            (12, 2, 12),
+            (13, 2, 13),
+            (14, 2, 13),
+            (15, 2, 15),
+            (16, 2, 15),
+            (84, 2, 84),
+            (85, 2, 84),
+            (86, 2, 86),
+            (87, 2, 86),
+            (85, 1, 85),
+        ].into_iter().for_each(|(i, s, i_)|
+            assert_eq!(gindex.index_downsampled(i, s), i_)
+        );
     }
 }

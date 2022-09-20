@@ -3,6 +3,7 @@ use std::io::{Error, ErrorKind};
 use std::str::FromStr;
 use std::default::Default;
 
+#[derive(Debug, Clone)]
 pub struct BackgroundProb(pub [f64; 4]);
 
 impl Default for BackgroundProb {
@@ -112,8 +113,9 @@ impl DNAMotif {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct DNAMotifScanner {
-    motif: DNAMotif,
+    pub motif: DNAMotif,
     cdf: ScoreCDF,
     background: BackgroundProb,
 }
@@ -137,7 +139,7 @@ impl DNAMotifScanner {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct ScoreCDF(Vec<(f64, f64)>);
 
 impl ScoreCDF {

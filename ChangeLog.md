@@ -1,6 +1,10 @@
 v2.2.0 (2022-XX-XX)
 ===================
 
+Major changes:
+
+- Fix a bug in "ex.export_bigwig".
+
 v2.1.0 (2022-09-17)
 ===================
 

@@ -44,6 +44,8 @@ def export_bed(
     """
     if isinstance(groupby, str):
         groupby = adata.obs[groupby].astype("str")
+    if selections is not None:
+        selections = set(selections)
     
     if ids is None:
         ids = adata.obs[:, 0].astype("str")
@@ -51,7 +53,7 @@ def export_bed(
         ids = adata.obs[ids].astype("str")
 
     return internal.export_bed(
-        adata, list(ids), list(groupby), set(selections), str(out_dir), prefix, suffix,
+        adata, list(ids), list(groupby), selections, str(out_dir), prefix, suffix,
     )
 
 
@@ -93,7 +95,9 @@ def export_bigwig(
     """
     if isinstance(groupby, str):
         groupby = adata.obs[groupby].astype("str")
+    if selections is not None:
+        selections = set(selections)
     
     return internal.export_bigwig(
-        adata, list(groupby), set(selections), resolution, str(out_dir), prefix, suffix,
+        adata, list(groupby), selections, resolution, str(out_dir), prefix, suffix,
     )
