@@ -1,6 +1,4 @@
-use crate::utils::{ChromValues, ChromValuesReader, GenomeIndex, GBaseIndex};
-
-use anndata_rs::{element::ElemTrait, anndata::{AnnData, AnnDataSet}};
+use anndata_rs::anndata::{AnnData, AnnDataSet};
 use nalgebra_sparse::CsrMatrix;
 use anyhow::{Context, Result, ensure};
 use flate2::{Compression, write::GzEncoder};
@@ -15,9 +13,11 @@ use std::{
 use tempfile::Builder;
 use rayon::iter::{ParallelIterator, IntoParallelIterator};
 use which::which;
-use bed_utils::bed::{BEDLike, BED, BedGraph, OptionalFields};
+use bed_utils::bed::{BEDLike, BED, BedGraph, OptionalFields, merge_sorted_bed_with};
 use bigtools::{bigwig::bigwigwrite::BigWigWrite, bed::bedparser::BedParser};
 use futures::executor::ThreadPool;
+
+use crate::utils::{ChromValues, ChromValuesReader, GenomeIndex, GBaseIndex};
 
 pub trait Exporter: ChromValuesReader {
     fn export_bed<P: AsRef<Path>>(
@@ -102,29 +102,49 @@ impl Exporter for AnnData {
         prefix: &str,
         suffix:&str,
     ) -> Result<HashMap<String, PathBuf>> {
+        // Create directory
+        std::fs::create_dir_all(&dir)
+            .with_context(|| format!("cannot create directory: {}", dir.as_ref().display()))?;
+
+        // Read genome information
         let chrom_sizes = self.get_reference_seq_info()?.into_iter()
             .map(|(a, b)| (a, b as u32)).collect();
         let genome_index = GBaseIndex::read_from_anndata(&mut self.get_uns().inner())?;
 
+        // Collect groups
         let mut groups: HashSet<&str> = group_by.iter().map(|x| *x).unique().collect();
         if let Some(select) = selections { groups.retain(|x| select.contains(x)); }
-        std::fs::create_dir_all(&dir)
-            .with_context(|| format!("cannot create directory: {}", dir.as_ref().display()))?;
-        groups.into_iter().map(|x| {
-            let filename = dir.as_ref().join(
-                prefix.to_string() + x.replace("/", "+").as_str() + suffix
+
+        // Collect counts
+        let mut counts: HashMap<&str, BTreeMap<usize, u32>> =
+            groups.into_iter().map(|grp| (grp, BTreeMap::new())).collect();
+        let obsm = self.get_obsm().inner();
+        let insertion_elem = obsm.get("insertion")
+            .expect(".obsm does not contain key: insertion");
+        insertion_elem.chunked(500).for_each(|x| {
+            let csr = x.into_any().downcast::<CsrMatrix<u8>>().unwrap();
+            csr.row_iter().enumerate().for_each(|(i, row)|
+                if let Some(count) = counts.get_mut(group_by[i]) {
+                    row.col_indices().iter().zip(row.values()).for_each(|(i, v)| {
+                        let e = count.entry(*i / resolution).or_insert(0);
+                        *e += *v as u32;
+                    })
+                }
             );
-            let insertion: Box<CsrMatrix<u8>> = self.get_obsm().inner()
-                .get("insertion").expect(".obsm does not contain key: insertion")
-                .read().unwrap().into_any().downcast().unwrap();
+        });
+
+        counts.into_iter().filter(|x| !x.1.is_empty()).map(|(grp, count)| {
+            let filename = dir.as_ref().join(
+                prefix.to_string() + grp.replace("/", "+").as_str() + suffix
+            );
             export_insertions_as_bigwig(
-                &insertion,
+                count,
                 &genome_index,
                 &chrom_sizes,
                 resolution,
                 filename.as_path().to_str().unwrap().to_string(),
             );
-            Ok((x.to_string(), filename))
+            Ok((grp.to_string(), filename))
         }).collect()
     }
 }
@@ -154,29 +174,51 @@ impl Exporter for AnnDataSet {
         prefix: &str,
         suffix:&str,
     ) -> Result<HashMap<String, PathBuf>> {
-        let chrom_sizes = self.get_reference_seq_info()?.into_iter()
-            .map(|(a, b)| (a, b as u32)).collect();
-        let genome_index = GBaseIndex::read_from_anndata(&mut self.get_uns().inner())?;
-
-        let mut groups: HashSet<&str> = group_by.iter().map(|x| *x).unique().collect();
-        if let Some(select) = selections { groups.retain(|x| select.contains(x)); }
+        // Create directory
         std::fs::create_dir_all(&dir)
             .with_context(|| format!("cannot create directory: {}", dir.as_ref().display()))?;
-        groups.into_iter().map(|x| {
-            let filename = dir.as_ref().join(
-                prefix.to_string() + x.replace("/", "+").as_str() + suffix
+
+        // Read genome information
+        let chrom_sizes = self.get_reference_seq_info()?.into_iter()
+            .map(|(a, b)| (a, b as u32)).collect();
+        let genome_index = GBaseIndex::read_from_anndata(
+            &mut self.anndatas.inner().iter().next().unwrap().1.get_uns().inner()
+        )?;
+
+        // Collect groups
+        let mut groups: HashSet<&str> = group_by.iter().map(|x| *x).unique().collect();
+        if let Some(select) = selections { groups.retain(|x| select.contains(x)); }
+
+        // Collect counts
+        let mut counts: HashMap<&str, BTreeMap<usize, u32>> =
+            groups.into_iter().map(|grp| (grp, BTreeMap::new())).collect();
+        let adatas = self.anndatas.inner();
+        let insertion_elem = adatas.obsm.data.get("insertion").unwrap();
+        insertion_elem.chunked(500).for_each(|x| {
+            let csr = x.into_any().downcast::<CsrMatrix<u8>>().unwrap();
+            csr.row_iter().enumerate().for_each(|(i, row)|
+                if let Some(count) = counts.get_mut(group_by[i]) {
+                    row.col_indices().iter().zip(row.values()).for_each(|(i, v)| {
+                        let e = count.entry(*i / resolution).or_insert(0);
+                        *e += *v as u32;
+                    })
+                }
             );
-            let insertion: Box<CsrMatrix<u8>> = self.get_obsm().inner()
-                .get("insertion").expect(".obsm does not contain key: insertion")
-                .read().unwrap().into_any().downcast().unwrap();
+        });
+
+        // Generate bigwig
+        counts.into_iter().filter(|x| !x.1.is_empty()).map(|(grp, count)| {
+            let filename = dir.as_ref().join(
+                prefix.to_string() + grp.replace("/", "+").as_str() + suffix
+            );
             export_insertions_as_bigwig(
-                &insertion,
+                count,
                 &genome_index,
                 &chrom_sizes,
                 resolution,
                 filename.as_path().to_str().unwrap().to_string(),
             );
-            Ok((x.to_string(), filename))
+            Ok((grp.to_string(), filename))
         }).collect()
     }
 }
@@ -247,37 +289,35 @@ where
 /// * `genome_index` - 
 /// * `chrom_sizes` - 
 fn export_insertions_as_bigwig(
-    insertions: &CsrMatrix<u8>,
+    counts: BTreeMap<usize, u32>,
     genome_index: &GBaseIndex,
     chrom_sizes: &HashMap<String, u32>,
     resolution: usize,
     out_file: String,
 )
 {
-    // aggregate insertion counts
-    let mut counts: BTreeMap<usize, u32> = BTreeMap::new();
-    insertions.col_indices().into_iter().zip(insertions.values()).for_each(|(i, v)| {
-        let e = counts.entry(*i / resolution).or_insert(0);
-        *e += *v as u32;
-    });
-
     // compute normalization factor
-    let total_count: u32 = counts.values().sum();
-    let norm_factor = ((total_count as f32) / 1000000.0) *
-        ((resolution as f32) / 1000.0);
+    let total_count: f64 = counts.values().map(|x| *x as f64).sum();
+    let norm_factor = total_count * resolution as f64 / 1e9;
 
     // Make BedGraph
     let mut bedgraph: Vec<BedGraph<f32>> = counts.into_iter().map(move |(k, v)| {
         let mut region = genome_index.lookup_region(k * resolution);
         region.set_end(region.start() + resolution as u64);
-        BedGraph::from_bed(&region, (v as f32) / norm_factor)
-    }).group_by(|x| (x.chrom().to_string(), x.value)).into_iter().map(|(_, mut groups)| {
-        let mut first = groups.next().unwrap();
-        if let Some(last) = groups.last() {
-            first.set_end(last.end());
-        }
-        first
-    }).collect();
+        BedGraph::from_bed(&region, (v as f64 / norm_factor) as f32)
+    }).group_by(|x| x.value).into_iter().flat_map(|(_, groups)|
+        merge_sorted_bed_with(
+            groups,
+            |beds| {
+                let mut iter = beds.into_iter();
+                let mut first = iter.next().unwrap();
+                if let Some(last) = iter.last() {
+                    first.set_end(last.end());
+                }
+                first
+            },
+        )
+    ).collect();
 
     // perform clipping to make sure the end of each region is within the range.
     bedgraph.iter_mut().group_by(|x| x.chrom().to_string()).into_iter().for_each(|(chr, groups)| {

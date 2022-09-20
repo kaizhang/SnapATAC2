@@ -6,7 +6,7 @@ use bed_utils::bed::{
     ParseError, merge_bed_with,
     tree::{SparseCoverage,  SparseBinnedCoverage}, Strand,
 };
-use anyhow::{Result, anyhow};
+use anyhow::{Result, anyhow, bail};
 use anndata_rs::{
     anndata::{AnnData, AnnDataSet},
     element::ElemCollection,
@@ -343,11 +343,15 @@ fn iterative_merge(mut peaks: Vec<NarrowPeak>) -> Vec<NarrowPeak> {
 }
 
 fn get_reference_seq_info_(elems: &mut ElemCollection) -> Result<Vec<(String, u64)>> {
-    let df: Box<DataFrame> = elems.get_mut("reference_sequences").unwrap()
-        .read()?.into_any().downcast().unwrap();
-    let chrs = df.column("reference_seq_name").unwrap().utf8()?;
-    let chr_sizes = df.column("reference_seq_length").unwrap().u64()?;
-    Ok(chrs.into_iter().flatten().map(|x| x.to_string()).zip(
-        chr_sizes.into_iter().flatten()
-    ).collect())
+    match elems.get_mut("reference_sequences") {
+        None => bail!("Cannot find key 'reference_sequences' in: {}", elems),
+        Some(ref_seq) => {
+            let df: Box<DataFrame> = ref_seq.read()?.into_any().downcast().unwrap();
+            let chrs = df.column("reference_seq_name").unwrap().utf8()?;
+            let chr_sizes = df.column("reference_seq_length").unwrap().u64()?;
+            Ok(chrs.into_iter().flatten().map(|x| x.to_string()).zip(
+                chr_sizes.into_iter().flatten()
+            ).collect())
+        },
+    }
 }

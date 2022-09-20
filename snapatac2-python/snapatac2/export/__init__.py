@@ -1,19 +1,20 @@
+from __future__ import annotations
+
 from pathlib import Path
 import numpy as np
-from typing import Optional, Sequence, Union, Set, Mapping
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
 import snapatac2._snapatac2 as internal
 
 def export_bed(
-    adata: Union[AnnData, AnnDataSet],
-    groupby: Union[str, Sequence[str]],
-    selections: Optional[Set[str]] = None,
-    ids: Optional[Union[str, np.ndarray]] = None,
+    adata: AnnData | AnnDataSet,
+    groupby: str | list[str],
+    selections: list[str] | None = None,
+    ids: str | np.ndarray | None = None,
     out_dir: Path = "./",
     prefix: str = "",
     suffix: str = ".bed.gz",
-) -> Mapping[str, str]:
+) -> dict[str, str]:
     """
     Export base-resolution TN5 insertion sites as BED format file.
 
@@ -50,19 +51,19 @@ def export_bed(
         ids = adata.obs[ids].astype("str")
 
     return internal.export_bed(
-        adata, list(ids), list(groupby), selections, str(out_dir), prefix, suffix,
+        adata, list(ids), list(groupby), set(selections), str(out_dir), prefix, suffix,
     )
 
 
 def export_bigwig(
-    adata: Union[AnnData, AnnDataSet],
-    groupby: Union[str, Sequence[str]],
-    selections: Optional[Set[str]] = None,
+    adata: AnnData | AnnDataSet,
+    groupby: str | list[str],
+    selections: list[str] | None = None,
     resolution: int = 1,
     out_dir: Path = "./",
     prefix: str = "",
     suffix: str = ".bw",
-) -> Mapping[str, str]:
+) -> dict[str, str]:
     """
     Export TN5 insertions as BigWig format file.
 
@@ -94,5 +95,5 @@ def export_bigwig(
         groupby = adata.obs[groupby].astype("str")
     
     return internal.export_bigwig(
-        adata, list(groupby), selections, resolution, str(out_dir), prefix, suffix,
+        adata, list(groupby), set(selections), resolution, str(out_dir), prefix, suffix,
     )
