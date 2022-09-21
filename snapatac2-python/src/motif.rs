@@ -4,6 +4,7 @@ use std::fs::File;
 use std::path::Path;
 use std::io::Read;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use statrs::distribution::{Binomial, DiscreteCDF};
 
 use snapatac2_core::{
     motif,
@@ -75,6 +76,15 @@ impl PyDNAMotifScanner {
     #[args(
         seqs,
         pvalue = "1e-5",
+        rc = "true",
+    )]
+    fn exists(&self, seqs: Vec<&str>, pvalue: f64, rc: bool) -> Vec<bool> {
+        seqs.into_par_iter().map(|x| self.exist(x, pvalue, true)).collect()
+    }
+
+    #[args(
+        seqs,
+        pvalue = "1e-5",
     )]
     fn with_background(&self, seqs: Vec<&str>, pvalue: f64) -> PyDNAMotifTest {
         let n = seqs.len();
@@ -110,12 +120,20 @@ impl PyDNAMotifTest {
     #[getter]
     fn name(&self) -> String { self.scanner.name() }
 
-    fn test(&self, seqs: Vec<&str>) -> f64 {
-        let n = seqs.len();
-        let occurrence = seqs.into_par_iter().filter(|x| self.scanner.exist(x, self.pvalue, true)).count();
-        let fc = (occurrence as f64 / n as f64) /
-            (self.occurrence_background as f64 / self.total_background as f64);
-        fc.log2()
+    fn test(&self, seqs: Vec<&str>) -> (f64, f64) {
+        let n = seqs.len().try_into().unwrap();
+        let occurrence: u64 = seqs.into_par_iter()
+            .filter(|x| self.scanner.exist(x, self.pvalue, true)).count()
+            .try_into().unwrap();
+        let p = self.occurrence_background as f64 / self.total_background as f64;
+        let log_fc = ((occurrence as f64 / n as f64) / p).log2();
+        let bion = Binomial::new(p, n).unwrap();
+        let pval = if log_fc >= 0.0 {
+            1.0 - bion.cdf(occurrence)
+        } else {
+            bion.cdf(occurrence)
+        };
+        (log_fc, pval)
     }
 }
 
@@ -132,4 +150,3 @@ pub(crate) fn read_motifs(
     file.read_to_string(&mut s).unwrap();
     motif::parse_meme(&s).into_iter().map(|x| PyDNAMotif(x)).collect()
 }
- 

@@ -41,6 +41,7 @@ setup(
         "pooch>=1.6.0",
         "python-igraph",
         "pyarrow",
+        "pyfaidx",
         "retworkx",
         "scipy>=1.4",
         "scikit-learn>=0.22",

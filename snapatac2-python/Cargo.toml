@@ -33,6 +33,7 @@ linfa-clustering = "0.6"
 rand_isaac = "0.3"
 rand_core = "0.6"
 hora = "0.1"
+statrs = "0.16.0"
 polars = { version = "0.23", features = ["ndarray", "dtype-categorical"] }
 tempfile = "3.3"
 [target.'cfg(not(target_env = "msvc"))'.dependencies]

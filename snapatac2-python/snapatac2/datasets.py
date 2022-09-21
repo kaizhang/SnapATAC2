@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 import pooch
 
+from snapatac2._snapatac2 import read_motifs, PyDNAMotif
+
 def pbmc5k() -> Path:
     """
     5k PBMCs from 10x Genomics.
@@ -22,6 +24,12 @@ def cre_HEA() -> Path:
     """
     return Path(_datasets.fetch("HEA_cCRE.bed.gz"))
 
+def cis_bp() -> [PyDNAMotif]:
+    """
+    Motifs from CIS-BP database.
+    """
+    return read_motifs(_datasets.fetch("cisBP_human.meme"))
+
 _datasets = pooch.create(
     path=pooch.os_cache("snapatac2"),
     base_url="http://renlab.sdsc.edu/kai/public_datasets/",
@@ -30,6 +38,7 @@ _datasets = pooch.create(
         "atac_pbmc_5k.tsv.gz": "sha256:5fe44c0f8f76ce1534c1ae418cf0707ca5ef712004eee77c3d98d2d4b35ceaec",
         "colon_transverse.tar": "sha256:18c56bf405ec0ef8e0e2ea31c63bf2299f21bcb82c67f46e8f70f8d71c65ae0e",
         "HEA_cCRE.bed.gz": "sha256:d69ae94649201cd46ffdc634852acfccc317196637c1786aba82068618001408",
+        "cisBP_human.meme": "sha256:bd9eda5000879ab8bc179e4a4c1562bf6e69af34fd16be797c1b665b558e1914",
 
         # Genome files
         "gencode_v41_GRCh37.gff3.gz": "sha256:df96d3f0845127127cc87c729747ae39bc1f4c98de6180b112e71dda13592673",
@@ -45,6 +54,7 @@ _datasets = pooch.create(
         "atac_pbmc_5k.tsv.gz": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_atac/atac_pbmc_5k_nextgem_fragments.tsv.gz",
         "colon_transverse.tar": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_atac/colon_transverse.tar",
         "HEA_cCRE.bed.gz": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_atac/HEA_cCRE.bed.gz",
+        "cisBP_human.meme": "http://renlab.sdsc.edu/kai/public_datasets/cisBP_human.meme",
         "gencode_v41_GRCh37.gff3.gz": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_41/GRCh37_mapping/gencode.v41lift37.basic.annotation.gff3.gz",
         "gencode_v41_GRCh37.fa.gz": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_41/GRCh37_mapping/GRCh37.primary_assembly.genome.fa.gz",
         "gencode_v41_GRCh38.gff3.gz": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_41/gencode.v41.basic.annotation.gff3.gz",

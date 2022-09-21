@@ -105,6 +105,14 @@ Differential analysis
    tl.marker_regions
    tl.diff_test
 
+Motif analysis
+~~~~~~~~~~~~~~
+
+.. autosummary::
+   :toctree: _autosummary
+
+   tl.motif_enrichment
+
 Transcriptional regulatory network (beta)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -136,8 +144,8 @@ Exporting: `ex`
     ex.export_bed
     ex.export_bigwig
 
-Utilities
----------
+Datasets
+--------
 
 Genome
 ~~~~~~
@@ -155,7 +163,15 @@ Genome
     genome.mm10
     genome.mm39
 
-Datasets
+Motifs
+~~~~~~
+
+.. autosummary::
+    :toctree: _autosummary
+
+    datasets.cis_bp
+
+Raw data
 ~~~~~~~~
 
 .. autosummary::
