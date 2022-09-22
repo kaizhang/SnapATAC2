@@ -6,6 +6,7 @@ import logging
 import polars as pl
 
 from snapatac2._snapatac2 import PyDNAMotif
+from snapatac2._utils import fetch_seq
 from snapatac2.genome import Genome
 from snapatac2.tools._diff import _p_adjust_bh
 
@@ -44,11 +45,6 @@ def motif_enrichment(
     from scipy.stats import binom, hypergeom
     from math import log2
 
-    def get_seq(g, x):
-        chr, x = x.split(':')
-        start, end = x.split('-')
-        return g[chr][int(start):int(end)].seq
-
     def count_occurrence(query, idx_map, bound):
         return sum(bound[idx_map[q]] for q in query)
 
@@ -62,10 +58,10 @@ def motif_enrichment(
     all_regions = list(all_regions)
     region_to_idx = dict(map(lambda x: (x[1], x[0]), enumerate(all_regions)))
 
-    logging.info("Fetching sequences ...")
+    logging.info("Fetching {} sequences ...".format(len(all_regions)))
     genome = genome_fasta.fetch_fasta() if isinstance(genome_fasta, Genome) else str(genome_fasta)
     genome = Fasta(genome, one_based_attributes=False)
-    sequences = [get_seq(genome, region) for region in all_regions]
+    sequences = [fetch_seq(genome, region) for region in all_regions]
 
     motif_name = []
     group_name = []
@@ -116,7 +112,7 @@ def motif_enrichment(
         p = (1 - pval[i]) if log_fc >= 0 else pval[i]
         result[key]['motif name'].append(motif_name[i])
         result[key]['log2(fold change)'].append(log_fc)
-        result[key]['p-value'].append(p)
+        result[key]['p-value'].append(float(p))
 
     for key in result.keys():
         result[key]['adjusted p-value'] = _p_adjust_bh(result[key]['p-value'])

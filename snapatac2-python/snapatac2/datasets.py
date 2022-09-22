@@ -24,11 +24,22 @@ def cre_HEA() -> Path:
     """
     return Path(_datasets.fetch("HEA_cCRE.bed.gz"))
 
-def cis_bp() -> [PyDNAMotif]:
+def cis_bp(unique: bool = False) -> list[PyDNAMotif]:
     """
     Motifs from CIS-BP database.
     """
-    return read_motifs(_datasets.fetch("cisBP_human.meme"))
+    motifs = read_motifs(_datasets.fetch("cisBP_human.meme"))
+    if unique:
+        unique_motifs = {}
+        for motif in motifs:
+            name = motif.name.split('+')[0]
+            if (
+                    name not in unique_motifs or 
+                    unique_motifs[name].info_content() < motif.info_content()
+               ):
+               unique_motifs[name] = motif
+        motifs = list(unique_motifs.values())
+    return motifs
 
 _datasets = pooch.create(
     path=pooch.os_cache("snapatac2"),

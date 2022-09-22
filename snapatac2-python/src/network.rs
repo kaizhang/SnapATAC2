@@ -37,7 +37,14 @@ pub(crate) struct LinkData {
 #[pymethods]
 impl LinkData {
     #[new]
-    fn new() -> Self { LinkData::default() }
+    #[args(
+        distance = "0",
+        regr_score = "None",
+        correlation_score = "None",
+    )]
+    fn new(distance: u64, regr_score: Option<f64>, correlation_score: Option<f64>) -> Self {
+        LinkData { distance, regr_score, correlation_score }
+    }
  
     fn __repr__(&self) -> String { format!("{:?}", self) }
 
@@ -83,7 +90,13 @@ pub(crate) struct NodeData {
 #[pymethods]
 impl NodeData {
     #[new]
-    fn new() -> Self { NodeData::default() }
+    #[args(
+        id = "\"\"",
+        ty = "\"\"",
+    )]
+    fn new(id: &str, ty: &str) -> Self {
+        NodeData { id: id.to_string(), r#type: ty.to_string() }
+    }
  
     fn __hash__(&self) -> u64 {
         let mut hasher = DefaultHasher::new();

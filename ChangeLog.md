@@ -3,7 +3,10 @@ v2.2.0 (2022-XX-XX)
 
 Major changes:
 
-- Fix a bug in "ex.export_bigwig".
+- Fix bugs in "ex.export_bigwig". NOTE: prior to this version, this function
+  does not work as expected. Please update and rerun if you have used this function
+  in v2.1.0.
+- Add "tl.motif_enrichment" to perform motif enrichment analysis.
 
 v2.1.0 (2022-09-17)
 ===================

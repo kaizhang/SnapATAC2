@@ -28,3 +28,19 @@ def chunks(mat, chunk_size: int):
     for i in range(0, n, chunk_size):
         j = max(i + chunk_size, n)
         yield mat[i:j, :]
+
+def fetch_seq(fasta, region):
+    chr, x = region.split(':')
+    start, end = x.split('-')
+    start = int(start)
+    end = int(end)
+    seq = fasta[chr][start:end].seq
+    l1 = len(seq)
+    l2 = end - start
+    if l1 != l2:
+        raise NameError(
+            "sequence fetch error: expected length: {}, but got {}.".format(l2, l1)
+        )
+    else:
+        return seq
+

@@ -122,6 +122,7 @@ Transcriptional regulatory network (beta)
    tl.init_network_from_annotation
    tl.add_cor_scores
    tl.add_regr_scores
+   tl.add_tf_binding
    tl.prune_network
 
 Plotting: `pl`

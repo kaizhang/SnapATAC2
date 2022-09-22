@@ -43,6 +43,17 @@ impl FromStr for DNAMotif {
 impl DNAMotif {
     pub fn size(&self) -> usize { self.probability.len() }
 
+    pub fn info_content(&self) -> f64 {
+        self.probability.iter().map(|row| {
+            let entropy: f64 = row.into_iter().map(|p| if *p == 0.0 {
+                0.0
+            } else {
+                -1.0 * *p * p.log2()
+            }).sum();
+            2.0 - entropy
+        }).sum()
+    }
+
     pub fn to_scanner(mut self, bg: BackgroundProb) -> DNAMotifScanner {
         self.add_pseudocount(0.0001);
         let cdf = ScoreCDF::new(&self, &bg);
@@ -243,7 +254,7 @@ impl<'a> Iterator for MotifSites<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if self.cur_pos >= self.seq.len() - self.motif.size() + 1 {
+            if self.seq.len() >= self.motif.size() && self.cur_pos >= self.seq.len() - self.motif.size() + 1 {
                 return None;
             }
             let search_result = self.motif.look_ahead_search(

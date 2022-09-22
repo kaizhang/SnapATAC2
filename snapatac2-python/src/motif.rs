@@ -34,6 +34,8 @@ impl PyDNAMotif {
     #[getter]
     fn name(&self) -> String { self.0.name.clone() }
 
+    fn info_content(&self) -> f64 { self.0.info_content() }
+
     #[args(
         a = "0.25",
         c = "0.25",
@@ -79,7 +81,7 @@ impl PyDNAMotifScanner {
         rc = "true",
     )]
     fn exists(&self, seqs: Vec<&str>, pvalue: f64, rc: bool) -> Vec<bool> {
-        seqs.into_par_iter().map(|x| self.exist(x, pvalue, true)).collect()
+        seqs.into_par_iter().map(|x| self.exist(x, pvalue, rc)).collect()
     }
 
     #[args(
