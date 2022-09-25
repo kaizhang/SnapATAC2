@@ -46,7 +46,7 @@ pub fn call_peaks<'py>(
     let n = peaks.len();
     let peaks_str = Series::new(
         "Peaks",
-        peaks.iter().map(|x| BEDLike::pretty_show(x)).collect::<Vec<_>>(),
+        peaks.iter().map(|x| x.to_genomic_range().pretty_show()).collect::<Vec<_>>(),
     );
     let peaks_index: BedTree<usize> = peaks.into_iter().enumerate().map(|(i, x)| (x, i)).collect();
     let iter = peak_files.into_iter().map(|(key, fl)| {

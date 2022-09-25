@@ -112,7 +112,7 @@ impl<D: BEDLike + Clone> FeatureCounter for SparseBinnedCoverage<'_, D, u32> {
     fn insert<B: BEDLike>(&mut self, tag: &B, count: u32) { self.insert(tag, count); }
 
     fn get_feature_ids(&self) -> Vec<String> {
-        self.get_regions().flatten().map(|x| x.pretty_show()).collect()
+        self.get_regions().flatten().map(|x| x.to_genomic_range().pretty_show()).collect()
     }
 
     fn get_counts(&self) -> Vec<(usize, Self::Value)> {
@@ -128,7 +128,7 @@ impl<D: BEDLike> FeatureCounter for SparseCoverage<'_, D, u32> {
     fn insert<B: BEDLike>(&mut self, tag: &B, count: u32) { self.insert(tag, count); }
 
     fn get_feature_ids(&self) -> Vec<String> {
-        self.get_regions().map(|x| x.pretty_show()).collect()
+        self.get_regions().map(|x| x.to_genomic_range().pretty_show()).collect()
     }
 
     fn get_counts(&self) -> Vec<(usize, Self::Value)> {

@@ -24,7 +24,7 @@ where
                         } else {
                             x.start().abs_diff(tss).min(x.end().abs_diff(tss))
                         };
-                        (x.pretty_show(), d)
+                        (x.to_genomic_range().pretty_show(), d)
                     }).collect();
                     (id, links)
                 }).collect(),
@@ -46,7 +46,7 @@ where
                         } else {
                             x.start().abs_diff(tss).min(x.end().abs_diff(tss))
                         };
-                        let v = val.entry(x.pretty_show()).or_insert(d);
+                        let v = val.entry(x.to_genomic_range().pretty_show()).or_insert(d);
                         if *v > d { *v = d; }
                     });
                 });

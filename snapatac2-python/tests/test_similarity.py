@@ -1,4 +1,4 @@
-import snapatac2.tools._spectral as sp
+import snapatac2.tools.embedding._spectral as sp
 
 import numpy as np
 import pytest
