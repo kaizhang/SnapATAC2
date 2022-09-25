@@ -9,7 +9,7 @@ from scipy.sparse import csr_matrix
 
 from .._utils import get_binarized_matrix, chunks
 from snapatac2._snapatac2 import AnnData, approximate_nearest_neighbors
-from snapatac2.tools._spectral import Spectral
+from snapatac2.tools.embedding._spectral import Spectral
 
 def scrublet(
     adata: AnnData,

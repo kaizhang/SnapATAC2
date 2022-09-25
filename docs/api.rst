@@ -179,5 +179,6 @@ Raw data
     :toctree: _autosummary
 
     datasets.pbmc5k
+    datasets.pbmc_multiome
     datasets.colon
     datasets.cre_HEA

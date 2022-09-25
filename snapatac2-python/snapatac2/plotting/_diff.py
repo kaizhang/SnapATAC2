@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
-from snapatac2.tools._counts import aggregate_X
+from snapatac2.tools._misc import aggregate_X
 from ._utils import render_plot
 
 def regions(

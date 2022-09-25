@@ -3,23 +3,23 @@ from setuptools_rust import Binding, RustExtension
 
 from pathlib import Path
 
-root_directory = Path(__file__).parent
-long_description = (root_directory / "README.md").read_text()
+ROOT_DIR = Path(__file__).parent
+README = (ROOT_DIR / "README.md").read_text()
 
-version = {}
-with open(root_directory / "snapatac2/_version.py") as fp:
-    exec(fp.read(), version)
+VERSION = {}
+with open(ROOT_DIR / "snapatac2/_version.py") as fp:
+    exec(fp.read(), VERSION)
 
 setup(
     name="snapatac2",
-    description='SnapATAC: Single Nucleus Analysis Pipeline for ATAC-seq',
-    long_description=long_description,
+    description='SnapATAC2: Single-cell epigenomics analysis pipeline',
+    long_description=README,
     long_description_content_type='text/markdown',
     url='https://kzhang.org/SnapATAC2/', 
     author='Kai Zhang',
     author_email='kai@kzhang.org',
     license='MIT',
-    version=version['__version__'],
+    version=VERSION['__version__'],
     rust_extensions=[
         RustExtension("snapatac2._snapatac2", binding=Binding.PyO3),
     ],
@@ -27,6 +27,7 @@ setup(
         "snapatac2",
         "snapatac2.preprocessing",
         "snapatac2.tools",
+        "snapatac2.tools.embedding",
         "snapatac2.plotting",
         "snapatac2.export",
     ],

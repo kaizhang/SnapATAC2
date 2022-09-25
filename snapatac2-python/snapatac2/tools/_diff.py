@@ -9,7 +9,7 @@ from sklearn.metrics import log_loss
 import sys
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
-from snapatac2.tools._counts import aggregate_X
+from snapatac2.tools._misc import aggregate_X
 
 def marker_regions(
     data: AnnData | AnnDataSet,

@@ -1,15 +1,37 @@
 from __future__ import annotations
+from typing_extensions import Literal
 
 from pathlib import Path
 import pooch
 
 from snapatac2._snapatac2 import read_motifs, PyDNAMotif
 
-def pbmc5k() -> Path:
+def pbmc5k(type: Literal["fragment, h5ad, gene, annotated_h5ad"] = "fragment") -> Path:
     """
     5k PBMCs from 10x Genomics.
     """
-    return Path(_datasets.fetch("atac_pbmc_5k.tsv.gz"))
+    if type == "fragment":
+        return Path(_datasets.fetch("atac_pbmc_5k.tsv.gz"))
+    elif type == "h5ad":
+        return Path(_datasets.fetch("atac_pbmc_5k.h5ad"))
+    elif type == "annotated_h5ad":
+        return Path(_datasets.fetch("atac_pbmc_5k_annotated.h5ad"))
+    elif type == "gene":
+        return Path(_datasets.fetch("atac_pbmc_5k_gene.h5ad"))
+    else:
+        raise NameError("type '{}' is not available.".format(type))
+    
+
+def pbmc_multiome(modality: Literal["ATAC", "RNA"] = "RNA") -> Path:
+    """
+    10k PBMCs from 10x Genomics.
+    """
+    if modality == "RNA":
+        return Path(_datasets.fetch("10x-Multiome-Pbmc10k-RNA.h5ad"))
+    elif modality == "ATAC":
+        return Path(_datasets.fetch("10x-Multiome-Pbmc10k-ATAC.h5ad"))
+    else:
+        raise NameError("modality '{}' is not available.".format(modality))
 
 def colon() -> list[tuple[str, Path]]:
     """
@@ -47,9 +69,16 @@ _datasets = pooch.create(
     # The registry specifies the files that can be fetched
     registry={
         "atac_pbmc_5k.tsv.gz": "sha256:5fe44c0f8f76ce1534c1ae418cf0707ca5ef712004eee77c3d98d2d4b35ceaec",
+        "atac_pbmc_5k.h5ad": "sha256:dcaca8ca4ac28674ec2172b4a975f75fba2ede1fc86571f7c452ba00f5cd4b94",
+        "atac_pbmc_5k_annotated.h5ad": "sha256:3d5f147ce13a01cd2bdc3d9d2e8cf7897ee98e44255ff12f868517dd78427a87",
+        "atac_pbmc_5k_gene.h5ad": "sha256:333f08af090c3306c681d26cce93614a71fee2a12d268b54ef1fce29fda8f078",
+
         "colon_transverse.tar": "sha256:18c56bf405ec0ef8e0e2ea31c63bf2299f21bcb82c67f46e8f70f8d71c65ae0e",
         "HEA_cCRE.bed.gz": "sha256:d69ae94649201cd46ffdc634852acfccc317196637c1786aba82068618001408",
         "cisBP_human.meme": "sha256:bd9eda5000879ab8bc179e4a4c1562bf6e69af34fd16be797c1b665b558e1914",
+
+        "10x-Multiome-Pbmc10k-ATAC.h5ad": "sha256:24d030fb7f90453a0303b71a1e3e4e7551857d1e70072752d7fff9c918f77217",
+        "10x-Multiome-Pbmc10k-RNA.h5ad": "sha256:a25327acff48b20b295c12221a84fd00f8f3f486ff3e7bd090fdef241b996a22",
 
         # Genome files
         "gencode_v41_GRCh37.gff3.gz": "sha256:df96d3f0845127127cc87c729747ae39bc1f4c98de6180b112e71dda13592673",
@@ -63,9 +92,17 @@ _datasets = pooch.create(
     },
     urls={
         "atac_pbmc_5k.tsv.gz": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_atac/atac_pbmc_5k_nextgem_fragments.tsv.gz",
+        "atac_pbmc_5k.h5ad": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_atac/atac_pbmc_5k.h5ad",
+        "atac_pbmc_5k_gene.h5ad": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_atac/atac_pbmc_5k_gene.h5ad",
+        "atac_pbmc_5k_annotated.h5ad": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_atac/atac_pbmc_5k_annotated.h5ad",
+
+        "10x-Multiome-Pbmc10k-ATAC.h5ad": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_multiome/10x-Multiome-Pbmc10k-ATAC.h5ad",
+        "10x-Multiome-Pbmc10k-RNA.h5ad": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_multiome/10x-Multiome-Pbmc10k-RNA.h5ad",
+
         "colon_transverse.tar": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_atac/colon_transverse.tar",
         "HEA_cCRE.bed.gz": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_atac/HEA_cCRE.bed.gz",
         "cisBP_human.meme": "http://renlab.sdsc.edu/kai/public_datasets/cisBP_human.meme",
+
         "gencode_v41_GRCh37.gff3.gz": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_41/GRCh37_mapping/gencode.v41lift37.basic.annotation.gff3.gz",
         "gencode_v41_GRCh37.fa.gz": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_41/GRCh37_mapping/GRCh37.primary_assembly.genome.fa.gz",
         "gencode_v41_GRCh38.gff3.gz": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_41/gencode.v41.basic.annotation.gff3.gz",

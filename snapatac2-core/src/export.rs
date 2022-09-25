@@ -349,7 +349,7 @@ where
 {
     let dir = Builder::new().tempdir_in(tmp_dir)?;
 
-    Command::new("macs2").args([
+    let cmd_out = Command::new("macs2").args([
         "callpeak",
         "-f", "BED",
         "-t", bed_file.as_ref().to_str().unwrap(),
@@ -361,11 +361,16 @@ where
         "--nomodel", "--shift", "-100", "--extsize", "200",
         "--nolambda",
         "--tempdir", format!("{}", dir.path().display()).as_str(),
-    ]).output().context("macs2 command did not exit properly")?;
+    ]).output().context("failed to execute macs2 command")?;
 
-    let reader = BufReader::new(File::open(
-        dir.path().join("NA_peaks.narrowPeak"))
-            .context("NA_peaks.narrowPeak: cannot find the peak file")?
+    ensure!(
+        cmd_out.status.success(),
+        format!("macs2 error:\n{}", std::str::from_utf8(&cmd_out.stderr).unwrap()),
+    );
+
+    let peak_file = dir.path().join("NA_peaks.narrowPeak");
+    let reader = BufReader::new(File::open(&peak_file)
+        .context(format!("Cannot open file for read: {}", peak_file.display()))?
     );
     let mut writer: Box<dyn Write> = if out_file.as_ref().extension().unwrap() == "gz" {
         Box::new(BufWriter::new(GzEncoder::new(
