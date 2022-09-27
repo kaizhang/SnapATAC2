@@ -135,6 +135,7 @@ Plotting: `pl`
     pl.spectral_eigenvalues
     pl.scrublet
     pl.umap
+    pl.motif_enrichment
 
 Exporting: `ex`
 ---------------
