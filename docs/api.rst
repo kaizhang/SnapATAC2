@@ -136,6 +136,7 @@ Plotting: `pl`
     pl.scrublet
     pl.umap
     pl.motif_enrichment
+    pl.regions
 
 Exporting: `ex`
 ---------------
