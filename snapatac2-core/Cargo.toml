@@ -24,8 +24,8 @@ indexmap = "1.9"
 lexical = "6.1"
 ndarray = { version = "0.15", features = ["rayon"] }
 num = "0.4"
-noodles-gff = "0.5"
-noodles = { version = "0.26.0", features = ["bam", "sam"] }
+#noodles-gff = "0.5"
+noodles = { version = "0.27.0", features = ["core", "bam", "sam", "gff"] }
 nalgebra-sparse = "0.7"
 polars = { version = "0.23", features = ["ndarray", "dtype-categorical"] }
 rayon = "1.5"

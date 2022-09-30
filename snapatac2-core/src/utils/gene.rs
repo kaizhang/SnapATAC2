@@ -1,7 +1,8 @@
 use crate::utils::FeatureCounter;
 
-use noodles_gff::record::Strand;
-use noodles_gff as gff;
+use noodles::core::Position;
+use noodles::gff::record::Strand;
+use noodles::gff::Reader;
 use std::io::BufRead;
 use std::collections::HashMap;
 use std::collections::{BTreeMap, HashSet};
@@ -20,16 +21,16 @@ pub struct Transcript {
     pub gene_id: String,
     pub is_coding: Option<bool>,
     pub chrom: String,
-    pub left: i32,
-    pub right: i32,
+    pub left: Position,
+    pub right: Position,
     pub strand: Strand,
 }
 
 impl Transcript {
-    pub fn get_tss(&self) -> Option<i32> {
+    pub fn get_tss(&self) -> Option<usize> {
         match self.strand {
-            Strand::Forward => Some(self.left),
-            Strand::Reverse => Some(self.right),
+            Strand::Forward => Some(<Position as TryInto<usize>>::try_into(self.left).unwrap() - 1),
+            Strand::Reverse => Some(<Position as TryInto<usize>>::try_into(self.right).unwrap() - 1),
             _ => None,
         }
     }
@@ -39,7 +40,7 @@ pub fn read_transcripts<R>(input: R) -> Vec<Transcript>
 where
     R: BufRead, 
 {
-    gff::Reader::new(input).records().flat_map(|r| {
+    Reader::new(input).records().flat_map(|r| {
         let record = r.unwrap();
         if record.ty() == "transcript" {
             let err_msg = |x: &str| -> String {
@@ -86,14 +87,16 @@ impl Promoters {
     ) -> Self
     {
         let regions = transcripts.iter().map(|transcript| {
+            let left = (<Position as TryInto<usize>>::try_into(transcript.left).unwrap() - 1) as u64;
+            let right = (<Position as TryInto<usize>>::try_into(transcript.right).unwrap() - 1) as u64;
             let (start, end) = match transcript.strand {
                 Strand::Forward => (
-                    (transcript.left as u64).saturating_sub(upstream),
-                    downstream + (if include_gene_body { transcript.right } else { transcript.left } as u64)
+                    left.saturating_sub(upstream),
+                    downstream + (if include_gene_body { right } else { left })
                 ),
                 Strand::Reverse => (
-                    (if include_gene_body { transcript.left } else { transcript.right} as u64).saturating_sub(downstream),
-                    (transcript.right as u64) + upstream
+                    (if include_gene_body { left } else { right }).saturating_sub(downstream),
+                    right + upstream
                 ),
                 _ => panic!("Miss strand information for {}", transcript.transcript_id),
             };
