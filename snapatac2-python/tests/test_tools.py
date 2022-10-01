@@ -9,6 +9,25 @@ import pytest
 from hypothesis import given, example, settings, HealthCheck, strategies as st
 from hypothesis.extra.numpy import *
 
+from distutils import dir_util
+from pytest import fixture
+import os
+
+@fixture
+def datadir(tmpdir, request):
+    '''
+    Fixture responsible for searching a folder with the same name of test
+    module and, if available, moving all contents to a temporary directory so
+    tests can use them freely.
+    '''
+    filename = request.module.__file__
+    test_dir, _ = os.path.splitext(filename)
+
+    if os.path.isdir(test_dir):
+        dir_util.copy_tree(test_dir, str(tmpdir))
+
+    return tmpdir
+
 def h5ad(dir=Path("./")):
     import uuid
     dir.mkdir(exist_ok=True)
@@ -20,7 +39,7 @@ def h5ad(dir=Path("./")):
     groups = st.lists(st.integers(min_value=0, max_value=5), min_size=500, max_size=500),
     var = st.lists(st.integers(min_value=0, max_value=100000), min_size=50, max_size=50),
 )
-@settings(deadline=None, suppress_health_check = [HealthCheck.function_scoped_fixture])
+@settings(max_examples=10, deadline=None, suppress_health_check = [HealthCheck.function_scoped_fixture])
 def test_aggregation(x, groups, var, tmp_path):
     def assert_equal(a, b):
         assert a.keys() == b.keys()
@@ -61,3 +80,18 @@ def test_aggregation(x, groups, var, tmp_path):
         np.array(list(expected.values())),
         snap.tl.aggregate_X(adata, file = h5ad(tmp_path), groupby=groups).X[:],
     )
+
+
+def test_make_fragment(datadir):
+    import gzip
+    bam = str(datadir.join('test.bam'))
+    bed = str(datadir.join('test.bed.gz'))
+    snap.pp.make_fragment_file(bam, "1.bed.gz", True, barcode_regex="(^[ATCG]+):")
+
+    with gzip.open(bed, 'rt') as fl:
+        expected = sorted(fl.readlines())
+
+    with gzip.open("1.bed.gz", 'rt') as fl:
+        actual = sorted(fl.readlines())
+    
+    assert expected == actual

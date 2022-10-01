@@ -199,8 +199,8 @@ mod tests {
             gene_id: "ENSG00000223972.5".to_string(),
             is_coding: Some(false),
             chrom: "chr1".to_string(),
-            left: 11869,
-            right: 14409,
+            left: Position::try_from(11869).unwrap(),
+            right: Position::try_from(14409).unwrap(),
             strand: Strand::Forward,
         };
         assert_eq!(read_transcripts(input.as_bytes())[0], expected)
