@@ -7,6 +7,7 @@ from scipy.stats import chi2
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss
 import sys
+import logging
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
 from snapatac2.tools._misc import aggregate_X
@@ -110,25 +111,30 @@ def diff_test(
         raise NameError("covariates is not implemented")
 
     features = range(data.n_vars) if features is None else to_indices(features, data.n_vars, "var")
-    print("Input contains {} features, now perform filtering ...".format(len(features)), file=sys.stderr)
-    features, log_fc = zip(*_filter_features(
+    logging.info("Input contains {} features, now perform filtering with 'min_log_fc = {}' and 'min_pct = {}' ...".format(len(features), min_log_fc, min_pct))
+    filtered = _filter_features(
         cell_by_peak[:n_group1, :],
         cell_by_peak[n_group1:, :],
         features,
         direction,
         min_pct,
         min_log_fc,
-    ))
+    )
 
-    print("Testing {} features ...".format(len(features)), file=sys.stderr)
-    pvals = _diff_test_helper(cell_by_peak, test_var, features, covariates)
-    var_names = data.var_names
-    return pl.DataFrame({
-        "feature name": [var_names[i] for i in features],
-        "log2(fold_change)": np.array(log_fc),
-        "p-value": np.array(pvals),
-        "adjusted p-value": _p_adjust_bh(pvals),
-    }).sort("adjusted p-value")
+    if len(filtered) == 0:
+        logging.warning("Zero feature left after filtering, perhaps 'min_log_fc' or 'min_pct' is too large")
+        return pl.DataFrame()
+    else:
+        features, log_fc = zip(*filtered)
+        logging.info("Testing {} features ...".format(len(features)))
+        pvals = _diff_test_helper(cell_by_peak, test_var, features, covariates)
+        var_names = data.var_names
+        return pl.DataFrame({
+            "feature name": [var_names[i] for i in features],
+            "log2(fold_change)": np.array(log_fc),
+            "p-value": np.array(pvals),
+            "adjusted p-value": _p_adjust_bh(pvals),
+        }).sort("adjusted p-value")
 
 def _p_adjust_bh(p):
     """Benjamini-Hochberg p-value correction for multiple hypothesis testing."""

@@ -38,7 +38,8 @@ jobs:
        CIBW_TEST_COMMAND: "pytest {project}/snapatac2-python/tests"
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout code
+        uses: nschloe/action-cached-lfs-checkout@v1
 
       - uses: actions-rs/toolchain@v1
         with:
