@@ -15,7 +15,7 @@ use pyo3::{
     exceptions::PyTypeError,
 };
 use flate2::{Compression, write::GzEncoder};
-use bed_utils::{bed, bed::GenomicRange};
+use bed_utils::{bed, bed::{BEDLike, GenomicRange}};
 use rayon::ThreadPoolBuilder;
 use polars::prelude::DataFrame;
 use noodles::bam;
@@ -24,10 +24,11 @@ use noodles::sam::record::data::field::Tag;
 use anndata_rs::anndata;
 use pyanndata::{AnnData, AnnDataSet};
 use regex::Regex;
+use tempfile::Builder;
 
 use snapatac2_core::{
     preprocessing::{
-        mark_duplicates::{BarcodeLocation, filter_bam, group_bam_by_barcode},
+        mark_duplicates::{BarcodeLocation, BedN, filter_bam, group_bam_by_barcode},
         matrix::{create_tile_matrix, create_peak_matrix, create_gene_matrix},
         qc,
     },
@@ -38,12 +39,14 @@ use snapatac2_core::{
 /// 
 /// Convert a BAM file to a fragment file by performing the following steps:
 /// 
-/// 1. Filtering: remove reads that are unmapped, not primary alignment,
+/// 1. Filtering: remove reads that are unmapped, not primary alignment, mapq < 30,
 ///    fails platform/vendor quality checks, or optical duplicate.
 ///    For paired-end sequencing, it also removes reads that are not properly aligned.
 /// 2. Deduplicate: Sort the reads by cell barcodes and remove duplicated reads
 ///    for each unique cell barcode.
 /// 3. Output: Convert BAM records to fragments (if paired-end) or single-end reads.
+/// 
+/// Note the bam file needn't be sorted or filtered.
 ///
 /// Parameters
 /// ----------
@@ -63,13 +66,26 @@ use snapatac2_core::{
 ///     extracts `bd:69:Y6:10` from
 ///     `A01535:24:HW2MMDSX2:2:1359:8513:3458:bd:69:Y6:10:TGATAGGTTG`.
 /// umi_tag
+///     Extract UMI from TAG fields of BAM records.
 /// umi_regex
+///     Extract UMI from read names of BAM records using regular expressions.
+///     See `barcode_regex` for more details.
+/// shift_left
+///     default: 4.
+/// shift_right
+///     default: -5.
+/// chunk_size
+///     The size of data retained in memory when performing sorting. Larger chunk sizes
+///     result in faster sorting and greater memory usage. default is 50000000.
 #[pyfunction(
     is_paired = "true",
     barcode_tag = "None",
     barcode_regex = "None",
     umi_tag = "None",
     umi_regex = "None",
+    shift_left = "4",
+    shift_right = "-5",
+    chunk_size = "50000000",
 )]
 #[pyo3(text_signature = "(bam_file, output_file, is_paired, barcode_tag, barcode_regex, umi_tag, umi_regex)")]
 pub(crate) fn make_fragment_file(
@@ -80,9 +96,13 @@ pub(crate) fn make_fragment_file(
     barcode_regex: Option<&str>,
     umi_tag: Option<[u8; 2]>,
     umi_regex: Option<&str>,
+    shift_left: i64,
+    shift_right: i64,
+    chunk_size: usize,
 )
 {
-    println!("Warning: make_fragment_file is a unstable function!");
+    let tmp_dir = Builder::new().tempdir_in("./")
+        .expect("failed to create tmperorary directory");
 
     if barcode_regex.is_some() && barcode_tag.is_some() {
         panic!("Can only set barcode_tag or barcode_regex but not both");
@@ -121,9 +141,17 @@ pub(crate) fn make_fragment_file(
     let filtered_records = filter_bam(
         reader.lazy_records().map(|x| x.unwrap()), is_paired
     );
-    group_bam_by_barcode(filtered_records, &barcode, is_paired)
-        .into_fragments(&header, umi.as_ref())
-        .for_each(|x| writeln!(output, "{}", x).unwrap());
+    group_bam_by_barcode(filtered_records, &barcode, umi.as_ref(), is_paired, tmp_dir.path().to_path_buf(), chunk_size)
+        .into_fragments(&header)
+        .for_each(|x| match x {
+            BedN::Bed5(mut x_) => {
+                // TODO: use checked_add_signed.
+                x_.set_start((x_.start() as i64 + shift_left) as u64);
+                x_.set_end((x_.end() as i64 + shift_right) as u64);
+                writeln!(output, "{}", x_).unwrap();
+            },
+            BedN::Bed6(x_) => writeln!(output, "{}", x_).unwrap(),
+        });
 }
  
 

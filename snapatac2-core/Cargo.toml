@@ -15,6 +15,7 @@ keywords = ["single-cell", "biology"]
 anndata-rs = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "5e9817a5234aaba47004050d18a68822d4285d6a" }
 anyhow = "1.0"
 bigtools = "0.1"
+bincode = "1.3"
 bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "3a3169ced8479727eb4e0081d3a518f7112ef222" }
 extsort = "0.4"
 flate2 = "1.0"
@@ -30,6 +31,7 @@ nalgebra-sparse = "0.7"
 polars = { version = "0.23", features = ["ndarray", "dtype-categorical"] }
 rayon = "1.5"
 regex = "1.6"
+serde = "1.0"
 tempfile = "3.3"
 which = "4.2"
 
