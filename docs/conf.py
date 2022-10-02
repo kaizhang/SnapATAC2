@@ -7,6 +7,7 @@
 # -- Path setup --------------------------------------------------------------
 
 import os
+import snapatac2
 #import sys
 #sys.path.insert(0, os.path.abspath('../snapatac2-python'))
 
@@ -17,8 +18,7 @@ copyright = '2022, Kai Zhang'
 author = 'Kai Zhang'
 
 # The full version, including alpha/beta/rc tags
-release = '2.0.0'
-
+release = snapatac2.__version__
 
 # -- General configuration ---------------------------------------------------
 
