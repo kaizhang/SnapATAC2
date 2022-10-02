@@ -15,8 +15,8 @@ keywords = ["single-cell", "biology"]
 #pyanndata = { path = "../../anndata-rs/pyanndata" }
 anndata-rs = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "5e9817a5234aaba47004050d18a68822d4285d6a" }
 pyanndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "5e9817a5234aaba47004050d18a68822d4285d6a" }
-#snapatac2-core = { git = "https://github.com/kaizhang/SnapATAC2.git", rev = "33b3f70fe22b193b5bf041f9bd867252f935ebf3" }
-snapatac2-core = { path = "../snapatac2-core" }
+snapatac2-core = { git = "https://github.com/kaizhang/SnapATAC2.git", rev = "32453ec0598123e4d9aa25884704ee7ebb2bbe7e" }
+#snapatac2-core = { path = "../snapatac2-core" }
 bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "3a3169ced8479727eb4e0081d3a518f7112ef222" }
 itertools = "0.8"
 flate2 = "1.0"

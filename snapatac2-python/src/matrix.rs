@@ -61,7 +61,8 @@ use snapatac2_core::{
 ///     Extract barcodes from TAG fields of BAM records, e.g., `barcode_tag = "CB"`.
 /// barcode_regex
 ///     Extract barcodes from read names of BAM records using regular expressions.
-///     Reguler expressions should contain exactly one capturing group that matches
+///     Reguler expressions should contain exactly one capturing group 
+///     (Parentheses group the regex between them) that matches
 ///     the barcodes. For example, `barcode_regex = "(..:..:..:..):\w+$"`
 ///     extracts `bd:69:Y6:10` from
 ///     `A01535:24:HW2MMDSX2:2:1359:8513:3458:bd:69:Y6:10:TGATAGGTTG`.
@@ -71,9 +72,9 @@ use snapatac2_core::{
 ///     Extract UMI from read names of BAM records using regular expressions.
 ///     See `barcode_regex` for more details.
 /// shift_left
-///     default: 4.
+///     Insertion site correction for the left end. default: 4.
 /// shift_right
-///     default: -5.
+///     Insertion site correction for the right end. default: -5.
 /// chunk_size
 ///     The size of data retained in memory when performing sorting. Larger chunk sizes
 ///     result in faster sorting and greater memory usage. default is 50000000.
@@ -87,7 +88,7 @@ use snapatac2_core::{
     shift_right = "-5",
     chunk_size = "50000000",
 )]
-#[pyo3(text_signature = "(bam_file, output_file, is_paired, barcode_tag, barcode_regex, umi_tag, umi_regex)")]
+#[pyo3(text_signature = "(bam_file, output_file, is_paired, barcode_tag, barcode_regex, umi_tag, umi_regex, shift_left, shift_right, chunk_size)")]
 pub(crate) fn make_fragment_file(
     bam_file: &str,
     output_file: &str,

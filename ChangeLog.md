@@ -1,3 +1,8 @@
+v2.1.2 (2022-10-01)
+===================
+
+Minor bug fixes and performance improvements.
+
 v2.1.1 (2022-09-28)
 ===================
 
