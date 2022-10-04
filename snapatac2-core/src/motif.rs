@@ -90,10 +90,11 @@ impl DNAMotif {
         scores
     }
 
+    // This function does not do bound checks on seq.
     fn look_ahead_search(
         &self,
         bg: &BackgroundProb,
-        remain_best: &Vec<f64>,
+        remain_best: &Vec<f64>,  // best possible match score of suffixes
         seq: &[u8],
         start: usize,
         thres: f64,
@@ -254,7 +255,7 @@ impl<'a> Iterator for MotifSites<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if self.seq.len() >= self.motif.size() && self.cur_pos >= self.seq.len() - self.motif.size() + 1 {
+            if self.cur_pos + self.motif.size() >= self.seq.len() + 1 {
                 return None;
             }
             let search_result = self.motif.look_ahead_search(
@@ -295,6 +296,7 @@ mod tests {
 
     #[test]
     fn it_works() {
+        let bg = BackgroundProb::default();
         let motif1_str = "MOTIF 1_ASCCAGGCKGG
 letter-probability matrix: alength= 4 w= 11 nsites= 14 E= 3.2e-035
 0.768791 0.07577 0.120456 0.034983
@@ -313,5 +315,9 @@ letter-probability matrix: alength= 4 w= 11 nsites= 14 E= 3.2e-035
         let motif1: DNAMotif = motif1_str.parse().unwrap();
         let cdf = ScoreCDF::new(&motif1, &Default::default());
         //assert_eq!(cdf.prob_inverse(1.0 - 1e-4), scores[0]);
+        //let seq = "ATATCGGCATACGATACGGACGGAT";
+        let seq = "ATATCCCATCG";
+        //motif1.look_ahead_search(&bg, &motif1.optimal_scores_suffix(&bg), seq.as_bytes(), 20, 0.0);
+        let sites: Vec<_> = motif1.to_scanner(bg).find(seq.as_bytes(), 0.9).collect();
     }
 }

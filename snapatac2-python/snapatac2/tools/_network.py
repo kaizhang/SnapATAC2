@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing_extensions import Literal
 
 import logging
 from typing import Callable
@@ -18,7 +19,7 @@ def init_network_from_annotation(
     anno_file: Path | Genome,
     upstream: int = 250000,
     downstream: int = 250000,
-    id_type: str = "gene_name",
+    id_type: Literal["gene_name", "gene_id", "transcript_id"] = "gene_name",
     coding_gene_only: bool = True,
 ) -> retworkx.PyDiGraph:
     """
@@ -70,8 +71,9 @@ def init_network_from_annotation(
 
 def add_cor_scores(
     network: retworkx.PyDiGraph,
-    peak_mat: AnnData | AnnDataSet,
+    *,
     gene_mat: AnnData | AnnDataSet,
+    peak_mat: AnnData | AnnDataSet | None = None,
     select: list[str] | None = None,
 ):
     """
@@ -81,19 +83,19 @@ def add_cor_scores(
     ----------
     network
         network
-    peak_mat
-        AnnData or AnnDataSet object storing the cell by peak count matrix,
-        where the `.var_names` contains peaks.
     gene_mat
         AnnData or AnnDataSet object storing the cell by gene count matrix,
         where the `.var_names` contains genes.
+    peak_mat
+        AnnData or AnnDataSet object storing the cell by peak count matrix,
+        where the `.var_names` contains peaks.
     select
         Run this for selected genes only.
     """
     from tqdm import tqdm
     from scipy.stats import spearmanr
 
-    if peak_mat.obs_names != gene_mat.obs_names:
+    if peak_mat is not None and peak_mat.obs_names != gene_mat.obs_names:
         raise NameError("gene matrix and peak matrix should have the same obs_names")
     if select is not None:
         select = set(select)
@@ -101,18 +103,28 @@ def add_cor_scores(
     gene_set = set(gene_mat.var_names)
     prune_network(
         network, 
-        node_filter = lambda x: x.id in gene_set or x.type == "region",
+        node_filter = lambda x: x.id in gene_set or x.type != "gene",
     )
 
     if network.num_edges() > 0:
-        for (nd_X, X), (nd_y, y) in tqdm(_get_data_iter(network, peak_mat, gene_mat, select)):
-            if sp.issparse(X):
-                X = X.todense()
-            if sp.issparse(y):
-                y = y.todense()
-            scores = np.apply_along_axis(lambda x: spearmanr(y, x)[0], 0, X)
-            for nd, sc in zip(nd_X, scores):
-                network.get_edge_data(nd, nd_y).correlation_score = sc
+        if peak_mat is None:
+            for (nd_X, X), (nd_y, y) in tqdm(_get_data_iter(network, gene_mat, gene_mat, select)):
+                if sp.issparse(X):
+                    X = X.todense()
+                if sp.issparse(y):
+                    y = y.todense()
+                scores = np.apply_along_axis(lambda x: spearmanr(y, x)[0], 0, X)
+                for nd, sc in zip(nd_X, scores):
+                    network.get_edge_data(nd, nd_y).gg_cor_score = sc
+        else:
+            for (nd_X, X), (nd_y, y) in tqdm(_get_data_iter(network, peak_mat, gene_mat, select)):
+                if sp.issparse(X):
+                    X = X.todense()
+                if sp.issparse(y):
+                    y = y.todense()
+                scores = np.apply_along_axis(lambda x: spearmanr(y, x)[0], 0, X)
+                for nd, sc in zip(nd_X, scores):
+                    network.get_edge_data(nd, nd_y).cor_score = sc
 
 def add_regr_scores(
     network: retworkx.PyDiGraph,
@@ -173,7 +185,9 @@ def add_tf_binding(
     Parameters
     ----------
     network
+        Network
     motifs
+        TF motifs
     genome_fasta
         A fasta file containing the genome sequences or a Genome object.
     """
@@ -220,10 +234,15 @@ def to_gene_network(
                 fr = genes[name]
                 for region in network.successor_indices(nd):
                     for gene in network.successor_indices(region):
-                        network.add_edge(fr, gene, LinkData())
+                        link = network.get_edge_data(region, gene)
+                        network.add_edge(
+                            fr, gene,
+                            LinkData(regr_score=link.regr_score, cor_score=link.cor_score),
+                        )
             else:
                 not_found.append(name)
     
+    # Clean up.
     # Remove edges first, for performance reason.
     for nd in network.node_indices():
         if network[nd].type != "gene":
@@ -309,6 +328,8 @@ def _get_data_iter(
     gene_mat: AnnData | AnnDataSet,
     select: set[str] | None = None,
 ) -> RegionGenePairIter:
+    """
+    """
     genes = []
     regions = set()
     for nd in network.node_indices():

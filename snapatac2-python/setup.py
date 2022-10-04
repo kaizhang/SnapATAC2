@@ -40,7 +40,7 @@ setup(
         "plotly>=5.6.0",
         "polars==0.13.*",
         "pooch>=1.6.0",
-        "python-igraph",
+        "igraph>=0.10.0",
         "pyarrow",
         "pyfaidx",
         "retworkx",

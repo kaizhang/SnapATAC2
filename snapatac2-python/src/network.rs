@@ -31,7 +31,10 @@ pub(crate) struct LinkData {
     regr_score: Option<f64>,
 
     #[pyo3(get, set)]
-    correlation_score: Option<f64>,
+    cor_score: Option<f64>,
+
+    #[pyo3(get, set)]
+    gg_cor_score: Option<f64>,
 }
 
 #[pymethods]
@@ -40,10 +43,11 @@ impl LinkData {
     #[args(
         distance = "0",
         regr_score = "None",
-        correlation_score = "None",
+        cor_score = "None",
+        gg_cor_score = "None",
     )]
-    fn new(distance: u64, regr_score: Option<f64>, correlation_score: Option<f64>) -> Self {
-        LinkData { distance, regr_score, correlation_score }
+    fn new(distance: u64, regr_score: Option<f64>, cor_score: Option<f64>, gg_cor_score: Option<f64>) -> Self {
+        LinkData { distance, regr_score, cor_score, gg_cor_score }
     }
  
     fn __repr__(&self) -> String { format!("{:?}", self) }
@@ -63,8 +67,8 @@ impl LinkData {
         let dict_state = state.cast_as::<PyDict>(py)?;
         self.distance = dict_state.get_item("distance").unwrap().extract()?;
         self.regr_score = dict_state.get_item("regr_score").unwrap().extract()?;
-        self.correlation_score = dict_state.get_item("correlation_score")
-            .unwrap().extract()?;
+        self.cor_score = dict_state.get_item("cor_score").unwrap().extract()?;
+        self.gg_cor_score = dict_state.get_item("gg_cor_score").unwrap().extract()?;
         Ok(())
     }
 
@@ -72,7 +76,8 @@ impl LinkData {
         let out_dict = PyDict::new(py);
         out_dict.set_item("distance", self.distance)?;
         out_dict.set_item("regr_score", self.regr_score)?;
-        out_dict.set_item("correlation_score", self.correlation_score)?;
+        out_dict.set_item("cor_score", self.cor_score)?;
+        out_dict.set_item("gg_cor_score", self.gg_cor_score)?;
         Ok(out_dict.into())
     }
 }
