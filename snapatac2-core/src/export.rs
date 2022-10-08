@@ -193,7 +193,7 @@ where
         );
         let f = File::create(&filename)
             .with_context(|| format!("cannot create file: {}", filename.display()))?;
-        let e: Box<dyn Write> = if filename.ends_with(".gz") {
+        let e: Box<dyn Write> = if filename.extension().unwrap() == "gz" {
             Box::new(GzEncoder::new(BufWriter::new(f), Compression::default()))
         } else {
             Box::new(BufWriter::new(f))

@@ -101,7 +101,7 @@ _datasets = pooch.create(
 
         "colon_transverse.tar": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_atac/colon_transverse.tar",
         "HEA_cCRE.bed.gz": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_atac/HEA_cCRE.bed.gz",
-        "cisBP_human.meme": "http://renlab.sdsc.edu/kai/public_datasets/cisBP_human.meme",
+        "cisBP_human.meme": "http://renlab.sdsc.edu/kai/public_datasets/cisBP_human_rev_1.meme",
 
         "gencode_v41_GRCh37.gff3.gz": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_41/GRCh37_mapping/gencode.v41lift37.basic.annotation.gff3.gz",
         "gencode_v41_GRCh37.fa.gz": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_41/GRCh37_mapping/GRCh37.primary_assembly.genome.fa.gz",
