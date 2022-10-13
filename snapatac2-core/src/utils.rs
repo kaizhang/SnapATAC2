@@ -332,11 +332,11 @@ where
     I: Iterator<Item = NarrowPeak>,
 {
     merge_bed_with(
-        peaks.map(|mut x| {
+        peaks.map(move |mut x| {
             let summit = x.start() + x.peak;
-            x.start = (summit - half_window_size).max(0);
+            x.start = summit.saturating_sub(half_window_size);
             x.end = summit + half_window_size + 1;
-            x.peak = half_window_size;
+            x.peak = summit - x.start;
             x
         }),
         iterative_merge,
@@ -372,6 +372,7 @@ fn get_reference_seq_info_(elems: &mut ElemCollection) -> Result<Vec<(String, u6
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bed_utils::bed::io::Reader;
 
     #[test]
     fn genome_index() {
@@ -406,5 +407,34 @@ mod tests {
         ].into_iter().for_each(|(i, s, i_)|
             assert_eq!(gindex.index_downsampled(i, s), i_)
         );
+    }
+
+    #[test]
+    fn test_merge_peaks() {
+        let input = "chr1\t9977\t16487\ta\t1000\t.\t74.611\t290.442\t293.049\t189
+chr1\t9977\t16487\tb\t1000\t.\t74.1871\t295.33\t290.939\t425
+chr1\t9977\t16487\tb\t1000\t.\t74.1871\t295\t290.939\t425
+chr1\t9977\t16487\tb\t1000\t.\t74.1871\t295\t290.939\t625
+chr1\t9977\t16487\tb\t1000\t.\t74.1871\t290\t290.939\t925
+chr2\t9977\t16487\tb\t1000\t.\t74.1871\t295\t290.939\t625
+chr2\t9977\t16487\tb\t1000\t.\t74.1871\t290\t290.939\t325
+chr2\t9977\t16487\tb\t1000\t.\t74.1871\t290\t290.939\t525
+chr2\t9977\t16487\tb\t1000\t.\t74.1871\t290\t290.939\t725
+chr3\t0\t1164\tb\t1000\t.\t74.1871\t290\t290.939\t100
+";
+        let output = "chr1\t10202\t10603\tb\t1000\t.\t74.1871\t295.33\t290.939\t200
+chr1\t10702\t11103\tb\t1000\t.\t74.1871\t290\t290.939\t200
+chr2\t10402\t10803\tb\t1000\t.\t74.1871\t295\t290.939\t200
+chr3\t0\t301\tb\t1000\t.\t74.1871\t290\t290.939\t100
+";
+
+        let expected: Vec<NarrowPeak> = Reader::new(output.as_bytes(), None)
+            .into_records().map(|x| x.unwrap()).collect();
+        let result: Vec<NarrowPeak> = merge_peaks(
+            Reader::new(input.as_bytes(), None).into_records().map(|x| x.unwrap()),
+            200
+        ).flatten().collect();
+
+        assert_eq!(expected, result);
     }
 }

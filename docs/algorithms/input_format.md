@@ -1,7 +1,8 @@
 Input data format
 =================
 
-SnapATAC2 currently accepts BED-like tabular file as input. It will support BAM file or other formats in the future. The BED-like tabular file can be used to represent fragments or insertions.
+SnapATAC2 accepts BAM or BED-like tabular file as input. The BED-like tabular file can be used to represent fragments (paired-end sequencing) or insertions (single-end sequencing). BAM files can be converted to BED-like
+files using `pp.make_fragment_file`.
 
 ## Fragment interval format
 
@@ -21,7 +22,7 @@ to the start and end position of the fragment interval.
 
 ## Insertion format
 
-Insertion records usually represent reads from the single-ended sequencing.
+Insertion records are used to represent single-end reads in experiments that sequence only one end of the fragments, e.g., Paired-Tag experiments.
 While fragment records are created by two transposition events, insertion records correspond to a single transposition event.
 
 Each insertion record must contain six fields:
@@ -33,7 +34,7 @@ Each insertion record must contain six fields:
 5. The total number of reads associated with this insertion.
 6. The strandness of the read.
 
-During data import, either the start or the end position of an insertion record is converted to one insertion count depends on the strandness of the record.
+During data import, the 5' end of an insertion record is converted to one insertion count.
 
 Note: in both cases, the fifth column (duplication count) is not used during reads counting.
 In other words, we count duplicated reads only once.

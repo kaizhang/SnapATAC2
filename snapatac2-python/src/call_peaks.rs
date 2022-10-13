@@ -23,13 +23,15 @@ pub fn call_peaks<'py>(
     let peak_files = if data.is_instance(AnnData::type_object(py))? {
         let anndata: AnnData = data.extract()?;
         let x = anndata.0.inner().call_peaks(
-            q_value, &group_by, selections, out_dir.unwrap_or(dir.path().to_str().unwrap()), "", ".bed.gz",
+            q_value, &group_by, selections, out_dir.unwrap_or(dir.path().to_str().unwrap()),
+            "", ".NarrowPeak.gz",
         ).unwrap();
         x
     } else if data.is_instance(AnnDataSet::type_object(py))? {
         let anndata: AnnDataSet = data.extract()?;
         let x = anndata.0.inner().call_peaks(
-            q_value, &group_by, selections, out_dir.unwrap_or(dir.path().to_str().unwrap()), "", ".bed.gz",
+            q_value, &group_by, selections, out_dir.unwrap_or(dir.path().to_str().unwrap()),
+            "", ".NarrowPeak.gz",
         ).unwrap();
         x
     } else {
@@ -44,6 +46,7 @@ pub fn call_peaks<'py>(
     );
     let peaks: Vec<_> = merge_peaks(peak_iter, 250).flatten().collect();
     let n = peaks.len();
+
     let peaks_str = Series::new(
         "Peaks",
         peaks.iter().map(|x| x.to_genomic_range().pretty_show()).collect::<Vec<_>>(),

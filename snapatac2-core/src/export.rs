@@ -57,20 +57,15 @@ pub trait Exporter: ChromValuesReader {
         );
 
         std::fs::create_dir_all(&dir)?;
-        let tmp_dir = Builder::new().tempdir_in(&dir)
-            .context("failed to create tmperorary directory")?;
-
         eprintln!("preparing input...");
-        let files = self.export_bed(
-            group_by, group_by, selections, &tmp_dir, "", ".bed.gz"
-        ).with_context(|| format!("cannot save bed file to {}", tmp_dir.path().display()))?;
+        let files = self.export_bed(group_by, group_by, selections, &dir, "", "_insertion.bed.gz")?;
         let genome_size = self.get_reference_seq_info()?.into_iter().map(|(_, v)| v).sum();
         eprintln!("calling peaks for {} groups...", files.len());
         files.into_par_iter().map(|(key, fl)| {
             let out_file = dir.as_ref().join(
                 prefix.to_string() + key.as_str().replace("/", "+").as_str() + suffix
             );
-            macs2(fl, q_value, genome_size, &tmp_dir, &out_file)?;
+            macs2(fl, q_value, genome_size, &dir, &out_file)?;
             eprintln!("group {}: done!", key);
             Ok((key, out_file))
         }).collect()
