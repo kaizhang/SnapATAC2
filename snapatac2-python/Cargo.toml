@@ -28,6 +28,7 @@ noodles = { version = "0.27.0", features = ["bam", "sam"] }
 numpy = "0.17.1"
 nalgebra-sparse = "0.7"
 ndarray = "0.15"
+log = "0.4"
 linfa = "0.6"
 linfa-clustering = "0.6"
 rand_isaac = "0.3"

@@ -5,6 +5,7 @@ use pyo3::{prelude::*, PyResult, Python, PyTypeInfo};
 use bed_utils::bed::{BEDLike, GenomicRange, io::Reader, tree::BedTree};
 use flate2::read::MultiGzDecoder;
 use tempfile::Builder;
+use log::info;
 use std::fs::File;
 use polars::{prelude::{DataFrame, NamedFrom}, series::Series};
 use std::collections::HashSet;
@@ -44,6 +45,8 @@ pub fn call_peaks<'py>(
             None,
         ).into_records().map(Result::unwrap)
     );
+
+    info!("Merging peaks...");
     let peaks: Vec<_> = merge_peaks(peak_iter, 250).flatten().collect();
     let n = peaks.len();
 
