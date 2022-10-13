@@ -17,6 +17,8 @@ static GLOBAL: Jemalloc = Jemalloc;
 
 #[pymodule]
 fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
+    pyo3_log::init();
+
     m.add_class::<pyanndata::AnnData>().unwrap();
     m.add_class::<pyanndata::AnnDataSet>().unwrap();
     m.add_function(wrap_pyfunction!(pyanndata::read, m)?)?;

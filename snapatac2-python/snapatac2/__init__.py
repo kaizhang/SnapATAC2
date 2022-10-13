@@ -17,7 +17,8 @@ sys.modules.update({f'{__name__}.{m}': globals()[m] for m in ['pp', 'tl', 'pl', 
 import logging
 logging.basicConfig(
     stream=sys.stderr,
-    format="%(asctime)s >>> %(message)s",
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
     level=logging.INFO, 
 )
 
