@@ -19,7 +19,7 @@ jobs:
         sudo pip install --upgrade pip
         pip install --user Pygments==2.6.1 sphinx==4.4.0 pandoc nbsphinx \
           sphinx-autodoc-typehints sphinx_rtd_theme myst-parser markupsafe==2.0.1 \
-          pytest hypothesis
+          sphinx-plotly-directive pytest hypothesis
 
     - name: Build and test package
       run: |

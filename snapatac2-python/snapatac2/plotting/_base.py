@@ -86,7 +86,19 @@ def heatmap(
         )
     return fig
 
-def render_plot(fig, interactive: bool, show: bool, out_file: str):
+def render_plot(
+    fig: 'plotly.graph_objects.Figure',
+    width: int,
+    height: int,
+    interactive: bool,
+    show: bool,
+    out_file: str
+) -> 'plotly.graph_objects.Figure' | None:
+    fig.update_layout({
+        "width": width,
+        "height": height,
+    })
+
     # save figure to file
     if out_file is not None:
         if out_file.endswith(".html"):

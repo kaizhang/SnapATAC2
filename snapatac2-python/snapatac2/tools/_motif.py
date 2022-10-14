@@ -38,7 +38,8 @@ def motif_enrichment(
 
     Returns
     -------
-    Dataframes containing the enrichment analysis results for different groups.
+    dict[str, pl.DataFrame]:
+        Dataframes containing the enrichment analysis results for different groups.
     """
     from pyfaidx import Fasta
     from tqdm import tqdm

@@ -74,14 +74,4 @@ pub fn call_peaks<'py>(
     dir.close().unwrap();
 
     to_py_df(df)
-
-    /*
-    if data.is_instance(AnnData::type_object(py))? {
-        let anndata: AnnData = data.extract()?;
-        anndata.0.inner().get_uns().inner().add_data(key_added, &df).unwrap();
-    } else if data.is_instance(AnnDataSet::type_object(py))? {
-        let anndata: AnnDataSet = data.extract()?;
-        anndata.0.inner().get_uns().inner().add_data(key_added, &df).unwrap();
-    }
-    */
 }

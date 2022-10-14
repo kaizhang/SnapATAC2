@@ -1,22 +1,23 @@
+from __future__ import annotations
+
 import numpy as np
 from sklearn.neighbors import KDTree
 import itertools
 from scipy.special import logsumexp
 from sklearn.cluster import KMeans
-from typing import Optional, Union, List
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
 
 def mnc_correct(
     data: AnnData,
-    batch: str,
+    batch: str | list[str],
     n_neighbors: int = 5,
     n_clusters: int = 40,
-    use_dims: Optional[Union[int, List[int]]] = None,
-    use_rep: Optional[str] = None,
+    use_dims: int | list[int] | None = None,
+    use_rep: str = "X_spectral",
     n_iter: int = 1,
     inplace: bool = True,
-) -> Optional[np.ndarray]:
+) -> np.ndarray | None:
     """
     A modified MNN-Correct algorithm based on cluster centroid.
 
@@ -25,28 +26,35 @@ def mnc_correct(
     data
         Matrice or AnnData object. Matrices should be shaped like n_obs x n_vars.
     batch
+        Batch labels for cells. If a string, labels will be obtained from `obs`.
     n_neighbors
         Number of mutual nearest neighbors.
     n_clusters
         Number of clusters
     use_dims
+        Use these dimensions in `use_rep`.
     use_rep
+        Use the indicated representation in `.obsm`.
     n_iter
+        Number of iterations.
     inplace
+        Whether to store the result in the anndata object.
 
     Returns
     -------
-    if `inplace=True` it updates adata with the field
-    ``adata.obsm[`use_rep`_mnn]``, containing adjusted principal components.
-    Otherwise, it returns the result as a numpy array.
+    np.ndarray | None
+        if `inplace=True` it updates adata with the field
+        ``adata.obsm[`use_rep`_mnn]``, containing adjusted principal components.
+        Otherwise, it returns the result as a numpy array.
     """
-    if use_rep is None: use_rep = "X_spectral"
     mat = data.obsm[use_rep] if isinstance(data, AnnData) or isinstance(data, AnnDataSet) else data
     if isinstance(use_dims, int): use_dims = range(use_dims) 
     mat = mat if use_dims is None else mat[:, use_dims]
     mat = np.asarray(mat)
 
-    labels = data.obs[batch]
+    if isinstance(batch, str):
+        labels = data.obs[batch]
+
     label_uniq = list(set(labels))
 
     for _ in range(n_iter):

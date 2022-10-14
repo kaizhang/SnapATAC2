@@ -14,11 +14,13 @@ __all__ = [
 def tsse(
     adata: AnnData,
     show_cells: bool = False,
+    min_fragment: int = 500,
+    width: int = 600,
+    height: int = 400,
     show: bool = True,
     interactive: bool = True,
     out_file: str | None = None,
-    min_fragment: int = 500,
-):
+) -> 'plotly.graph_objects.Figure' | None:
     """
     Plot the TSS enrichment vs. number of fragments density figure.
 
@@ -28,18 +30,34 @@ def tsse(
         Annotated data matrix.
     show_cells
         Whether to show individual cells as dots on the plot
+    min_fragment
+        The cells' unique fragments lower than it should be removed
+    width
+        The width of the plot
+    height
+        The height of the plot
     show
         Show the figure
     interactive
         Whether to make interactive plot
     out_file
-        Path of the output file for saving the output image, end with '.svg' or '.pdf' or '.png'
-    min_fragment
-        The cells' unique fragments lower than it should be removed
+        Path of the output file for saving the output image, end with
+        '.svg' or '.pdf' or '.png' or '.html'.
 
     Returns
     -------
-    
+    'plotly.graph_objects.Figure' | None
+        If `show=False` and `out_file=None`, an `plotly.graph_objects.Figure` will be 
+        returned, which can then be further customized using the plotly API.
+
+    Examples
+    --------
+    .. plotly::
+
+        >>> import snapatac2 as snap
+        >>> data = snap.read(str(snap.datasets.pbmc5k(type='gene')))
+        >>> fig = snap.pl.tsse(data, show=False, out_file=None)
+        >>> fig.show()
     """
     import plotly.graph_objects as go
 
@@ -83,13 +101,15 @@ def tsse(
         yaxis_title="TSS enrichment score",
     )
 
-    return render_plot(fig, interactive, show, out_file)
+    return render_plot(fig, width, height, interactive, show, out_file)
 
 def scrublet(
     adata: AnnData,
+    width: int = 600,
+    height: int = 400,
     show: bool = True,
     interactive: bool = True,
-    out_file: Optional[str] = None,
+    out_file: str | None = None,
 ):
     """
     Plot doublets
@@ -98,12 +118,17 @@ def scrublet(
     ----------
     adata
         Annotated data matrix.
+    width
+        The width of the plot
+    height
+        The height of the plot
     show
-        Show the figure
+        Show the figure.
     interactive
         Whether to make interactive plot
     out_file
-        Path of the output file for saving the output image, end with '.svg' or '.pdf' or '.png'
+        Path of the output file for saving the output image, end with
+        '.svg' or '.pdf' or '.png' or '.html'.
 
     Returns
     -------
@@ -139,11 +164,13 @@ def scrublet(
         fig.add_vrect(x0=thres, x1 = sim_scores.max(), line_width=0, fillcolor="red", opacity=0.2)
 
     fig.update(layout_showlegend=False)
-    return render_plot(fig, interactive, show, out_file)
+    return render_plot(fig, width, height, interactive, show, out_file)
 
 def spectral_eigenvalues(
     adata: AnnData,
     n_components: int | None = None,
+    width: int = 600,
+    height: int = 400,
     show: bool = True,
     interactive: bool = True,
     out_file: str | None = None,
@@ -160,7 +187,7 @@ def spectral_eigenvalues(
     fig = px.scatter(df, x="Component", y="Eigenvalue", template="plotly_white", **kwargs)
     fig.add_vline(x=_detect(data))
 
-    return render_plot(fig, interactive, show, out_file)
+    return render_plot(fig, width, height, interactive, show, out_file)
 
 def regions(
     data: AnnData | AnnDataSet,
@@ -180,13 +207,16 @@ def regions(
     groupby
     peaks
     width
+        The width of the plot
     height
+        The height of the plot
     show
         Show the figure
     interactive
         Whether to make interactive plot
     out_file
-        Path of the output file for saving the output image, end with '.svg' or '.pdf' or '.png'
+        Path of the output file for saving the output image, end with
+        '.svg' or '.pdf' or '.png' or '.html'.
     """
     import polars as pl
     import plotly.graph_objects as go
@@ -207,11 +237,9 @@ def regions(
     layout = {
         "yaxis": { "visible": False, "autorange": "reversed" },
         "xaxis": { "title": groupby },
-        "width": width,
-        "height": height,
     }
     fig = go.Figure(data=data, layout=layout)
-    return render_plot(fig, interactive, show, out_file)
+    return render_plot(fig, width, height, interactive, show, out_file)
 
 def umap(
     adata: AnnData,
@@ -239,11 +267,14 @@ def umap(
     marker_size
     marker_opacity
     width
+        The width of the plot
     height
+        The height of the plot
     interactive
         Whether to make interactive plot
     out_file
-        Path of the output file for saving the output image, end with '.svg' or '.pdf' or '.png'
+        Path of the output file for saving the output image, end with
+        '.svg' or '.pdf' or '.png' or '.html'.
 
     Returns
     -------
@@ -275,7 +306,7 @@ def umap(
         })
         fig = px.scatter_3d(df,
             x='UMAP-1', y='UMAP-2', z='UMAP-3',
-            color=color, width=width, height=height,
+            color=color,
             color_discrete_sequence=px.colors.qualitative.Dark24,
         )
     else:
@@ -285,7 +316,7 @@ def umap(
             color: groups,
         })
         fig = px.scatter(
-            df, x="UMAP-1", y="UMAP-2", color=color, width=width, height=height,
+            df, x="UMAP-1", y="UMAP-2", color=color,
             color_discrete_sequence=px.colors.qualitative.Dark24,
         )
     fig.update_traces(
@@ -297,7 +328,7 @@ def umap(
         template="simple_white",
         legend= {'itemsizing': 'constant'},
     )
-    return render_plot(fig, interactive, show, out_file)
+    return render_plot(fig, width, height, interactive, show, out_file)
 
 def network_scores(
     network: 'retworkx.PyDiGraph',
@@ -312,6 +343,10 @@ def network_scores(
     """
     score_name
         Name of the edge attribute
+    width
+        The width of the plot
+    height
+        The height of the plot
     """
     import plotly.express as px
     import pandas as pd
@@ -347,9 +382,8 @@ def network_scores(
     })
     fig = px.bar(
         df, x="Distance to TSS (bp)", y="Average score", title = score_name, 
-        width=width, height=height,
     )
-    return render_plot(fig, interactive, show, out_file)
+    return render_plot(fig, width, height, interactive, show, out_file)
 
 def motif_enrichment(
     enrichment: list(str, 'pl.DataFrame'),
@@ -388,10 +422,8 @@ def motif_enrichment(
         row_names=df.index,
         column_names=df.columns,
         colorscale='RdBu_r',
-        width=width,
-        height=height,
     )
-    return render_plot(fig, interactive, show, out_file)
+    return render_plot(fig, width, height, interactive, show, out_file)
 
 def _detect(x, saturation=0.01):
     accum_gap = 0

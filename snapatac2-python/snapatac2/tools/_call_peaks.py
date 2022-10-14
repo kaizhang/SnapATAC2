@@ -5,14 +5,14 @@ from snapatac2._snapatac2 import AnnData, AnnDataSet
 import snapatac2._snapatac2 as _snapatac2
 
 def call_peaks(
-    data: AnnData | AnnDataSet,
+    adata: AnnData | AnnDataSet,
     groupby: str | list[str],
     selections: set[str] | None = None,
     q_value: float = 0.05,
     out_dir: Path | None = None,
     key_added: str = 'peaks',
     inplace: bool = True,
-):
+) -> 'polars.DataFrame' | None:
     """
     Call peaks using MACS2.
 
@@ -20,11 +20,9 @@ def call_peaks(
     insertions. The parameters passed to MACS2 are:
     "-shift -100 -extsize 200 -nomodel -callsummits -nolambda -keep-dup all"
 
-    The results are stored in `.uns[key_added]`.
-
     Parameters
     ----------
-    data
+    adata
         The (annotated) data matrix of shape `n_obs` x `n_vars`.
         Rows correspond to cells and columns to regions.
     groupby
@@ -42,12 +40,18 @@ def call_peaks(
         `.uns` key under which to add the peak information.
     inplace
         Whether to store the result inplace.
+
+    Returns
+    -------
+    'polars.DataFrame' | None
+        If `inplace=True` it stores the result in `adata.uns[`key_added`]`.
+        Otherwise, it returns the result as a dataframe.
     """
     if isinstance(groupby, str):
-        groupby = data.obs[groupby].astype("str").tolist()
+        groupby = adata.obs[groupby].astype("str").tolist()
     out_dir = out_dir if out_dir is None else str(out_dir)
-    res = _snapatac2.call_peaks(data, groupby, selections, q_value, out_dir)
+    res = _snapatac2.call_peaks(adata, groupby, selections, q_value, out_dir)
     if inplace:
-        data.uns[key_added] = res
+        adata.uns[key_added] = res
     else:
         return res

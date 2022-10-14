@@ -28,7 +28,7 @@ def spectral(
     distance_metric: str = "jaccard",
     feature_weights: str | np.ndarray | None = "idf",
     inplace: bool = True,
-) -> np.ndarray | None:
+) -> tuple[np.ndarray, np.ndarray] | None:
     """
     Compute Laplacian Eigenmaps of chromatin accessibility profiles.
 
@@ -62,10 +62,10 @@ def spectral(
 
     Returns
     -------
-    if `inplace=True` it stores Spectral embedding of data in the field
-    `adata.obsm["X_spectral"]`,
-    `adata.uns["spectral_eigenvalue"]`,
-    otherwise it returns the result as a numpy array.
+    tuple[np.ndarray, np.ndarray] | None
+        if `inplace=True` it stores Spectral embedding of data in
+        `adata.obsm["X_spectral"]` and `adata.uns["spectral_eigenvalue"]`.
+        Otherwise, it returns the result as numpy arrays.
     """
     np.random.seed(random_state)
 

@@ -36,8 +36,9 @@ def knn(
 
     Returns
     -------
-    if `inplace`, store KNN in `.obsp['distances']`. Otherwise, return a sparse
-    matrix.
+    csr_matrix | None
+        if `inplace=True`, store KNN in `.obsp['distances']`.
+        Otherwise, return a sparse matrix.
     """
     if isinstance(adata, AnnData) or isinstance(adata, AnnDataSet):
         if use_rep is None: use_rep = "X_spectral"

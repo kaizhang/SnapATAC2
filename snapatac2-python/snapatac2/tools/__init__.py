@@ -1,9 +1,6 @@
 from .embedding import *
 
-from ._leiden import leiden
-from ._kmeans import kmeans
-from ._dbscan import dbscan
-from ._hdbscan import hdbscan
+from ._clustering import leiden, kmeans, dbscan, hdbscan
 from ._smooth import smooth
 from ._call_peaks import call_peaks
 from ._diff import marker_regions, diff_test

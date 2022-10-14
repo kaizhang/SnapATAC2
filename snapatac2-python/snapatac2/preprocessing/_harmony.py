@@ -1,20 +1,20 @@
 """
 Use harmony to integrate cells from different experiments.
 """
+from __future__ import annotations
 
 import numpy as np
-from typing import Optional, List, Union
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
 
 def harmony(
     adata: AnnData,
     batch: str,
-    use_dims: Optional[Union[int, List[int]]] = None,
-    use_rep: Optional[str] = None,
+    use_dims: int | list[int] | None = None,
+    use_rep: str = "X_spectral",
     inplace: bool = True,
     **kwargs,
-) -> Optional[np.ndarray]:
+) -> np.ndarray | None:
     """
     Use harmonypy to integrate different experiments.
 
@@ -36,7 +36,7 @@ def harmony(
         Use these dimensions in `use_rep`.
     use_rep
         The name of the field in ``adata.obsm`` where the lower dimensional
-        representation is stored. Defaults to ``'X_spectral'``.
+        representation is stored.
     inplace
         Whether to store the result in the anndata object.
     kwargs
@@ -45,17 +45,17 @@ def harmony(
 
     Returns
     -------
-    if `inplace=True` it updates adata with the field
-    ``adata.obsm[`use_rep`_harmony]``, containing principal components
-    adjusted by Harmony such that different experiments are integrated.
-    Otherwise, it returns the result as a numpy array.
+    np.ndarray | None
+        if `inplace=True` it updates adata with the field
+        ``adata.obsm[`use_rep`_harmony]``, containing principal components
+        adjusted by Harmony such that different experiments are integrated.
+        Otherwise, it returns the result as a numpy array.
     """
     try:
         import harmonypy
     except ImportError:
         raise ImportError("\nplease install harmonypy:\n\n\tpip install harmonypy")
 
-    if use_rep is None: use_rep = "X_spectral"
     mat = adata.obsm[use_rep] if isinstance(adata, AnnData) or isinstance(adata, AnnDataSet) else adata
     if isinstance(use_dims, int): use_dims = range(use_dims) 
     mat = mat if use_dims is None else mat[:, use_dims]

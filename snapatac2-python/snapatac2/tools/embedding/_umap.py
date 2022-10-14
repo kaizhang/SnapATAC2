@@ -8,7 +8,7 @@ def umap(
     adata: AnnData | AnnDataSet | np.ndarray,
     n_comps: int = 2,
     use_dims: int | list[int] | None = None,
-    use_rep: str | None = None,
+    use_rep: str = "X_spectral",
     key_added: str = 'umap',
     random_state: int = 0,
     inplace: bool = True,
@@ -33,12 +33,14 @@ def umap(
 
     Returns
     -------
-    None
+    np.ndarray | None
+        if `inplace=True` it stores UMAP embedding in
+        `adata.obsm["X_`key_added`"]`.
+        Otherwise, it returns the result as a numpy array.
     """
     from umap import UMAP
 
     if isinstance(adata, AnnData) or isinstance(adata, AnnDataSet):
-        if use_rep is None: use_rep = "X_spectral"
         data = adata.obsm[use_rep]
     else:
         data = adata

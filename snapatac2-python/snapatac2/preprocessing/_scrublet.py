@@ -29,27 +29,29 @@ def scrublet(
     adata
         AnnData object
     features
-        Boolean index mask. True means that the feature is kept.
-        False means the feature is removed.
+        Boolean index mask, where `True` means that the feature is kept, and
+        `False` means the feature is removed.
     n_comps
         Number of PCs
     sim_doublet_ratio
         Number of doublets to simulate relative to the number of observed cells.
     expected_doublet_rate
+        Expected doublet rate.
     n_neighbors
         Number of neighbors used to construct the KNN graph of observed
         cells and simulated doublets. If `None`, this is 
         set to round(0.5 * sqrt(n_cells))
     use_approx_neighbors
-        Whether to use 
+        Whether to use approximate search.
     random_state
-        Random state
+        Random state.
     
     Returns
     -------
-    It updates adata with the following fields:
-    - ``adata.obs["doublet_score"]``: scrublet doublet score
-    - ``adata.uns["scrublet"]["sim_doublet_score"]``: doublet scores of simulated doublets 
+    None
+        It updates adata with the following fields:
+            - ``adata.obs["doublet_score"]``: scrublet doublet score
+            - ``adata.uns["scrublet"]["sim_doublet_score"]``: doublet scores of simulated doublets 
     """
     #- adata.uns["scrublet_cell_embedding"]: embedding of cells
     #- adata.uns["scrublet_sim_doublet_embedding"]: embedding of simulated doublets
@@ -87,8 +89,7 @@ def call_doublets(
 ) -> tuple[np.ndarray, float] | None:
     """
     Find doublet score threshold for calling doublets.
-
-    Need to run scrublet first.
+    `pp.scrublet` must be run first.
 
     Parameters
     ----------
@@ -97,8 +98,8 @@ def call_doublets(
     threshold
         Mannually specify a threshold or use one of the default methods to
         automatically identify a threshold:
-        - "gmm": fit a 2-component gaussian mixture model
-        - "scrublet": the method used in the scrublet paper
+            - 'gmm': fit a 2-component gaussian mixture model.
+            - 'scrublet': the method used in the scrublet paper (not implemented).
     random_state
         Random state
     inplace
@@ -106,9 +107,10 @@ def call_doublets(
     
     Returns
     -------
-    if ``inplace = True``, it updates adata with the following fields:
-    - ``adata.obs["is_doublet"]``: boolean mask
-    - ``adata.uns["scrublet"]["threshold"]``: saved threshold
+    tuple[np.ndarray, float] | None:
+        if ``inplace = True``, it updates adata with the following fields:
+            - ``adata.obs["is_doublet"]``: boolean mask
+            - ``adata.uns["scrublet"]["threshold"]``: saved threshold
     """
 
     if 'scrublet_sim_doublet_score' not in adata.uns:

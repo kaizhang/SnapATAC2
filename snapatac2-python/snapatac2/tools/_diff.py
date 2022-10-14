@@ -76,7 +76,9 @@ def diff_test(
 
     Returns
     -------
-    A DataFrame
+    pl.DataFrame
+        A DataFrame with 4 columns: "feature name", "log2(fold_change)",
+        "p-value", and "adjusted p-value".
     """
     def to_indices(xs, n, type):
         if isinstance(xs, np.ndarray):

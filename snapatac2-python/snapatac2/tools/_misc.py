@@ -6,7 +6,6 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 import functools
-import polars as pl
 from natsort import natsorted
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
@@ -37,7 +36,9 @@ def aggregate_X(
 
     Returns
     -------
-        If file=None, return the result as numpy array.
+    np.ndarray | dict[str, np.ndarray] | AnnData
+        If `file=None`, return the result as numpy array.
+        Otherwise, return an anndata object.
     """
     def norm(x):
         if normalize is None:
