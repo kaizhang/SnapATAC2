@@ -17,23 +17,13 @@ jobs:
         os: [ubuntu-latest, macos-11]
     env:
        CIBW_BUILD_VERBOSITY: 1
-       #yum install -y hdf5-devel openssl-devel zlib-devel
        CIBW_BEFORE_ALL_LINUX: >
          curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable -y &&
-         yum install -y openssl-devel zlib-devel &&
-         pushd /tmp &&
-         ldconfig &&
-         curl -fsSLO https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.12/hdf5-1.12.2/src/hdf5-1.12.2.tar.gz &&
-         tar -xzvf hdf5-1.12.2.tar.gz &&
-         pushd hdf5-1.12.2 &&
-         chmod u+x autogen.sh &&
-         ./configure --prefix=/usr --enable-build-mode=production --with-szlib &&
-         make && make install
+         yum install -y openssl-devel zlib-devel
 
        CIBW_ARCHS_LINUX: "auto64"
        CIBW_ENVIRONMENT: 'PATH="$PATH:$HOME/.cargo/bin"'
        CIBW_SKIP: "cp36-* cp311-* pp* *-win32 *-musllinux*"
-       #CIBW_MANYLINUX_X86_64_IMAGE: ghcr.io/h5py/manylinux2010_x86_64-hdf5:latest
        CIBW_TEST_REQUIRES: pytest hypothesis
        CIBW_TEST_COMMAND: "pytest {project}/snapatac2-python/tests"
 
@@ -49,9 +39,7 @@ jobs:
 
       - if: runner.os != 'Linux'
         name: Setup env when not using docker
-        run: |
-          brew install hdf5
-          python -m pip install --upgrade wheel setuptools setuptools-rust
+        run: python -m pip install --upgrade wheel setuptools setuptools-rust
 
       # Used to host cibuildwheel
       - uses: actions/setup-python@v2

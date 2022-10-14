@@ -15,7 +15,7 @@ jobs:
 
     - name: Install dependency
       run: |
-        sudo apt-get install -y libhdf5-serial-dev pandoc
+        sudo apt-get install -y pandoc
         sudo pip install --upgrade pip
         pip install --user Pygments==2.6.1 sphinx==4.4.0 pandoc nbsphinx \
           sphinx-autodoc-typehints sphinx_rtd_theme myst-parser markupsafe==2.0.1 \
@@ -23,7 +23,8 @@ jobs:
 
     - name: Build and test package
       run: |
-        cd ${GITHUB_WORKSPACE}/snapatac2-core && cargo test --all --no-fail-fast
+        cd ${GITHUB_WORKSPACE}/snapatac2-core && \
+          cargo test --all --no-fail-fast --features anndata-rs/static
         cd ${GITHUB_WORKSPACE}/snapatac2-python && \
           pip install --user .
         pytest ${GITHUB_WORKSPACE}/snapatac2-python/tests
