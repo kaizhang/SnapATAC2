@@ -29,6 +29,23 @@ pub struct Fragment {
     pub strand: Option<Strand>,
 }
 
+impl Fragment {
+    pub fn to_insertions(&self) -> Vec<GenomicRange> {
+        match self.strand {
+            None => vec![
+                GenomicRange::new(self.chrom.clone(), self.start, self.start + 1),
+                GenomicRange::new(self.chrom.clone(), self.end - 1, self.end),
+            ],
+            Some(Strand::Forward) => vec![
+                GenomicRange::new(self.chrom.clone(), self.start, self.start + 1)
+            ],
+            Some(Strand::Reverse) => vec![
+                GenomicRange::new(self.chrom.clone(), self.end - 1, self.end)
+            ],
+        }
+    }
+}
+
 impl BEDLike for Fragment {
     fn chrom(&self) -> &str { &self.chrom }
     fn set_chrom(&mut self, chrom: &str) -> &mut Self {

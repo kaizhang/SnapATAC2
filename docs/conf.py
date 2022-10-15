@@ -1,23 +1,12 @@
-# Configuration file for the Sphinx documentation builder.
-#
-# This file only contains a selection of the most common options. For a full
-# list see the documentation:
-# https://www.sphinx-doc.org/en/master/usage/configuration.html
-
 # -- Path setup --------------------------------------------------------------
 
-import os
 import snapatac2
-#import sys
-#sys.path.insert(0, os.path.abspath('../snapatac2-python'))
 
 # -- Project information -----------------------------------------------------
 
 project = 'SnapATAC2'
 copyright = '2022, Kai Zhang'
 author = 'Kai Zhang'
-
-# The full version, including alpha/beta/rc tags
 release = snapatac2.__version__
 
 # -- General configuration ---------------------------------------------------

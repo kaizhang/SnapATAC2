@@ -1,23 +1,9 @@
-use crate::utils::{CellBarcode, Fragment};
+use crate::utils::Fragment;
 
-use anndata_rs::{
-    anndata::AnnData,
-    anndata_trait::{DataIO, DataPartialIO},
-    iterator::CsrIterator,
-};
-use polars::prelude::{NamedFrom, DataFrame, Series};
-use std::{
-    io, io::prelude::*, io::BufReader, ops::Div,
-    collections::{HashSet, HashMap},
-};
+use std::{io::{Result, Read, BufRead, BufReader}, ops::Div, collections::HashMap};
 use bed_utils::bed::{
-    GenomicRange, BEDLike,
-    tree::{GenomeRegions, BedTree, SparseBinnedCoverage}, Strand,
+    GenomicRange, BEDLike, tree::{GenomeRegions, BedTree, SparseBinnedCoverage}
 };
-use itertools::Itertools;
-use anyhow::Result;
-use rayon::iter::ParallelIterator;
-use rayon::iter::IntoParallelIterator;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct QualityControl {
@@ -26,50 +12,6 @@ pub struct QualityControl {
     pub frac_mitochondrial: f64,
     pub frac_duplicated: f64,
 }
-
-/*
-// Store length distribution in an array,
-// TODO: use [u64; N+1] when const generic arithmetic is implemented in rust
-pub struct FragmentSizeDistribution<const N: usize> {
-    counts: [u64; N]),
-
-}
-
-impl<const N: usize> FragmentSizeDistribution<N> {
-    pub fn new() -> Self { Self([0; N]) }
-
-    /// Get the frequency of fragment size
-    pub fn get(&self, i: usize) -> u64 {
-        if i <= N {
-            self.0[i]
-        } else {
-            self.0[N]
-        }
-    }
-
-    pub fn add<B: BEDLike>(&mut self, bed: B) {
-        let i = bed.len() as usize;
-        if i <= N {
-            self.0[i - 1] += 1;
-        } else {
-            self.0[N as usize] += 1;
-        }
-    }
-}
-
-impl<const N: u32> FromIterator for FragmentSizeDistribution<N> {
-    fn from_iter<I>(iter: I) -> Self
-    where
-        I: IntoIterator<Item = B>,
-        B: BEDLike,
-    {
-        let mut distribution = FragmentSizeDistribution::new();
-        iter.for_each(|x| { distribution.update(x); });
-        distribution
-    }
-
-}
-*/
 
 pub(crate) struct FragmentSummary<'a> {
     promoter_insertion_count: [u64; 4001],
@@ -96,7 +38,7 @@ impl<'a> FragmentSummary<'a> {
             "chrM" | "M" => self.num_mitochondrial += 1,
             _ => {
                 self.num_unique_fragment += 1;
-                for ins in get_insertions(fragment) {
+                for ins in fragment.to_insertions() {
                     for (entry, data) in self.promoter.find(&ins) {
                         let pos: u64 =
                             if *data {
@@ -132,31 +74,6 @@ impl<'a> FragmentSummary<'a> {
     }
 }
 
-fn qc_to_df(
-    cells: Vec<CellBarcode>,
-    qc: Vec<QualityControl>,
-) -> DataFrame {
-    DataFrame::new(vec![
-        Series::new("Cell", cells),
-        Series::new(
-            "tsse", 
-            qc.iter().map(|x| x.tss_enrichment).collect::<Series>(),
-        ),
-        Series::new(
-            "n_fragment", 
-            qc.iter().map(|x| x.num_unique_fragment).collect::<Series>(),
-        ),
-        Series::new(
-            "frac_dup", 
-            qc.iter().map(|x| x.frac_duplicated).collect::<Series>(),
-        ),
-        Series::new(
-            "frac_mito", 
-            qc.iter().map(|x| x.frac_mitochondrial).collect::<Series>(),
-        ),
-    ]).unwrap()
-}
-
 fn moving_average(half_window: usize, arr: &[u64]) -> impl Iterator<Item = f64> + '_ {
     let n = arr.len();
     (0 .. n).map(move |i| {
@@ -169,7 +86,7 @@ fn moving_average(half_window: usize, arr: &[u64]) -> impl Iterator<Item = f64> 
 /// Read tss from a gtf file
 pub fn read_tss<R: Read>(file: R) -> impl Iterator<Item = (String, u64, bool)> {
     let reader = BufReader::new(file);
-    let parse_line = |line: io::Result<String>| {
+    let parse_line = |line: Result<String>| {
         let chr_idx: usize = 0;
         let type_idx: usize = 2;
         let start_idx: usize = 3;
@@ -206,128 +123,7 @@ pub fn make_promoter_map<I: Iterator<Item = (String, u64, bool)>>(iter: I) -> Be
         }).collect()
 }
 
-fn get_insertions(rec: &Fragment) -> Vec<GenomicRange> {
-    match rec.strand {
-        None => vec![
-            GenomicRange::new(rec.chrom.clone(), rec.start, rec.start + 1),
-            GenomicRange::new(rec.chrom.clone(), rec.end - 1, rec.end),
-        ],
-        Some(Strand::Forward) => vec![
-            GenomicRange::new(rec.chrom.clone(), rec.start, rec.start + 1)
-        ],
-        Some(Strand::Reverse) => vec![
-            GenomicRange::new(rec.chrom.clone(), rec.end - 1, rec.end)
-        ],
-    }
-}
-
-pub fn import_fragments<B, I>(
-    anndata: &AnnData,
-    fragments: I,
-    promoter: &BedTree<bool>,
-    regions: &GenomeRegions<B>,
-    white_list: Option<&HashSet<String>>,
-    min_num_fragment: u64,
-    min_tsse: f64,
-    fragment_is_sorted_by_name: bool,
-    chunk_size: usize,
-    ) -> Result<()>
-where
-    B: BEDLike + Clone + std::marker::Sync,
-    I: Iterator<Item = Fragment>,
-{
-    let num_features = SparseBinnedCoverage::<_, u8>::new(regions, 1).len;
-    let mut saved_barcodes = Vec::new();
-    let mut qc = Vec::new();
-
-    if fragment_is_sorted_by_name {
-        let mut scanned_barcodes = HashSet::new();
-        anndata.get_obsm().inner().insert_from_row_iter(
-            "insertion",
-            CsrIterator {
-                iterator: fragments
-                .group_by(|x| { x.barcode.clone() }).into_iter()
-                .filter(|(key, _)| white_list.map_or(true, |x| x.contains(key)))
-                .chunks(chunk_size).into_iter().map(|chunk| {
-                    let data: Vec<(String, Vec<Fragment>)> = chunk
-                        .map(|(barcode, x)| (barcode, x.collect())).collect();
-                    let result: Vec<_> = data.into_par_iter()
-                        .map(|(barcode, x)| (
-                            barcode,
-                            compute_qc_count(x, promoter, regions, min_num_fragment, min_tsse)
-                        )).collect();
-                    result.into_iter().filter_map(|(barcode, r)| {
-                        if !scanned_barcodes.insert(barcode.clone()) {
-                            panic!("Please sort fragment file by barcodes");
-                        }
-                        match r {
-                            None => None,
-                            Some((q, count)) => {
-                                saved_barcodes.push(barcode);
-                                qc.push(q);
-                                Some(count)
-                            },
-                        }
-                    }).collect::<Vec<_>>()
-                }),
-                num_cols: num_features,
-            }
-        )?;
-    } else {
-        let mut scanned_barcodes = HashMap::new();
-        fragments
-        .filter(|frag| white_list.map_or(true, |x| x.contains(frag.barcode.as_str())))
-        .for_each(|frag| {
-            let key = frag.barcode.as_str();
-            match scanned_barcodes.get_mut(key) {
-                None => {
-                    let mut summary= FragmentSummary::new(promoter);
-                    let mut counts = SparseBinnedCoverage::new(regions, 1);
-                    summary.update(&frag);
-                    get_insertions(&frag).into_iter().for_each(|x| counts.insert(&x, 1));
-                    scanned_barcodes.insert(key.to_string(), (summary, counts));
-                },
-                Some((summary, counts)) => {
-                    summary.update(&frag);
-                    get_insertions(&frag).into_iter().for_each(|x| counts.insert(&x, 1));
-                }
-            }
-        });
-        let csr_matrix: Box<dyn DataPartialIO> = Box::new(CsrIterator {
-            iterator: scanned_barcodes.drain()
-            .filter_map(|(barcode, (summary, binned_coverage))| {
-                let q = summary.get_qc();
-                if q.num_unique_fragment < min_num_fragment || q.tss_enrichment < min_tsse {
-                    None
-                } else {
-                    saved_barcodes.push(barcode);
-                    qc.push(q);
-                    let count: Vec<(usize, u8)> = binned_coverage.get_coverage()
-                        .iter().map(|(k, v)| (*k, *v)).collect();
-                    Some(count)
-                }
-            }),
-            num_cols: num_features,
-        }.to_csr_matrix());
-        anndata.get_obsm().inner().add_data("insertion", &csr_matrix)?;
-    }
-
-    let chrom_sizes: Box<dyn DataIO> = Box::new(DataFrame::new(vec![
-        Series::new(
-            "reference_seq_name",
-            regions.regions.iter().map(|x| x.chrom()).collect::<Series>(),
-        ),
-        Series::new(
-            "reference_seq_length",
-            regions.regions.iter().map(|x| x.end()).collect::<Series>(),
-        ),
-    ]).unwrap());
-    anndata.get_uns().inner().add_data("reference_sequences", &chrom_sizes)?;
-    anndata.set_obs(Some(&qc_to_df(saved_barcodes, qc)))?;
-    Ok(())
-}
-
-fn compute_qc_count<B>(
+pub fn compute_qc_count<B>(
     fragments: Vec<Fragment>,
     promoter: &BedTree<bool>,
     regions: &GenomeRegions<B>,
@@ -346,7 +142,7 @@ where
     } else {
         let mut binned_coverage = SparseBinnedCoverage::new(regions, 1);
         fragments.iter().for_each(|fragment| {
-            get_insertions(fragment).into_iter().for_each(|x| binned_coverage.insert(&x, 1));
+            fragment.to_insertions().into_iter().for_each(|x| binned_coverage.insert(&x, 1));
         });
         let count: Vec<(usize, u8)> = binned_coverage.get_coverage()
             .iter().map(|(k, v)| (*k, *v)).collect();

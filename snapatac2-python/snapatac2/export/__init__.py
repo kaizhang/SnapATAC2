@@ -15,8 +15,7 @@ def export_bed(
     prefix: str = "",
     suffix: str = ".bed.gz",
 ) -> dict[str, str]:
-    """
-    Export base-resolution TN5 insertion sites as BED format file.
+    """Export base-resolution TN5 insertion sites as BED format file.
 
     Parameters
     ----------
@@ -33,14 +32,15 @@ def export_bed(
     out_dir
         Directory for saving the outputs.
     prefix
-        Text that adds to the output file name.
+        Text added to the output file name.
     suffix
-        Text that adds to the output file name.
+        Text added to the output file name.
 
     Returns
     -------
-    A dictionary contains `(groupname, filename)` pairs. The file names are
-    formatted as `{prefix}{groupname}{suffix}`.
+    dict[str, str]
+        A dictionary contains `(groupname, filename)` pairs. The file names are
+        formatted as `{prefix}{groupname}{suffix}`.
     """
     if isinstance(groupby, str):
         groupby = adata.obs[groupby].astype("str")
@@ -84,14 +84,15 @@ def export_bigwig(
     out_dir
         Directory for saving the outputs.
     prefix
-        Text that adds to the output file name.
+        Text added to the output file name.
     suffix
-        Text that adds to the output file name.
+        Text added to the output file name.
 
     Returns
     -------
-    A dictionary contains `(groupname, filename)` pairs. The file names are
-    formatted as `{prefix}{groupname}{suffix}`.
+    dict[str, str]
+        A dictionary contains `(groupname, filename)` pairs. The file names are
+        formatted as `{prefix}{groupname}{suffix}`.
     """
     if isinstance(groupby, str):
         groupby = adata.obs[groupby].astype("str")

@@ -1,94 +1,20 @@
 use crate::utils::*;
 
-use std::{
-    fs::File,
-    io::{BufWriter, BufReader, Write},
-    str::FromStr,
-    collections::BTreeMap,
-    ops::Deref,
-    collections::HashSet,
-};
-use pyo3::{
-    PyTypeInfo,
-    prelude::*,
-    PyResult, Python,
-    exceptions::PyTypeError,
-};
-use flate2::{Compression, write::GzEncoder};
-use bed_utils::{bed, bed::{BEDLike, GenomicRange}};
+use std::{io::BufReader, str::FromStr, collections::BTreeMap, ops::Deref, collections::HashSet};
+use pyo3::{PyTypeInfo, prelude::*, PyResult, Python, exceptions::PyTypeError};
+use bed_utils::{bed, bed::GenomicRange};
 use rayon::ThreadPoolBuilder;
 use polars::prelude::DataFrame;
-use noodles::bam;
-use noodles::sam::Header;
-use noodles::sam::record::data::field::Tag;
 use anndata_rs::anndata;
 use pyanndata::{AnnData, AnnDataSet};
-use regex::Regex;
-use tempfile::Builder;
 
 use snapatac2_core::{
-    preprocessing::{
-        mark_duplicates::{BarcodeLocation, BedN, filter_bam, group_bam_by_barcode},
-        matrix::{create_tile_matrix, create_peak_matrix, create_gene_matrix},
-        qc,
-    },
+    preprocessing,
+    preprocessing::matrix::{create_tile_matrix, create_peak_matrix, create_gene_matrix},
     utils::{gene::read_transcripts, ChromValuesReader},
 };
 
-/// Convert a BAM file to a fragment file.
-/// 
-/// Convert a BAM file to a fragment file by performing the following steps:
-/// 
-/// 1. Filtering: remove reads that are unmapped, not primary alignment, mapq < 30,
-///    fails platform/vendor quality checks, or optical duplicate.
-///    For paired-end sequencing, it also removes reads that are not properly aligned.
-/// 2. Deduplicate: Sort the reads by cell barcodes and remove duplicated reads
-///    for each unique cell barcode.
-/// 3. Output: Convert BAM records to fragments (if paired-end) or single-end reads.
-/// 
-/// Note the bam file needn't be sorted or filtered.
-///
-/// Parameters
-/// ----------
-///
-/// bam_file 
-///     File name of the BAM file.
-/// output_file
-///     File name of the output fragment file.
-/// is_paired
-///     Indicate whether the BAM file contain paired-end reads
-/// barcode_tag
-///     Extract barcodes from TAG fields of BAM records, e.g., `barcode_tag = "CB"`.
-/// barcode_regex
-///     Extract barcodes from read names of BAM records using regular expressions.
-///     Reguler expressions should contain exactly one capturing group 
-///     (Parentheses group the regex between them) that matches
-///     the barcodes. For example, `barcode_regex = "(..:..:..:..):\w+$"`
-///     extracts `bd:69:Y6:10` from
-///     `A01535:24:HW2MMDSX2:2:1359:8513:3458:bd:69:Y6:10:TGATAGGTTG`.
-/// umi_tag
-///     Extract UMI from TAG fields of BAM records.
-/// umi_regex
-///     Extract UMI from read names of BAM records using regular expressions.
-///     See `barcode_regex` for more details.
-/// shift_left
-///     Insertion site correction for the left end. default: 4.
-/// shift_right
-///     Insertion site correction for the right end. default: -5.
-/// chunk_size
-///     The size of data retained in memory when performing sorting. Larger chunk sizes
-///     result in faster sorting and greater memory usage. default is 50000000.
-#[pyfunction(
-    is_paired = "true",
-    barcode_tag = "None",
-    barcode_regex = "None",
-    umi_tag = "None",
-    umi_regex = "None",
-    shift_left = "4",
-    shift_right = "-5",
-    chunk_size = "50000000",
-)]
-#[pyo3(text_signature = "(bam_file, output_file, is_paired, barcode_tag, barcode_regex, umi_tag, umi_regex, shift_left, shift_right, chunk_size)")]
+#[pyfunction]
 pub(crate) fn make_fragment_file(
     bam_file: &str,
     output_file: &str,
@@ -102,59 +28,11 @@ pub(crate) fn make_fragment_file(
     chunk_size: usize,
 )
 {
-    let tmp_dir = Builder::new().tempdir_in("./")
-        .expect("failed to create tmperorary directory");
-
-    if barcode_regex.is_some() && barcode_tag.is_some() {
-        panic!("Can only set barcode_tag or barcode_regex but not both");
-    }
-    if umi_regex.is_some() && umi_tag.is_some() {
-        panic!("Can only set umi_tag or umi_regex but not both");
-    }
-    let barcode = match barcode_tag {
-        Some(tag) => BarcodeLocation::InData(Tag::try_from(tag).unwrap()),
-        None => match barcode_regex {
-            Some(regex) => BarcodeLocation::Regex(Regex::new(regex).unwrap()),
-            None => BarcodeLocation::InReadName,
-        }
-    };
-    let umi = match umi_tag {
-        Some(tag) => Some(BarcodeLocation::InData(Tag::try_from(tag).unwrap())),
-        None => match umi_regex {
-            Some(regex) => Some(BarcodeLocation::Regex(Regex::new(regex).unwrap())),
-            None => None,
-        }
-    };
- 
-    let mut reader = File::open(bam_file).map(bam::Reader::new)
-        .expect(&format!("cannot open bam file: {}", bam_file));
-    let header: Header = reader.read_header().unwrap().parse().unwrap();
-    reader.read_reference_sequences().unwrap();
-
-    let f = File::create(output_file)
-        .expect(&format!("cannot create file: {}", output_file));
-    let mut output: Box<dyn Write> = if output_file.ends_with(".gz") {
-        Box::new(GzEncoder::new(BufWriter::new(f), Compression::default()))
-    } else {
-        Box::new(BufWriter::new(f))
-    };
-
-    let filtered_records = filter_bam(
-        reader.lazy_records().map(|x| x.unwrap()), is_paired
-    );
-    group_bam_by_barcode(filtered_records, &barcode, umi.as_ref(), is_paired, tmp_dir.path().to_path_buf(), chunk_size)
-        .into_fragments(&header)
-        .for_each(|x| match x {
-            BedN::Bed5(mut x_) => {
-                // TODO: use checked_add_signed.
-                x_.set_start((x_.start() as i64 + shift_left) as u64);
-                x_.set_end((x_.end() as i64 + shift_right) as u64);
-                writeln!(output, "{}", x_).unwrap();
-            },
-            BedN::Bed6(x_) => writeln!(output, "{}", x_).unwrap(),
-        });
+    preprocessing::make_fragment_file(
+        bam_file, output_file, is_paired, barcode_tag, barcode_regex,
+        umi_tag, umi_regex, shift_left, shift_right, chunk_size,
+    )
 }
- 
 
 #[pyfunction]
 pub(crate) fn import_fragments(
@@ -171,14 +49,14 @@ pub(crate) fn import_fragments(
 ) -> PyResult<AnnData>
 {
     let mut anndata = anndata::AnnData::new(output_file, 0, 0).unwrap();
-    let promoters = qc::make_promoter_map(
-        qc::read_tss(open_file(gtf_file))
+    let promoters = preprocessing::qc::make_promoter_map(
+        preprocessing::qc::read_tss(open_file(gtf_file))
     );
 
     let final_white_list = if fragment_is_sorted_by_name || min_num_fragment <= 0 {
         white_list
     } else {
-        let mut barcode_count = qc::get_barcode_count(
+        let mut barcode_count = preprocessing::qc::get_barcode_count(
             bed::io::Reader::new(
                 open_file(fragment_file),
                 Some("#".to_string()),
@@ -193,7 +71,7 @@ pub(crate) fn import_fragments(
     };
 
     ThreadPoolBuilder::new().num_threads(num_cpu).build().unwrap().install(||
-        qc::import_fragments(
+        preprocessing::import_fragments(
             &mut anndata,
             bed::io::Reader::new(
                 open_file(fragment_file),

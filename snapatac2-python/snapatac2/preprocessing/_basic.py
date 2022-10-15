@@ -9,6 +9,67 @@ from snapatac2._snapatac2 import AnnData, AnnDataSet
 import snapatac2._snapatac2 as internal
 from snapatac2.genome import Genome
 
+def make_fragment_file(
+    bam_file: Path,
+    output_file: Path,
+    is_paired: bool = True,
+    barcode_tag: str | None = None,
+    barcode_regex: str | None = None,
+    umi_tag: str | None = None,
+    umi_regex: str | None = None,
+    shift_left: int = 4,
+    shift_right: int = -5,
+    chunk_size: int = 50000000,
+):
+    """
+    Convert a BAM file to a fragment file.
+
+    Convert a BAM file to a fragment file by performing the following steps:
+
+        1. Filtering: remove reads that are unmapped, not primary alignment, mapq < 30,
+           fails platform/vendor quality checks, or optical duplicate.
+           For paired-end sequencing, it also removes reads that are not properly aligned.
+        2. Deduplicate: Sort the reads by cell barcodes and remove duplicated reads
+           for each unique cell barcode.
+        3. Output: Convert BAM records to fragments (if paired-end) or single-end reads.
+
+    Note the bam file needn't be sorted or filtered.
+
+    Parameters
+    ----------
+    bam_file
+        File name of the BAM file.
+    output_file
+        File name of the output fragment file.
+    is_paired
+        Indicate whether the BAM file contain paired-end reads
+    barcode_tag
+        Extract barcodes from TAG fields of BAM records, e.g., `barcode_tag = "CB"`.
+    barcode_regex: str | None
+        Extract barcodes from read names of BAM records using regular expressions.
+        Reguler expressions should contain exactly one capturing group 
+        (Parentheses group the regex between them) that matches
+        the barcodes. For example, `barcode_regex = "(..:..:..:..):\w+$"`
+        extracts `bd:69:Y6:10` from
+        `A01535:24:HW2MMDSX2:2:1359:8513:3458:bd:69:Y6:10:TGATAGGTTG`.
+    umi_tag
+        Extract UMI from TAG fields of BAM records.
+    umi_regex
+        Extract UMI from read names of BAM records using regular expressions.
+        See `barcode_regex` for more details.
+    shift_left
+        Insertion site correction for the left end.
+    shift_right
+        Insertion site correction for the right end.
+    chunk_size
+        The size of data retained in memory when performing sorting. Larger chunk sizes
+        result in faster sorting and greater memory usage.
+    """
+    internal.make_fragment_file(
+        str(bam_file), str(output_file), is_paired, barcode_tag, barcode_regex,
+        umi_tag, umi_regex, shift_left, shift_right, chunk_size
+    )
+
 def import_data(
     fragment_file: Path,
     *,

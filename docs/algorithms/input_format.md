@@ -2,7 +2,7 @@ Input data format
 =================
 
 SnapATAC2 accepts BAM or BED-like tabular file as input. The BED-like tabular file can be used to represent fragments (paired-end sequencing) or insertions (single-end sequencing). BAM files can be converted to BED-like
-files using `pp.make_fragment_file`.
+files using {func}`snapatac2.pp.make_fragment_file`.
 
 ## Fragment interval format
 

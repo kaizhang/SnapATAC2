@@ -1,5 +1,5 @@
-from snapatac2._snapatac2 import make_fragment_file
 from ._basic import (
+    make_fragment_file,
     import_data,
     add_tile_matrix,
     make_peak_matrix,

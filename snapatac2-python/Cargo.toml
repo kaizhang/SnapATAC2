@@ -20,7 +20,6 @@ snapatac2-core = { path = "../snapatac2-core" }
 bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "41e54b2a363f482494ad3e08338f97f93d5e165b" }
 itertools = "0.8"
 flate2 = "1.0"
-regex = "1.6"
 hdf5 = "0.8"
 rayon = "1.5"
 linreg = "0.2"
