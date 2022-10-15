@@ -7,8 +7,21 @@ import pooch
 from snapatac2._snapatac2 import read_motifs, PyDNAMotif
 
 def pbmc5k(type: Literal["fragment, h5ad, gene, annotated_h5ad"] = "fragment") -> Path:
-    """
-    5k PBMCs from 10x Genomics.
+    """5k PBMCs from 10x Genomics.
+
+    Parameters
+    ----------
+    type
+        One of the following:
+            - "fragment": the fragment file.
+            - "h5ad": preprocessed h5ad file.
+            - "gene": gene activity matrix.
+            - "annotated_h5ad": annotated h5ad file.
+
+    Returns
+    -------
+    Path
+        path to the file.
     """
     if type == "fragment":
         return Path(_datasets.fetch("atac_pbmc_5k.tsv.gz"))
@@ -23,8 +36,7 @@ def pbmc5k(type: Literal["fragment, h5ad, gene, annotated_h5ad"] = "fragment") -
     
 
 def pbmc_multiome(modality: Literal["ATAC", "RNA"] = "RNA") -> Path:
-    """
-    10k PBMCs from 10x Genomics.
+    """10k PBMCs from 10x Genomics.
     """
     if modality == "RNA":
         return Path(_datasets.fetch("10x-Multiome-Pbmc10k-RNA.h5ad"))
@@ -34,21 +46,29 @@ def pbmc_multiome(modality: Literal["ATAC", "RNA"] = "RNA") -> Path:
         raise NameError("modality '{}' is not available.".format(modality))
 
 def colon() -> list[tuple[str, Path]]:
-    """
-    5 colon transverse samples from Zhang et al., 2021.
+    """5 colon transverse samples from Zhang et al., 2021.
     """
     files = _datasets.fetch("colon_transverse.tar", processor = pooch.Untar())
     return [(fl.split("/")[-1].split("_rep1_fragments")[0], Path(fl)) for fl in files]
 
 def cre_HEA() -> Path:
-    """
-    cis-regulatory elements from Zhang et al., 2021.
+    """cis-regulatory elements from Zhang et al., 2021.
     """
     return Path(_datasets.fetch("HEA_cCRE.bed.gz"))
 
-def cis_bp(unique: bool = False) -> list[PyDNAMotif]:
-    """
-    Motifs from CIS-BP database.
+def cis_bp(unique: bool = True) -> list[PyDNAMotif]:
+    """Motifs from CIS-BP database.
+
+    Parameters
+    ----------
+    unique
+        A transcription factor may have multiple motifs. If `unique=True`, 
+        only the motifs with the highest information content will be selected.
+
+    Returns
+    -------
+    list[PyDNAMotif]
+        A list of motifs.
     """
     motifs = read_motifs(_datasets.fetch("cisBP_human.meme"))
     if unique:

@@ -21,8 +21,7 @@ def tsse(
     interactive: bool = True,
     out_file: str | None = None,
 ) -> 'plotly.graph_objects.Figure' | None:
-    """
-    Plot the TSS enrichment vs. number of fragments density figure.
+    """Plot the TSS enrichment vs. number of fragments density figure.
 
     Parameters
     ----------
@@ -110,9 +109,8 @@ def scrublet(
     show: bool = True,
     interactive: bool = True,
     out_file: str | None = None,
-):
-    """
-    Plot doublets
+) -> 'plotly.graph_objects.Figure' | None:
+    """Plot the doublet score distribution.
 
     Parameters
     ----------
@@ -132,7 +130,9 @@ def scrublet(
 
     Returns
     -------
-    
+    'plotly.graph_objects.Figure' | None
+        If `show=False` and `out_file=None`, an `plotly.graph_objects.Figure` will be 
+        returned, which can then be further customized using the plotly API.
     """
     from plotly.subplots import make_subplots
     import plotly.graph_objects as go
@@ -168,23 +168,43 @@ def scrublet(
 
 def spectral_eigenvalues(
     adata: AnnData,
-    n_components: int | None = None,
     width: int = 600,
     height: int = 400,
     show: bool = True,
     interactive: bool = True,
     out_file: str | None = None,
-    **kwargs,
-) -> None:
+) -> 'plotly.graph_objects.Figure' | None:
+    """Plot the eigenvalues of spectral embedding.
+
+    Parameters
+    ----------
+    adata
+        Annotated data matrix.
+    width
+        The width of the plot
+    height
+        The height of the plot
+    show
+        Show the figure.
+    interactive
+        Whether to make interactive plot
+    out_file
+        Path of the output file for saving the output image, end with
+        '.svg' or '.pdf' or '.png' or '.html'.
+
+    Returns
+    -------
+    'plotly.graph_objects.Figure' | None
+        If `show=False` and `out_file=None`, an `plotly.graph_objects.Figure` will be 
+        returned, which can then be further customized using the plotly API.
+    """
+ 
     import plotly.express as px
     import pandas as pd
 
     data = adata.uns["spectral_eigenvalue"]
-    n = data.shape[0] if n_components is None else n_components
-    data = data[:n]
-
     df = pd.DataFrame({"Component": map(str, range(1, n+1)), "Eigenvalue": data})
-    fig = px.scatter(df, x="Component", y="Eigenvalue", template="plotly_white", **kwargs)
+    fig = px.scatter(df, x="Component", y="Eigenvalue", template="plotly_white")
     fig.add_vline(x=_detect(data))
 
     return render_plot(fig, width, height, interactive, show, out_file)
@@ -198,14 +218,17 @@ def regions(
     show: bool = True,
     interactive: bool = True,
     out_file: str | None = None,
-):
+) -> 'plotly.graph_objects.Figure' | None:
     """
     Parameters
     ----------
     data
         Annotated data matrix.
     groupby
+        Group the cells into different groups. If a `str`, groups are obtained from
+        `.obs[groupby]`.
     peaks
+        Peaks of each group.
     width
         The width of the plot
     height
@@ -217,6 +240,12 @@ def regions(
     out_file
         Path of the output file for saving the output image, end with
         '.svg' or '.pdf' or '.png' or '.html'.
+
+    Returns
+    -------
+    'plotly.graph_objects.Figure' | None
+        If `show=False` and `out_file=None`, an `plotly.graph_objects.Figure` will be 
+        returned, which can then be further customized using the plotly API.
     """
     import polars as pl
     import plotly.graph_objects as go
@@ -244,7 +273,7 @@ def regions(
 def umap(
     adata: AnnData,
     color: str | np.ndarray,
-    use_rep: str | None = None,
+    use_rep: str = "X_umap",
     marker_size: float = 2,
     marker_opacity: float = 0.5,
     width: float = 550,
@@ -252,9 +281,8 @@ def umap(
     show: bool = True,
     interactive: bool = True,
     out_file: str | None = None,
-):
-    """
-    Plot UMAP embedding
+) -> 'plotly.graph_objects.Figure' | None:
+    """Plot the UMAP embedding.
 
     Parameters
     ----------
@@ -264,27 +292,31 @@ def umap(
         If the input is a string, it will be used the key to retrieve values from
         `obs`.
     use_rep
+        Use the indicated representation in `.obsm`.
     marker_size
+        Size of the dots.
     marker_opacity
+        Opacity of the dots.
     width
-        The width of the plot
+        The width of the plot.
     height
-        The height of the plot
+        The height of the plot.
     interactive
-        Whether to make interactive plot
+        Whether to make interactive plot.
     out_file
         Path of the output file for saving the output image, end with
         '.svg' or '.pdf' or '.png' or '.html'.
 
     Returns
     -------
-    
+    'plotly.graph_objects.Figure' | None
+        If `show=False` and `out_file=None`, an `plotly.graph_objects.Figure` will be 
+        returned, which can then be further customized using the plotly API.
     """
     import plotly.express as px
     from natsort import index_natsorted
     import pandas as pd
 
-    use_rep = "X_umap" if use_rep is None else use_rep
     embedding = adata.obsm[use_rep] 
 
     if isinstance(color, str):
@@ -388,20 +420,47 @@ def network_scores(
 def motif_enrichment(
     enrichment: list(str, 'pl.DataFrame'),
     min_log_fc: float = 1,
-    min_fdr: float = 0.01,
+    max_fdr: float = 0.01,
     width: float = 600,
     height: float = 400,
     show: bool = True,
     interactive: bool = True,
     out_file: str | None = None,
-):
+) -> 'plotly.graph_objects.Figure' | None:
+    """Plot the motif enrichment result.
+
+    Parameters
+    ----------
+    enrichment
+        Motif enrichment result.
+    min_log_fc
+        Retain motifs that satisfy: log2-fold-change >= `min_log_fc`.
+    max_fdr
+        Retain motifs that satisfy: FDR <= `max_fdr`.
+    width
+        The width of the plot.
+    height
+        The height of the plot.
+    interactive
+        Whether to make interactive plot.
+    out_file
+        Path of the output file for saving the output image, end with
+        '.svg' or '.pdf' or '.png' or '.html'.
+
+    Returns
+    -------
+    'plotly.graph_objects.Figure' | None
+        If `show=False` and `out_file=None`, an `plotly.graph_objects.Figure` will be 
+        returned, which can then be further customized using the plotly API.
+    """
+ 
     import pandas as pd
     
     fc = np.vstack([df['log2(fold change)'] for df in enrichment.values()])
     filter1 = np.apply_along_axis(lambda x: np.any(np.abs(x) >= min_log_fc), 0, fc)
     
     fdr = np.vstack([df['adjusted p-value'] for df in enrichment.values()])
-    filter2 = np.apply_along_axis(lambda x: np.any(x < min_fdr), 0, fdr)
+    filter2 = np.apply_along_axis(lambda x: np.any(x <= max_fdr), 0, fdr)
 
     passed = np.logical_and(filter1, filter2)
     

@@ -10,17 +10,16 @@ def read_10x_mtx(
     storage: str,
     prefix: str = None,
 ) -> AnnData:
-    """
-    Read 10x-Genomics-formatted mtx directory.
+    """Read 10x-Genomics-formatted mtx directory.
 
     Parameters
     ----------
     path
         Path to directory for `.mtx` and `.tsv` files. The directory should contain
         three files:
-        1. count matrix: "matrix.mtx" or "matrix.mtx.gz".
-        2. features: "genes.tsv", or "genes.tsv.gz", or "features.tsv", or "features.tsv.gz".
-        3. barcodes: "barcodes.tsv", or "barcodes.tsv.gz".
+            1. count matrix: "matrix.mtx" or "matrix.mtx.gz".
+            2. features: "genes.tsv", or "genes.tsv.gz", or "features.tsv", or "features.tsv.gz".
+            3. barcodes: "barcodes.tsv", or "barcodes.tsv.gz".
     storage
         File name of the output ".h5ad" file.
     prefix
@@ -30,7 +29,8 @@ def read_10x_mtx(
 
     Returns
     -------
-    An AnnData object.
+    AnnData
+        An AnnData object.
     """
 
     def get_files(prefix, names):
