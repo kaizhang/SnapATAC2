@@ -110,7 +110,7 @@ pub struct AlignmentInfo {
     unclipped_start: u32,
     unclipped_end: u32,
     sum_of_qual_scores: u32,
-    barcode: String,
+    barcode: Option<String>,
     umi: Option<String>,
 }
 
@@ -141,8 +141,8 @@ impl AlignmentInfo {
             unclipped_start: alignment_start - clipped_start,
             unclipped_end: alignment_end + clipped_end,
             sum_of_qual_scores: sum_of_qual_score(rec),
-            barcode: barcode_loc.extract(rec)?,
-            umi: umi_loc.map(|x| x.extract(rec).unwrap()),
+            barcode: barcode_loc.extract(rec).ok(),
+            umi: umi_loc.and_then(|x| x.extract(rec).ok()),
         })
     }
 
@@ -321,8 +321,12 @@ where
 
     RecordGroups {
         is_paired,
-        groups: sort_rec(reads.map(move |x| AlignmentInfo::new(&x, barcode_loc, umi_loc).unwrap()), sort_dir, chunk_size)
-            .group_by(|x| x.barcode.clone()),
+        groups: sort_rec(
+            reads.map(move |x| AlignmentInfo::new(&x, barcode_loc, umi_loc).unwrap())
+                .filter(|x| x.barcode.is_some()),
+            sort_dir,
+            chunk_size,
+        ).group_by(|x| x.barcode.as_ref().unwrap().clone()),
     }
 }
 
@@ -369,7 +373,7 @@ where
                 header.reference_sequences()[ref_id1].name().as_str(),
                 start as u64 - 1,
                 end as u64,
-                Some(rec1.barcode.clone()),
+                Some(rec1.barcode.as_ref().unwrap().clone()),
                 Some(Score::try_from(u16::try_from(c).unwrap()).unwrap()),
                 None,
                 Default::default(),
@@ -387,7 +391,7 @@ where
                 header.reference_sequences()[ref_id].name().as_str(),
                 r.alignment_start as u64 - 1,
                 r.alignment_end as u64,
-                Some(r.barcode.clone()),
+                Some(r.barcode.as_ref().unwrap().clone()),
                 Some(Score::try_from(u16::try_from(c).unwrap()).unwrap()),
                 Some(if r.flags().is_reverse_complemented() {
                     Strand::Reverse

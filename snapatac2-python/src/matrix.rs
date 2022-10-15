@@ -19,18 +19,28 @@ pub(crate) fn make_fragment_file(
     bam_file: &str,
     output_file: &str,
     is_paired: bool,
-    barcode_tag: Option<[u8; 2]>,
+    barcode_tag: Option<&str>,
     barcode_regex: Option<&str>,
-    umi_tag: Option<[u8; 2]>,
+    umi_tag: Option<&str>,
     umi_regex: Option<&str>,
     shift_left: i64,
     shift_right: i64,
     chunk_size: usize,
 )
 {
+    fn parse_tag(tag: &str) -> [u8; 2] {
+        let tag_b = tag.as_bytes();
+        if tag_b.len() == 2 {
+            [tag_b[0], tag_b[1]]
+        } else {
+            panic!("TAG name must contain exactly two characters");
+        }
+    }
     preprocessing::make_fragment_file(
-        bam_file, output_file, is_paired, barcode_tag, barcode_regex,
-        umi_tag, umi_regex, shift_left, shift_right, chunk_size,
+        bam_file, output_file, is_paired,
+        barcode_tag.map(|x| parse_tag(x)), barcode_regex,
+        umi_tag.map(|x| parse_tag(x)), umi_regex,
+        shift_left, shift_right, chunk_size,
     )
 }
 

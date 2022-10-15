@@ -93,11 +93,11 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>>(
     };
  
     let mut reader = File::open(bam_file).map(bam::Reader::new).expect("cannot open bam file");
-    let header: Header = reader.read_header().unwrap().parse().unwrap();
+    let header: Header = fix_header(reader.read_header().unwrap()).parse().unwrap();
     reader.read_reference_sequences().unwrap();
 
     let f = File::create(output_file.as_ref().clone()).expect("cannot create the output file");
-    let mut output: Box<dyn Write> = if output_file.as_ref().extension().and_then(|x| x.to_str()) == Some(".gz") {
+    let mut output: Box<dyn Write> = if output_file.as_ref().extension().and_then(|x| x.to_str()) == Some("gz") {
         Box::new(GzEncoder::new(BufWriter::new(f), Compression::default()))
     } else {
         Box::new(BufWriter::new(f))
@@ -118,7 +118,29 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>>(
             BedN::Bed6(x_) => writeln!(output, "{}", x_).unwrap(),
         });
 }
- 
+
+/// This function is used to fix 10X bam headers, as the headers of 10X bam
+/// files do not have the required `VN` field in the `@HD` record.
+fn fix_header(header: String) -> String {
+    fn fix_hd_rec(rec: String) -> String {
+        if rec.starts_with("@HD") {
+            let mut fields: Vec<_> = rec.split('\t').collect();
+            if fields.len() == 1 || !fields[1].starts_with("VN") {
+                fields.insert(1, "VN:1.0");
+                fields.join("\t")
+            } else {
+                rec
+            }
+        } else {
+            rec
+        }
+    }
+
+    match header.split_once('\n') {
+        None => fix_hd_rec(header),
+        Some((line1, others)) => [&fix_hd_rec(line1.to_owned()), others].join("\n"),
+    }
+}
 
 pub fn import_fragments<B, I>(
     anndata: &AnnData,
@@ -249,4 +271,27 @@ fn qc_to_df(
             qc.iter().map(|x| x.frac_mitochondrial).collect::<Series>(),
         ),
     ]).unwrap()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fix_header() {
+        let input1 = "@HD\tVN:1.0\tSO:coordinate".to_owned();
+        assert!(input1.parse::<Header>().is_ok());
+        assert!(fix_header(input1.clone()).parse::<Header>().is_ok());
+
+        let input2 = "@HD\tSO:coordinate".to_owned();
+        assert_eq!(fix_header(input2), input1);
+
+        let input3 = "@HD".to_owned();
+        assert!(input3.parse::<Header>().is_err());
+        assert!(fix_header(input3).parse::<Header>().is_ok());
+
+        let input4 = "@HD\tSO:coordinate\n@SQ\tSN:chr1\tLN:195471971".to_owned();
+        assert!(input4.parse::<Header>().is_err());
+        assert!(fix_header(input4).parse::<Header>().is_ok());
+    }
 }

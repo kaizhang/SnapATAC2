@@ -1,3 +1,9 @@
+HEAD
+===================
+
+- Minor bug fixes and performance improvements.
+- Fix 10X bam file parsing in `pp.make_fragment_file`.
+
 v2.1.2 (2022-10-01)
 ===================
 
