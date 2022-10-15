@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import math
 
-from snapatac2._snapatac2 import AnnData, AnnDataSet
+from snapatac2._snapatac2 import AnnData, AnnDataSet, PyFlagStat
 import snapatac2._snapatac2 as internal
 from snapatac2.genome import Genome
 
@@ -19,8 +19,9 @@ def make_fragment_file(
     umi_regex: str | None = None,
     shift_left: int = 4,
     shift_right: int = -5,
+    min_mapq: int | None = 30,
     chunk_size: int = 50000000,
-):
+) -> PyFlagStat:
     """
     Convert a BAM file to a fragment file.
 
@@ -61,13 +62,20 @@ def make_fragment_file(
         Insertion site correction for the left end.
     shift_right
         Insertion site correction for the right end.
+    min_mapq
+        Filter the reads based on MAPQ.
     chunk_size
         The size of data retained in memory when performing sorting. Larger chunk sizes
         result in faster sorting and greater memory usage.
+
+    Returns
+    -------
+    PyFlagStat
+        Various statistics.
     """
-    internal.make_fragment_file(
+    return internal.make_fragment_file(
         str(bam_file), str(output_file), is_paired, barcode_tag, barcode_regex,
-        umi_tag, umi_regex, shift_left, shift_right, chunk_size
+        umi_tag, umi_regex, shift_left, shift_right, min_mapq, chunk_size
     )
 
 def import_data(

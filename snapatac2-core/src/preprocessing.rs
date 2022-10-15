@@ -4,7 +4,7 @@ pub mod mark_duplicates;
 
 use crate::utils::{Fragment, CellBarcode};
 use crate::preprocessing::{
-    mark_duplicates::{BarcodeLocation, BedN, filter_bam, group_bam_by_barcode},
+    mark_duplicates::{BarcodeLocation, BedN, FlagStat, filter_bam, group_bam_by_barcode},
     qc::{FragmentSummary, QualityControl, compute_qc_count},
 };
 
@@ -65,8 +65,9 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>>(
     umi_regex: Option<&str>,
     shift_left: i64,
     shift_right: i64,
+    mapq: Option<u8>,
     chunk_size: usize,
-)
+) -> FlagStat
 {
     let tmp_dir = Builder::new().tempdir_in("./")
         .expect("failed to create tmperorary directory");
@@ -103,8 +104,9 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>>(
         Box::new(BufWriter::new(f))
     };
 
+    let mut flagstat = FlagStat::default();
     let filtered_records = filter_bam(
-        reader.lazy_records().map(|x| x.unwrap()), is_paired
+        reader.lazy_records().map(|x| x.unwrap()), is_paired, mapq, &mut flagstat,
     );
     group_bam_by_barcode(filtered_records, &barcode, umi.as_ref(), is_paired, tmp_dir.path().to_path_buf(), chunk_size)
         .into_fragments(&header)
@@ -117,6 +119,7 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>>(
             },
             BedN::Bed6(x_) => writeln!(output, "{}", x_).unwrap(),
         });
+    flagstat
 }
 
 /// This function is used to fix 10X bam headers, as the headers of 10X bam

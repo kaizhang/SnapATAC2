@@ -12,4 +12,13 @@ SnapATAC2 is the successor of the SnapATAC R package, featuring:
 - Faster and less memory usage, scale to >1M cells.
 - Improved dimension reduction and sampling algorithm.
 
-Read the [Documentation](https://kzhang.org/SnapATAC2/). 
+Read the [Documentation](https://kzhang.org/SnapATAC2/) for the full features. 
+
+How to cite
+-----------
+
+The SnapATAC2 manuscript has not been published yet. The key algorithms used in
+SnapATAC2 have been described in the following papers:
+
+- Zhang, K. et al. A single-cell atlas of chromatin accessibility in the human genome. Cell 184, 5985-6001.e19 (2021).
+- Fang, R. et al. Comprehensive analysis of single cell ATAC-seq data with SnapATAC. Nat Commun 12, 1337 (2021).

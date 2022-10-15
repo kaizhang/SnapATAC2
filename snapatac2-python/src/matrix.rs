@@ -10,9 +10,27 @@ use pyanndata::{AnnData, AnnDataSet};
 
 use snapatac2_core::{
     preprocessing,
-    preprocessing::matrix::{create_tile_matrix, create_peak_matrix, create_gene_matrix},
+    preprocessing::{
+        matrix::{create_tile_matrix, create_peak_matrix, create_gene_matrix},
+        mark_duplicates::FlagStat,
+    },
     utils::{gene::read_transcripts, ChromValuesReader},
 };
+
+#[pyclass]
+pub(crate) struct PyFlagStat(FlagStat);
+
+#[pymethods]
+impl PyFlagStat {
+    #[getter]
+    fn num_reads(&self) -> u64 { self.0.read }
+
+    fn __repr__(&self) -> String {
+        format!("{:?}", self.0)
+    }
+
+    fn __str__(&self) -> String { self.__repr__() }
+}
 
 #[pyfunction]
 pub(crate) fn make_fragment_file(
@@ -25,8 +43,9 @@ pub(crate) fn make_fragment_file(
     umi_regex: Option<&str>,
     shift_left: i64,
     shift_right: i64,
+    mapq: Option<u8>,
     chunk_size: usize,
-)
+) -> PyFlagStat
 {
     fn parse_tag(tag: &str) -> [u8; 2] {
         let tag_b = tag.as_bytes();
@@ -36,12 +55,13 @@ pub(crate) fn make_fragment_file(
             panic!("TAG name must contain exactly two characters");
         }
     }
-    preprocessing::make_fragment_file(
+    let stat = preprocessing::make_fragment_file(
         bam_file, output_file, is_paired,
         barcode_tag.map(|x| parse_tag(x)), barcode_regex,
         umi_tag.map(|x| parse_tag(x)), umi_regex,
-        shift_left, shift_right, chunk_size,
-    )
+        shift_left, shift_right, mapq, chunk_size,
+    );
+    PyFlagStat(stat)
 }
 
 #[pyfunction]

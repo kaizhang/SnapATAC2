@@ -32,6 +32,7 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<motif::PyDNAMotifTest>().unwrap();
     m.add_function(wrap_pyfunction!(motif::read_motifs, m)?)?;
  
+    m.add_class::<matrix::PyFlagStat>().unwrap();
     m.add_function(wrap_pyfunction!(matrix::make_fragment_file, m)?)?;
     m.add_function(wrap_pyfunction!(matrix::import_fragments, m)?)?;
     m.add_function(wrap_pyfunction!(matrix::mk_tile_matrix, m)?)?;

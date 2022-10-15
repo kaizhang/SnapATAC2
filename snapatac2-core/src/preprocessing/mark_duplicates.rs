@@ -22,12 +22,13 @@ use noodles::{
     bam::lazy::Record,
     sam::{
         Header,
-        record::{Cigar, Data, ReadName, Flags, MappingQuality},
+        record::{
+            Cigar, Data, ReadName, Flags, MappingQuality,
+            cigar::op::Kind, data::field::{Tag, Value},
+            mapping_quality,
+        },
     },
 };
-use noodles::sam::record::cigar::op::Kind;
-use noodles::sam::record::data::field::Tag;
-use noodles::sam::record::data::field::Value;
 use bed_utils::bed::{BED, BEDLike, Score, Strand};
 use std::collections::HashMap;
 use itertools::Itertools;
@@ -262,18 +263,110 @@ impl FingerPrint {
     }
 }
 
+/// BAM record statistics.
+#[derive(Debug, Default)]
+pub struct FlagStat {
+    pub read: u64,
+    pub primary: u64,
+    pub secondary: u64,
+    pub supplementary: u64,
+    pub duplicate: u64,
+    pub primary_duplicate: u64,
+    pub mapped: u64,
+    pub primary_mapped: u64,
+    pub paired: u64,
+    pub read_1: u64,
+    pub read_2: u64,
+    pub proper_pair: u64,
+    pub mate_mapped: u64,
+    pub singleton: u64,
+    pub mate_reference_sequence_id_mismatch: u64,
+    pub mate_reference_sequence_id_mismatch_hq: u64,
+}
+
+impl FlagStat {
+    pub fn update(&mut self, record: &Record) {
+        let flags = record.flags().unwrap();
+
+        self.read += 1;
+
+        if !flags.is_unmapped() {
+            self.mapped += 1;
+        }
+
+        if flags.is_duplicate() {
+            self.duplicate += 1;
+        }
+
+        if flags.is_secondary() {
+            self.secondary += 1;
+        } else if flags.is_supplementary() {
+            self.supplementary += 1;
+        } else {
+            self.primary += 1;
+
+            if !flags.is_unmapped() {
+                self.primary_mapped += 1;
+            }
+
+            if flags.is_duplicate() {
+                self.primary_duplicate += 1;
+            }
+
+            if flags.is_segmented() {
+                self.paired += 1;
+
+                if flags.is_first_segment() {
+                    self.read_1 += 1;
+                }
+
+                if flags.is_last_segment() {
+                    self.read_2 += 1;
+                }
+
+                if !flags.is_unmapped() {
+                    if flags.is_properly_aligned() {
+                        self.proper_pair += 1;
+                    }
+
+                    if flags.is_mate_unmapped() {
+                        self.singleton += 1;
+                    } else {
+                        self.mate_mapped += 1;
+
+                        if record.mate_reference_sequence_id().unwrap() != record.reference_sequence_id().unwrap() {
+                            self.mate_reference_sequence_id_mismatch += 1;
+
+                            let mapq = record
+                                .mapping_quality().unwrap()
+                                .map(u8::from)
+                                .unwrap_or(mapping_quality::MISSING);
+
+                            if mapq >= 5 {
+                                self.mate_reference_sequence_id_mismatch_hq += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 pub enum BedN {
     Bed5(BED<5>),
     Bed6(BED<6>),
 }
 
 /// Filter Bam records.
-pub fn filter_bam<I>(
+pub fn filter_bam<'a, I>(
     reads: I,
     is_paired: bool,
-) -> impl Iterator<Item = Record>
+    mapq_filter: Option<u8>,
+    flagstat: &'a mut FlagStat,
+) -> impl Iterator<Item = Record> + 'a
 where
-    I: Iterator<Item = Record>,
+    I: Iterator<Item = Record> + 'a,
 {
     // flag (1804) meaning:
     //   - read unmapped
@@ -283,10 +376,15 @@ where
     //   - read is PCR or optical duplicate
     let flag_failed = Flags::from_bits(1804).unwrap();
     reads.filter(move |r| {
+        flagstat.update(r);
         let flag = r.flags().unwrap();
-        (if is_paired { flag.is_properly_aligned() } else { true }) && 
-            !flag.intersects(flag_failed) &&
-            r.mapping_quality().unwrap().unwrap() >= MappingQuality::new(30).unwrap()
+        let is_properly_aligned = if is_paired { flag.is_properly_aligned() } else { true };
+        let flag_pass = !flag.intersects(flag_failed);
+        let mapq_pass = mapq_filter.and_then(|x| {
+            let q = MappingQuality::new(x).unwrap();
+            r.mapping_quality().unwrap().and_then(|mapq| Some(mapq >= q))
+        }).unwrap_or(true);
+        is_properly_aligned && flag_pass && mapq_pass
     })
 }
 
