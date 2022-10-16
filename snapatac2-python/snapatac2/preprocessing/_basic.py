@@ -141,11 +141,12 @@ def import_data(
         chrom_size = genome.chrom_sizes
         gff_file = genome.fetch_annotations()
 
-    if isinstance(whitelist, str) or isinstance(whitelist, Path):
-        with open(whitelist, "r") as fl:
-            whitelist = set([line.strip() for line in fl])
-    else:
-        whitelist = set(whitelist)
+    if whitelist is not None:
+        if isinstance(whitelist, str) or isinstance(whitelist, Path):
+            with open(whitelist, "r") as fl:
+                whitelist = set([line.strip() for line in fl])
+        else:
+            whitelist = set(whitelist)
     return internal.import_fragments(
         str(file), str(fragment_file), str(gff_file), chrom_size,
         min_num_fragments, min_tsse, sorted_by_barcode, whitelist, chunk_size, n_jobs
