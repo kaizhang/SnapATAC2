@@ -2,11 +2,7 @@ from __future__ import annotations
 from typing_extensions import Literal
 
 import numpy as np
-import polars as pl
 from scipy.stats import chi2
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import log_loss
-import sys
 import logging
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
@@ -21,6 +17,7 @@ def marker_regions(
     A quick-and-dirty way to get marker regions.
     """
     import scipy.stats
+    import polars as pl
 
     count = pl.DataFrame(aggregate_X(data, groupby, normalize="RPKM"))
     names = np.array(data.var_names)
@@ -45,7 +42,7 @@ def diff_test(
     direction: Literal["positive", "negative", "both"] = "both",
     min_log_fc: float = 0.25,
     min_pct: float = 0.05,
-) -> pl.DataFrame:
+) -> 'polars.DataFrame':
     """
     Identify differentially accessible regions.
 
@@ -80,6 +77,8 @@ def diff_test(
         A DataFrame with 4 columns: "feature name", "log2(fold_change)",
         "p-value", and "adjusted p-value".
     """
+    import polars as pl
+
     def to_indices(xs, n, type):
         if isinstance(xs, np.ndarray):
             if xs.dtype == 'bool':
@@ -255,6 +254,8 @@ def _likelihood_ratio_test(
     -------
     The P-value.
     """
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.metrics import log_loss
 
     model = LogisticRegression(penalty="none", random_state=0, n_jobs=1,
         solver="lbfgs", multi_class='ovr', warm_start=False,

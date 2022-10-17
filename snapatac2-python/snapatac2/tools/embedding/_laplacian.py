@@ -1,5 +1,4 @@
 import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel
 
 from typing import Optional, Union
 from scipy.sparse.linalg import svds
@@ -59,6 +58,8 @@ def laplacian(
         return result
 
 def _laplacian(mat, n_dim, distance="jaccard"):
+    from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel
+
     if distance == "jaccard":
         compute_similarity = jaccard_similarity
     elif distance == "cosine":

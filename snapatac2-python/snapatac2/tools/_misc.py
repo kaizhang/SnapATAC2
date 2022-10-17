@@ -4,9 +4,7 @@ from typing_extensions import Literal
 import logging
 from pathlib import Path
 import numpy as np
-import polars as pl
 import functools
-from natsort import natsorted
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
 
@@ -40,6 +38,8 @@ def aggregate_X(
         If `file=None`, return the result as numpy array.
         Otherwise, return an anndata object.
     """
+    from natsort import natsorted
+
     def norm(x):
         if normalize is None:
             return x
@@ -118,6 +118,7 @@ def marker_enrichment(
         `.obs[groupby]`.
     """
     from scipy.stats import zscore
+    import polars as pl
 
     gene_names = dict((x.upper(), i) for i, x in enumerate(gene_matrix.var_names))
     retained = []

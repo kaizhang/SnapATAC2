@@ -3,7 +3,6 @@ from typing_extensions import Literal
 
 import scipy.sparse as ss
 import numpy as np
-import polars
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
 from snapatac2._utils import get_igraph_from_adjacency
@@ -63,6 +62,7 @@ def leiden(
         (`'0'`, `'1'`, ...) for each cell. Otherwise, returns the array directly.
     """
     from collections import Counter
+    import polars
 
     if isinstance(adata, AnnData) or isinstance(adata, AnnDataSet):
         adjacency = adata.obsp["distances"]
@@ -164,6 +164,8 @@ def kmeans(
         A dict with the values for the parameters `n_clusters`, `random_state`,
         and `n_iterations`.
     """
+    import polars
+
     if isinstance(adata, AnnData) or isinstance(adata, AnnDataSet):
         data = adata.obsm[use_rep]
     else:

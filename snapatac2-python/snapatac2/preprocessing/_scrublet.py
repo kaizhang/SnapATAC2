@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import numpy as np
 import scipy.sparse as ss
-from sklearn.neighbors import NearestNeighbors
-from scipy.sparse import csr_matrix
+import logging
 
-from .._utils import get_binarized_matrix, chunks
+from .._utils import chunks
 from snapatac2._snapatac2 import AnnData, approximate_nearest_neighbors
 from snapatac2.tools.embedding._spectral import Spectral
 
@@ -178,19 +177,16 @@ def scrub_doublets_core(
     """
     total_counts_obs = count_matrix.sum(1).A.squeeze()
 
-    print('Simulating doublets...')
+    logging.info('Simulating doublets...')
     (count_matrix_sim, total_counts_sim, _) = simulate_doublets(
         count_matrix, total_counts_obs, sim_doublet_ratio,
         synthetic_doublet_umi_subsampling, random_state
     )
 
-    E_obs_norm = get_binarized_matrix(count_matrix)
-    E_sim_norm = get_binarized_matrix(count_matrix_sim)
+    logging.info('Spectral embedding ...')
+    (manifold_obs, manifold_sim) = get_manifold(count_matrix, count_matrix_sim, n_comps=n_comps)
 
-    print('Spectral embedding ...')
-    (manifold_obs, manifold_sim) = get_manifold(E_obs_norm, E_sim_norm, n_comps=n_comps)
-
-    print('Calculating doublet scores...')
+    logging.info('Calculating doublet scores...')
     (doublet_scores_obs, doublet_scores_sim) = calculate_doublet_scores(
         manifold_obs, manifold_sim, k = n_neighbors,
         exp_doub_rate = expected_doublet_rate,
@@ -279,6 +275,8 @@ def calculate_doublet_scores(
     stdev_doub_rate
     random_state
     """
+    from sklearn.neighbors import NearestNeighbors
+
     n_obs = manifold_obs.shape[0]
     n_sim = manifold_sim.shape[0]
 

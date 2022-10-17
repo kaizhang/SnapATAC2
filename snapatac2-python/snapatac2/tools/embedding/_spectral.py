@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import scipy as sp
 import numpy as np
-from sklearn.metrics.pairwise import rbf_kernel
 import gc
+import logging
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet, jm_regress, jaccard_similarity, cosine_similarity
 
@@ -119,7 +119,7 @@ def spectral(
         model.fit(S)
 
         from tqdm import tqdm
-        print("Perform Nystrom extension")
+        logging.info("Perform Nystrom extension")
         chunks_iter = data.X.chunked(chunk_size)
         for batch in tqdm(chunks_iter, total = chunks_iter.n_chunks()):
             if distance_metric == "jaccard":
@@ -146,17 +146,25 @@ class Spectral:
         elif (self.distance == "cosine"):
             self.compute_similarity = lambda x, y=None: cosine_similarity(x, y, feature_weights)
         else:
+            from sklearn.metrics.pairwise import rbf_kernel
             self.compute_similarity = rbf_kernel
 
     def fit(self, mat, verbose: int = 1):
+        """
+        mat
+            Sparse matrix, note that if `distance == jaccard`, the matrix will be
+            interpreted as a binary matrix.
+        """
         self.sample = mat
         self.dim = mat.shape[1]
         self.coverage = mat.sum(axis=1) / self.dim
-        if verbose > 0: print("Compute similarity matrix")
+        if verbose > 0:
+            logging.info("Compute similarity matrix")
         A = self.compute_similarity(mat)
 
         if (self.distance == "jaccard"):
-            if verbose > 0: print("Normalization")
+            if verbose > 0:
+                logging.info("Normalization")
             self.normalizer = JaccardNormalizer(A, self.coverage)
             self.normalizer.normalize(A, self.coverage, self.coverage)
             np.fill_diagonal(A, 0)
@@ -171,7 +179,8 @@ class Spectral:
         np.divide(A, D, out=A)
         np.divide(A, D.T, out=A)
 
-        if verbose > 0: print("Perform decomposition")
+        if verbose > 0:
+            logging.info("Perform decomposition")
         evals, evecs = sp.sparse.linalg.eigsh(A, self.n_dim + 1, which='LM')
         ix = evals.argsort()[::-1]
         self.evals = np.real(evals[ix])

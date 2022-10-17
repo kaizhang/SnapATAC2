@@ -3,7 +3,6 @@ from typing_extensions import Literal
 
 from pathlib import Path
 import logging
-import polars as pl
 
 from snapatac2._snapatac2 import PyDNAMotif
 from snapatac2._utils import fetch_seq
@@ -16,7 +15,7 @@ def motif_enrichment(
     genome_fasta: Path | Genome,
     background: list[str] | None = None,
     method: Literal['binomial', 'hypergeometric'] | None = None,
-) -> dict[str, pl.DataFrame]:
+) -> dict[str, 'polars.DataFrame']:
     """
     Identify enriched transcription factor motifs.
 
@@ -45,6 +44,7 @@ def motif_enrichment(
     from tqdm import tqdm
     from scipy.stats import binom, hypergeom
     from math import log2
+    import polars as pl
 
     def count_occurrence(query, idx_map, bound):
         return sum(bound[idx_map[q]] for q in query)

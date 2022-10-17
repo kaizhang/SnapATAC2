@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import numpy as np
-from sklearn.neighbors import KDTree
 import itertools
 from scipy.special import logsumexp
-from sklearn.cluster import KMeans
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
 
@@ -88,6 +86,9 @@ def mnc_correct_multi(datas, n_neighbors, n_clusters):
     return data0
 
 def mnc_correct_pair(X, Y, n_clusters, n_neighbors, random_state=0):
+    from sklearn.neighbors import KDTree
+    from sklearn.cluster import KMeans
+
     n_X = X.shape[0]
     n_Y = Y.shape[0]
     c_X = KMeans(n_clusters=min(n_clusters, n_X), random_state=random_state).fit(X).cluster_centers_

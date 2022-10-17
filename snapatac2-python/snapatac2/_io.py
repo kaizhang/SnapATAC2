@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-import polars as pl
 from snapatac2._snapatac2 import AnnData, read_mtx
 from scipy.sparse import csr_matrix
 
@@ -32,6 +31,7 @@ def read_10x_mtx(
     AnnData
         An AnnData object.
     """
+    import polars as pl
 
     def get_files(prefix, names):
         return list(filter(
