@@ -88,11 +88,11 @@ def heatmap(
 
 def render_plot(
     fig: 'plotly.graph_objects.Figure',
-    width: int,
-    height: int,
-    interactive: bool,
-    show: bool,
-    out_file: str
+    width: int = 600,
+    height: int = 400,
+    interactive: bool = True,
+    show: bool = True,
+    out_file: str | None = None,
 ) -> 'plotly.graph_objects.Figure' | None:
     fig.update_layout({
         "width": width,

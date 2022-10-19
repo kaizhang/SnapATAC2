@@ -34,3 +34,22 @@ def fetch_seq(fasta, region):
     else:
         return seq
 
+def pcorr(A, B):
+    """Compute pairwsie correlation between two matrices.
+
+    A
+        n_sample x n_feature
+    B
+        n_sample x n_feature
+    """
+    N = B.shape[0]
+
+    sA = A.sum(0)
+    sB = B.sum(0)
+
+    p1 = N * np.einsum('ij,ik->kj', A, B)
+    p2 = sA * sB[:,None]
+    p3 = N * ((B**2).sum(0)) - (sB**2)
+    p4 = N * ((A**2).sum(0)) - (sA**2)
+
+    return (p1 - p2) / np.sqrt(p4 * p3[:,None])

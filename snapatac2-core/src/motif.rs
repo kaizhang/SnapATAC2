@@ -14,7 +14,8 @@ impl Default for BackgroundProb {
 
 #[derive(Debug, Clone)]
 pub struct DNAMotif {
-    pub name: String,
+    pub id: String,
+    pub name: Option<String>,
     pub probability: Vec<[f64; 4]>,
 }
 
@@ -34,7 +35,8 @@ impl FromStr for DNAMotif {
         ).collect();
 
         Ok(DNAMotif {
-            name: first_line.strip_prefix("MOTIF ").unwrap().to_string(),
+            id: first_line.strip_prefix("MOTIF ").unwrap().to_string(),
+            name: None,
             probability: pwm,
         })
     }
@@ -276,17 +278,14 @@ impl<'a> Iterator for MotifSites<'a> {
 pub fn parse_meme(content: &str) -> Vec<DNAMotif> {
     content.split("MOTIF").skip(1).map(|s| {
         let mut lines = s.lines();
-        let name = lines.next().unwrap().trim().to_string();
+        let id = lines.next().unwrap().trim().to_string();
         let mut iter = lines.skip_while(|x| !x.starts_with("letter-probability matrix"));
         let n: usize = iter.next().unwrap().split("w=").last().unwrap()
             .split("nsites=").next().unwrap().trim().parse().unwrap();
         let pwm = iter.take(n).map(|x| x.trim().split_ascii_whitespace()
             .map(|v| v.parse().unwrap()).collect::<Vec<_>>().try_into().unwrap()
         ).collect();
-        DNAMotif {
-            name,
-            probability: pwm,
-        }
+        DNAMotif { id, name: None, probability: pwm }
     }).collect()
 }
 

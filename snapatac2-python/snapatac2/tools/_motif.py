@@ -90,7 +90,7 @@ def motif_enrichment(
             else:
                 log_fc = log2((bound_fg / total_fg) / (bound_bg / total_bg))
 
-            motif_name.append(motif.name)
+            motif_name.append(motif.id)
             group_name.append(key)
             fold_change.append(log_fc)
             n_fg.append(bound_fg)

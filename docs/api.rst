@@ -137,6 +137,8 @@ Plotting: `pl`
     pl.umap
     pl.motif_enrichment
     pl.regions
+    pl.network_edge_stat
+    pl.render_plot
 
 Exporting: `ex`
 ---------------

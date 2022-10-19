@@ -49,6 +49,8 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
 
     m.add_function(wrap_pyfunction!(utils::jaccard_similarity, m)?)?;
     m.add_function(wrap_pyfunction!(utils::cosine_similarity, m)?)?;
+    m.add_function(wrap_pyfunction!(utils::pearson, m)?)?;
+    m.add_function(wrap_pyfunction!(utils::spearman, m)?)?;
     m.add_function(wrap_pyfunction!(utils::simple_lin_reg, m)?)?;
     m.add_function(wrap_pyfunction!(utils::jm_regress, m)?)?;
     m.add_function(wrap_pyfunction!(utils::intersect_bed, m)?)?;

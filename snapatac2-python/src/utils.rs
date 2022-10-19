@@ -117,6 +117,43 @@ pub(crate) fn cosine_similarity<'py>(
     }
 }
 
+#[pyfunction]
+pub(crate) fn pearson<'py>(
+    py: Python<'py>,
+    mat: &'py PyAny,
+    other: &'py PyAny,
+) -> PyResult<PyObject> {
+    match mat.getattr("dtype")?.getattr("name")?.extract()? {
+        "float32" => {
+            let mat_ = mat.extract::<PyReadonlyArray<f32, Ix2>>()?.to_owned_array();
+            let other_ = other.extract::<PyReadonlyArray<f32, Ix2>>()?.to_owned_array();
+            Ok(similarity::pearson2(mat_, other_).into_pyarray(py).to_object(py))
+        },
+        "float64" => {
+            let mat_ = mat.extract::<PyReadonlyArray<f64, Ix2>>()?.to_owned_array();
+            let other_ = other.extract::<PyReadonlyArray<f64, Ix2>>()?.to_owned_array();
+            Ok(similarity::pearson2(mat_, other_).into_pyarray(py).to_object(py))
+        },
+        ty => panic!("Cannot compute correlation for type {}", ty),
+    }
+}
+
+#[pyfunction]
+pub(crate) fn spearman<'py>(
+    py: Python<'py>,
+    mat: &'py PyAny,
+    other: &'py PyAny,
+) -> PyResult<PyObject> {
+    match mat.getattr("dtype")?.getattr("name")?.extract()? {
+        "float64" => {
+            let mat_ = mat.extract::<PyReadonlyArray<f64, Ix2>>()?.to_owned_array();
+            let other_ = other.extract::<PyReadonlyArray<f64, Ix2>>()?.to_owned_array();
+            Ok(similarity::spearman2(mat_, other_).into_pyarray(py).to_object(py))
+        },
+        ty => panic!("Cannot compute correlation for type {}", ty),
+    }
+}
+
 fn csr_to_rust<'py>(csr: &'py PyAny) -> PyResult<CsrMatrix<f64>> {
     let shape: Vec<usize> = csr.getattr("shape")?.extract()?;
     let indices = cast_pyarray(csr.getattr("indices")?)?;

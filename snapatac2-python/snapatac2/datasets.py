@@ -71,10 +71,12 @@ def cis_bp(unique: bool = True) -> list[PyDNAMotif]:
         A list of motifs.
     """
     motifs = read_motifs(_datasets.fetch("cisBP_human.meme"))
+    for motif in motifs:
+        motif.name = motif.id.split('+')[0]
     if unique:
         unique_motifs = {}
         for motif in motifs:
-            name = motif.name.split('+')[0]
+            name = motif.name
             if (
                     name not in unique_motifs or 
                     unique_motifs[name].info_content() < motif.info_content()

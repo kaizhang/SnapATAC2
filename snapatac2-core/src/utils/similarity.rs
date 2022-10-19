@@ -1,11 +1,83 @@
 use itertools::Itertools;
 use rayon::iter::{IntoParallelIterator, ParallelIterator, IndexedParallelIterator};
 use nalgebra_sparse::{
-    csr::{CsrMatrix, CsrRowMut},
+    csr::{CsrMatrix, CsrRowMut, CsrRow},
 };
 use std::ops::Deref;
-use ndarray::{Array2, Axis};
+use ndarray::{ArrayBase, Array2, Axis};
+use statrs::statistics::{Data, Statistics, OrderStatistics, RankTieBreaker};
+use num::{One, NumCast, ToPrimitive, Float};
 
+pub type BorrowedSparsityPattern<'a, I> = SparsityPatternBase<&'a [I], &'a [I]>;
+
+impl<'a, I> BorrowedSparsityPattern<'a, I> {
+    pub fn new(
+        major_offsets: &'a [I],
+        minor_indices: &'a [I],
+        minor_dim: usize
+    ) -> Self {
+        Self { major_offsets, minor_indices, minor_dim }
+    }
+}
+
+pub type OwnedSparsityPattern<I> = SparsityPatternBase<Vec<I>, Vec<I>>;
+
+pub struct SparsityPatternBase<T1, T2> {
+    major_offsets: T1,
+    minor_indices: T2,
+    minor_dim: usize,
+}
+
+impl<T1, T2, I> SparsityPatternBase<T1, T2>
+where
+    T1: Deref<Target = [I]>,
+    T2: Deref<Target = [I]>,
+{
+    pub fn major_dim(&self) -> usize {
+        assert!(self.major_offsets.len() > 0);
+        self.major_offsets.len() - 1
+    }
+
+    pub fn major_offsets(&self) -> &[I] {
+        self.major_offsets.deref()
+    }
+
+    pub fn minor_indices(&self) -> &[I] {
+        self.minor_indices.deref()
+    }
+
+    pub fn get_lane(&self, major_index: usize) -> Option<&[I]>
+    where
+        I: TryInto<usize> + Copy,
+        <I as TryInto<usize>>::Error: std::fmt::Debug,
+    {
+        let offset_begin: usize = (*self.major_offsets().get(major_index)?).try_into().unwrap();
+        let offset_end: usize = (*self.major_offsets().get(major_index + 1)?).try_into().unwrap();
+        Some(&self.minor_indices()[offset_begin..offset_end])
+    }
+
+    pub fn transpose(&self) -> OwnedSparsityPattern<I>
+    where
+        I: TryInto<usize> + Copy + TryFrom<usize> + num::Bounded,
+        <I as TryInto<usize>>::Error: std::fmt::Debug,
+        <I as TryFrom<usize>>::Error: std::fmt::Debug,
+    {
+        let n = self.major_dim();
+        let (new_offsets, new_minor_indices) = transpose_cs(
+            n,
+            self.minor_dim,
+            self.major_offsets.deref(),
+            self.minor_indices.deref(),
+        );
+        SparsityPatternBase {
+            major_offsets: new_offsets,
+            minor_indices: new_minor_indices,
+            minor_dim: n,
+        }
+    }
+}
+
+/// Compute the Jaccard index between rows of a matrix.
 pub fn jaccard<'a, I>(
     mat: BorrowedSparsityPattern<'a, I>,
     weights: Option<&[f64]>,
@@ -49,6 +121,7 @@ where
     res
 }
 
+/// Compute the Jaccard index between rows of two matrices.
 pub fn jaccard2<'a, I1, I2>(
     mat1: BorrowedSparsityPattern<'a, I1>,
     mat2: BorrowedSparsityPattern<'a, I2>,
@@ -181,88 +254,19 @@ pub fn cosine2(
 
 
 fn l2_norm(mut row: CsrRowMut<'_, f64>) -> f64 {
-    let max = row.values().into_iter().max_by(
-        |x, y| x.abs().partial_cmp(&y.abs()).unwrap()).unwrap_or(&0.0).abs();
-    if max != 0.0 {
+    let max = row.values().into_iter().map(|x| x.abs()).reduce(f64::max).unwrap_or(0.0);
+    let norm = if max != 0.0 {
         let mut norm = row.values().into_iter().map(|x| {
             let x_ = x / max;
             x_ * x_
         }).sum::<f64>().sqrt();
         norm *= max;
-        row.values_mut().into_iter().for_each(|x| { *x /= norm; });
         norm
     } else {
-        0.0
-    }
-}
-
-pub type BorrowedSparsityPattern<'a, I> = SparsityPatternBase<&'a [I], &'a [I]>;
-
-impl<'a, I> BorrowedSparsityPattern<'a, I> {
-    pub fn new(
-        major_offsets: &'a [I],
-        minor_indices: &'a [I],
-        minor_dim: usize
-    ) -> Self {
-        Self { major_offsets, minor_indices, minor_dim }
-    }
-}
-
-pub type OwnedSparsityPattern<I> = SparsityPatternBase<Vec<I>, Vec<I>>;
-
-pub struct SparsityPatternBase<T1, T2> {
-    major_offsets: T1,
-    minor_indices: T2,
-    minor_dim: usize,
-}
-
-impl<T1, T2, I> SparsityPatternBase<T1, T2>
-where
-    T1: Deref<Target = [I]>,
-    T2: Deref<Target = [I]>,
-{
-    pub fn major_dim(&self) -> usize {
-        assert!(self.major_offsets.len() > 0);
-        self.major_offsets.len() - 1
-    }
-
-    pub fn major_offsets(&self) -> &[I] {
-        self.major_offsets.deref()
-    }
-
-    pub fn minor_indices(&self) -> &[I] {
-        self.minor_indices.deref()
-    }
-
-    pub fn get_lane(&self, major_index: usize) -> Option<&[I]>
-    where
-        I: TryInto<usize> + Copy,
-        <I as TryInto<usize>>::Error: std::fmt::Debug,
-    {
-        let offset_begin: usize = (*self.major_offsets().get(major_index)?).try_into().unwrap();
-        let offset_end: usize = (*self.major_offsets().get(major_index + 1)?).try_into().unwrap();
-        Some(&self.minor_indices()[offset_begin..offset_end])
-    }
-
-    pub fn transpose(&self) -> OwnedSparsityPattern<I>
-    where
-        I: TryInto<usize> + Copy + TryFrom<usize> + num::Bounded,
-        <I as TryInto<usize>>::Error: std::fmt::Debug,
-        <I as TryFrom<usize>>::Error: std::fmt::Debug,
-    {
-        let n = self.major_dim();
-        let (new_offsets, new_minor_indices) = transpose_cs(
-            n,
-            self.minor_dim,
-            self.major_offsets.deref(),
-            self.minor_indices.deref(),
-        );
-        SparsityPatternBase {
-            major_offsets: new_offsets,
-            minor_indices: new_minor_indices,
-            minor_dim: n,
-        }
-    }
+        f64::NAN
+    };
+    row.values_mut().into_iter().for_each(|x| { *x /= norm; });
+    norm
 }
 
 pub fn transpose_cs<I>(
@@ -317,4 +321,86 @@ fn convert_counts_to_offsets(counts: &mut [usize]) {
         *i_offset = offset;
         offset += count;
     }
+}
+
+pub fn pearson2<T>(
+    mut mat1: Array2<T>,
+    mut mat2: Array2<T>,
+) -> Array2<T>
+where
+    T: Float + ToPrimitive + NumCast + std::iter::Sum + One,
+{
+    fn sum_of_square_centered<T>(mat: &mut Array2<T>) -> Vec<T>
+    where
+        T: Float + ToPrimitive + NumCast + std::iter::Sum,
+    {
+        mat.rows_mut().into_iter().map(|mut row| {
+            let mean = NumCast::from(row.iter().map(|x| x.to_f64().unwrap()).mean()).unwrap();
+            row.iter_mut().map(|x| {
+                let v = *x - mean;
+                *x = v;
+                v * v
+            }).sum()
+        }).collect()
+    }
+
+    if mat1.shape()[1] != mat2.shape()[1] {
+        panic!("number of columns mismatch");
+    }
+
+    let ss1 = sum_of_square_centered(&mut mat1);
+    let ss2 = sum_of_square_centered(&mut mat2);
+
+    let n1 = mat1.shape()[0];
+    let n2 = mat2.shape()[0];
+
+    let cor: Vec<_> = mat1.rows().into_iter().enumerate().flat_map(|(i, x)| {
+        mat2.rows().into_iter().enumerate().map(|(j, y)| {
+            let s: T = x.iter().zip(y.iter()).map(|(&a, &b)| a * b).sum();
+            let r: T = s / (ss1[i] * ss2[j]).sqrt();
+            if r.is_nan() {
+                r
+            } else {
+                r.min(T::one()).max(-T::one())
+            }
+        }).collect::<Vec<_>>()
+    }).collect();
+    ArrayBase::from_vec(cor).into_shape((n1, n2)).unwrap()
+}
+
+pub fn spearman2(
+    mat1: Array2<f64>,
+    mat2: Array2<f64>,
+) -> Array2<f64>
+{
+    fn rank(mat: Array2<f64>) -> Array2<f64> {
+        let vec: Vec<_> = mat.rows().into_iter().flat_map(|row|
+            Data::new(row.to_vec()).ranks(RankTieBreaker::Average)
+        ).collect();
+        ArrayBase::from_vec(vec).into_shape((mat.shape()[0], mat.shape()[1])).unwrap()
+    }
+    let mat1_ = rank(mat1);
+    let mat2_ = rank(mat2);
+    pearson2(mat1_, mat2_)
+}
+
+/// Compute the distance matrix from X and Y.
+/// 
+/// # Arguments
+/// * `mat_x` - matrix of shape (n_samples_X, n_features).
+/// * `mat_y` - matrix of shape (n_samples_Y, n_features).
+/// * `dist_fn` - distance function.
+pub fn pairwise_distances<F>(
+    mat_x: CsrMatrix<f64>,
+    mat_y: CsrMatrix<f64>,
+    dist_fn: F,
+) -> Array2<f64>
+where
+    F: Fn(CsrRow<'_, f64>, CsrRow<'_, f64>) -> f64 + std::marker::Sync,
+{
+    let n1 = mat_x.nrows();
+    let n2 = mat_y.nrows();
+    let dists = (0..n1).cartesian_product(0..n2).collect::<Vec<_>>().into_par_iter()
+        .map(|(i, j)| dist_fn(mat_x.get_row(i).unwrap(), mat_y.get_row(j).unwrap())).collect();
+    ArrayBase::from_vec(dists).into_shape((n1, n2)).unwrap()
 }

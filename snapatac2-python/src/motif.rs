@@ -19,12 +19,13 @@ pub struct PyDNAMotif(pub motif::DNAMotif);
 impl PyDNAMotif {
     #[new]
     fn new<'py>(
-        name: &str,
+        id: &str,
         matrix: &'py PyAny,
     ) -> Self {
         let pwm: PyReadonlyArray<f64, Ix2> = matrix.extract().unwrap();
         let motif = motif::DNAMotif {
-            name: name.to_string(),
+            id: id.to_string(),
+            name: None,
             probability: pwm.as_array().rows().into_iter()
                 .map(|row| row.into_iter().map(|x| *x).collect::<Vec<_>>().try_into().unwrap()).collect(),
         };
@@ -32,7 +33,22 @@ impl PyDNAMotif {
     }
 
     #[getter]
-    fn name(&self) -> String { self.0.name.clone() }
+    fn id(&self) -> String { self.0.id.clone() }
+
+    #[setter]
+    fn set_id(&mut self, value: String) -> PyResult<()> {
+        self.0.id = value;
+        Ok(())
+    }
+
+    #[getter]
+    fn name(&self) -> Option<String> { self.0.name.clone() }
+
+    #[setter]
+    fn set_name(&mut self, value: String) -> PyResult<()> {
+        self.0.name = Some(value);
+        Ok(())
+    }
 
     fn info_content(&self) -> f64 { self.0.info_content() }
 
@@ -55,7 +71,10 @@ pub struct PyDNAMotifScanner(pub motif::DNAMotifScanner);
 #[pymethods]
 impl PyDNAMotifScanner {
     #[getter]
-    fn name(&self) -> String { self.0.motif.name.clone() }
+    fn id(&self) -> String { self.0.motif.id.clone() }
+
+    #[getter]
+    fn name(&self) -> Option<String> { self.0.motif.name.clone() }
 
     #[args(
         seq,
@@ -120,7 +139,10 @@ pub struct PyDNAMotifTest {
 #[pymethods]
 impl PyDNAMotifTest {
     #[getter]
-    fn name(&self) -> String { self.scanner.name() }
+    fn id(&self) -> String { self.scanner.id() }
+
+    #[getter]
+    fn name(&self) -> Option<String> { self.scanner.name() }
 
     fn test(&self, seqs: Vec<&str>) -> (f64, f64) {
         let n = seqs.len().try_into().unwrap();

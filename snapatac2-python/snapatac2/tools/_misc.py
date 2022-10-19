@@ -38,6 +38,7 @@ def aggregate_X(
         If `file=None`, return the result as numpy array.
         Otherwise, return an anndata object.
     """
+    import polars as pl
     from natsort import natsorted
 
     def norm(x):

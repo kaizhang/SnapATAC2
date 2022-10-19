@@ -43,7 +43,7 @@ setup(
         "igraph>=0.10.0",
         "pyarrow",
         "pyfaidx",
-        "retworkx",
+        "rustworkx",
         "scipy>=1.4",
         "scikit-learn>=0.22",
         "tqdm>=4.62",

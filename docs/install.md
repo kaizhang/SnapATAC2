@@ -69,8 +69,9 @@ Optional dependencies
 
 Here is a list of optional dependencies used by SnapATAC2:
 
-- `macs2`: for peak calling.
+- `macs2`: Peak calling.
 - `harmonypy`: Batch correction using the Harmony.
+- `xgboost`: Regulatory network analysis.
 
 Optional dependencies are not installed by SnapATAC2. Please install them
 manually if necessary.
