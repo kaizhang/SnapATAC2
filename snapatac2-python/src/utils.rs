@@ -145,10 +145,33 @@ pub(crate) fn spearman<'py>(
     other: &'py PyAny,
 ) -> PyResult<PyObject> {
     match mat.getattr("dtype")?.getattr("name")?.extract()? {
+        "float32" => {
+            let mat_ = mat.extract::<PyReadonlyArray<f32, Ix2>>()?.to_owned_array();
+            match other.getattr("dtype")?.getattr("name")?.extract()? {
+                "float32" => {
+                    let other_ = other.extract::<PyReadonlyArray<f32, Ix2>>()?.to_owned_array();
+                    Ok(similarity::spearman2(mat_, other_).into_pyarray(py).to_object(py))
+                },
+                "float64" => {
+                    let other_ = other.extract::<PyReadonlyArray<f64, Ix2>>()?.to_owned_array();
+                    Ok(similarity::spearman2(mat_, other_).into_pyarray(py).to_object(py))
+                },
+                ty => panic!("Cannot compute correlation for type {}", ty),
+            }
+        },
         "float64" => {
             let mat_ = mat.extract::<PyReadonlyArray<f64, Ix2>>()?.to_owned_array();
-            let other_ = other.extract::<PyReadonlyArray<f64, Ix2>>()?.to_owned_array();
-            Ok(similarity::spearman2(mat_, other_).into_pyarray(py).to_object(py))
+            match other.getattr("dtype")?.getattr("name")?.extract()? {
+                "float32" => {
+                    let other_ = other.extract::<PyReadonlyArray<f32, Ix2>>()?.to_owned_array();
+                    Ok(similarity::spearman2(mat_, other_).into_pyarray(py).to_object(py))
+                },
+                "float64" => {
+                    let other_ = other.extract::<PyReadonlyArray<f64, Ix2>>()?.to_owned_array();
+                    Ok(similarity::spearman2(mat_, other_).into_pyarray(py).to_object(py))
+                },
+                ty => panic!("Cannot compute correlation for type {}", ty),
+            }
         },
         ty => panic!("Cannot compute correlation for type {}", ty),
     }

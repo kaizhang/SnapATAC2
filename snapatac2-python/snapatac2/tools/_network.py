@@ -15,6 +15,9 @@ from snapatac2._snapatac2 import (
     spearman
 )
 
+__all__ = ['init_network_from_annotation', 'add_cor_scores', 'add_regr_scores',
+           'add_tf_binding', 'link_tf_to_gene', 'to_gene_network', 'prune_network']
+
 def init_network_from_annotation(
     regions: list[str],
     anno_file: Path | Genome,
@@ -30,7 +33,7 @@ def init_network_from_annotation(
 
     Parameters
     ----------
-    regions:
+    regions
         A list of peaks/regions, e.g., `["chr1:100-1000", "chr2:55-222"]`.
     anno_file
         The GFF file containing the transcript level annotations.
@@ -45,8 +48,9 @@ def init_network_from_annotation(
 
     Returns
     -------
-    A network where peaks/regions point towards genes if they are within genes'
-    regulatory domains.
+    rx.PyDiGraph:
+        A network where peaks/regions point towards genes if they are within genes'
+        regulatory domains.
     """
     if isinstance(anno_file, Genome):
         anno_file = anno_file.fetch_annotations()
@@ -74,12 +78,12 @@ def add_cor_scores(
     network: rx.PyDiGraph,
     *,
     gene_mat: AnnData | AnnDataSet,
-    peak_mat: AnnData | AnnDataSet | None = None,
+    peak_mat: AnnData | AnnDataSet,
     select: list[str] | None = None,
     overwrite: bool = False,
 ):
     """
-    Compute correlation scores between two connected nodes in the network.
+    Compute correlation scores for any two connected nodes in the network.
 
     This function can be used to compute correlation scores for any type of
     associations. There are typically three types of edges in the network:
@@ -112,12 +116,6 @@ def add_cor_scores(
         select = set(select)
     without_overwrite = None if overwrite else key 
 
-    gene_set = set(gene_mat.var_names)
-    prune_network(
-        network, 
-        node_filter = lambda x: x.id in gene_set or x.type != "gene",
-    )
-
     if network.num_edges() > 0:
         data = _get_data_iter(network, peak_mat, gene_mat, select, without_overwrite)
         for (nd_X, X), (nd_y, y) in tqdm(data):
@@ -132,6 +130,7 @@ def add_cor_scores(
 
 def add_regr_scores(
     network: rx.PyDiGraph,
+    *,
     peak_mat: AnnData | AnnDataSet,
     gene_mat: AnnData | AnnDataSet,
     select: list[str] | None = None,
@@ -162,11 +161,6 @@ def add_regr_scores(
     if select is not None:
         select = set(select)
 
-    gene_set = set(gene_mat.var_names)
-    prune_network(
-        network, 
-        node_filter = lambda x: x.id in gene_set or x.type == "region",
-    )
     if network.num_edges() == 0:
         return network
 
@@ -183,8 +177,7 @@ def add_tf_binding(
     motifs: list[PyDNAMotif],
     genome_fasta: Path | Genome,
 ):
-    """
-    Add TF motif binding information.
+    """Add TF motif binding information.
 
     Parameters
     ----------
@@ -215,12 +208,21 @@ def add_tf_binding(
                 [(nid, i, LinkData()) for i, _ in itertools.compress(regions, bound)]
             )
 
-def to_gene_network(
-    network: rx.PyDiGraph,
-    motif_name_modifier = None,
-) -> list[str]:
+def link_tf_to_gene(network: rx.PyDiGraph):
+    """Link TFs to target genes.
+
+    :func:`~snapatac2.tl.add_tf_binding` must be ran first in order to use this function.
     """
-    Make the network contains genes only.
+    for nid in network.node_indices():
+        if network[nid].type == "motif":
+            for region in network.successor_indices(nid):
+                for gene in network.successor_indices(region):
+                    network.add_edge(nid, gene, LinkData())
+
+def to_gene_network(network: rx.PyDiGraph) -> rx.PyDiGraph:
+    """Convert the network to a genetic network.
+    
+    Convert the network to a genetic network.
 
     Parameters
     ----------
@@ -228,48 +230,69 @@ def to_gene_network(
     Returns 
     -------
     """
-    genes = dict((network[nd].id, nd) for nd in network.node_indices() if network[nd].type == "gene")
-    not_found = []
-    for nd in network.node_indices():
-        if network[nd].type == "motif":
-            name = network[nd].id 
-            if motif_name_modifier is not None:
-                name = motif_name_modifier(name)
-            if name in genes:
-                fr = genes[name]
-                for region in network.successor_indices(nd):
-                    for gene in network.successor_indices(region):
-                        link = network.get_edge_data(region, gene)
-                        network.add_edge(
-                            fr, gene,
-                            LinkData(regr_score=link.regr_score, cor_score=link.cor_score),
-                        )
-            else:
-                not_found.append(name)
+    def aggregate(edge_data):
+        best = 0
+        for a, b in edge_data:
+            sc = min(abs(a.cor_score), abs(b.cor_score))
+            if sc >= best:
+                e1 = a
+                e2 = b
+        return (e1, e2)
+
+    graph = rx.PyDiGraph()
+
+    genes = {}
+    for node in network.nodes():
+        if node.type == "gene":
+            genes[node.id] = graph.add_node(node)
+
+    edges = []
+    for nid in network.node_indices():
+        node = network[nid]
+        if node.type == "motif" and node.id in genes:
+            fr = genes[node.id]
+            to_gene_direct = {}
+            to_gene_indirect = {}
+            for target_id in network.successor_indices(nid):
+                edge_data = network.get_edge_data(nid, target_id)
+                target = network[target_id]
+                if target.type == "gene":
+                    to = genes[target.id]
+                    to_gene_direct[to] = edge_data
+                elif target.type == "region":
+                    for gene_id in network.successor_indices(target_id):
+                        region_gene = network.get_edge_data(target_id, gene_id)
+                        to = genes[network[gene_id].id]
+                        if to in to_gene_indirect:
+                            to_gene_indirect[to].append((edge_data, region_gene))
+                        else:
+                            to_gene_indirect[to] = [(edge_data, region_gene)]
+
+            for k, v in to_gene_direct.items():
+                if k in to_gene_indirect:
+                    e1, e2 = aggregate(to_gene_indirect[k])
+                    label = ''.join(['+' if x.cor_score > 0 else '-' for x in [e1, e2, v]])
+                    edges.append((fr, k, LinkData(label=label)))
+
+    graph.add_edges_from(edges)
+
+    remove = []
+    for nid in graph.node_indices():
+        if graph.in_degree(nid) + graph.out_degree(nid) == 0:
+            remove.append(nid)
+    if len(remove) > 0:
+        graph.remove_nodes_from(remove)
     
-    # Clean up.
-    # Remove edges first, for performance reason.
-    for nd in network.node_indices():
-        if network[nd].type != "gene":
-            for fr, to, _ in network.out_edges(nd):
-                network.remove_edge(fr, to)
-    # Remove nodes
-    network.remove_nodes_from(
-        [nd for nd in network.node_indices() if network[nd].type != "gene"]
-    )
-    return not_found
+    return graph
 
 def prune_network(
     network: rx.PyDiGraph,
     node_filter: Callable[[NodeData], bool] | None = None,
     edge_filter: Callable[[LinkData], bool] | None = None,
-    remove_isolates: bool = False,
-):
+    remove_isolates: bool = True,
+) -> rx.PyDiGraph:
     """
     Prune the network.
-
-    Prune the netowrk in the following order:
-    filter nodes -> filter edges -> remove isolated nodes.
 
     Parameters
     ----------
@@ -281,21 +304,35 @@ def prune_network(
         Edge filter function.
     remove_isolates
         Whether to remove isolated nodes.
-    """
-    if node_filter is not None:
-        for nid in network.node_indices():
-            if not node_filter(network.get_node_data(nid)):
-                network.remove_node(nid)
 
-    if edge_filter is not None:
-        for eid in network.edge_indices():
-            if not edge_filter(network.get_edge_data_by_index(eid)):
-                network.remove_edge_from_index(eid)
+    Returns
+    -------
+    rx.PyDiGraph
+    """
+    graph = rx.PyDiGraph()
+    
+    node_retained = [nid for nid in network.node_indices()
+                     if node_filter is None or node_filter(network[nid])]              
+    node_indices = graph.add_nodes_from([network[nid] for nid in node_retained])
+    node_index_map = dict(zip(node_retained, node_indices))
+   
+    edge_retained = [(node_index_map[fr], node_index_map[to], data)
+                     for fr, to, data in network.edge_index_map().values()
+                     if fr in node_index_map and to in node_index_map and
+                        (edge_filter is None or edge_filter(data))]
+
+    graph.add_edges_from(edge_retained)
 
     if remove_isolates:
-        for nid in network.node_indices():
-            if network.in_degree(nid) + network.out_degree(nid) == 0:
-                network.remove_node(nid)
+        remove = []
+        for nid in graph.node_indices():
+            if graph.in_degree(nid) + graph.out_degree(nid) == 0:
+                remove.append(nid)
+        if len(remove) > 0:
+            graph.remove_nodes_from(remove)
+            logging.info("Removed {} isolated nodes.".format(len(remove)))
+
+    return graph
 
 class _DataPairIter:
     """
@@ -361,11 +398,12 @@ def _get_data_iter(
     """
     """
     all_genes = set(gene_mat.var_names)
+    select = all_genes if select is None else select
     regulators = []
     regulatees = []
 
     for nid in network.node_indices():
-        if select is None or network[nid].id in select:
+        if network[nid].type == "region" or network[nid].id in select:
             parents = []
             for pid in _get_parents(network, nid, without_overwrite):
                 p = network[pid]
@@ -414,7 +452,7 @@ def _get_data_iter(
     )
 
 def _get_parents(network, target, attr):
-    return [parent_index for parent_index, _, edge_data in network.in_edges(target)
+    return [parent for parent, _, edge_data in network.in_edges(target)
             if attr is None or getattr(edge_data, attr) is None]
 
 def elastic_net(X, y):

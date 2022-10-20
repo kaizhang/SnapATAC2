@@ -113,8 +113,8 @@ Motif analysis
 
    tl.motif_enrichment
 
-Transcriptional regulatory network (beta)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Network analysis (beta)
+~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autosummary::
    :toctree: _autosummary
@@ -123,6 +123,8 @@ Transcriptional regulatory network (beta)
    tl.add_cor_scores
    tl.add_regr_scores
    tl.add_tf_binding
+   tl.link_tf_to_gene
+   tl.to_gene_network
    tl.prune_network
 
 Plotting: `pl`

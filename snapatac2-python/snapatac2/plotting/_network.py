@@ -15,22 +15,18 @@ def network_edge_stat(
     network
         Network.
     kwargs        
-        Additional arguments passed to `render_plot` to control the final plot output.
-        Please see ```` for details.
+        Additional arguments passed to :func:`~snapatac2.pl.render_plot` to
+        control the final plot output. Please see `~snapatac2.pl.render_plot` for details.
     """
     from collections import defaultdict
     import plotly.graph_objects as go
 
     scores = defaultdict(lambda: defaultdict(lambda: []))
 
-    for eid in network.edge_indices():
-        fr, to = network.get_edge_endpoints_by_index(eid)
+    for fr, to, data in network.edge_index_map().values():
         type = "{} -> {}".format(network[fr].type, network[to].type)
-
-        data = network.get_edge_data_by_index(eid)
         if data.cor_score is not None:
             scores["correlation"][type].append(data.cor_score)
-
         if data.regr_score is not None:
             scores["regression"][type].append(data.regr_score)
     
@@ -87,7 +83,9 @@ def network_scores(
     values = [[] for _ in range(len(intervals))]
     for e in network.edges():
         i = bisect.bisect(break_points, e.distance)
-        values[i].append(getattr(e, score_name))
+        sc = getattr(e, score_name)
+        if sc is not None:
+            values[i].append(sc)
 
     intervals, values = zip(*filter(lambda x: len(x[1]) > 0, zip(intervals, values)))
     values = [np.nanmean(v) for v in values]

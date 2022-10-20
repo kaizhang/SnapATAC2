@@ -368,14 +368,20 @@ where
     ArrayBase::from_vec(cor).into_shape((n1, n2)).unwrap()
 }
 
-pub fn spearman2(
-    mat1: Array2<f64>,
-    mat2: Array2<f64>,
+pub fn spearman2<T1, T2>(
+    mat1: Array2<T1>,
+    mat2: Array2<T2>,
 ) -> Array2<f64>
+where
+    T1: ToPrimitive,
+    T2: ToPrimitive,
 {
-    fn rank(mat: Array2<f64>) -> Array2<f64> {
+    fn rank<T>(mat: Array2<T>) -> Array2<f64>
+    where
+        T: ToPrimitive,
+    {
         let vec: Vec<_> = mat.rows().into_iter().flat_map(|row|
-            Data::new(row.to_vec()).ranks(RankTieBreaker::Average)
+            Data::new(row.into_iter().map(|x| x.to_f64().unwrap()).collect::<Vec<_>>()).ranks(RankTieBreaker::Average)
         ).collect();
         ArrayBase::from_vec(vec).into_shape((mat.shape()[0], mat.shape()[1])).unwrap()
     }
