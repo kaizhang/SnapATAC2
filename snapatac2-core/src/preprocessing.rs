@@ -2,7 +2,7 @@ pub mod qc;
 pub mod matrix;
 pub mod mark_duplicates;
 
-use crate::utils::{Fragment, CellBarcode};
+use crate::utils::{Fragment, CellBarcode, ui::new_spinner};
 use crate::preprocessing::{
     mark_duplicates::{BarcodeLocation, BedN, FlagStat, filter_bam, group_bam_by_barcode},
     qc::{FragmentSummary, QualityControl, compute_qc_count},
@@ -18,6 +18,7 @@ use anyhow::Result;
 use anndata_rs::{
     anndata::AnnData, anndata_trait::{DataIO, DataPartialIO}, iterator::CsrIterator,
 };
+use indicatif::{ProgressIterator, ProgressBar, style::ProgressStyle};
 use flate2::{Compression, write::GzEncoder};
 use polars::prelude::{NamedFrom, DataFrame, Series};
 use rayon::iter::ParallelIterator;
@@ -165,12 +166,17 @@ where
     let mut qc = Vec::new();
 
     if fragment_is_sorted_by_name {
+        let spinner = ProgressBar::new_spinner().with_style(
+            ProgressStyle::with_template(
+                "{spinner} Processed {pos} barcodes in {elapsed} ..."
+            ).unwrap()
+        );
         let mut scanned_barcodes = HashSet::new();
         anndata.get_obsm().inner().insert_from_row_iter(
             "insertion",
             CsrIterator {
                 iterator: fragments
-                .group_by(|x| { x.barcode.clone() }).into_iter()
+                .group_by(|x| { x.barcode.clone() }).into_iter().progress_with(spinner)
                 .filter(|(key, _)| white_list.map_or(true, |x| x.contains(key)))
                 .chunks(chunk_size).into_iter().map(|chunk| {
                     let data: Vec<(String, Vec<Fragment>)> = chunk
@@ -198,8 +204,13 @@ where
             }
         )?;
     } else {
+        let spinner = ProgressBar::new_spinner().with_style(
+            ProgressStyle::with_template(
+                "{spinner} Processed {pos} reads in {elapsed} ..."
+            ).unwrap()
+        );
         let mut scanned_barcodes = HashMap::new();
-        fragments
+        fragments.progress_with(spinner)
         .filter(|frag| white_list.map_or(true, |x| x.contains(frag.barcode.as_str())))
         .for_each(|frag| {
             let key = frag.barcode.as_str();

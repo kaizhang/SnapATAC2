@@ -22,6 +22,7 @@ flate2 = "1.0"
 futures = "0.3"
 itertools = "0.8"
 indexmap = "1.9"
+indicatif = "0.17"
 lexical = "6.1"
 log = "0.4"
 ndarray = { version = "0.15", features = ["rayon"] }

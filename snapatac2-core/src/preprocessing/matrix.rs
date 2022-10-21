@@ -9,6 +9,8 @@ use polars::prelude::{NamedFrom, DataFrame, Series};
 use anyhow::Result;
 use rayon::iter::ParallelIterator;
 use rayon::iter::IntoParallelIterator;
+use indicatif::ProgressIterator;
+use indicatif::style::ProgressStyle;
 
 use bed_utils::bed::{
     GenomicRange,
@@ -33,11 +35,14 @@ pub fn create_feat_matrix<C, I>(
     ) -> Result<()>
 where
     C: FeatureCounter<Value = u32> + Clone + std::marker::Sync,
-    I: Iterator<Item = Vec<ChromValues>>,
+    I: Iterator<Item = Vec<ChromValues>> + ExactSizeIterator,
 {
     let features = feature_counter.get_feature_ids();
+    let style = ProgressStyle::with_template(
+        "[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})"
+    ).unwrap();
     anndata.set_x_from_row_iter(CsrIterator {
-        iterator: insertions.map(|chunk|
+        iterator: insertions.progress_with_style(style).map(|chunk|
             chunk.into_par_iter().map(|ins| {
                 let mut counter = feature_counter.clone();
                 counter.inserts(ins);
@@ -85,7 +90,7 @@ where
         SparseBinnedCoverage::new(&regions, bin_size);
     create_feat_matrix(
         anndata,
-        anndata.read_insertions(chunk_size)?,
+        anndata.raw_count_iter(chunk_size)?,
         feature_counter,
     )?;
     Ok(())
@@ -97,7 +102,7 @@ pub fn create_peak_matrix<I>(
     peaks: &GenomeRegions<GenomicRange>,
     ) -> Result<AnnData>
 where
-    I: Iterator<Item = Vec<ChromValues>>,
+    I: Iterator<Item = Vec<ChromValues>> + ExactSizeIterator,
 {
     let mut anndata = AnnData::new(output, 0, 0)?;
     let feature_counter: SparseCoverage<'_, _, u32> = SparseCoverage::new(&peaks);
@@ -112,7 +117,7 @@ pub fn create_gene_matrix<I>(
     id_type: &str, 
     ) -> Result<AnnData>
 where
-    I: Iterator<Item = Vec<ChromValues>>,
+    I: Iterator<Item = Vec<ChromValues>> + ExactSizeIterator,
 {
     let mut anndata = AnnData::new(output, 0, 0)?;
     let promoters = Promoters::new(transcripts, 2000, 0, true);

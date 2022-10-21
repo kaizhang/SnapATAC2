@@ -16,7 +16,8 @@ def network_edge_stat(
         Network.
     kwargs        
         Additional arguments passed to :func:`~snapatac2.pl.render_plot` to
-        control the final plot output. Please see `~snapatac2.pl.render_plot` for details.
+        control the final plot output. Please see :func:`~snapatac2.pl.render_plot`
+        for details.
     """
     from collections import defaultdict
     import plotly.graph_objects as go

@@ -83,7 +83,7 @@ impl Exporter for AnnData {
         suffix:&str,
     ) -> Result<HashMap<String, PathBuf>> {
         export_insertions_as_bed(
-            &mut self.read_insertions(500)?,
+            &mut self.raw_count_iter(500)?,
             barcodes, group_by, selections, dir, prefix, suffix,
         )
     }
@@ -126,7 +126,7 @@ impl Exporter for AnnDataSet {
         suffix:&str,
     ) -> Result<HashMap<String, PathBuf>> {
         export_insertions_as_bed(
-            &mut self.read_insertions(500)?,
+            &mut self.raw_count_iter(500)?,
             barcodes, group_by, selections, dir, prefix, suffix,
         )
     }

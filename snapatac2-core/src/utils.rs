@@ -1,5 +1,6 @@
 pub mod gene;
 pub mod similarity;
+pub mod ui;
 
 use bed_utils::bed::{
     BEDLike, GenomicRange, BedGraph, NarrowPeak,
@@ -11,6 +12,7 @@ use anndata_rs::{
     anndata::{AnnData, AnnDataSet},
     element::ElemCollection,
 };
+use num::integer::div_ceil;
 use polars::frame::DataFrame;
 use std::{fmt::Debug, str::FromStr};
 use nalgebra_sparse::CsrMatrix;
@@ -213,6 +215,7 @@ impl GenomeIndex for GIntervalIndex {
 pub struct ChromValueIter<I, G> {
     iter: I,
     genome_index: G,
+    length: usize,
 }
 
 impl<I, G, N> Iterator for ChromValueIter<I, G>
@@ -236,13 +239,23 @@ where
     }
 }
 
-pub type TN5InsertionIter = ChromValueIter<Box<dyn Iterator<Item = Vec<Vec<(usize, u8)>>>>, GBaseIndex>;
+impl<I, G, N> ExactSizeIterator for ChromValueIter<I, G>
+where
+    I: Iterator<Item = Vec<Vec<(usize, N)>>>,
+    G: GenomeIndex,
+    N: std::convert::TryInto<u32>,
+    <N as TryInto<u32>>::Error: Debug,
+{
+    fn len(&self) -> usize { self.length }
+}
+
+pub type BaseCountIter = ChromValueIter<Box<dyn Iterator<Item = Vec<Vec<(usize, u8)>>>>, GBaseIndex>;
 pub type ChromValueIterator = ChromValueIter<Box<dyn Iterator<Item = Vec<Vec<(usize, u32)>>>>, GIntervalIndex>;
 
 /// Read genomic region and its associated account
 pub trait ChromValuesReader {
     /// Return values in .obsm['insertion']
-    fn read_insertions(&self, chunk_size: usize) -> Result<TN5InsertionIter>;
+    fn raw_count_iter(&self, chunk_size: usize) -> Result<BaseCountIter>;
 
     /// Return values in .X
     fn read_chrom_values(&self) -> Result<ChromValueIterator>;
@@ -253,7 +266,7 @@ pub trait ChromValuesReader {
 
 
 impl ChromValuesReader for AnnData {
-    fn read_insertions(&self, chunk_size: usize) -> Result<TN5InsertionIter> {
+    fn raw_count_iter(&self, chunk_size: usize) -> Result<BaseCountIter> {
        Ok(ChromValueIter {
             iter: Box::new(self.get_obsm().inner().get("insertion")
                 .expect("cannot find 'insertion' in .obsm")
@@ -266,18 +279,20 @@ impl ChromValuesReader for AnnData {
                 })
             ),
             genome_index: GBaseIndex::read_from_anndata(&mut self.get_uns().inner())?,
+            length: div_ceil(self.n_obs(), chunk_size),
         })
     }
 
     fn read_chrom_values(&self) -> Result<ChromValueIterator>
     {
+        let chunk_size = 500;
         Ok(ChromValueIter {
             genome_index: GIntervalIndex(
                 self.var_names()?.into_iter()
                     .map(|x| GenomicRange::from_str(x.as_str()).unwrap()).collect()
             ),
             iter: Box::new(
-                self.get_x().chunked(500).map(|x| {
+                self.get_x().chunked(chunk_size).map(|x| {
                     let csr = *x.into_any().downcast::<CsrMatrix<u32>>().unwrap();
                     csr.row_iter().map(|row|
                         row.col_indices().iter().zip(row.values())
@@ -285,6 +300,7 @@ impl ChromValuesReader for AnnData {
                     ).collect::<Vec<_>>()
                 })
             ),
+            length: div_ceil(self.n_obs(), chunk_size),
         })
     }
 
@@ -294,7 +310,7 @@ impl ChromValuesReader for AnnData {
 }
 
 impl ChromValuesReader for AnnDataSet {
-    fn read_insertions(&self, chunk_size: usize) -> Result<TN5InsertionIter> {
+    fn raw_count_iter(&self, chunk_size: usize) -> Result<BaseCountIter> {
         let inner = self.anndatas.inner();
         let ref_seq_same = inner.iter().map(|(_, adata)|
             get_reference_seq_info_(&mut adata.get_uns().inner()).unwrap()
@@ -316,18 +332,20 @@ impl ChromValuesReader for AnnDataSet {
                     ).collect()
                 })),
             genome_index,
+            length: div_ceil(self.n_obs(), chunk_size),
         })
     }
 
     fn read_chrom_values(&self) -> Result<ChromValueIterator>
     {
+        let chunk_size = 500;
         Ok(ChromValueIter {
             genome_index: GIntervalIndex(
                 self.var_names()?.into_iter()
                     .map(|x| GenomicRange::from_str(x.as_str()).unwrap()).collect()
             ),
             iter: Box::new(
-                self.anndatas.inner().x.chunked(500).map(|x| {
+                self.anndatas.inner().x.chunked(chunk_size).map(|x| {
                     let csr = *x.into_any().downcast::<CsrMatrix<u32>>().unwrap();
                     csr.row_iter().map(|row|
                         row.col_indices().iter().zip(row.values())
@@ -335,6 +353,7 @@ impl ChromValuesReader for AnnDataSet {
                     ).collect::<Vec<_>>()
                 })
             ),
+            length: div_ceil(self.n_obs(), chunk_size),
         })
     }
 

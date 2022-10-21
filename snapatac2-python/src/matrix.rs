@@ -138,7 +138,7 @@ pub(crate) fn mk_gene_matrix<'py>(
             let x = data.0.inner().read_chrom_values().unwrap();
             create_gene_matrix(output_file, x, transcripts, id_type).unwrap()
         } else {
-            let x = data.0.inner().read_insertions(chunk_size).unwrap();
+            let x = data.0.inner().raw_count_iter(chunk_size).unwrap();
             create_gene_matrix(output_file, x, transcripts, id_type).unwrap()
         }
     } else if input.is_instance(AnnDataSet::type_object(py))? {
@@ -147,7 +147,7 @@ pub(crate) fn mk_gene_matrix<'py>(
             let x = data.0.inner().read_chrom_values().unwrap();
             create_gene_matrix(output_file, x, transcripts, id_type).unwrap()
         } else {
-            let x = data.0.inner().read_insertions(chunk_size).unwrap();
+            let x = data.0.inner().raw_count_iter(chunk_size).unwrap();
             create_gene_matrix(output_file, x, transcripts, id_type).unwrap()
         }
     } else {
@@ -207,11 +207,11 @@ pub(crate) fn mk_peak_matrix<'py>(
     };
     let result = if input.is_instance(AnnData::type_object(py))? {
         let data: AnnData = input.extract()?;
-        let x = data.0.inner().read_insertions(500).unwrap();
+        let x = data.0.inner().raw_count_iter(500).unwrap();
         create_peak_matrix(output_file, x, &peaks).unwrap()
     } else if input.is_instance(AnnDataSet::type_object(py))? {
         let data: AnnDataSet = input.extract()?;
-        let x = data.0.inner().read_insertions(500).unwrap();
+        let x = data.0.inner().raw_count_iter(500).unwrap();
         create_peak_matrix(output_file, x, &peaks).unwrap()
     } else {
         panic!("expecting an AnnData or AnnDataSet object");
