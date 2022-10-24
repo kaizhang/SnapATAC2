@@ -11,12 +11,30 @@ import scipy.sparse as sp
 from snapatac2.genome import Genome
 from snapatac2._utils import fetch_seq
 from snapatac2._snapatac2 import (
-    AnnData, AnnDataSet, link_region_to_gene, NodeData, LinkData, PyDNAMotif,
+    AnnData, AnnDataSet, link_region_to_gene, PyDNAMotif,
     spearman
 )
 
-__all__ = ['init_network_from_annotation', 'add_cor_scores', 'add_regr_scores',
+__all__ = ['NodeData', 'LinkData', 'init_network_from_annotation', 'add_cor_scores', 'add_regr_scores',
            'add_tf_binding', 'link_tf_to_gene', 'prune_network']
+
+class NodeData:
+    def __init__(self, id: str = "", type: str = "") -> None:
+        self.id = id
+        self.type = type
+
+class LinkData:
+    def __init__(
+        self,
+        distance: int =0,
+        regr_score: float | None = None,
+        cor_score: float | None = None,
+        label: str | None = None,
+    ) -> None:
+        self.distance = distance
+        self.regr_score = regr_score
+        self.cor_score = cor_score
+        self.label = label
 
 def init_network_from_annotation(
     regions: list[str],
@@ -65,13 +83,14 @@ def init_network_from_annotation(
         id_type,
         coding_gene_only,
     )
-    for gene, regions in links.items():
-        to = graph.add_node(gene)
-        for region, data in regions:
-            if region in region_added:
-                graph.add_edge(region_added[region], to, data)
+    for (id, type), regions in links.items():
+        to = graph.add_node(NodeData(id, type))
+        for i, t, distance in regions:
+            key = (i, t)
+            if key in region_added:
+                graph.add_edge(region_added[key], to, LinkData(distance))
             else:
-                region_added[region] = graph.add_parent(to, region, data)
+                region_added[key] = graph.add_parent(to, NodeData(i, t), LinkData(distance))
     return graph
 
 def add_cor_scores(
@@ -133,6 +152,8 @@ def add_regr_scores(
     gene_mat: AnnData | AnnDataSet,
     select: list[str] | None = None,
     method: Literal["gb_tree", "elastic_net"] = "elastic_net",
+    alpha: float = 1.0,
+    l1_ratio: float = 0.5,
     use_gpu: bool = False,
 ):
     """
@@ -152,6 +173,13 @@ def add_regr_scores(
         Run this for selected genes only.
     method
         Regresson model.
+    alpha
+        Constant that multiplies the penalty terms in 'elastic_net'.
+    l1_ratio
+        Used in 'elastic_net'. The ElasticNet mixing parameter,
+        with `0 <= l1_ratio <= 1`. For `l1_ratio = 0` the penalty is an L2 penalty.
+        For `l1_ratio = 1` it is an L1 penalty. For `0 < l1_ratio < 1`,
+        the penalty is a combination of L1 and L2.
     use_gpu
         Whether to use gpu
     """
@@ -169,9 +197,9 @@ def add_regr_scores(
     for (nd_X, X), (nd_y, y) in tqdm(_get_data_iter(network, peak_mat, gene_mat, select)):
         y = y.todense() if sp.issparse(y) else y
         if method == "gb_tree":
-            scores = gbTree(X, y, tree_method=tree_method)
+            scores = _gbTree(X, y, tree_method=tree_method)
         elif method == "elastic_net":
-            scores = elastic_net(X, y)
+            scores = _elastic_net(X, y, alpha, l1_ratio)
         else:
             raise NameError("Unknown method")
         for nd, sc in zip(nd_X, scores):
@@ -443,20 +471,18 @@ def _get_data_iter(
         regulatees,
     )
 
-def _get_parents(network, target, attr):
-    return [parent for parent, _, edge_data in network.in_edges(target)
-            if attr is None or getattr(edge_data, attr) is None]
-
-def elastic_net(X, y):
+def _elastic_net(X, y, alpha=1, l1_ratio=0.5):
     from sklearn.linear_model import ElasticNet
 
     X = np.asarray(X)
     y = np.asarray(y)
 
-    regr = ElasticNet(random_state=0, copy_X=False, max_iter=10000).fit(X, y)
+    regr = ElasticNet(
+        alpha=alpha, l1_ratio=l1_ratio, random_state=0, copy_X=False, max_iter=10000,
+    ).fit(X, y)
     return regr.coef_
 
-def gbTree(X, y, tree_method = "hist"):
+def _gbTree(X, y, tree_method = "hist"):
     import xgboost as xgb
     model = xgb.XGBRegressor(tree_method = tree_method)
     return model.fit(X, y).feature_importances_
