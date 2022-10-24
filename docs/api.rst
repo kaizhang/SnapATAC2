@@ -124,7 +124,6 @@ Network analysis (beta)
    tl.add_regr_scores
    tl.add_tf_binding
    tl.link_tf_to_gene
-   tl.to_gene_network
    tl.prune_network
 
 Plotting: `pl`

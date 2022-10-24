@@ -46,7 +46,6 @@ def network_edge_stat(
 def network_scores(
     network: rx.PyDiGraph,
     score_name: str,
-    marker_size: float = 2,
     width: float = 800,
     height: float = 400,
     show: bool = True,

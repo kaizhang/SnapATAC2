@@ -2,7 +2,7 @@ pub mod qc;
 pub mod matrix;
 pub mod mark_duplicates;
 
-use crate::utils::{Fragment, CellBarcode, ui::new_spinner};
+use crate::utils::{Fragment, CellBarcode};
 use crate::preprocessing::{
     mark_duplicates::{BarcodeLocation, BedN, FlagStat, filter_bam, group_bam_by_barcode},
     qc::{FragmentSummary, QualityControl, compute_qc_count},
@@ -21,8 +21,7 @@ use anndata_rs::{
 use indicatif::{ProgressIterator, ProgressBar, style::ProgressStyle};
 use flate2::{Compression, write::GzEncoder};
 use polars::prelude::{NamedFrom, DataFrame, Series};
-use rayon::iter::ParallelIterator;
-use rayon::iter::IntoParallelIterator;
+use rayon::iter::{ParallelIterator, IntoParallelIterator};
 use itertools::Itertools;
 use std::{path::Path, fs::File, io::{Write, BufWriter}, collections::{HashSet, HashMap}};
 

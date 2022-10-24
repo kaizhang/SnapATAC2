@@ -1,6 +1,5 @@
 pub mod gene;
 pub mod similarity;
-pub mod ui;
 
 use bed_utils::bed::{
     BEDLike, GenomicRange, BedGraph, NarrowPeak,
