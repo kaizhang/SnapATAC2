@@ -22,19 +22,18 @@ class NodeData:
     def __init__(self, id: str = "", type: str = "") -> None:
         self.id = id
         self.type = type
+        self.regr_fitness = None
 
 class LinkData:
     def __init__(
         self,
         distance: int =0,
-        regr_score: float | None = None,
-        cor_score: float | None = None,
         label: str | None = None,
     ) -> None:
         self.distance = distance
-        self.regr_score = regr_score
-        self.cor_score = cor_score
         self.label = label
+        self.regr_score = None
+        self.cor_score = None
 
 def init_network_from_annotation(
     regions: list[str],
@@ -152,9 +151,12 @@ def add_regr_scores(
     gene_mat: AnnData | AnnDataSet,
     select: list[str] | None = None,
     method: Literal["gb_tree", "elastic_net"] = "elastic_net",
+    scale_X: bool = False,
+    scale_Y: bool = False,
     alpha: float = 1.0,
     l1_ratio: float = 0.5,
     use_gpu: bool = False,
+    overwrite: bool = False,
 ):
     """
     Perform regression analysis between genes and CREs.
@@ -173,6 +175,10 @@ def add_regr_scores(
         Run this for selected genes only.
     method
         Regresson model.
+    scale_X
+        Whether to scale the features.
+    scale_Y
+        Whether to scale the response variable.
     alpha
         Constant that multiplies the penalty terms in 'elastic_net'.
     l1_ratio
@@ -182,28 +188,35 @@ def add_regr_scores(
         the penalty is a combination of L1 and L2.
     use_gpu
         Whether to use gpu
+    overwrite
+        Whether to overwrite existing records.
     """
     from tqdm import tqdm
 
+    key = "regr_score"
     if peak_mat.obs_names != gene_mat.obs_names:
         raise NameError("gene matrix and peak matrix should have the same obs_names")
     if select is not None:
         select = set(select)
+    without_overwrite = None if overwrite else key 
     tree_method = "gpu_hist" if use_gpu else "hist"
     
     if network.num_edges() == 0:
         return network
 
-    for (nd_X, X), (nd_y, y) in tqdm(_get_data_iter(network, peak_mat, gene_mat, select)):
-        y = y.todense() if sp.issparse(y) else y
+    for (nd_X, X), (nd_y, y) in tqdm(_get_data_iter(network, peak_mat, gene_mat, select, without_overwrite, scale_X, scale_Y)):
+        y = np.ravel(y.todense()) if sp.issparse(y) else y
         if method == "gb_tree":
-            scores = _gbTree(X, y, tree_method=tree_method)
+            scores, fitness = _gbTree(X, y, tree_method=tree_method)
         elif method == "elastic_net":
-            scores = _elastic_net(X, y, alpha, l1_ratio)
+            scores, fitness = _elastic_net(X, y, alpha, l1_ratio)
+        elif method == "logistic_regression":
+            scores, fitness = _logistic_regression(X, y)
         else:
             raise NameError("Unknown method")
+        network[nd_y].regr_fitness = fitness
         for nd, sc in zip(nd_X, scores):
-            network.get_edge_data(nd, nd_y).regr_score = sc
+            setattr(network.get_edge_data(nd, nd_y), key, sc)
 
 def add_tf_binding(
     network: rx.PyDiGraph,
@@ -354,6 +367,20 @@ def prune_network(
 
     return graph
 
+def _network_stats(network: rx.PyDiGraph):
+    from collections import defaultdict
+
+    nNodes = network.num_nodes()
+    nEdges = network.num_edges()
+    region_stat = defaultdict(lambda: {'nParents': defaultdict(lambda: 0), 'nChildren': defaultdict(lambda: 0)})
+    motif_stat = defaultdict(lambda: {'nParents': defaultdict(lambda: 0), 'nChildren': defaultdict(lambda: 0)})
+    gene_stat = defaultdict(lambda: {'nParents': defaultdict(lambda: 0), 'nChildren': defaultdict(lambda: 0)})
+
+    for fr, to, data in network.edge_index_map().values():
+        fr_type = network[fr].type
+        to_type = network[to].type
+ 
+
 class _DataPairIter:
     """
     Interator generating X and y pairs.
@@ -375,21 +402,19 @@ class _DataPairIter:
     """
     def __init__(
         self,
-        regulator_mat,
-        regulatee_mat,
-        regulator_idx_map,
-        regulator_ids,
-        regulatee_ids,
+        mat_X,
+        mat_Y,
+        idx_map_X,
+        id_XY,
     ) -> None:
-        self.regulator_mat = regulator_mat
-        self.regulatee_mat = regulatee_mat
-        self.regulator_idx_map = regulator_idx_map
-        self.regulator_ids = regulator_ids
-        self.regulatee_ids = regulatee_ids
+        self.mat_X = mat_X
+        self.mat_Y = mat_Y
+        self.idx_map_X = idx_map_X
+        self.id_XY = id_XY
         self.index = 0
 
     def __len__(self):
-        return self.regulatee_mat.shape[1]
+        return self.mat_Y.shape[1]
 
     def __iter__(self):
         self.index = 0
@@ -399,11 +424,9 @@ class _DataPairIter:
         if self.index >= self.__len__():
             raise StopIteration
 
-        nd_y = self.regulatee_ids[self.index]
-        y = self.regulatee_mat[:, self.index]
-
-        nd_X = self.regulator_ids[self.index]
-        X = self.regulator_mat[:, [self.regulator_idx_map[nd] for nd in nd_X]]
+        nd_X, nd_y = self.id_XY[self.index]
+        y = self.mat_Y[:, self.index]
+        X = self.mat_X[:, [self.idx_map_X[nd] for nd in nd_X]]
 
         self.index += 1
         return (nd_X, X), (nd_y, y)
@@ -414,13 +437,49 @@ def _get_data_iter(
     gene_mat: AnnData | AnnDataSet,
     select: set[str] | None = None,
     without_overwrite: str | None = None,
+    scale_X: bool = False,
+    scale_Y: bool = False,
 ) -> _DataPairIter:
     """
     """
+    from scipy.stats import zscore
+
+    def get_mat(nids, node_getter, gene2idx, gene_mat, peak2idx, peak_mat, is_sparse):
+        genes = []
+        peaks = []
+
+        for x in nids:
+            nd = node_getter(x) 
+            if nd.type == "gene" or nd.type == "motif":
+                genes.append(x)
+            elif nd.type == "region":
+                peaks.append(x)
+            else:
+                raise NameError("unknown type: {}".format(nd.type))
+
+        if len(genes) == gene_mat.shape[1]:
+            g_mat = gene_mat
+        else:
+            g_mat = gene_mat[:, [gene2idx[node_getter(x).id] for x in genes]]
+
+        if len(peaks) == peak_mat.shape[1]:
+            p_mat = peak_mat
+        else:
+            p_mat = peak_mat[:, [peak2idx[node_getter(x).id] for x in peaks]]
+
+        if len(genes) == 0:
+            return (peaks, p_mat)
+        elif len(peaks) == 0:
+            return (genes, g_mat)
+        else:
+            if is_sparse:
+                return (genes + peaks, sp.hstack([g_mat, p_mat], format="csc"))
+            else:
+                return (genes + peaks, np.hstack([g_mat, p_mat]))
+
     all_genes = set(gene_mat.var_names)
     select = all_genes if select is None else select
-    regulators = []
-    regulatees = []
+    id_XY = []
 
     for nid in network.node_indices():
         if network[nid].type == "region" or network[nid].id in select:
@@ -430,59 +489,61 @@ def _get_data_iter(
                           (network[pid].type == "region" or
                            network[pid].id in all_genes)]
             if len(parents) > 0:
-                regulators.append(parents)
-                regulatees.append(nid)
-    unique_regulators = list({y for x in regulators for y in x})
+                id_XY.append((parents, nid))
+    unique_X = list({y for x, _ in id_XY for y in x})
 
     gene_mat_name2idx = {v: i for i, v in enumerate(gene_mat.var_names)}
     peak_mat_name2idx = {v: i for i, v in enumerate(peak_mat.var_names)}
 
     gene_mat = gene_mat.X[:]
     peak_mat = peak_mat.X[:]
-    regulatee_mat = []
-    for x in regulatees:
-        nd = network[x]
-        if nd.type == "gene" or nd.type == "motif":
-            data = gene_mat[:, [gene_mat_name2idx[nd.id]]]
-        elif nd.type == "region":
-            data = peak_mat[:, [peak_mat_name2idx[nd.id]]]
-        else:
-            raise NameError("unknown type: {}".format(nd.type))
-        regulatee_mat.append(data)
-    regulatee_mat = np.hstack(regulatee_mat)
+    is_sparse = sp.issparse(gene_mat) and sp.issparse(peak_mat)
+    if is_sparse:
+        gene_mat = sp.csc_matrix(gene_mat)
+        peak_mat = sp.csc_matrix(peak_mat)
 
-    regulator_mat = []
-    for x in unique_regulators:
-        nd = network[x]
-        if nd.type == "gene" or nd.type == "motif":
-            data = gene_mat[:, [gene_mat_name2idx[nd.id]]]
-        elif nd.type == "region":
-            data = peak_mat[:, [peak_mat_name2idx[nd.id]]]
-        else:
-            raise NameError("unknown type: {}".format(nd.type))
-        regulator_mat.append(data)
-    regulator_mat = np.hstack(regulator_mat)
+    id_XY, mat_Y = get_mat(id_XY, lambda x: network[x[1]], gene_mat_name2idx, gene_mat,
+        peak_mat_name2idx, peak_mat, is_sparse)
+
+    unique_X, mat_X = get_mat(unique_X, lambda x: network[x], gene_mat_name2idx, gene_mat,
+        peak_mat_name2idx, peak_mat, is_sparse)
+
+    if scale_X:
+        if is_sparse:
+            logging.warning("Try to scale a sparse matrix")
+        mat_X = zscore(mat_X, axis=0)
+    if scale_Y:
+        if is_sparse:
+            logging.warning("Try to scale a sparse matrix")
+        mat_Y = zscore(mat_Y, axis=0)
         
     return _DataPairIter(
-        regulator_mat,
-        regulatee_mat,
-        {v: i for i, v in enumerate(unique_regulators)},
-        regulators,
-        regulatees,
+        mat_X,
+        mat_Y,
+        {v: i for i, v in enumerate(unique_X)},
+        id_XY,
     )
 
-def _elastic_net(X, y, alpha=1, l1_ratio=0.5):
+def _logistic_regression(X, y):
+    from sklearn.linear_model import LogisticRegression 
+
+    y = y != 0
+    regr = LogisticRegression(max_iter=1000, random_state=0).fit(X, y)
+    return np.ravel(regr.coef_), regr.score(X, y)
+
+def _elastic_net(X, y, alpha=1, l1_ratio=0.5, positive=False):
     from sklearn.linear_model import ElasticNet
 
     X = np.asarray(X)
     y = np.asarray(y)
 
     regr = ElasticNet(
-        alpha=alpha, l1_ratio=l1_ratio, random_state=0, copy_X=False, max_iter=10000,
+        alpha=alpha, l1_ratio=l1_ratio, positive=positive,
+        random_state=0, copy_X=False, max_iter=10000,
     ).fit(X, y)
-    return regr.coef_
+    return regr.coef_, regr.score(X, y)
 
 def _gbTree(X, y, tree_method = "hist"):
     import xgboost as xgb
-    model = xgb.XGBRegressor(tree_method = tree_method)
-    return model.fit(X, y).feature_importances_
+    regr = xgb.XGBRegressor(tree_method = tree_method).fit(X, y)
+    return regr.feature_importances_, regr.score(X, y)

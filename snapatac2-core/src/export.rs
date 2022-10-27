@@ -14,16 +14,17 @@ use std::{
 use tempfile::Builder;
 use rayon::iter::{ParallelIterator, IntoParallelIterator};
 use which::which;
-use bed_utils::bed::{BEDLike, BED, BedGraph, OptionalFields, merge_sorted_bed_with};
+use bed_utils::bed::{BEDLike, BedGraph, merge_sorted_bed_with};
 use bigtools::{bigwig::bigwigwrite::BigWigWrite, bed::bedparser::BedParser};
 use futures::executor::ThreadPool;
+use indicatif::{ProgressIterator, style::ProgressStyle};
 
 use crate::utils::{ChromValues, ChromValuesReader, GenomeIndex, GBaseIndex};
 
 pub trait Exporter: ChromValuesReader {
     fn export_bed<P: AsRef<Path>>(
         &self,
-        barcodes: &Vec<&str>,
+        barcodes: Option<&Vec<&str>>,
         group_by: &Vec<&str>,
         selections: Option<HashSet<&str>>,
         dir: P,
@@ -59,7 +60,7 @@ pub trait Exporter: ChromValuesReader {
 
         std::fs::create_dir_all(&dir)?;
         info!("Exporting data...");
-        let files = self.export_bed(group_by, group_by, selections, &dir, "", "_insertion.bed.gz")?;
+        let files = self.export_bed(None, group_by, selections, &dir, "", "_insertion.bed.gz")?;
         let genome_size = self.get_reference_seq_info()?.into_iter().map(|(_, v)| v).sum();
         info!("Calling peaks for {} groups ...", files.len());
         files.into_par_iter().map(|(key, fl)| {
@@ -75,7 +76,7 @@ pub trait Exporter: ChromValuesReader {
 impl Exporter for AnnData {
     fn export_bed<P: AsRef<Path>>(
         &self,
-        barcodes: &Vec<&str>,
+        barcodes: Option<&Vec<&str>>,
         group_by: &Vec<&str>,
         selections: Option<HashSet<&str>>,
         dir: P,
@@ -118,7 +119,7 @@ impl Exporter for AnnData {
 impl Exporter for AnnDataSet {
     fn export_bed<P: AsRef<Path>>(
         &self,
-        barcodes: &Vec<&str>,
+        barcodes: Option<&Vec<&str>>,
         group_by: &Vec<&str>,
         selections: Option<HashSet<&str>>,
         dir: P,
@@ -167,7 +168,7 @@ impl Exporter for AnnDataSet {
 ///     4. cell ID
 fn export_insertions_as_bed<I, P>(
     insertions: &mut I,
-    barcodes: &Vec<&str>,
+    barcodes: Option<&Vec<&str>>,
     group_by: &Vec<&str>,
     selections: Option<HashSet<&str>>,
     dir: P,
@@ -175,7 +176,7 @@ fn export_insertions_as_bed<I, P>(
     suffix:&str,
 ) -> Result<HashMap<String, PathBuf>>
 where
-    I: Iterator<Item = Vec<ChromValues>>,
+    I: Iterator<Item = Vec<ChromValues>> + ExactSizeIterator,
     P: AsRef<Path>,
 {
     let mut groups: HashSet<&str> = group_by.iter().map(|x| *x).unique().collect();
@@ -186,28 +187,32 @@ where
         let filename = dir.as_ref().join(
             prefix.to_string() + x.replace("/", "+").as_str() + suffix
         );
-        let f = File::create(&filename)
-            .with_context(|| format!("cannot create file: {}", filename.display()))?;
+        let f = BufWriter::with_capacity(
+            1024*1024,
+            File::create(&filename).with_context(|| format!("cannot create file: {}", filename.display()))?,
+        );
         let e: Box<dyn Write> = if filename.extension().unwrap() == "gz" {
-            Box::new(GzEncoder::new(BufWriter::new(f), Compression::default()))
+            Box::new(GzEncoder::new(f, Compression::default()))
         } else {
-            Box::new(BufWriter::new(f))
+            Box::new(f)
         };
         Ok((x, (filename, e)))
     }).collect::<Result<HashMap<_, _>>>()?;
 
-    let total_records = insertions.try_fold::<_, _, Result<_>>(0, |accum, x| {
+    let style = ProgressStyle::with_template(
+        "[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})"
+    ).unwrap();
+    let total_records = insertions.progress_with_style(style).try_fold::<_, _, Result<_>>(0, |accum, x| {
         let n_records = x.len();
         x.into_iter().enumerate().try_for_each::<_, Result<_>>(|(i, ins)| {
             if let Some((_, fl)) = files.get_mut(group_by[accum + i]) {
-                let bc = barcodes[accum + i];
-                ins.into_iter().map(|x| {
-                    let bed: BED<4> = BED::new(
-                        x.chrom(), x.start(), x.end(), Some(bc.to_string()),
-                        None, None, OptionalFields::default(),
-                    );
-                    vec![bed; x.value as usize]
-                }).flatten().try_for_each(|o| writeln!(fl, "{}", o))?;
+                ins.into_iter().try_for_each(|x| {
+                    let bed = match barcodes {
+                        None => format!("{}\t{}\t{}", x.chrom(), x.start(), x.end()),
+                        Some(barcodes_) => format!("{}\t{}\t{}\t{}", x.chrom(), x.start(), x.end(), barcodes_[accum + i]),
+                    };
+                    (0..(x.value as usize)).try_for_each(|_| writeln!(fl, "{}", bed))
+                })?;
             }
             Ok(())
         })?;

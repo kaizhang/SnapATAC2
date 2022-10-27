@@ -18,7 +18,7 @@ use anyhow::Result;
 use anndata_rs::{
     anndata::AnnData, anndata_trait::{DataIO, DataPartialIO}, iterator::CsrIterator,
 };
-use indicatif::{ProgressIterator, ProgressBar, style::ProgressStyle};
+use indicatif::{ProgressDrawTarget, ProgressIterator, ProgressBar, style::ProgressStyle};
 use flate2::{Compression, write::GzEncoder};
 use polars::prelude::{NamedFrom, DataFrame, Series};
 use rayon::iter::{ParallelIterator, IntoParallelIterator};
@@ -165,10 +165,8 @@ where
     let mut qc = Vec::new();
 
     if fragment_is_sorted_by_name {
-        let spinner = ProgressBar::new_spinner().with_style(
-            ProgressStyle::with_template(
-                "{spinner} Processed {pos} barcodes in {elapsed} ..."
-            ).unwrap()
+        let spinner = ProgressBar::with_draw_target(None, ProgressDrawTarget::stderr_with_hz(1)).with_style(
+            ProgressStyle::with_template("{spinner} Processed {human_pos} barcodes in {elapsed} ({per_sec}) ...").unwrap()
         );
         let mut scanned_barcodes = HashSet::new();
         anndata.get_obsm().inner().insert_from_row_iter(
@@ -203,10 +201,8 @@ where
             }
         )?;
     } else {
-        let spinner = ProgressBar::new_spinner().with_style(
-            ProgressStyle::with_template(
-                "{spinner} Processed {pos} reads in {elapsed} ..."
-            ).unwrap()
+        let spinner = ProgressBar::with_draw_target(None, ProgressDrawTarget::stderr_with_hz(1)).with_style(
+            ProgressStyle::with_template("{spinner} Processed {human_pos} reads in {elapsed} ({per_sec}) ...").unwrap()
         );
         let mut scanned_barcodes = HashMap::new();
         fragments.progress_with(spinner)

@@ -310,6 +310,7 @@ impl ChromValuesReader for AnnData {
 
 impl ChromValuesReader for AnnDataSet {
     fn raw_count_iter(&self, chunk_size: usize) -> Result<BaseCountIter> {
+        let n = self.n_obs();
         let inner = self.anndatas.inner();
         let ref_seq_same = inner.iter().map(|(_, adata)|
             get_reference_seq_info_(&mut adata.get_uns().inner()).unwrap()
@@ -331,12 +332,13 @@ impl ChromValuesReader for AnnDataSet {
                     ).collect()
                 })),
             genome_index,
-            length: div_ceil(self.n_obs(), chunk_size),
+            length: div_ceil(n, chunk_size),
         })
     }
 
     fn read_chrom_values(&self) -> Result<ChromValueIterator>
     {
+        let n = self.n_obs();
         let chunk_size = 500;
         Ok(ChromValueIter {
             genome_index: GIntervalIndex(
@@ -352,7 +354,7 @@ impl ChromValuesReader for AnnDataSet {
                     ).collect::<Vec<_>>()
                 })
             ),
-            length: div_ceil(self.n_obs(), chunk_size),
+            length: div_ceil(n, chunk_size),
         })
     }
 

@@ -24,13 +24,13 @@ pub fn export_bed<'py>(
     if data.is_instance(AnnData::type_object(py))? {
         let anndata: AnnData = data.extract()?;
         let x = anndata.0.inner().export_bed(
-            &barcodes, &group_by, selections, dir, prefix, suffix,
+            Some(&barcodes), &group_by, selections, dir, prefix, suffix,
         ).unwrap();
         Ok(x)
     } else if data.is_instance(AnnDataSet::type_object(py))? {
         let anndata: AnnDataSet = data.extract()?;
         let x = anndata.0.inner().export_bed(
-            &barcodes, &group_by, selections, dir, prefix, suffix,
+            Some(&barcodes), &group_by, selections, dir, prefix, suffix,
         ).unwrap();
         Ok(x)
     } else {

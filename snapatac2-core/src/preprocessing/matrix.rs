@@ -1,5 +1,7 @@
-use crate::utils::{ChromValues, FeatureCounter, ChromValuesReader};
-use crate::utils::gene::{Promoters, TranscriptCount, GeneCount, Transcript};
+use crate::utils::{
+    ChromValues, FeatureCounter, ChromValuesReader,
+    gene::{Promoters, TranscriptCount, GeneCount, Transcript},
+};
 
 use anndata_rs::{
     anndata::AnnData,
@@ -7,10 +9,8 @@ use anndata_rs::{
 };
 use polars::prelude::{NamedFrom, DataFrame, Series};
 use anyhow::Result;
-use rayon::iter::ParallelIterator;
-use rayon::iter::IntoParallelIterator;
-use indicatif::ProgressIterator;
-use indicatif::style::ProgressStyle;
+use rayon::iter::{ParallelIterator, IntoParallelIterator};
+use indicatif::{ProgressIterator, style::ProgressStyle};
 
 use bed_utils::bed::{
     GenomicRange,
