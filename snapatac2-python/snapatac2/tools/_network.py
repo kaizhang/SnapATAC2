@@ -24,6 +24,9 @@ class NodeData:
         self.type = type
         self.regr_fitness = None
 
+    def __repr__(self):
+        return str(self.__dict__)
+
 class LinkData:
     def __init__(
         self,
@@ -34,6 +37,9 @@ class LinkData:
         self.label = label
         self.regr_score = None
         self.cor_score = None
+    
+    def __repr__(self):
+        return str(self.__dict__)
 
 def init_network_from_annotation(
     regions: list[str],
@@ -444,7 +450,7 @@ def _get_data_iter(
     """
     from scipy.stats import zscore
 
-    def get_mat(nids, node_getter, gene2idx, gene_mat, peak2idx, peak_mat, is_sparse):
+    def get_mat(nids, node_getter, gene_mat, peak_mat):
         genes = []
         peaks = []
 
@@ -457,25 +463,30 @@ def _get_data_iter(
             else:
                 raise NameError("unknown type: {}".format(nd.type))
 
-        if len(genes) == gene_mat.shape[1]:
-            g_mat = gene_mat
+        if len(genes) == gene_mat.n_vars:
+            g_mat = gene_mat.X[:]
         else:
-            g_mat = gene_mat[:, [gene2idx[node_getter(x).id] for x in genes]]
+            ix = gene_mat.var_ix([node_getter(x).id for x in genes])
+            g_mat = gene_mat.X[:, ix]
 
-        if len(peaks) == peak_mat.shape[1]:
-            p_mat = peak_mat
+        if len(peaks) == peak_mat.n_vars:
+            p_mat = peak_mat.X[:]
         else:
-            p_mat = peak_mat[:, [peak2idx[node_getter(x).id] for x in peaks]]
+            ix = peak_mat.var_ix([node_getter(x).id for x in peaks])
+            p_mat = peak_mat.X[:, ix]
 
         if len(genes) == 0:
-            return (peaks, p_mat)
+            mats = [p_mat]
         elif len(peaks) == 0:
-            return (genes, g_mat)
+            mats = [g_mat]
         else:
-            if is_sparse:
-                return (genes + peaks, sp.hstack([g_mat, p_mat], format="csc"))
-            else:
-                return (genes + peaks, np.hstack([g_mat, p_mat]))
+            mats = [g_mat, p_mat]
+        
+        if all([sp.issparse(x) for x in mats]):
+            mat = sp.hstack(mats, format="csc")
+        else:
+            mat = np.hstack(mats)
+        return (genes + peaks, mat)
 
     all_genes = set(gene_mat.var_names)
     select = all_genes if select is None else select
@@ -492,28 +503,16 @@ def _get_data_iter(
                 id_XY.append((parents, nid))
     unique_X = list({y for x, _ in id_XY for y in x})
 
-    gene_mat_name2idx = {v: i for i, v in enumerate(gene_mat.var_names)}
-    peak_mat_name2idx = {v: i for i, v in enumerate(peak_mat.var_names)}
+    id_XY, mat_Y = get_mat(id_XY, lambda x: network[x[1]], gene_mat, peak_mat)
 
-    gene_mat = gene_mat.X[:]
-    peak_mat = peak_mat.X[:]
-    is_sparse = sp.issparse(gene_mat) and sp.issparse(peak_mat)
-    if is_sparse:
-        gene_mat = sp.csc_matrix(gene_mat)
-        peak_mat = sp.csc_matrix(peak_mat)
-
-    id_XY, mat_Y = get_mat(id_XY, lambda x: network[x[1]], gene_mat_name2idx, gene_mat,
-        peak_mat_name2idx, peak_mat, is_sparse)
-
-    unique_X, mat_X = get_mat(unique_X, lambda x: network[x], gene_mat_name2idx, gene_mat,
-        peak_mat_name2idx, peak_mat, is_sparse)
+    unique_X, mat_X = get_mat(unique_X, lambda x: network[x], gene_mat, peak_mat)
 
     if scale_X:
-        if is_sparse:
+        if sp.issparse(mat_X):
             logging.warning("Try to scale a sparse matrix")
         mat_X = zscore(mat_X, axis=0)
     if scale_Y:
-        if is_sparse:
+        if sp.issparse(mat_Y):
             logging.warning("Try to scale a sparse matrix")
         mat_Y = zscore(mat_Y, axis=0)
         
