@@ -10,7 +10,7 @@ def export_bed(
     adata: AnnData | AnnDataSet,
     groupby: str | list[str],
     selections: list[str] | None = None,
-    ids: str | np.ndarray | None = None,
+    ids: str | list[str] | None = None,
     out_dir: Path = "./",
     prefix: str = "",
     suffix: str = ".bed.gz",
@@ -43,14 +43,14 @@ def export_bed(
         formatted as `{prefix}{groupname}{suffix}`.
     """
     if isinstance(groupby, str):
-        groupby = adata.obs[groupby].astype("str")
+        groupby = adata.obs[groupby]
     if selections is not None:
         selections = set(selections)
     
     if ids is None:
-        ids = adata.obs[:, 0].astype("str")
+        ids = adata.obs[:, 0]
     elif isinstance(ids, str):
-        ids = adata.obs[ids].astype("str")
+        ids = adata.obs[ids]
 
     return internal.export_bed(
         adata, list(ids), list(groupby), selections, str(out_dir), prefix, suffix,
@@ -95,7 +95,7 @@ def export_bigwig(
         formatted as `{prefix}{groupname}{suffix}`.
     """
     if isinstance(groupby, str):
-        groupby = adata.obs[groupby].astype("str")
+        groupby = adata.obs[groupby]
     if selections is not None:
         selections = set(selections)
     

@@ -7,4 +7,4 @@ from ._diff import marker_regions, diff_test
 from ._network import *
 from ._motif import motif_enrichment
 from ._integration import transfer_labels
-from ._misc import aggregate_X
+from ._misc import *

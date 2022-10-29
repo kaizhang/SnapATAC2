@@ -67,6 +67,7 @@ def leiden(
     if isinstance(adata, AnnData) or isinstance(adata, AnnDataSet):
         adjacency = adata.obsp["distances"]
     else:
+        inplace = False
         adjacency = adata
     
     gr = get_igraph_from_adjacency(adjacency)

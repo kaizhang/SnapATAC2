@@ -7,6 +7,10 @@ import numpy as np
 import functools
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
+from snapatac2.tools import leiden
+from snapatac2.preprocessing import knn
+
+__all__ = ['aggregate_X', 'aggregate_cells']
 
 def aggregate_X(
     adata: AnnData | AnnDataSet,
@@ -69,7 +73,7 @@ def aggregate_X(
             )
             return out_adata
     else:
-        groups = adata.obs[groupby] if isinstance(groupby, str) else np.array(groupby)
+        groups = adata.obs[groupby].to_numpy() if isinstance(groupby, str) else np.array(groupby)
         if len(groups) != adata.n_obs:
             raise NameError("the length of `groupby` should equal to the number of obervations")
 
@@ -102,6 +106,70 @@ def aggregate_X(
             )
             return out_adata
 
+def aggregate_cells(
+    adata: AnnData | AnnDataSet | np.ndarray,
+    use_rep: str = 'X_spectral',
+    target_num_cells: int | None = None,
+    min_cluster_size: int = 50,
+    random_state: int = 0,
+    key_added: str = 'pseudo_cell',
+    inplace: bool = True,
+) -> np.ndarray | None:
+    """Aggregate cells into pseudo-cells.
+
+    Aggregate cells into pseudo-cells by iterative clustering.
+    """
+    def clustering(data):
+        return leiden(knn(data), resolution=1, objective_function='modularity',
+            min_cluster_size=min_cluster_size, random_state=random_state)
+
+    if isinstance(adata, AnnData) or isinstance(adata, AnnDataSet):
+        X = adata.obsm[use_rep]
+    else:
+        inplace = False
+        X = adata
+
+    if target_num_cells is None:
+        target_num_cells = X.shape[0] // min_cluster_size
+
+    logging.info("Perform initial clustering ...")
+    membership = clustering(X).astype('object')
+    cluster_ids = [x for x in np.unique(membership) if x != "-1"]
+    ids_next = cluster_ids
+    n_clusters = len(cluster_ids)
+    depth = 0
+    while n_clusters < target_num_cells and len(ids_next) > 0:
+        depth += 1
+        logging.info("Iterative clustering: {}, number of clusters: {}".format(depth, n_clusters))
+        ids = set()
+        for cid in ids_next:
+            mask = membership == cid
+            sub_clusters = clustering(X[mask, :])
+            n_sub_clusters = np.count_nonzero(np.unique(sub_clusters) != "-1")
+            if n_sub_clusters > 1 and np.count_nonzero(sub_clusters != "-1") / sub_clusters.shape[0] > 0.9:
+                n_clusters += n_sub_clusters - 1
+                for i, i_ in enumerate(np.where(mask)[0]):
+                    lab = sub_clusters[i]
+                    if lab == "-1":
+                        membership[i_] = lab
+                    else:
+                        new_lab = membership[i_] + "." + lab
+                        membership[i_] = new_lab
+                        ids.add(new_lab)
+            if n_clusters >= target_num_cells:
+                break
+        ids_next = ids
+    logging.info("Asked for {} pseudo-cells; Got: {}.".format(target_num_cells, n_clusters))
+
+    if inplace:
+        import polars
+        adata.obs[key_added] = polars.Series(
+            [str(x) for x in membership],
+            dtype=polars.datatypes.Categorical,
+        )
+    else:
+        return membership
+ 
 def marker_enrichment(
     gene_matrix: AnnData,
     groupby: str | list[str],

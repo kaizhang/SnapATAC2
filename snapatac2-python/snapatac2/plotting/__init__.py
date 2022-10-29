@@ -106,7 +106,7 @@ def tsse(
 
 def scrublet(
     adata: AnnData,
-    width: int = 600,
+    width: int = 800,
     height: int = 400,
     show: bool = True,
     interactive: bool = True,
@@ -139,7 +139,7 @@ def scrublet(
     from plotly.subplots import make_subplots
     import plotly.graph_objects as go
 
-    doublet_scores = adata.obs["doublet_score"]
+    doublet_scores = adata.obs["doublet_score"].to_numpy()
     sim_scores = adata.uns["scrublet_sim_doublet_score"]
 
     thres = adata.uns["scrublet_threshold"] if "scrublet_threshold" in adata.uns else None
@@ -205,7 +205,8 @@ def spectral_eigenvalues(
     import pandas as pd
 
     data = adata.uns["spectral_eigenvalue"]
-    df = pd.DataFrame({"Component": map(str, range(1, n+1)), "Eigenvalue": data})
+
+    df = pd.DataFrame({"Component": map(str, range(1, data.shape[0] + 1)), "Eigenvalue": data})
     fig = px.scatter(df, x="Component", y="Eigenvalue", template="plotly_white")
     fig.add_vline(x=_detect(data))
 
@@ -322,14 +323,14 @@ def umap(
     embedding = adata.obsm[use_rep] 
 
     if isinstance(color, str):
-        groups = adata.obs[color]
+        groups = adata.obs[color].to_numpy()
     else:
         groups = color
         color = "color"
 
     idx = index_natsorted(groups)
     embedding = embedding[idx, :]
-    groups = groups[idx]
+    groups = [groups[i] for i in idx]
 
     if embedding.shape[1] >= 3:
         df = pd.DataFrame({

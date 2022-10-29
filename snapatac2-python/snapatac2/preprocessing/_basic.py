@@ -301,6 +301,7 @@ def filter_cells(
     if min_tsse: selected_cells &= data.obs["tsse"] >= min_tsse
     if max_tsse: selected_cells &= data.obs["tsse"] <= max_tsse
 
+    selected_cells = selected_cells.to_numpy()
     if inplace:
         data.subset(selected_cells)
     else:

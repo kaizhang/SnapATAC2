@@ -48,7 +48,7 @@ def call_peaks(
         Otherwise, it returns the result as a dataframe.
     """
     if isinstance(groupby, str):
-        groupby = adata.obs[groupby].astype("str").tolist()
+        groupby = list(adata.obs[groupby])
     out_dir = out_dir if out_dir is None else str(out_dir)
     res = _snapatac2.call_peaks(adata, groupby, selections, q_value, out_dir)
     if inplace:

@@ -116,7 +116,7 @@ def call_doublets(
         raise NameError("Please call `scrublet` first")
 
     doublet_scores_sim = adata.uns["scrublet_sim_doublet_score"]
-    doublet_scores_obs = adata.obs["doublet_score"]
+    doublet_scores_obs = adata.obs["doublet_score"].to_numpy()
 
     if isinstance(threshold, float):
         thres = threshold

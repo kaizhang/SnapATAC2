@@ -87,15 +87,6 @@ Clustering
    tl.dbscan
    tl.hdbscan
 
-Post-processing
-~~~~~~~~~~~~~~~
-
-.. autosummary::
-   :toctree: _autosummary
-
-   tl.call_peaks
-   tl.aggregate_X
-
 Differential analysis
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -125,6 +116,17 @@ Network analysis (beta)
    tl.add_tf_binding
    tl.link_tf_to_gene
    tl.prune_network
+
+Utilities
+~~~~~~~~~
+
+.. autosummary::
+   :toctree: _autosummary
+
+   tl.call_peaks
+   tl.aggregate_X
+   tl.aggregate_cells
+
 
 Plotting: `pl`
 --------------

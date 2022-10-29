@@ -6,11 +6,6 @@ import random
 from scipy import sparse
 import pytest
 
-def test_node_data():
-    assert sa.NodeData("1", "x") == sa.NodeData("1", "x")
-
-    assert len(set([sa.NodeData("1", "x"), sa.NodeData("1", "x")])) == 1
-
 def test_group_arr():
     labels = [1, 2, 3, 4]
     input = {}

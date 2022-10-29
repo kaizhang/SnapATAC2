@@ -11,11 +11,11 @@ import scipy.sparse as sp
 from snapatac2.genome import Genome
 from snapatac2._utils import fetch_seq
 from snapatac2._snapatac2 import (
-    AnnData, AnnDataSet, link_region_to_gene, PyDNAMotif,
-    spearman
+    AnnData, AnnDataSet, link_region_to_gene, PyDNAMotif, spearman
 )
 
-__all__ = ['NodeData', 'LinkData', 'init_network_from_annotation', 'add_cor_scores', 'add_regr_scores',
+__all__ = ['NodeData', 'LinkData',
+           'init_network_from_annotation', 'add_cor_scores', 'add_regr_scores',
            'add_tf_binding', 'link_tf_to_gene', 'prune_network']
 
 class NodeData:
@@ -40,7 +40,7 @@ class LinkData:
     
     def __repr__(self):
         return str(self.__dict__)
-
+   
 def init_network_from_annotation(
     regions: list[str],
     anno_file: Path | Genome,
@@ -165,7 +165,7 @@ def add_regr_scores(
     overwrite: bool = False,
 ):
     """
-    Perform regression analysis between genes and CREs.
+    Perform regression analysis for nodes and their parents in the network.
 
     Parameters
     ----------
@@ -372,6 +372,27 @@ def prune_network(
             logging.info("Removed {} isolated nodes.".format(len(remove)))
 
     return graph
+
+def pagerank(network):
+    tfs = {network[nid].id for nid in network.node_indices() if network.out_degree(nid) > 0}
+    g = _to_igraph(network, reverse_edge=True)
+    return [(i['name'], s) for i, s in zip(g.vs, g.pagerank(weights='regr_score')) if i['name'] in tfs]
+
+def _to_igraph(graph, edge_weight="regr_score", reverse_edge=False):
+    import igraph as ig
+    g = ig.Graph()
+    g.add_vertices([x.id for x in graph.nodes()])
+    
+    edges = []
+    regr_score = []
+    for fr, to, edge in graph.edge_index_map().values():
+        if reverse_edge:
+            edges.append((graph[to].id, graph[fr].id))
+        else:
+            edges.append((graph[fr].id, graph[to].id))
+        regr_score.append(edge.regr_score)
+    g.add_edges(edges, attributes={"regr_score": regr_score})
+    return g
 
 def _network_stats(network: rx.PyDiGraph):
     from collections import defaultdict

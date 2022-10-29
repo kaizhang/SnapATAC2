@@ -5,6 +5,7 @@ from scipy.sparse import csr_matrix
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet, approximate_nearest_neighbors
 
+# TODO: add random state
 def knn(
     adata: AnnData | AnnDataSet | np.ndarray,
     n_neighbors: int = 50,
@@ -44,7 +45,10 @@ def knn(
         if use_rep is None: use_rep = "X_spectral"
         data = adata.obsm[use_rep]
     else:
+        inplace = False
         data = adata
+    if data.size == 0:
+        raise ValueError("matrix is empty")
 
     if use_dims is not None:
         if isinstance(use_dims, int):
