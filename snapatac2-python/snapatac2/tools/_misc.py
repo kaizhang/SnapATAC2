@@ -74,29 +74,24 @@ def aggregate_X(
             return out_adata
     else:
         groups = adata.obs[groupby].to_numpy() if isinstance(groupby, str) else np.array(groupby)
-        if len(groups) != adata.n_obs:
+        if groups.size != adata.n_obs:
             raise NameError("the length of `groupby` should equal to the number of obervations")
 
         cur_row = 0
-        result = {}
+        result = {x: np.zeros(adata.n_vars) for x in natsorted(np.unique(groups))}
         for chunk in adata.X.chunked(2000):
             n = chunk.shape[0]
-            labels = groups[cur_row:cur_row+n]
-            for key, mat in _groupby(chunk, labels).items():
-                s = np.ravel(mat.sum(axis = 0))
-                if key in result:
-                    result[key] += s
-                else:
-                    result[key] = s
-            cur_row = cur_row + n
-        for k, v in result.items():
-            result[k] = norm(v)
+            for i in range(n):
+                key = groups[cur_row + i]
+                result[key] += chunk[i, :]
+            cur_row += n
+        for k in result.keys():
+            result[k] = norm(np.ravel(result[k]))
 
-        result = natsorted(result.items())
         if file is None:
-            return dict(result)
+            return result
         else:
-            keys, values = zip(*result)
+            keys, values = zip(*result.items())
             column_name = groupby if isinstance(groupby, str) else "_index"
             out_adata = AnnData(
                 filename = file,
@@ -118,6 +113,29 @@ def aggregate_cells(
     """Aggregate cells into pseudo-cells.
 
     Aggregate cells into pseudo-cells by iterative clustering.
+
+    Parameters
+    ----------
+    adata
+        AnnData or AnnDataSet object or matrix.
+    use_rep
+        `adata.obs` key for retrieving the input matrix.
+    target_num_cells
+        If None, `target_num_cells = num_cells / min_cluster_size`.
+    min_cluster_size
+        The minimum size of clusters.
+    random_state
+        Change the initialization of the optimization.
+    key_added
+        `adata.obs` key under which to add the cluster labels.
+    inplace
+        Whether to store the result in the anndata object.
+
+    Returns
+    -------
+    np.ndarray | None
+        If `inplace=False`, return the result as a numpy array.
+        Otherwise, store the result in `adata.obs[`key_added`]`.
     """
     def clustering(data):
         return leiden(knn(data), resolution=1, objective_function='modularity',

@@ -3,6 +3,7 @@ HEAD
 
 - Minor bug fixes and performance improvements.
 - Fix 10X bam file parsing in `pp.make_fragment_file`.
+- Add a low-memory mode in `pp.import_data` for parsing large unsorted fragment files.
 
 v2.1.2 (2022-10-01)
 ===================

@@ -9,11 +9,8 @@ use anndata_rs::anndata;
 use pyanndata::{AnnData, AnnDataSet};
 
 use snapatac2_core::{
+    preprocessing::{Fragment, FlagStat, create_gene_matrix, create_peak_matrix, create_tile_matrix},
     preprocessing,
-    preprocessing::{
-        matrix::{create_tile_matrix, create_peak_matrix, create_gene_matrix},
-        mark_duplicates::FlagStat,
-    },
     utils::{gene::read_transcripts, ChromValuesReader},
 };
 
@@ -73,20 +70,21 @@ pub(crate) fn import_fragments(
     min_num_fragment: u64,
     min_tsse: f64,
     fragment_is_sorted_by_name: bool,
+    low_memory: bool,
     white_list: Option<HashSet<String>>,
     chunk_size: usize,
     num_cpu: usize,
 ) -> PyResult<AnnData>
 {
     let mut anndata = anndata::AnnData::new(output_file, 0, 0).unwrap();
-    let promoters = preprocessing::qc::make_promoter_map(
-        preprocessing::qc::read_tss(open_file(gtf_file))
+    let promoters = preprocessing::make_promoter_map(
+        preprocessing::read_tss(open_file(gtf_file))
     );
 
-    let final_white_list = if fragment_is_sorted_by_name || min_num_fragment <= 0 {
+    let final_white_list = if fragment_is_sorted_by_name || low_memory || min_num_fragment <= 0 {
         white_list
     } else {
-        let mut barcode_count = preprocessing::qc::get_barcode_count(
+        let mut barcode_count = preprocessing::get_barcode_count(
             bed::io::Reader::new(
                 open_file(fragment_file),
                 Some("#".to_string()),
@@ -100,22 +98,23 @@ pub(crate) fn import_fragments(
         }
     };
 
-    ThreadPoolBuilder::new().num_threads(num_cpu).build().unwrap().install(||
-        preprocessing::import_fragments(
-            &mut anndata,
-            bed::io::Reader::new(
-                open_file(fragment_file),
-                Some("#".to_string())
-            ).into_records().map(Result::unwrap),
-            &promoters,
-            &chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect(),
-            final_white_list.as_ref(),
-            min_num_fragment,
-            min_tsse,
-            fragment_is_sorted_by_name,
-            chunk_size,
-        ).unwrap()
-    );
+    ThreadPoolBuilder::new().num_threads(num_cpu).build().unwrap().install(|| {
+        let fragments = bed::io::Reader::new(open_file(fragment_file), Some("#".to_string()))
+            .into_records::<Fragment>().map(Result::unwrap);
+        if !fragment_is_sorted_by_name && low_memory {
+            preprocessing::import_fragments(
+                &mut anndata, bed::sort_bed_by_key(fragments, |x| x.barcode.clone()),
+                &promoters, &chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect(),
+                final_white_list.as_ref(), min_num_fragment, min_tsse, true, chunk_size,
+            ).unwrap();
+        } else {
+            preprocessing::import_fragments(
+                &mut anndata, fragments,
+                &promoters, &chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect(),
+                final_white_list.as_ref(), min_num_fragment, min_tsse, fragment_is_sorted_by_name, chunk_size,
+            ).unwrap();
+        }
+    });
     Ok(AnnData::wrap(anndata))
 } 
 

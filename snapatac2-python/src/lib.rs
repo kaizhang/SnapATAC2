@@ -1,7 +1,7 @@
 mod export;
 mod utils;
 mod call_peaks;
-mod matrix;
+mod preprocessing;
 mod network;
 mod motif;
 
@@ -32,12 +32,12 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<motif::PyDNAMotifTest>().unwrap();
     m.add_function(wrap_pyfunction!(motif::read_motifs, m)?)?;
  
-    m.add_class::<matrix::PyFlagStat>().unwrap();
-    m.add_function(wrap_pyfunction!(matrix::make_fragment_file, m)?)?;
-    m.add_function(wrap_pyfunction!(matrix::import_fragments, m)?)?;
-    m.add_function(wrap_pyfunction!(matrix::mk_tile_matrix, m)?)?;
-    m.add_function(wrap_pyfunction!(matrix::mk_gene_matrix, m)?)?;
-    m.add_function(wrap_pyfunction!(matrix::mk_peak_matrix, m)?)?;
+    m.add_class::<preprocessing::PyFlagStat>().unwrap();
+    m.add_function(wrap_pyfunction!(preprocessing::make_fragment_file, m)?)?;
+    m.add_function(wrap_pyfunction!(preprocessing::import_fragments, m)?)?;
+    m.add_function(wrap_pyfunction!(preprocessing::mk_tile_matrix, m)?)?;
+    m.add_function(wrap_pyfunction!(preprocessing::mk_gene_matrix, m)?)?;
+    m.add_function(wrap_pyfunction!(preprocessing::mk_peak_matrix, m)?)?;
 
     m.add_function(wrap_pyfunction!(export::export_bed, m)?)?;
     m.add_function(wrap_pyfunction!(export::export_bigwig, m)?)?;

@@ -1,9 +1,102 @@
-use crate::utils::Fragment;
-
-use std::{io::{Result, Read, BufRead, BufReader}, ops::Div, collections::HashMap};
+use std::{io::{Read, BufRead, BufReader}, ops::Div, collections::HashMap};
 use bed_utils::bed::{
-    GenomicRange, BEDLike, tree::{GenomeRegions, BedTree, SparseBinnedCoverage}
+    GenomicRange, BEDLike, tree::{GenomeRegions, BedTree, SparseBinnedCoverage},
+    ParseError, Strand,
 };
+use anyhow::Result;
+use serde::{Serialize, Deserialize};
+use extsort::sorter::Sortable;
+use bincode;
+
+pub type CellBarcode = String;
+
+/// Fragments from single-cell ATAC-seq experiment. Each fragment is represented
+/// by a genomic coordinate, cell barcode and a integer value.
+#[derive(Serialize, Deserialize, Debug)] 
+pub struct Fragment {
+    pub chrom: String,
+    pub start: u64,
+    pub end: u64,
+    pub barcode: CellBarcode,
+    pub count: u32,
+    pub strand: Option<Strand>,
+}
+
+impl Sortable for Fragment {
+    fn encode<W: std::io::Write>(&self, writer: &mut W) {
+        bincode::serialize_into(writer, self).unwrap();
+    }
+
+    fn decode<R: std::io::Read>(reader: &mut R) -> Option<Self> {
+        bincode::deserialize_from(reader).ok()
+    }
+}
+
+impl Fragment {
+    pub fn to_insertions(&self) -> Vec<GenomicRange> {
+        match self.strand {
+            None => vec![
+                GenomicRange::new(self.chrom.clone(), self.start, self.start + 1),
+                GenomicRange::new(self.chrom.clone(), self.end - 1, self.end),
+            ],
+            Some(Strand::Forward) => vec![
+                GenomicRange::new(self.chrom.clone(), self.start, self.start + 1)
+            ],
+            Some(Strand::Reverse) => vec![
+                GenomicRange::new(self.chrom.clone(), self.end - 1, self.end)
+            ],
+        }
+    }
+}
+
+impl BEDLike for Fragment {
+    fn chrom(&self) -> &str { &self.chrom }
+    fn set_chrom(&mut self, chrom: &str) -> &mut Self {
+        self.chrom = chrom.to_string();
+        self
+    }
+    fn start(&self) -> u64 { self.start }
+    fn set_start(&mut self, start: u64) -> &mut Self {
+        self.start = start;
+        self
+    }
+    fn end(&self) -> u64 { self.end }
+    fn set_end(&mut self, end: u64) -> &mut Self {
+        self.end = end;
+        self
+    }
+    fn name(&self) -> Option<&str> { None }
+    fn score(&self) -> Option<bed_utils::bed::Score> { None }
+    fn strand(&self) -> Option<Strand> { None }
+}
+
+impl std::str::FromStr for Fragment {
+    type Err = ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut fields = s.split('\t');
+        let chrom = fields.next().ok_or(ParseError::MissingReferenceSequenceName)?.to_string();
+        let start = fields.next().ok_or(ParseError::MissingStartPosition)
+            .and_then(|s| lexical::parse(s).map_err(ParseError::InvalidStartPosition))?;
+        let end = fields.next().ok_or(ParseError::MissingEndPosition)
+            .and_then(|s| lexical::parse(s).map_err(ParseError::InvalidEndPosition))?;
+        let barcode = fields.next().ok_or(ParseError::MissingName)
+            .map(|s| s.into())?;
+        let count = fields.next().map_or(Ok(1), |s| if s == "." {
+            Ok(1)
+        } else {
+            lexical::parse(s).map_err(ParseError::InvalidStartPosition)
+        })?;
+        let strand = fields.next().map_or(Ok(None), |s| if s == "." {
+            Ok(None)
+        } else {
+            s.parse().map(Some).map_err(ParseError::InvalidStrand)
+        })?;
+        Ok(Fragment { chrom, start, end, barcode, count, strand })
+    }
+}
+
+
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct QualityControl {
@@ -86,7 +179,7 @@ fn moving_average(half_window: usize, arr: &[u64]) -> impl Iterator<Item = f64> 
 /// Read tss from a gtf file
 pub fn read_tss<R: Read>(file: R) -> impl Iterator<Item = (String, u64, bool)> {
     let reader = BufReader::new(file);
-    let parse_line = |line: Result<String>| {
+    reader.lines().filter_map(|line| {
         let chr_idx: usize = 0;
         let type_idx: usize = 2;
         let start_idx: usize = 3;
@@ -110,8 +203,7 @@ pub fn read_tss<R: Read>(file: R) -> impl Iterator<Item = (String, u64, bool)> {
         } else {
             None
         }
-    };
-    reader.lines().filter_map(parse_line)
+    })
 }
 
 

@@ -1,10 +1,13 @@
-pub mod qc;
-pub mod matrix;
-pub mod mark_duplicates;
+mod qc;
+mod matrix;
+mod mark_duplicates;
 
-use crate::utils::{Fragment, CellBarcode};
+pub use qc::{Fragment, CellBarcode, read_tss, make_promoter_map, get_barcode_count};
+pub use matrix::{create_tile_matrix, create_peak_matrix, create_gene_matrix};
+pub use mark_duplicates::FlagStat;
+
 use crate::preprocessing::{
-    mark_duplicates::{BarcodeLocation, BedN, FlagStat, filter_bam, group_bam_by_barcode},
+    mark_duplicates::{BarcodeLocation, filter_bam, group_bam_by_barcode},
     qc::{FragmentSummary, QualityControl, compute_qc_count},
 };
 
@@ -24,6 +27,7 @@ use polars::prelude::{NamedFrom, DataFrame, Series};
 use rayon::iter::{ParallelIterator, IntoParallelIterator};
 use itertools::Itertools;
 use std::{path::Path, fs::File, io::{Write, BufWriter}, collections::{HashSet, HashMap}};
+use either::Either;
 
 /// Convert a BAM file to a fragment file by performing the following steps:
 /// 
@@ -109,15 +113,14 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>>(
         reader.lazy_records().map(|x| x.unwrap()), is_paired, mapq, &mut flagstat,
     );
     group_bam_by_barcode(filtered_records, &barcode, umi.as_ref(), is_paired, tmp_dir.path().to_path_buf(), chunk_size)
-        .into_fragments(&header)
-        .for_each(|x| match x {
-            BedN::Bed5(mut x_) => {
+        .into_fragments(&header).for_each(|rec| match rec {
+            Either::Left(mut x) => {
                 // TODO: use checked_add_signed.
-                x_.set_start((x_.start() as i64 + shift_left) as u64);
-                x_.set_end((x_.end() as i64 + shift_right) as u64);
-                writeln!(output, "{}", x_).unwrap();
+                x.set_start((x.start() as i64 + shift_left) as u64);
+                x.set_end((x.end() as i64 + shift_right) as u64);
+                writeln!(output, "{}", x).unwrap();
             },
-            BedN::Bed6(x_) => writeln!(output, "{}", x_).unwrap(),
+            Either::Right(x) => writeln!(output, "{}", x).unwrap(),
         });
     flagstat
 }

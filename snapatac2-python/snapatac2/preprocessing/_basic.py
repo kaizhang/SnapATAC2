@@ -88,6 +88,7 @@ def import_data(
     min_num_fragments: int = 200,
     min_tsse: float = 1,
     sorted_by_barcode: bool = True,
+    low_memory: bool = False,
     whitelist: Path | list[str] | None = None,
     chunk_size: int = 2000,
     n_jobs: int = 4,
@@ -122,6 +123,13 @@ def import_data(
     sorted_by_barcode
         Whether the fragment file has been sorted by cell barcodes. Pre-sort the
         fragment file will speed up the processing and require far less memory.
+        For large files, the memory usage may be high when `sorted_by_barcode == False`.
+        In this case, `low_memory` can be set to `True` to reduce the memory usage.
+        See `low_memory` for more details.
+    low_memory
+        Whether to use the low memory mode when `sorted_by_barcode == False`.
+        It does this by first sort the records by barcodes and then process them
+        in batch.
     whitelist
         File name or a list of barcodes. If it is a file name, each line
         must contain a valid barcode. When provided, only barcodes in the whitelist
@@ -129,7 +137,8 @@ def import_data(
     chunk_size
         Increasing the chunk_size speeds up I/O but uses more memory.
     n_jobs
-        number of CPUs to use.
+        number of CPUs to use. The bottleneck of this step is usually the IO, so
+        using more CPUs may not be necessary.
 
     Returns
     -------
@@ -148,8 +157,8 @@ def import_data(
         else:
             whitelist = set(whitelist)
     return internal.import_fragments(
-        str(file), str(fragment_file), str(gff_file), chrom_size,
-        min_num_fragments, min_tsse, sorted_by_barcode, whitelist, chunk_size, n_jobs
+        str(file), str(fragment_file), str(gff_file), chrom_size, min_num_fragments,
+        min_tsse, sorted_by_barcode, low_memory, whitelist, chunk_size, n_jobs
     )
 
 def add_tile_matrix(

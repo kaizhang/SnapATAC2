@@ -2,97 +2,16 @@ pub mod gene;
 pub mod similarity;
 
 use bed_utils::bed::{
-    BEDLike, GenomicRange, BedGraph, NarrowPeak,
-    ParseError, merge_bed_with,
-    tree::{SparseCoverage,  SparseBinnedCoverage}, Strand,
+    BEDLike, GenomicRange, BedGraph, NarrowPeak, merge_bed_with,
+    tree::{SparseCoverage,  SparseBinnedCoverage},
 };
+use anndata_rs::{anndata::{AnnData, AnnDataSet}, element::ElemCollection};
 use anyhow::{Result, anyhow, bail};
-use anndata_rs::{
-    anndata::{AnnData, AnnDataSet},
-    element::ElemCollection,
-};
 use num::integer::div_ceil;
 use polars::frame::DataFrame;
 use std::{fmt::Debug, str::FromStr};
 use nalgebra_sparse::CsrMatrix;
 use itertools::Itertools;
-
-pub type CellBarcode = String;
-
-/// Fragments from single-cell ATAC-seq experiment. Each fragment is represented
-/// by a genomic coordinate, cell barcode and a integer value.
-pub struct Fragment {
-    pub chrom: String,
-    pub start: u64,
-    pub end: u64,
-    pub barcode: CellBarcode,
-    pub count: u32,
-    pub strand: Option<Strand>,
-}
-
-impl Fragment {
-    pub fn to_insertions(&self) -> Vec<GenomicRange> {
-        match self.strand {
-            None => vec![
-                GenomicRange::new(self.chrom.clone(), self.start, self.start + 1),
-                GenomicRange::new(self.chrom.clone(), self.end - 1, self.end),
-            ],
-            Some(Strand::Forward) => vec![
-                GenomicRange::new(self.chrom.clone(), self.start, self.start + 1)
-            ],
-            Some(Strand::Reverse) => vec![
-                GenomicRange::new(self.chrom.clone(), self.end - 1, self.end)
-            ],
-        }
-    }
-}
-
-impl BEDLike for Fragment {
-    fn chrom(&self) -> &str { &self.chrom }
-    fn set_chrom(&mut self, chrom: &str) -> &mut Self {
-        self.chrom = chrom.to_string();
-        self
-    }
-    fn start(&self) -> u64 { self.start }
-    fn set_start(&mut self, start: u64) -> &mut Self {
-        self.start = start;
-        self
-    }
-    fn end(&self) -> u64 { self.end }
-    fn set_end(&mut self, end: u64) -> &mut Self {
-        self.end = end;
-        self
-    }
-    fn name(&self) -> Option<&str> { None }
-    fn score(&self) -> Option<bed_utils::bed::Score> { None }
-    fn strand(&self) -> Option<Strand> { None }
-}
-
-impl std::str::FromStr for Fragment {
-    type Err = ParseError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut fields = s.split('\t');
-        let chrom = fields.next().ok_or(ParseError::MissingReferenceSequenceName)?.to_string();
-        let start = fields.next().ok_or(ParseError::MissingStartPosition)
-            .and_then(|s| lexical::parse(s).map_err(ParseError::InvalidStartPosition))?;
-        let end = fields.next().ok_or(ParseError::MissingEndPosition)
-            .and_then(|s| lexical::parse(s).map_err(ParseError::InvalidEndPosition))?;
-        let barcode = fields.next().ok_or(ParseError::MissingName)
-            .map(|s| s.into())?;
-        let count = fields.next().map_or(Ok(1), |s| if s == "." {
-            Ok(1)
-        } else {
-            lexical::parse(s).map_err(ParseError::InvalidStartPosition)
-        })?;
-        let strand = fields.next().map_or(Ok(None), |s| if s == "." {
-            Ok(None)
-        } else {
-            s.parse().map(Some).map_err(ParseError::InvalidStrand)
-        })?;
-        Ok(Fragment { chrom, start, end, barcode, count, strand })
-    }
-}
 
 
 /// Genomic interval associating with integer values
@@ -368,6 +287,18 @@ pub fn merge_peaks<I>(peaks: I, half_window_size: u64) -> impl Iterator<Item = V
 where
     I: Iterator<Item = NarrowPeak>,
 {
+    fn iterative_merge(mut peaks: Vec<NarrowPeak>) -> Vec<NarrowPeak> {
+        let mut result = Vec::new();
+        while !peaks.is_empty() {
+            let best_peak = peaks.iter()
+                .max_by(|a, b| a.p_value.partial_cmp(&b.p_value).unwrap()).unwrap()
+                .clone();
+            peaks = peaks.into_iter().filter(|x| x.n_overlap(&best_peak) == 0).collect();
+            result.push(best_peak);
+        }
+        result
+    }
+
     merge_bed_with(
         peaks.map(move |mut x| {
             let summit = x.start() + x.peak;
@@ -380,17 +311,18 @@ where
     )
 }
 
-fn iterative_merge(mut peaks: Vec<NarrowPeak>) -> Vec<NarrowPeak> {
-    let mut result = Vec::new();
-    while !peaks.is_empty() {
-        let best_peak = peaks.iter()
-            .max_by(|a, b| a.p_value.partial_cmp(&b.p_value).unwrap()).unwrap()
-            .clone();
-        peaks = peaks.into_iter().filter(|x| x.n_overlap(&best_peak) == 0).collect();
-        result.push(best_peak);
+/*
+pub fn aggregate_X<A, I>(adata: A, groupby: Option<Either<&str, &Vec<&str>>>)
+where
+    A: AnnDataReadOp<MatrixIter = I>,
+    I: Iterator<Item = Box<dyn DataPartialIO>>,
+{
+    match groupby {
+        None => adata.iter_x().map()
+
     }
-    result
 }
+*/
 
 fn get_reference_seq_info_(elems: &mut ElemCollection) -> Result<Vec<(String, u64)>> {
     match elems.get_mut("reference_sequences") {

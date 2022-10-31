@@ -6,9 +6,7 @@ use std::io::Read;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use statrs::distribution::{Binomial, DiscreteCDF};
 
-use snapatac2_core::{
-    motif,
-};
+use snapatac2_core::motif;
 
 #[pyclass]
 #[repr(transparent)]

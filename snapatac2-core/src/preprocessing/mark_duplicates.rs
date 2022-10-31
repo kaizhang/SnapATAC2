@@ -38,6 +38,7 @@ use rayon::prelude::ParallelSliceMut;
 use serde::{Serialize, Deserialize};
 use anyhow::{Result, bail, anyhow, Context};
 use regex::Regex;
+use either::Either;
 
 // Library type    orientation   Vizualization according to first strand
 // FF_firststrand  matching      3' <==2==----<==1== 5'
@@ -353,11 +354,6 @@ impl FlagStat {
     }
 }
 
-pub enum BedN {
-    Bed5(BED<5>),
-    Bed6(BED<6>),
-}
-
 /// Filter Bam records.
 pub fn filter_bam<'a, I>(
     reads: I,
@@ -442,7 +438,7 @@ where
     I: Iterator<Item = AlignmentInfo>,
     F: FnMut(&AlignmentInfo) -> String,
 {
-    pub fn into_fragments<'a>(&'a self, header: &'a Header) -> impl Iterator<Item = BedN> + '_ {
+    pub fn into_fragments<'a>(&'a self, header: &'a Header) -> impl Iterator<Item = Either<BED<5>, BED<6>>> + '_ {
         self.groups.into_iter().flat_map(|(_, rec)| get_unique_fragments(rec, header, self.is_paired))
     }
 }
@@ -451,7 +447,7 @@ fn get_unique_fragments<I>(
     reads: I,
     header: &Header,
     is_paired: bool,
-) -> Vec<BedN>
+) -> Vec<Either<BED<5>, BED<6>>>
 where
     I: Iterator<Item = AlignmentInfo>,
 {
@@ -467,7 +463,7 @@ where
             } else {
                 (rec2_5p, rec1_5p)
             };
-            Some(BedN::Bed5(BED::new(
+            Some(Either::Left(BED::new(
                 header.reference_sequences()[ref_id1].name().as_str(),
                 start as u64 - 1,
                 end as u64,
@@ -478,14 +474,14 @@ where
             )))
         }).collect();
         result.par_sort_unstable_by(|a, b| match (a, b) {
-            (BedN::Bed5(a_), BedN::Bed5(b_)) => BEDLike::compare(a_, b_),
+            (Either::Left(a_), Either::Left(b_)) => BEDLike::compare(a_, b_),
             _ => todo!(),
         });
         result
     } else {
         rm_dup_single(reads).map(move |(r, c)| {
             let ref_id: usize = r.reference_sequence_id.try_into().unwrap();
-            BedN::Bed6(BED::new(
+            Either::Right(BED::new(
                 header.reference_sequences()[ref_id].name().as_str(),
                 r.alignment_start as u64 - 1,
                 r.alignment_end as u64,
