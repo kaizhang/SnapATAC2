@@ -34,6 +34,7 @@ setup(
     zip_safe=False,
     python_requires=">=3.7",
     install_requires=[
+        "kaleido",
         "natsort",
         "numpy>=1.16.0",
         "pandas",

@@ -62,7 +62,7 @@ def test_aggregation(x, groups, var, tmp_path):
     for g, v in zip(groups, list(x)):
         expected[g].append(v)
     for k in expected.keys():
-        expected[k] = np.array(expected[k]).sum(axis = 0)
+        expected[k] = np.array(expected[k], dtype="float64").sum(axis = 0)
     expected = dict(natsorted(expected.items()))
 
     np.testing.assert_array_equal(
