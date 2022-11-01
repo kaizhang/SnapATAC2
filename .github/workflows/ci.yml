@@ -30,7 +30,7 @@ jobs:
         pytest ${GITHUB_WORKSPACE}/snapatac2-python/tests
 
     - name: Test workflows
-      run: pytest ${GITHUB_WORKSPACE}/examples/*.py -s
+      run: python3 ${GITHUB_WORKSPACE}/examples/*.py
 
     - name: Build doc
       run: |

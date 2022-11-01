@@ -3,7 +3,10 @@ mod matrix;
 mod mark_duplicates;
 
 pub use qc::{Fragment, CellBarcode, read_tss, make_promoter_map, get_barcode_count};
-pub use matrix::{create_tile_matrix, create_peak_matrix, create_gene_matrix};
+pub use matrix::{
+    ChromValues, ChromValuesReader, GenomeIndex, GBaseIndex, Promoters,
+    read_transcripts, create_tile_matrix, create_peak_matrix, create_gene_matrix,
+};
 pub use mark_duplicates::FlagStat;
 
 use crate::preprocessing::{
@@ -18,9 +21,7 @@ use bed_utils::bed::{
     BEDLike, tree::{GenomeRegions, BedTree, SparseBinnedCoverage},
 };
 use anyhow::Result;
-use anndata_rs::{
-    anndata::AnnData, anndata_trait::{DataIO, DataPartialIO}, iterator::CsrIterator,
-};
+use anndata_rs::{anndata::AnnData, anndata_trait::{DataIO, DataPartialIO}, iterator::CsrIterator};
 use indicatif::{ProgressDrawTarget, ProgressIterator, ProgressBar, style::ProgressStyle};
 use flate2::{Compression, write::GzEncoder};
 use polars::prelude::{NamedFrom, DataFrame, Series};

@@ -19,7 +19,7 @@ use bigtools::{bigwig::bigwigwrite::BigWigWrite, bed::bedparser::BedParser};
 use futures::executor::ThreadPool;
 use indicatif::{ProgressIterator, style::ProgressStyle};
 
-use crate::utils::{ChromValues, ChromValuesReader, GenomeIndex, GBaseIndex};
+use crate::preprocessing::{ChromValues, ChromValuesReader, GenomeIndex, GBaseIndex};
 
 pub trait Exporter: ChromValuesReader {
     fn export_bed<P: AsRef<Path>>(

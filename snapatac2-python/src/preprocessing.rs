@@ -9,9 +9,8 @@ use anndata_rs::anndata;
 use pyanndata::{AnnData, AnnDataSet};
 
 use snapatac2_core::{
-    preprocessing::{Fragment, FlagStat, create_gene_matrix, create_peak_matrix, create_tile_matrix},
+    preprocessing::{Fragment, FlagStat, ChromValuesReader, create_gene_matrix, create_peak_matrix, create_tile_matrix, read_transcripts},
     preprocessing,
-    utils::{gene::read_transcripts, ChromValuesReader},
 };
 
 #[pyclass]
