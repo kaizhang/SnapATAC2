@@ -17,26 +17,25 @@ jobs:
       run: |
         sudo apt-get install -y pandoc
         sudo pip install --upgrade pip
-        pip install --user macs2 Pygments==2.6.1 sphinx==4.4.0 pandoc nbsphinx \
+        pip install --user Pygments==2.6.1 sphinx==4.4.0 pandoc nbsphinx \
           sphinx-autodoc-typehints sphinx_rtd_theme myst-parser markupsafe==2.0.1 \
           sphinx-plotly-directive pytest hypothesis
 
-    - name: Build and test package
+    - name: Test Rust package
       run: |
         cd ${GITHUB_WORKSPACE}/snapatac2-core && \
           cargo test --all --no-fail-fast --features anndata-rs/static
-        cd ${GITHUB_WORKSPACE}/snapatac2-python && \
-          pip install --user .
-        pytest ${GITHUB_WORKSPACE}/snapatac2-python/tests
 
-    - name: Test workflows
-      run: python3 ${GITHUB_WORKSPACE}/examples/*.py
+    - name: Build Python package
+      run: cd ${GITHUB_WORKSPACE}/snapatac2-python && pip install --user .
+
+    - name: Test Python package
+      run: pytest ${GITHUB_WORKSPACE}/snapatac2-python/tests -v
 
     - name: Build doc
       run: |
         cd ${GITHUB_WORKSPACE}
         sphinx-build ${GITHUB_WORKSPACE}/docs _build/html
-
 
     - name: Upload doc
       uses: actions/upload-artifact@v2

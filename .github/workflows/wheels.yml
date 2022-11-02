@@ -34,7 +34,8 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          #toolchain: stable
+          toolchain: nightly # polars requires nightly
           override: true
 
       - if: runner.os != 'Linux'

@@ -82,16 +82,17 @@ def test_aggregation(x, groups, var, tmp_path):
     )
 
 
-def test_make_fragment(datadir):
+def test_make_fragment(datadir, tmp_path):
     import gzip
     bam = str(datadir.join('test.bam'))
     bed = str(datadir.join('test.bed.gz'))
-    snap.pp.make_fragment_file(bam, "1.bed.gz", True, barcode_regex="(^[ATCG]+):")
+    output = str(tmp_path) + "/out.bed.gz"
+    snap.pp.make_fragment_file(bam, output, True, barcode_regex="(^[ATCG]+):")
 
     with gzip.open(bed, 'rt') as fl:
         expected = sorted(fl.readlines())
 
-    with gzip.open("1.bed.gz", 'rt') as fl:
+    with gzip.open(output, 'rt') as fl:
         actual = sorted(fl.readlines())
     
     assert expected == actual
