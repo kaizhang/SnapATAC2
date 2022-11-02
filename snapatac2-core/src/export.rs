@@ -5,11 +5,8 @@ use flate2::{Compression, write::GzEncoder};
 use itertools::Itertools;
 use log::info;
 use std::{
-    fs::File,
-    io::{BufReader, BufWriter, BufRead, Write},
-    path::{Path, PathBuf},
-    collections::{BTreeMap, HashMap, HashSet},
-    process::Command,
+    fs::File, io::{BufReader, BufWriter, BufRead, Write},
+    path::{Path, PathBuf}, collections::{BTreeMap, HashMap, HashSet}, process::Command,
 };
 use tempfile::Builder;
 use rayon::iter::{ParallelIterator, IntoParallelIterator};
@@ -176,7 +173,7 @@ fn export_insertions_as_bed<I, P>(
     suffix:&str,
 ) -> Result<HashMap<String, PathBuf>>
 where
-    I: Iterator<Item = Vec<ChromValues>> + ExactSizeIterator,
+    I: Iterator<Item = Vec<ChromValues<u8>>> + ExactSizeIterator,
     P: AsRef<Path>,
 {
     let mut groups: HashSet<&str> = group_by.iter().map(|x| *x).unique().collect();

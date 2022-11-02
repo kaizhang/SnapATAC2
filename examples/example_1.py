@@ -11,6 +11,7 @@ data = snap.pp.import_data(
     genome=snap.genome.hg38,
     file="pbmc.h5ad",
     sorted_by_barcode=False,
+    low_memory=False,
 )
 print(data)
 logging.info("Import data - OK")

@@ -133,7 +133,7 @@ pub(crate) fn mk_gene_matrix<'py>(
     let result = if input.is_instance(AnnData::type_object(py))? {
         let data: AnnData = input.extract()?;
         if use_x {
-            let x = data.0.inner().read_chrom_values().unwrap();
+            let x = data.0.inner().read_chrom_values::<u32>().unwrap();
             create_gene_matrix(output_file, x, transcripts, id_type).unwrap()
         } else {
             let x = data.0.inner().raw_count_iter(chunk_size).unwrap();
@@ -142,7 +142,7 @@ pub(crate) fn mk_gene_matrix<'py>(
     } else if input.is_instance(AnnDataSet::type_object(py))? {
         let data: AnnDataSet = input.extract()?;
         if use_x {
-            let x = data.0.inner().read_chrom_values().unwrap();
+            let x = data.0.inner().read_chrom_values::<u32>().unwrap();
             create_gene_matrix(output_file, x, transcripts, id_type).unwrap()
         } else {
             let x = data.0.inner().raw_count_iter(chunk_size).unwrap();

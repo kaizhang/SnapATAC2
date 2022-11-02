@@ -24,8 +24,7 @@ use noodles::{
         Header,
         record::{
             Cigar, Data, ReadName, Flags, MappingQuality,
-            cigar::op::Kind, data::field::{Tag, Value},
-            mapping_quality,
+            cigar::op::Kind, data::field::{Tag, Value}, mapping_quality,
         },
     },
 };

@@ -17,9 +17,7 @@ use crate::preprocessing::{
 use noodles::{bam, sam::{Header, record::data::field::Tag}};
 use tempfile::Builder;
 use regex::Regex;
-use bed_utils::bed::{
-    BEDLike, tree::{GenomeRegions, BedTree, SparseBinnedCoverage},
-};
+use bed_utils::bed::{BEDLike, tree::{GenomeRegions, BedTree, SparseBinnedCoverage}};
 use anyhow::Result;
 use anndata_rs::{anndata::AnnData, anndata_trait::{DataIO, DataPartialIO}, iterator::CsrIterator};
 use indicatif::{ProgressDrawTarget, ProgressIterator, ProgressBar, style::ProgressStyle};

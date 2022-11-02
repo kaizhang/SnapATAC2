@@ -1,7 +1,5 @@
 use itertools::Itertools;
-use std::io::{Error, ErrorKind};
-use std::str::FromStr;
-use std::default::Default;
+use std::{io::{Error, ErrorKind}, str::FromStr, default::Default};
 
 #[derive(Debug, Clone)]
 pub struct BackgroundProb(pub [f64; 4]);

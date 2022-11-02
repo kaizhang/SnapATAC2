@@ -88,7 +88,7 @@ def import_data(
     min_num_fragments: int = 200,
     min_tsse: float = 1,
     sorted_by_barcode: bool = True,
-    low_memory: bool = False,
+    low_memory: bool = True,
     whitelist: Path | list[str] | None = None,
     chunk_size: int = 2000,
     n_jobs: int = 4,
@@ -121,15 +121,14 @@ def import_data(
     min_tsse
         TSS enrichment threshold used to filter cells
     sorted_by_barcode
-        Whether the fragment file has been sorted by cell barcodes. Pre-sort the
-        fragment file will speed up the processing and require far less memory.
-        For large files, the memory usage may be high when `sorted_by_barcode == False`.
-        In this case, `low_memory` can be set to `True` to reduce the memory usage.
-        See `low_memory` for more details.
+        Whether the fragment file has been sorted by cell barcodes.
+        If `sorted_by_barcode == True`, this function makes use of small fixed amout of 
+        memory. If `sorted_by_barcode == False` and `low_memory == False`,
+        all data will be kept in memory. See `low_memory` for more details.
     low_memory
         Whether to use the low memory mode when `sorted_by_barcode == False`.
         It does this by first sort the records by barcodes and then process them
-        in batch.
+        in batch. The parameter has no effect when `sorted_by_barcode == True`.
     whitelist
         File name or a list of barcodes. If it is a file name, each line
         must contain a valid barcode. When provided, only barcodes in the whitelist

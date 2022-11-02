@@ -1,8 +1,6 @@
 use itertools::Itertools;
 use rayon::iter::{IntoParallelIterator, ParallelIterator, IndexedParallelIterator};
-use nalgebra_sparse::{
-    csr::{CsrMatrix, CsrRowMut, CsrRow},
-};
+use nalgebra_sparse::csr::{CsrMatrix, CsrRowMut, CsrRow};
 use std::ops::Deref;
 use ndarray::{ArrayBase, Array2, Axis};
 use statrs::statistics::{Data, Statistics, OrderStatistics, RankTieBreaker};
