@@ -1,6 +1,5 @@
 use anndata_rs::{anndata::{AnnData, AnnDataSet}, iterator::CsrIterator, element::ElemCollection};
-use anndata_rs::anndata_trait::DataType;
-use anndata_rs::anndata_trait::DataPartialIO;
+use anndata_rs::data::{DataType, DataPartialIO};
 use polars::prelude::{NamedFrom, DataFrame, Series};
 use anyhow::{Result, bail, anyhow};
 use rayon::iter::{ParallelIterator, IntoParallelIterator};

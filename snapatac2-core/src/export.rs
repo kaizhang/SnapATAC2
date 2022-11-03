@@ -241,12 +241,16 @@ fn export_insertions_as_bigwig<P, I>(
     suffix:&str,
 ) -> Result<HashMap<String, PathBuf>>
 where
-    I: Iterator<Item = Box<CsrMatrix<u8>>>,
+    I: Iterator<Item = Box<CsrMatrix<u8>>> + ExactSizeIterator,
     P: AsRef<Path>,
 {
     // Create directory
     std::fs::create_dir_all(&dir)
         .with_context(|| format!("cannot create directory: {}", dir.as_ref().display()))?;
+
+    let style = ProgressStyle::with_template(
+        "[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})"
+    ).unwrap();
 
     // Collect groups
     let mut groups: HashSet<&str> = group_by.iter().map(|x| *x).unique().collect();
@@ -255,8 +259,9 @@ where
     // Collect counts
     let mut counts: HashMap<&str, BTreeMap<usize, u32>> =
         groups.into_iter().map(|grp| (grp, BTreeMap::new())).collect();
+    info!("Compute coverage for {} groups...", counts.len());
     let mut cur_row_idx = 0;
-    iter.for_each(|csr| csr.row_iter().for_each(|row| {
+    iter.progress_with_style(style.clone()).for_each(|csr| csr.row_iter().for_each(|row| {
         if let Some(count) = counts.get_mut(group_by[cur_row_idx]) {
             row.col_indices().iter().zip(row.values()).for_each(|(i, v)| {
                 let e = count.entry(
@@ -267,13 +272,11 @@ where
         }
         cur_row_idx += 1;
     }));
-    ensure!(
-        cur_row_idx == group_by.len(),
-        "the length of group differs",
-    );
+    ensure!(cur_row_idx == group_by.len(), "the length of group differs");
 
     // Exporting
-    counts.into_iter().map(|(grp, count)| {
+    info!("Exporting bigwig files...");
+    counts.into_iter().progress_with_style(style).map(|(grp, count)| {
         let filename = dir.as_ref().join(
             prefix.to_string() + grp.replace("/", "+").as_str() + suffix
         );

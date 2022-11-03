@@ -1,4 +1,4 @@
-HEAD
+v2.1.3 (2022-11-02)
 ===================
 
 - Minor bug fixes and performance improvements.
