@@ -7,6 +7,7 @@ import numpy as np
 import functools
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
+from snapatac2._utils import is_anndata 
 from snapatac2.tools import leiden
 from snapatac2.preprocessing import knn
 
@@ -59,7 +60,7 @@ def aggregate_X(
     if groupby is None:
         row_sum = functools.reduce(
             lambda a, b: a + b,
-            (np.ravel(chunk.sum(axis=0)) for chunk in adata.X.chunked(1000)),
+            (np.ravel(chunk.sum(axis=0)) for chunk, _, _ in adata.chunked_X(1000)),
         )
         row_sum = norm(row_sum)
 
@@ -77,14 +78,10 @@ def aggregate_X(
         if groups.size != adata.n_obs:
             raise NameError("the length of `groupby` should equal to the number of obervations")
 
-        cur_row = 0
         result = {x: np.zeros(adata.n_vars) for x in natsorted(np.unique(groups))}
-        for chunk in adata.X.chunked(2000):
-            n = chunk.shape[0]
-            for i in range(n):
-                key = groups[cur_row + i]
-                result[key] += chunk[i, :]
-            cur_row += n
+        for chunk, start, stop in adata.chunked_X(2000):
+            for i in range(start, stop):
+                result[groups[i]] += chunk[i, :]
         for k in result.keys():
             result[k] = norm(np.ravel(result[k]))
 
@@ -141,7 +138,7 @@ def aggregate_cells(
         return leiden(knn(data), resolution=1, objective_function='modularity',
             min_cluster_size=min_cluster_size, random_state=random_state)
 
-    if isinstance(adata, AnnData) or isinstance(adata, AnnDataSet):
+    if is_anndata(adata):
         X = adata.obsm[use_rep]
     else:
         inplace = False

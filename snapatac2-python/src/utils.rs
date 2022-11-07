@@ -1,7 +1,9 @@
+use pyanndata::{AnnData, AnnDataSet, PyAnnData};
 use pyo3::{
     prelude::*,
     types::PyIterator,
     PyResult, Python,
+    PyTypeInfo,
 };
 use numpy::{Element, PyReadonlyArrayDyn, PyReadonlyArray, Ix1, Ix2, PyArray, IntoPyArray};
 use snapatac2_core::utils::similarity;
@@ -18,6 +20,7 @@ use rand_core::SeedableRng;
 use rand_isaac::Isaac64Rng;
 use hora::core::ann_index::ANNIndex;
 use nalgebra_sparse::CsrMatrix;
+use rayon::ThreadPoolBuilder;
 
 macro_rules! with_sparsity_pattern {
     ($dtype:expr, $indices:expr, $indptr:expr, $n:expr, $fun:ident) => {
@@ -222,13 +225,13 @@ pub(crate) fn jm_regress(
 }
 
 #[pyfunction]
-pub(crate) fn intersect_bed(regions: Vec<&str>, bed_file: &str) -> PyResult<Vec<bool>> {
+pub(crate) fn intersect_bed<'py>(py: Python<'py>, regions: &'py PyAny, bed_file: &str) -> PyResult<Vec<bool>> {
     let bed_tree: bed::tree::BedTree<()> = bed::io::Reader::new(open_file(bed_file), None)
         .into_records().map(|x: Result<BED<3>, _>| (x.unwrap(), ())).collect();
-    Ok(regions.into_iter()
-        .map(|x| bed_tree.is_overlapped(&GenomicRange::from_str(x).unwrap()))
-        .collect()
-    )
+    let res = PyIterator::from_object(py, regions)?
+        .map(|x| bed_tree.is_overlapped(&GenomicRange::from_str(x.unwrap().extract().unwrap()).unwrap()))
+        .collect();
+    Ok(res)
 }
 
 #[pyfunction]
@@ -305,4 +308,26 @@ pub(crate) fn open_file(file: &str) -> Box<dyn std::io::Read> {
 /// Determine if a file is gzipped.
 pub(crate) fn is_gzipped(file: &str) -> bool {
     MultiGzDecoder::new(File::open(file).unwrap()).header().is_some()
+}
+
+pub fn with_cpu<OP, R>(num_cpu: usize, op: OP) -> R
+where OP: FnOnce() -> R + Send, R: Send
+{
+    ThreadPoolBuilder::new().num_threads(num_cpu).build().unwrap().install(op)
+}
+
+pub enum AnnDataObj<'a> {
+    AnnData(AnnData),
+    PyAnnData(PyAnnData<'a>),
+    AnnDataSet(AnnDataSet),
+}
+
+pub fn extract_anndata<'py>(py: Python<'py>, anndata: &'py PyAny) -> PyResult<AnnDataObj<'py>> {
+    if anndata.is_instance(AnnData::type_object(py))? {
+        Ok(AnnDataObj::AnnData(anndata.extract::<AnnData>()?))
+    } else if anndata.is_instance(AnnDataSet::type_object(py))? {
+        Ok(AnnDataObj::AnnDataSet(anndata.extract::<AnnDataSet>()?))
+    } else {
+        anndata.extract::<PyAnnData>().map(|x| AnnDataObj::PyAnnData(x))
+    }
 }

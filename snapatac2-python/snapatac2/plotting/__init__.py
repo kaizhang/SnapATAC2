@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from ._network import network_scores, network_edge_stat
-
 import numpy as np
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
 from snapatac2.tools._misc import aggregate_X
 from ._base import render_plot, heatmap
+from ._network import network_scores, network_edge_stat
 
 __all__ = [
     'tsse', 'scrublet', 'umap', 'network_scores', 'spectral_eigenvalues',

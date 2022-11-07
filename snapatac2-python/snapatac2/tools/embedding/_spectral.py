@@ -4,13 +4,14 @@ import scipy as sp
 import numpy as np
 import gc
 import logging
+import math
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet, jm_regress, jaccard_similarity, cosine_similarity
 
 def idf(data, features=None):
     n, m = data.shape
     count = np.zeros(m)
-    for batch in data.X.chunked(2000):
+    for batch, _, _ in data.chunked_X(2000):
         batch.data = np.ones(batch.indices.shape, dtype=np.float64)
         count += np.ravel(batch.sum(axis = 0))
     if features is not None:
@@ -19,7 +20,7 @@ def idf(data, features=None):
 
 # FIXME: random state
 def spectral(
-    data: AnnData | AnnDataSet,
+    adata: AnnData | AnnDataSet,
     n_comps: int = 50,
     features: str | np.ndarray | None = "selected",
     random_state: int = 0,
@@ -36,9 +37,19 @@ def spectral(
     using the spectrum of the normalized graph Laplacian defined by pairwise similarity
     between cells.
 
+    Note
+    ----
+    The space complexity of this function is $O(N^2)$, where $N$ is the minimum between
+    the total of cells and the `sample_size`.
+    The memory usage in bytes is given by $N^2 * 8 * 2$. For example,
+    when $N = 10,000$ it will use roughly 745 MB memory.
+    When `sample_size` is set, the Nystrom algorithm will be used to approximate
+    the embedding. For large datasets, try to set the `sample_size` appropriately to
+    reduce the memory usage.
+
     Parameters
     ----------
-    data
+    adata
         AnnData or AnnDataSet object.
     n_comps
         Number of dimensions to keep.
@@ -69,12 +80,9 @@ def spectral(
     """
     np.random.seed(random_state)
 
-    if not (isinstance(data, AnnData) or isinstance(data, AnnDataSet)):
-        raise ValueError("input should be AnnData or AnnDataSet")
-
     if isinstance(features, str):
-        if features in data.var:
-            features = data.var[features]
+        if features in adata.var:
+            features = adata.var[features]
         else:
             raise NameError("Please call `select_features` first or explicitly set `features = None`")
 
@@ -83,13 +91,13 @@ def spectral(
     elif isinstance(feature_weights, np.ndarray):
         weights = feature_weights if features is None else feature_weights[features]
     elif feature_weights == "idf":
-        weights = idf(data, features)
+        weights = idf(adata, features)
     else:
         raise NameError("Invalid feature_weights")
 
-    n_comps = min(data.n_vars - 1, data.n_obs - 1, n_comps)
+    n_comps = min(adata.n_vars - 1, adata.n_obs - 1, n_comps)
 
-    n_sample, _ = data.shape
+    n_sample, _ = adata.shape
     if sample_size is None:
         sample_size = n_sample
     elif isinstance(sample_size, int):
@@ -105,14 +113,17 @@ def spectral(
 
     if sample_size >= n_sample:
         if features is not None:
-            X = data.X[:, features]
+            X = adata.X[:, features]
         else:
-            X = data.X[...]
+            X = adata.X[...]
         model = Spectral(n_comps, distance_metric, weights)
         model.fit(X)
         result = model.transform()
     else:
-        S = data.X.chunk(sample_size, replace=False)
+        if adata.isbacked:
+            S = adata.X.chunk(sample_size, replace=False)
+        else:
+            S = sp.sparse.csr_matrix(adata.chunk_X(sample_size, replace=False))
         if features is not None: S = S[:, features]
 
         model = Spectral(n_comps, distance_metric, weights)
@@ -120,8 +131,7 @@ def spectral(
 
         from tqdm import tqdm
         logging.info("Perform Nystrom extension")
-        chunks_iter = data.X.chunked(chunk_size)
-        for batch in tqdm(chunks_iter, total = chunks_iter.n_chunks()):
+        for batch, _, _ in tqdm(adata.chunked_X(chunk_size), total=math.ceil(adata.n_obs/chunk_size)):
             if distance_metric == "jaccard":
                 batch.data = np.ones(batch.indices.shape, dtype=np.float64)
             if features is not None: batch = batch[:, features]
@@ -129,8 +139,8 @@ def spectral(
         result = model.transform()
 
     if inplace:
-        data.uns['spectral_eigenvalue'] = result[0]
-        data.obsm['X_spectral'] = result[1]
+        adata.uns['spectral_eigenvalue'] = result[0]
+        adata.obsm['X_spectral'] = result[1]
     else:
         return result
 

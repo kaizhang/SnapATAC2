@@ -30,19 +30,6 @@ where
     )
 }
 
-/*
-pub fn aggregate_X<A, I>(adata: A, groupby: Option<Either<&str, &Vec<&str>>>)
-where
-    A: AnnDataReadOp<MatrixIter = I>,
-    I: Iterator<Item = Box<dyn DataPartialIO>>,
-{
-    match groupby {
-        None => adata.iter_x().map()
-
-    }
-}
-*/
-
 #[cfg(test)]
 mod tests {
     use super::*;

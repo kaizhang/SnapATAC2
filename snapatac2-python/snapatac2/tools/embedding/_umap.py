@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from snapatac2._utils import is_anndata 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
 
 def umap(
@@ -40,20 +41,12 @@ def umap(
     """
     from umap import UMAP
 
-    if isinstance(adata, AnnData) or isinstance(adata, AnnDataSet):
-        data = adata.obsm[use_rep]
-    else:
-        data = adata
+    data = adata.obsm[use_rep] if is_anndata(adata) else adata
 
     if use_dims is not None:
-        if isinstance(use_dims, int):
-            data = data[:, :use_dims]
-        else:
-            data = data[:, use_dims]
+        data = data[:, :use_dims] if isinstance(use_dims, int) else data[:, use_dims]
 
-    umap = UMAP(
-        random_state=random_state, n_components=n_comps
-        ).fit_transform(data)
+    umap = UMAP(random_state=random_state, n_components=n_comps).fit_transform(data)
     if inplace:
         adata.obsm["X_" + key_added] = umap
     else:

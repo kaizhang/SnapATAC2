@@ -1,5 +1,11 @@
 import numpy as np
 
+from snapatac2._snapatac2 import AnnData, AnnDataSet
+
+def is_anndata(data) -> bool:
+    import anndata as ad
+    return isinstance(data, ad.AnnData) or isinstance(data, AnnData) or isinstance(data, AnnDataSet)
+
 def get_igraph_from_adjacency(adj):
     """Get igraph graph from adjacency matrix."""
     import igraph as ig

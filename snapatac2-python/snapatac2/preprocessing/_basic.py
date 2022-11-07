@@ -8,6 +8,7 @@ import math
 from snapatac2._snapatac2 import AnnData, AnnDataSet, PyFlagStat
 import snapatac2._snapatac2 as internal
 from snapatac2.genome import Genome
+from snapatac2._utils import is_anndata 
 
 def make_fragment_file(
     bam_file: Path,
@@ -81,7 +82,7 @@ def make_fragment_file(
 def import_data(
     fragment_file: Path,
     *,
-    file: Path,
+    file: Path | None = None,
     genome: Genome | None = None,
     gff_file: Path | None = None,
     chrom_size: dict[str, int] | None = None,
@@ -91,7 +92,6 @@ def import_data(
     low_memory: bool = True,
     whitelist: Path | list[str] | None = None,
     chunk_size: int = 2000,
-    n_jobs: int = 4,
 ) -> AnnData:
     """Import dataset and compute QC metrics.
 
@@ -106,7 +106,9 @@ def import_data(
     fragment_file
         File name of the fragment file.
     file
-        File name of the output h5ad file used to store the result.
+        File name of the output h5ad file used to store the result. If provided,
+        result will be saved to a backed AnnData, otherwise an in-memory AnnData
+        is used.
     genome
         A Genome object. If not set, `gff_file` and `chrom_size` must be provided.
     gff_file
@@ -141,9 +143,10 @@ def import_data(
 
     Returns
     -------
-    AnnData
+    AnnData | ad.AnnData
         An annotated data matrix of shape `n_obs` x `n_vars`. Rows correspond to
-        cells and columns to regions.
+        cells and columns to regions. If `file=None`, an in-memory AnnData will be
+        returned, otherwise a backed AnnData is returned.
     """
     if genome is not None:
         chrom_size = genome.chrom_sizes
@@ -155,9 +158,11 @@ def import_data(
                 whitelist = set([line.strip() for line in fl])
         else:
             whitelist = set(whitelist)
+    if file is not None:
+        file = str(file)
     return internal.import_fragments(
-        str(file), str(fragment_file), str(gff_file), chrom_size, min_num_fragments,
-        min_tsse, sorted_by_barcode, low_memory, whitelist, chunk_size, n_jobs
+        file, str(fragment_file), str(gff_file), chrom_size, min_num_fragments,
+        min_tsse, sorted_by_barcode, low_memory, whitelist, chunk_size,
     )
 
 def add_tile_matrix(
@@ -189,9 +194,10 @@ def add_tile_matrix(
 
 def make_peak_matrix(
     adata: AnnData | AnnDataSet,
-    file: Path,
+    file: Path | None = None,
     use_rep: str | list[str] = "peaks",
     peak_file: Path | None = None,
+    chunk_size: int = 500,
 ) -> AnnData:
     """Generate cell by peak count matrix.
 
@@ -206,7 +212,9 @@ def make_peak_matrix(
         The (annotated) data matrix of shape `n_obs` x `n_vars`.
         Rows correspond to cells and columns to regions.
     file
-        File name of the h5ad file used to store the result.
+        File name of the output h5ad file used to store the result. If provided,
+        result will be saved to a backed AnnData, otherwise an in-memory AnnData
+        is used.
     use_rep
         This is used to read peak information from `.uns[use_rep]`.
         The peaks can also be provided by a list of strings:
@@ -214,21 +222,44 @@ def make_peak_matrix(
     peak_file
         Bed file containing the peaks. If provided, peak information will be read
         from this file.
+    chunk_size
+        Chunk size
 
     Returns
     -------
-    AnnData
-        Peak matrix.
+    AnnData | ad.AnnData
+        An annotated data matrix of shape `n_obs` x `n_vars`. Rows correspond to
+        cells and columns to peaks. If `file=None`, an in-memory AnnData will be
+        returned, otherwise a backed AnnData is returned.
     """
-    peak_file = peak_file if peak_file is None else str(peak_file)
-    anndata = internal.mk_peak_matrix(adata, use_rep, peak_file, str(file))
-    anndata.obs = adata.obs[...]
+    import gzip
+
+    if peak_file is not None and use_rep is not None:
+        raise RuntimeError("'peak_file' and 'use_rep' cannot be both set") 
+    file = str(file) if file is not None else None
+
+    if isinstance(use_rep, str):
+        df = adata.uns[use_rep]
+        peaks = df[df.columns[0]]
+    else:
+        peaks = use_rep
+
+    if peak_file is not None:
+        if Path(peak_file).suffix == ".gz":
+            with gzip.open(peak_file, 'rt') as f:
+                peaks = [line.strip() for line in f]
+        else:
+            with open(peak_file, 'r') as f:
+                peaks = [line.strip() for line in f]
+
+    anndata = internal.mk_peak_matrix(adata, peaks, file, chunk_size)
+    anndata.obs = adata.obs[:]
     return anndata
 
 def make_gene_matrix(
     adata: AnnData | AnnDataSet,
     gff_file: Genome | Path,
-    file: Path,
+    file: Path | None = None,
     chunk_size: int = 500,
     use_x: bool = False,
     id_type: Literal['gene', 'transcript'] = "gene",
@@ -248,6 +279,8 @@ def make_gene_matrix(
         Either a Genome object or the path of a gene annotation file in GFF format.
     file
         File name of the h5ad file used to store the result.
+    chunk_size
+        Chunk size
     use_x
         If True, use the matrix stored in `.X` to compute the gene activity.
         Otherwise the `.obsm['insertion']` is used.
@@ -262,8 +295,10 @@ def make_gene_matrix(
     if isinstance(gff_file, Genome):
         gff_file = gff_file.fetch_annotations()
 
-    anndata = internal.mk_gene_matrix(adata, str(gff_file), str(file), chunk_size, use_x, id_type)
-    anndata.obs = adata.obs[...]
+    if file is not None:
+        file = str(file)
+    anndata = internal.mk_gene_matrix(adata, str(gff_file), file, chunk_size, use_x, id_type)
+    anndata.obs = adata.obs[:]
     return anndata
 
 def filter_cells(
@@ -309,9 +344,11 @@ def filter_cells(
     if min_tsse: selected_cells &= data.obs["tsse"] >= min_tsse
     if max_tsse: selected_cells &= data.obs["tsse"] <= max_tsse
 
-    selected_cells = selected_cells.to_numpy()
     if inplace:
-        data.subset(selected_cells)
+        if data.isbacked:
+            data.subset(selected_cells)
+        else:
+            data._inplace_subset_obs(selected_cells)
     else:
         return selected_cells
  
@@ -357,16 +394,16 @@ def select_features(
         Otherwise, store this index mask directly to `.var['selected']`.
     """
     count = np.zeros(adata.shape[1])
-    for batch in adata.X.chunked(2000):
+    for batch, _, _ in adata.chunked_X(2000):
         batch.data = np.ones(batch.indices.shape, dtype=np.float64)
         count += np.ravel(batch.sum(axis = 0))
 
     selected_features = count >= min_cells
 
     if whitelist is not None:
-        selected_features &= internal.intersect_bed(list(adata.var_names), str(whitelist))
+        selected_features &= internal.intersect_bed(adata.var_names, str(whitelist))
     if blacklist is not None:
-        selected_features &= np.logical_not(internal.intersect_bed(list(adata.var_names), str(blacklist)))
+        selected_features &= np.logical_not(internal.intersect_bed(adata.var_names, str(blacklist)))
 
     if most_variable is not None and len(count[selected_features]) > most_variable:
         mean = count[selected_features].mean()

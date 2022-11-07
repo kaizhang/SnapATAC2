@@ -1,13 +1,15 @@
-use anndata_rs::{anndata::{AnnData, AnnDataSet}, iterator::CsrIterator, element::ElemCollection};
-use anndata_rs::data::{DataType, DataPartialIO};
+use anndata_rs::{AnnData, AnnDataSet, AnnDataOp, AnnDataIterator, iterator::CsrIterator};
+use anndata_rs::data::{DataType, MatrixData};
+use pyanndata::PyAnnData;
 use polars::prelude::{NamedFrom, DataFrame, Series};
-use anyhow::{Result, bail, anyhow};
+use anyhow::{Context, Result, ensure};
 use rayon::iter::{ParallelIterator, IntoParallelIterator};
 use indicatif::{ProgressIterator, style::ProgressStyle};
 use num::integer::div_ceil;
 use nalgebra_sparse::CsrMatrix;
 use noodles::{core::Position, gff::{Reader, record::Strand}};
-use std::{fmt::Debug, str::FromStr, io::BufRead, collections::{BTreeMap, HashSet, HashMap}};
+use std::{fmt::Debug, io::BufRead, collections::{BTreeMap, HashSet, HashMap}};
+use std::str::FromStr;
 use std::marker::PhantomData;
 use indexmap::map::IndexMap;
 use bed_utils::bed::{GenomicRange, BEDLike, BedGraph, tree::{GenomeRegions, SparseCoverage, SparseBinnedCoverage}};
@@ -253,9 +255,6 @@ impl FeatureCounter for GeneCount<'_> {
 }
 
 
-/// Genomic interval associating with integer values
-pub type ChromValues<N> = Vec<BedGraph<N>>;
-
 /// GenomeIndex stores genomic loci in a compact way. It maps
 /// integers to genomic intervals.
 pub trait GenomeIndex {
@@ -268,17 +267,6 @@ pub trait GenomeIndex {
 pub struct GBaseIndex(Vec<(String, u64)>);
 
 impl GBaseIndex {
-    pub fn read_from_anndata(elems: &mut ElemCollection) -> Result<Self> {
-        let (chrs, chr_sizes): (Vec<_>, Vec<_>) = get_reference_seq_info_(elems)?.into_iter().unzip();
-        let chrom_index = chrs.into_iter().zip(
-            std::iter::once(0).chain(chr_sizes.into_iter().scan(0, |state, x| {
-                *state = *state + x;
-                Some(*state)
-            }))
-        ).collect();
-        Ok(Self(chrom_index))
-    }
-
     pub(crate) fn index_downsampled(&self, ori_idx: usize, sample_size: usize) -> usize {
         if sample_size <= 1 {
             ori_idx
@@ -313,6 +301,53 @@ impl GenomeIndex for GIntervalIndex {
     fn lookup_region(&self, i: usize) -> GenomicRange { self.0[i].clone() }
 }
 
+pub trait ReadGenomeInfo: AnnDataOp {
+    /// Return chromosome names and sizes.
+    fn read_chrom_sizes(&self) -> Result<Vec<(String, u64)>> {
+        let df = self.read_uns_item("reference_sequences")?
+            .context("key 'reference_sequences' is not present in the '.uns'")?
+            .downcast::<DataFrame>().unwrap();
+        let chrs = df.column("reference_seq_name").unwrap().utf8()?;
+        let chr_sizes = df.column("reference_seq_length").unwrap().u64()?;
+        let res = chrs.into_iter().flatten().map(|x| x.to_string())
+            .zip(chr_sizes.into_iter().flatten()).collect();
+        Ok(res)
+    }
+
+    fn read_geome_index(&self) -> Result<GBaseIndex> {
+        let (chrs, chr_sizes): (Vec<_>, Vec<_>) = self.read_chrom_sizes()?.into_iter().unzip();
+        let chrom_index = chrs.into_iter().zip(
+            std::iter::once(0).chain(chr_sizes.into_iter().scan(0, |state, x| {
+                *state = *state + x;
+                Some(*state)
+            }))
+        ).collect();
+        Ok(GBaseIndex(chrom_index))
+    }
+
+    fn read_var_index(&self) -> GIntervalIndex {
+        GIntervalIndex(self.var_names().into_iter().map(|x| GenomicRange::from_str(x.as_str()).unwrap()).collect())
+    }
+}
+
+impl ReadGenomeInfo for AnnData {}
+
+impl ReadGenomeInfo for PyAnnData<'_> {}
+
+impl ReadGenomeInfo for AnnDataSet {
+    fn read_chrom_sizes(&self) -> Result<Vec<(String, u64)>> {
+        ensure!(
+            self.anndatas.inner().values().map(|x| x.read_chrom_sizes().unwrap()).all_equal(),
+            "reference genome information mismatch",
+        );
+        self.anndatas.inner().values().next().unwrap().read_chrom_sizes()
+    }
+}
+
+
+/// Genomic interval associating with integer values
+pub type ChromValues<N> = Vec<BedGraph<N>>;
+
 pub struct ChromValueIter<I, G, N> {
     iter: I,
     genome_index: G,
@@ -322,33 +357,36 @@ pub struct ChromValueIter<I, G, N> {
 
 impl<I, G, N> Iterator for ChromValueIter<I, G, N>
 where
-    I: Iterator<Item = Box<dyn DataPartialIO>>,
+    I: Iterator<Item = (Box<dyn MatrixData>, usize, usize)>,
     G: GenomeIndex,
     N: NumCast + Copy,
 {
-    type Item = Vec<ChromValues<N>>;
+    type Item = (Vec<ChromValues<N>>, usize, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
         macro_rules! convert {
             ($x:expr, $ty:tt) => {
-                $x.into_any().downcast::<CsrMatrix<$ty>>().unwrap().row_iter().map(|row|
+                $x.downcast_ref::<CsrMatrix<$ty>>().unwrap().row_iter().map(|row|
                     row.col_indices().iter().zip(row.values()).map(|(i, v)|
                         BedGraph::from_bed(&self.genome_index.lookup_region(*i), N::from(*v).unwrap())).collect()
                 ).collect()
             }
         }
         
-        self.iter.next().map(|x| match x.get_dtype() {
-            DataType::CsrMatrix(ty) => match ty {
-                Integer(U1) => convert!(x, i8),
-                Integer(U2) => convert!(x, i16),
-                Integer(U4) => convert!(x, i32),
-                Integer(U8) => convert!(x, i64),
-                Unsigned(U1) => convert!(x, u8),
-                Unsigned(U2) => convert!(x, u16),
-                Unsigned(U4) => convert!(x, u32),
-                Unsigned(U8) => convert!(x, u64),
-                _ => todo!(),
+        self.iter.next().map(|(x, i, j)| match x.get_dtype() {
+            DataType::CsrMatrix(ty) => {
+                let vals = match ty {
+                    Integer(U1) => convert!(x, i8),
+                    Integer(U2) => convert!(x, i16),
+                    Integer(U4) => convert!(x, i32),
+                    Integer(U8) => convert!(x, i64),
+                    Unsigned(U1) => convert!(x, u8),
+                    Unsigned(U2) => convert!(x, u16),
+                    Unsigned(U4) => convert!(x, u32),
+                    Unsigned(U8) => convert!(x, u64),
+                    _ => todo!(),
+                };
+                (vals, i, j)
             },
             _ => todo!(),
         })
@@ -357,117 +395,41 @@ where
 
 impl<I, G, N> ExactSizeIterator for ChromValueIter<I, G, N>
 where
-    I: Iterator<Item = Box<dyn DataPartialIO>>,
+    I: Iterator<Item = (Box<dyn MatrixData>, usize, usize)>,
     G: GenomeIndex,
     N: NumCast + Copy,
 {
     fn len(&self) -> usize { self.length }
 }
 
-pub type BaseCountIterator<N> = ChromValueIter<Box<dyn Iterator<Item = Box<dyn DataPartialIO>>>, GBaseIndex, N>;
-pub type ChromValueIterator<N> = ChromValueIter<Box<dyn Iterator<Item = Box<dyn DataPartialIO>>>, GIntervalIndex, N>;
-
-/// Read genomic region and its associated account
-pub trait ChromValuesReader {
-    /// Return values in .obsm['insertion']
-    fn raw_count_iter(&self, chunk_size: usize) -> Result<BaseCountIterator<u8>>;
-
-    /// Return values in .X
-    fn read_chrom_values<N: NumCast + Copy>(&self) -> Result<ChromValueIterator<N>>;
-
-    /// Return chromosome names and sizes.
-    fn get_reference_seq_info(&self) -> Result<Vec<(String, u64)>>;
-}
-
-
-impl ChromValuesReader for AnnData {
-    fn raw_count_iter(&self, chunk_size: usize) -> Result<BaseCountIterator<u8>> {
+pub trait ReadGenomeCoverage: ReadGenomeInfo + AnnDataIterator {
+    /// Read genome-wide base-resolution coverage
+    fn raw_count_iter<'a>(
+        &'a self, chunk_size: usize
+    ) -> Result<ChromValueIter<Self::MatrixIter<'a>, GBaseIndex, u8>>
+    {
        Ok(ChromValueIter {
-            iter: Box::new(self.get_obsm().inner().get("insertion")
-                .expect("cannot find 'insertion' in .obsm")
-                .chunked(chunk_size)
-            ),
-            genome_index: GBaseIndex::read_from_anndata(&mut self.get_uns().inner())?,
+            iter: self.read_obsm_item_iter("insertion", chunk_size)?,
+            genome_index: self.read_geome_index()?,
             length: div_ceil(self.n_obs(), chunk_size),
             phantom: PhantomData,
         })
     }
 
-    fn read_chrom_values<N: NumCast + Copy>(&self) -> Result<ChromValueIterator<N>>
+    fn read_chrom_values<'a, N: NumCast + Copy>(
+        &'a self, chunk_size: usize
+    ) -> Result<ChromValueIter<Self::MatrixIter<'a>, GIntervalIndex, N>>
     {
-        let chunk_size = 500;
-        let genome_index = GIntervalIndex(
-            self.var_names()?.into_iter().map(|x| GenomicRange::from_str(x.as_str()).unwrap()).collect()
-        );
         Ok(ChromValueIter {
-            genome_index,
-            iter: Box::new(self.get_x().chunked(chunk_size)),
+            genome_index: self.read_var_index(),
+            iter: self.read_x_iter(chunk_size),
             length: div_ceil(self.n_obs(), chunk_size),
             phantom: PhantomData,
         })
     }
-
-    fn get_reference_seq_info(&self) -> Result<Vec<(String, u64)>> {
-        get_reference_seq_info_(&mut self.get_uns().inner())
-    }
 }
 
-impl ChromValuesReader for AnnDataSet {
-    fn raw_count_iter(&self, chunk_size: usize) -> Result<BaseCountIterator<u8>> {
-        let n = self.n_obs();
-        let inner = self.anndatas.inner();
-        let ref_seq_same = inner.iter().map(|(_, adata)|
-            get_reference_seq_info_(&mut adata.get_uns().inner()).unwrap()
-        ).all_equal();
-        if !ref_seq_same {
-            return Err(anyhow!("reference genome information mismatch"));
-        }
-        let genome_index = GBaseIndex::read_from_anndata(
-            &mut inner.iter().next().unwrap().1.get_uns().inner()
-        )?;
-
-        Ok(ChromValueIter {
-            iter: Box::new(inner.obsm.data.get("insertion").unwrap().chunked(chunk_size)),
-            genome_index,
-            length: div_ceil(n, chunk_size),
-            phantom: PhantomData,
-        })
-    }
-
-    fn read_chrom_values<N: NumCast + Copy>(&self) -> Result<ChromValueIterator<N>>
-    {
-        let n = self.n_obs();
-        let chunk_size = 500;
-        let genome_index = GIntervalIndex(
-            self.var_names()?.into_iter().map(|x| GenomicRange::from_str(x.as_str()).unwrap()).collect()
-        );
-        Ok(ChromValueIter {
-            genome_index,
-            iter: Box::new(self.anndatas.inner().x.chunked(chunk_size)),
-            length: div_ceil(n, chunk_size),
-            phantom: PhantomData,
-        })
-    }
-
-    fn get_reference_seq_info(&self) -> Result<Vec<(String, u64)>> {
-        get_reference_seq_info_(&mut self.anndatas.inner().iter().next().unwrap()
-            .1.get_uns().inner())
-    }
-}
-
-fn get_reference_seq_info_(elems: &mut ElemCollection) -> Result<Vec<(String, u64)>> {
-    match elems.get_mut("reference_sequences") {
-        None => bail!("Cannot find key 'reference_sequences' in: {}", elems),
-        Some(ref_seq) => {
-            let df: Box<DataFrame> = ref_seq.read()?.into_any().downcast().unwrap();
-            let chrs = df.column("reference_seq_name").unwrap().utf8()?;
-            let chr_sizes = df.column("reference_seq_length").unwrap().u64()?;
-            Ok(chrs.into_iter().flatten().map(|x| x.to_string()).zip(
-                chr_sizes.into_iter().flatten()
-            ).collect())
-        },
-    }
-}
+impl<T> ReadGenomeCoverage for T where T: ReadGenomeInfo + AnnDataIterator {}
 
 /// Create cell by feature matrix, and compute qc matrix.
 /// 
@@ -480,12 +442,13 @@ fn get_reference_seq_info_(elems: &mut ElemCollection) -> Result<Vec<(String, u6
 /// * `bin_size` -
 /// * `min_num_fragment` -
 /// * `min_tsse` -
-pub fn create_feat_matrix<C, I, N>(
-    anndata: &AnnData,
+pub fn create_feat_matrix<A, C, I, N>(
+    anndata: &A,
     insertions: I,
     feature_counter: C,
     ) -> Result<()>
 where
+    A: AnnDataOp + AnnDataIterator,
     C: FeatureCounter<Value = u32> + Clone + Sync,
     I: Iterator<Item = Vec<ChromValues<N>>> + ExactSizeIterator,
     N: ToPrimitive + Copy + Send,
@@ -504,11 +467,7 @@ where
         ),
         num_cols: features.len(),
     })?;
-
-    anndata.set_var(Some(
-        &DataFrame::new(vec![Series::new("Feature_ID", features)]).unwrap()
-    ))?;
-
+    anndata.set_var_names(features.into())?;
     Ok(())
 }
 
@@ -523,80 +482,65 @@ where
 /// * `bin_size` -
 /// * `min_num_fragment` -
 /// * `min_tsse` -
-pub fn create_tile_matrix(
-    anndata: &AnnData,
+pub fn create_tile_matrix<A: ReadGenomeCoverage>(
+    anndata: &A,
     bin_size: u64,
     chunk_size: usize,
     ) -> Result<()>
 where
 {
-    let df: Box<DataFrame> = {
-        anndata.get_uns().inner().get_mut("reference_sequences")
-            .expect("No reference sequence information is available in the anndata object")
-            .read()?.into_any().downcast().unwrap()
-    };
+    let df = anndata.read_uns_item("reference_sequences")?
+        .context("key 'reference_sequences' is not present in '.uns'")?
+        .downcast::<DataFrame>().unwrap();
     let regions = df.column("reference_seq_length")
         .unwrap().u64().unwrap().into_iter()
         .zip(df.column("reference_seq_name").unwrap().utf8().unwrap())
         .map(|(s, chr)| GenomicRange::new(chr.unwrap(), 0, s.unwrap())).collect();
-    let feature_counter: SparseBinnedCoverage<'_, _, u32> =
-        SparseBinnedCoverage::new(&regions, bin_size);
-    create_feat_matrix(
-        anndata,
-        anndata.raw_count_iter(chunk_size)?,
-        feature_counter,
-    )?;
+    let feature_counter: SparseBinnedCoverage<'_, _, u32> = SparseBinnedCoverage::new(&regions, bin_size);
+    create_feat_matrix(anndata, anndata.raw_count_iter(chunk_size)?.map(|x| x.0), feature_counter)?;
     Ok(())
 }
 
-pub fn create_peak_matrix<I, N>(
-    output: &str,
+pub fn create_peak_matrix<A, I, N>(
+    anndata: &A,
     fragments: I,
     peaks: &GenomeRegions<GenomicRange>,
-    ) -> Result<AnnData>
+    ) -> Result<()>
 where
+    A: AnnDataOp + AnnDataIterator,
     I: Iterator<Item = Vec<ChromValues<N>>> + ExactSizeIterator,
     N: ToPrimitive + Copy + Send,
 {
-    let mut anndata = AnnData::new(output, 0, 0)?;
     let feature_counter: SparseCoverage<'_, _, u32> = SparseCoverage::new(&peaks);
-    create_feat_matrix(&mut anndata, fragments, feature_counter)?;
-    Ok(anndata)
+    create_feat_matrix(anndata, fragments, feature_counter)
 }
 
-pub fn create_gene_matrix<I, N>(
-    output: &str,
+pub fn create_gene_matrix<A, I, N>(
+    anndata: &A,
     fragments: I,
     transcripts: Vec<Transcript>,
     id_type: &str, 
-    ) -> Result<AnnData>
+    ) -> Result<()>
 where
+    A: AnnDataOp + AnnDataIterator,
     I: Iterator<Item = Vec<ChromValues<N>>> + ExactSizeIterator,
     N: ToPrimitive + Copy + Send,
 {
-    let mut anndata = AnnData::new(output, 0, 0)?;
     let promoters = Promoters::new(transcripts, 2000, 0, true);
-
     match id_type {
         "transcript" => {
             let feature_counter: TranscriptCount<'_> = TranscriptCount::new(&promoters);
-            let gene_names: Vec<String> = feature_counter.gene_names().iter()
-                .map(|x| x.clone()).collect();
-            create_feat_matrix(&mut anndata, fragments, feature_counter)?;
-            let mut var = anndata.get_var().read()?;
-            var.insert_at_idx(1, Series::new("gene_name", gene_names))?;
-            anndata.set_var(Some(&var))?;
+            let gene_names: Vec<String> = feature_counter.gene_names().iter().map(|x| x.clone()).collect();
+            create_feat_matrix(anndata, fragments, feature_counter)?;
+            anndata.set_var(Some(DataFrame::new(vec![Series::new("gene_name", gene_names)])?))?;
         },
         "gene" => {
-            let feature_counter: GeneCount<'_> = GeneCount::new(
-                TranscriptCount::new(&promoters)
-            );
-            create_feat_matrix(&mut anndata, fragments, feature_counter)?;
+            let feature_counter: GeneCount<'_> = GeneCount::new(TranscriptCount::new(&promoters));
+            create_feat_matrix(anndata, fragments, feature_counter)?;
         },
         _ => panic!("id_type must be 'transcript' or 'gene'"),
     }
-
-    Ok(anndata)
+    Ok(())
 }
 
 

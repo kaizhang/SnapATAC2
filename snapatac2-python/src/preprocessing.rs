@@ -1,15 +1,18 @@
 use crate::utils::*;
 
 use std::{io::BufReader, str::FromStr, collections::BTreeMap, ops::Deref, collections::HashSet};
-use pyo3::{PyTypeInfo, prelude::*, PyResult, Python, exceptions::PyTypeError};
+use pyo3::{prelude::*, Python};
 use bed_utils::{bed, bed::GenomicRange};
-use rayon::ThreadPoolBuilder;
-use polars::prelude::DataFrame;
-use anndata_rs::anndata;
-use pyanndata::{AnnData, AnnDataSet};
+use bed_utils::bed::tree::GenomeRegions;
+use anndata_rs::{anndata, AnnDataOp, AnnDataIterator};
+use pyanndata::{AnnData, PyAnnData};
+use anyhow::Result;
 
 use snapatac2_core::{
-    preprocessing::{Fragment, FlagStat, ChromValuesReader, create_gene_matrix, create_peak_matrix, create_tile_matrix, read_transcripts},
+    preprocessing::{
+        Transcript, Fragment, FlagStat, ReadGenomeCoverage, create_gene_matrix,
+        create_peak_matrix, create_tile_matrix, read_transcripts,
+    },
     preprocessing,
 };
 
@@ -61,8 +64,9 @@ pub(crate) fn make_fragment_file(
 }
 
 #[pyfunction]
-pub(crate) fn import_fragments(
-    output_file: &str,
+pub(crate) fn import_fragments<'py>(
+    py: Python<'py>,
+    output_file: Option<&str>,
     fragment_file: &str,
     gtf_file: &str,
     chrom_size: BTreeMap<&str, u64>,
@@ -72,14 +76,9 @@ pub(crate) fn import_fragments(
     low_memory: bool,
     white_list: Option<HashSet<String>>,
     chunk_size: usize,
-    num_cpu: usize,
-) -> PyResult<AnnData>
+) -> Result<PyObject>
 {
-    let mut anndata = anndata::AnnData::new(output_file, 0, 0).unwrap();
-    let promoters = preprocessing::make_promoter_map(
-        preprocessing::read_tss(open_file(gtf_file))
-    );
-
+    let promoters = preprocessing::make_promoter_map(preprocessing::read_tss(open_file(gtf_file)));
     let final_white_list = if fragment_is_sorted_by_name || low_memory || min_num_fragment <= 0 {
         white_list
     } else {
@@ -96,123 +95,131 @@ pub(crate) fn import_fragments(
             Some(x) => Some(list.intersection(&x).map(Clone::clone).collect()),
         }
     };
+    let is_sorted = if !fragment_is_sorted_by_name && low_memory { true } else { false };
+    let chrom_sizes = chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect();
+    let fragments = bed::io::Reader::new(open_file(fragment_file), Some("#".to_string()))
+        .into_records::<Fragment>().map(Result::unwrap);
+    let sorted_fragments: Box<dyn Iterator<Item = Fragment>> = if !fragment_is_sorted_by_name && low_memory {
+        Box::new(bed::sort_bed_by_key(fragments, |x| x.barcode.clone()))
+    } else {
+        Box::new(fragments)
+    };
 
-    ThreadPoolBuilder::new().num_threads(num_cpu).build().unwrap().install(|| {
-        let fragments = bed::io::Reader::new(open_file(fragment_file), Some("#".to_string()))
-            .into_records::<Fragment>().map(Result::unwrap);
-        if !fragment_is_sorted_by_name && low_memory {
+    match output_file {
+        None => {
+            let mut anndata = PyAnnData::new(py)?;
             preprocessing::import_fragments(
-                &mut anndata, bed::sort_bed_by_key(fragments, |x| x.barcode.clone()),
-                &promoters, &chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect(),
-                final_white_list.as_ref(), min_num_fragment, min_tsse, true, chunk_size,
-            ).unwrap();
-        } else {
+                &mut anndata, sorted_fragments, &promoters, &chrom_sizes,
+                final_white_list.as_ref(), min_num_fragment, min_tsse, is_sorted, chunk_size,
+            )?;
+            Ok(anndata.to_object(py))
+        },
+        Some(fl) => {
+            let mut anndata = anndata::AnnData::new(fl, 0, 0)?;
             preprocessing::import_fragments(
-                &mut anndata, fragments,
-                &promoters, &chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect(),
-                final_white_list.as_ref(), min_num_fragment, min_tsse, fragment_is_sorted_by_name, chunk_size,
-            ).unwrap();
-        }
-    });
-    Ok(AnnData::wrap(anndata))
+                &mut anndata, sorted_fragments, &promoters, &chrom_sizes,
+                final_white_list.as_ref(), min_num_fragment, min_tsse, is_sorted, chunk_size,
+            )?;
+            Ok(AnnData::wrap(anndata).into_py(py))
+        },
+    }
 } 
+
+#[pyfunction]
+pub(crate) fn mk_tile_matrix<'py>(
+    py: Python<'py>, anndata: &'py PyAny, bin_size: u64, chunk_size: usize, num_cpu: usize
+) -> PyResult<()>
+{
+    match extract_anndata(py, anndata)? {
+        AnnDataObj::AnnData(x) => with_cpu(num_cpu, ||
+            create_tile_matrix(x.inner().deref(), bin_size, chunk_size).unwrap()),
+        AnnDataObj::PyAnnData(x) => create_tile_matrix(&x, bin_size, chunk_size).unwrap(),
+        _ => todo!(),
+    };
+    Ok(())
+}
+
+#[pyfunction]
+pub(crate) fn mk_peak_matrix<'py>(
+    py: Python<'py>,
+    input: &'py PyAny,
+    peaks_str: &'py PyAny,
+    output_file: Option<&str>,
+    chunk_size: usize,
+) -> PyResult<PyObject>
+{
+    fn action<A>(in_data: AnnDataObj, peaks: &GenomeRegions<GenomicRange>, out_data: &A, chunk_size: usize) -> Result<()>
+    where
+        A: AnnDataOp + AnnDataIterator,
+    {
+        match in_data {
+            AnnDataObj::AnnData(data) => create_peak_matrix(
+                out_data, data.inner().raw_count_iter(chunk_size)?.map(|x| x.0), &peaks),
+            AnnDataObj::AnnDataSet(data) => create_peak_matrix(
+                out_data, data.inner().raw_count_iter(chunk_size)?.map(|x| x.0), &peaks),
+            AnnDataObj::PyAnnData(data) => create_peak_matrix(
+                out_data, data.raw_count_iter(chunk_size)?.map(|x| x.0), &peaks),
+        }
+    }
+
+    let peaks: Result<GenomeRegions<GenomicRange>> = peaks_str.iter()?
+        .map(|x| Ok(GenomicRange::from_str(x?.extract()?).unwrap())).collect();
+    let in_anndata = extract_anndata(py, input)?;
+    if let Some(fl) = output_file {
+        let anndata = anndata::AnnData::new(fl, 0, 0)?;
+        action(in_anndata, &peaks?, &anndata, chunk_size)?;
+        Ok(AnnData::wrap(anndata).into_py(py))
+    } else {
+        let anndata = PyAnnData::new(py)?;
+        action(in_anndata, &peaks?, &anndata, chunk_size)?;
+        Ok(anndata.to_object(py))
+    }
+}
 
 #[pyfunction]
 pub(crate) fn mk_gene_matrix<'py>(
     py: Python<'py>,
     input: &PyAny,
     gff_file: &str,
-    output_file: &str,
+    output_file: Option<&str>,
     chunk_size: usize,
     use_x: bool,
     id_type: &str,
-) -> PyResult<AnnData>
+) -> PyResult<PyObject>
 {
-    let transcripts = read_transcripts(BufReader::new(open_file(gff_file)));
-
-    let result = if input.is_instance(AnnData::type_object(py))? {
-        let data: AnnData = input.extract()?;
-        if use_x {
-            let x = data.0.inner().read_chrom_values::<u32>().unwrap();
-            create_gene_matrix(output_file, x, transcripts, id_type).unwrap()
-        } else {
-            let x = data.0.inner().raw_count_iter(chunk_size).unwrap();
-            create_gene_matrix(output_file, x, transcripts, id_type).unwrap()
-        }
-    } else if input.is_instance(AnnDataSet::type_object(py))? {
-        let data: AnnDataSet = input.extract()?;
-        if use_x {
-            let x = data.0.inner().read_chrom_values::<u32>().unwrap();
-            create_gene_matrix(output_file, x, transcripts, id_type).unwrap()
-        } else {
-            let x = data.0.inner().raw_count_iter(chunk_size).unwrap();
-            create_gene_matrix(output_file, x, transcripts, id_type).unwrap()
-        }
-    } else {
-        return Err(PyTypeError::new_err("expecting an AnnData or AnnDataSet object"));
-    };
-    Ok(AnnData::wrap(result))
-}
-
-#[pyfunction]
-pub(crate) fn mk_tile_matrix(anndata: &AnnData, bin_size: u64, chunk_size: usize, num_cpu: usize) {
-    ThreadPoolBuilder::new().num_threads(num_cpu).build().unwrap().install(||
-        create_tile_matrix(anndata.0.inner().deref(), bin_size, chunk_size).unwrap()
-    );
-} 
-
-#[derive(FromPyObject)]
-pub(crate) enum PeakRep {
-    #[pyo3(transparent, annotation = "str")]
-    String(String),
-    #[pyo3(transparent, annotation = "list[str]")]
-    StringVec(Vec<String>), 
-}
-
-#[pyfunction]
-pub(crate) fn mk_peak_matrix<'py>(
-    py: Python<'py>,
-    input: &PyAny,
-    use_rep: PeakRep,
-    peak_file: Option<&str>,
-    output_file: &str,
-) -> PyResult<AnnData>
-{
-    let peaks = match peak_file {
-        None => match use_rep {
-            PeakRep::String(str_rep) => {
-                let df: Box<DataFrame> = if input.is_instance(AnnData::type_object(py))? {
-                    let data: AnnData = input.extract()?;
-                    let x = data.0.inner().get_uns().inner().get_mut(&str_rep).unwrap()
-                        .read().unwrap().into_any().downcast().unwrap();
-                    x
-                } else if input.is_instance(AnnDataSet::type_object(py))? {
-                    let data: AnnDataSet = input.extract()?;
-                    let x = data.0.inner().get_uns().inner().get_mut(&str_rep).unwrap()
-                        .read().unwrap().into_any().downcast().unwrap();
-                    x
-                } else {
-                    panic!("expecting an AnnData or AnnDataSet object");
-                };
-                df[0].utf8().into_iter().flatten()
-                    .map(|x| GenomicRange::from_str(x.unwrap()).unwrap()).collect()
+    fn action<A>(in_data: AnnDataObj, transcripts: Vec<Transcript>, out_data: &A,
+        chunk_size: usize, use_x: bool, id_type: &str) -> Result<()>
+    where
+        A: AnnDataOp + AnnDataIterator,
+    {
+        match in_data {
+            AnnDataObj::AnnData(data) => if use_x {
+                create_gene_matrix(out_data, data.inner().read_chrom_values::<u32>(chunk_size)?.map(|x| x.0), transcripts, id_type)
+            } else {
+                create_gene_matrix(out_data, data.inner().raw_count_iter(chunk_size)?.map(|x| x.0), transcripts, id_type)
             },
-            PeakRep::StringVec(list_rep) => list_rep.into_iter()
-                .map(|x| GenomicRange::from_str(&x).unwrap()).collect(),
-        },
-        Some(fl) => bed::io::Reader::new(open_file(fl), None).into_records()
-            .map(|x| x.unwrap()).collect(),
-    };
-    let result = if input.is_instance(AnnData::type_object(py))? {
-        let data: AnnData = input.extract()?;
-        let x = data.0.inner().raw_count_iter(500).unwrap();
-        create_peak_matrix(output_file, x, &peaks).unwrap()
-    } else if input.is_instance(AnnDataSet::type_object(py))? {
-        let data: AnnDataSet = input.extract()?;
-        let x = data.0.inner().raw_count_iter(500).unwrap();
-        create_peak_matrix(output_file, x, &peaks).unwrap()
+            AnnDataObj::AnnDataSet(data) => if use_x {
+                create_gene_matrix(out_data, data.inner().read_chrom_values::<u32>(chunk_size)?.map(|x| x.0), transcripts, id_type)
+            } else {
+                create_gene_matrix(out_data, data.inner().raw_count_iter(chunk_size)?.map(|x| x.0), transcripts, id_type)
+            },
+            AnnDataObj::PyAnnData(data) => if use_x {
+                create_gene_matrix(out_data, data.read_chrom_values::<u32>(chunk_size)?.map(|x| x.0), transcripts, id_type)
+            } else {
+                create_gene_matrix(out_data, data.raw_count_iter(chunk_size)?.map(|x| x.0), transcripts, id_type)
+            },
+        }
+    }
+ 
+    let transcripts = read_transcripts(BufReader::new(open_file(gff_file)));
+    let in_anndata = extract_anndata(py, input)?;
+    if let Some(fl) = output_file {
+        let anndata = anndata::AnnData::new(fl, 0, 0)?;
+        action(in_anndata, transcripts, &anndata, chunk_size, use_x, id_type)?;
+        Ok(AnnData::wrap(anndata).into_py(py))
     } else {
-        panic!("expecting an AnnData or AnnDataSet object");
-    };
-    Ok(AnnData::wrap(result))
+        let anndata = PyAnnData::new(py)?;
+        action(in_anndata, transcripts, &anndata, chunk_size, use_x, id_type)?;
+        Ok(anndata.to_object(py))
+    }
 }

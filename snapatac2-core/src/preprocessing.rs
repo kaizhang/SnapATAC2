@@ -4,8 +4,8 @@ mod mark_duplicates;
 
 pub use qc::{Fragment, CellBarcode, read_tss, make_promoter_map, get_barcode_count};
 pub use matrix::{
-    ChromValues, ChromValuesReader, GenomeIndex, GBaseIndex, Promoters,
-    read_transcripts, create_tile_matrix, create_peak_matrix, create_gene_matrix,
+    ReadGenomeInfo, ReadGenomeCoverage, ChromValues, GenomeIndex, GBaseIndex, Promoters,
+    Transcript, read_transcripts, create_tile_matrix, create_peak_matrix, create_gene_matrix,
 };
 pub use mark_duplicates::FlagStat;
 
@@ -19,7 +19,7 @@ use tempfile::Builder;
 use regex::Regex;
 use bed_utils::bed::{BEDLike, tree::{GenomeRegions, BedTree, SparseBinnedCoverage}};
 use anyhow::Result;
-use anndata_rs::{anndata::AnnData, data::{DataIO, DataPartialIO}, iterator::CsrIterator};
+use anndata_rs::{AnnDataOp, AnnDataIterator, iterator::{CsrIterator, RowIterator}};
 use indicatif::{ProgressDrawTarget, ProgressIterator, ProgressBar, style::ProgressStyle};
 use flate2::{Compression, write::GzEncoder};
 use polars::prelude::{NamedFrom, DataFrame, Series};
@@ -147,8 +147,8 @@ fn fix_header(header: String) -> String {
     }
 }
 
-pub fn import_fragments<B, I>(
-    anndata: &AnnData,
+pub fn import_fragments<A, B, I>(
+    anndata: &A,
     fragments: I,
     promoter: &BedTree<bool>,
     regions: &GenomeRegions<B>,
@@ -159,6 +159,7 @@ pub fn import_fragments<B, I>(
     chunk_size: usize,
     ) -> Result<()>
 where
+    A: AnnDataOp + AnnDataIterator,
     B: BEDLike + Clone + std::marker::Sync,
     I: Iterator<Item = Fragment>,
 {
@@ -171,7 +172,7 @@ where
             ProgressStyle::with_template("{spinner} Processed {human_pos} barcodes in {elapsed} ({per_sec}) ...").unwrap()
         );
         let mut scanned_barcodes = HashSet::new();
-        anndata.get_obsm().inner().insert_from_row_iter(
+        anndata.add_obsm_item_from_row_iter(
             "insertion",
             CsrIterator {
                 iterator: fragments
@@ -225,7 +226,7 @@ where
                 }
             }
         });
-        let csr_matrix: Box<dyn DataPartialIO> = Box::new(CsrIterator {
+        let csr_matrix = CsrIterator {
             iterator: scanned_barcodes.drain()
             .filter_map(|(barcode, (summary, binned_coverage))| {
                 let q = summary.get_qc();
@@ -236,35 +237,26 @@ where
                     qc.push(q);
                     let count: Vec<(usize, u8)> = binned_coverage.get_coverage()
                         .iter().map(|(k, v)| (*k, *v)).collect();
-                    Some(count)
+                    Some(vec![count])
                 }
             }),
             num_cols: num_features,
-        }.to_csr_matrix());
-        anndata.get_obsm().inner().add_data("insertion", &csr_matrix)?;
+        }.to_csr_matrix();
+        anndata.add_obsm_item("insertion", csr_matrix)?;
     }
 
-    let chrom_sizes: Box<dyn DataIO> = Box::new(DataFrame::new(vec![
-        Series::new(
-            "reference_seq_name",
-            regions.regions.iter().map(|x| x.chrom()).collect::<Series>(),
-        ),
-        Series::new(
-            "reference_seq_length",
-            regions.regions.iter().map(|x| x.end()).collect::<Series>(),
-        ),
-    ]).unwrap());
-    anndata.get_uns().inner().add_data("reference_sequences", &chrom_sizes)?;
-    anndata.set_obs(Some(&qc_to_df(saved_barcodes, qc)))?;
+    let chrom_sizes = DataFrame::new(vec![
+        Series::new("reference_seq_name", regions.regions.iter().map(|x| x.chrom()).collect::<Series>()),
+        Series::new("reference_seq_length", regions.regions.iter().map(|x| x.end()).collect::<Series>()),
+    ])?;
+    anndata.add_uns_item("reference_sequences", chrom_sizes)?;
+    anndata.set_obs_names(saved_barcodes.into())?;
+    anndata.set_obs(Some(qc_to_df(qc)))?;
     Ok(())
 }
 
-fn qc_to_df(
-    cells: Vec<CellBarcode>,
-    qc: Vec<QualityControl>,
-) -> DataFrame {
+fn qc_to_df(qc: Vec<QualityControl>) -> DataFrame {
     DataFrame::new(vec![
-        Series::new("Cell", cells),
         Series::new(
             "tsse", 
             qc.iter().map(|x| x.tss_enrichment).collect::<Series>(),

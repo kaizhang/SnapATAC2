@@ -34,6 +34,7 @@ setup(
     zip_safe=False,
     python_requires=">=3.7",
     install_requires=[
+        "anndata>=0.8.0",
         "kaleido",
         "natsort",
         "numpy>=1.16.0",

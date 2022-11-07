@@ -1,4 +1,5 @@
-use anndata_rs::anndata::{AnnData, AnnDataSet};
+use crate::preprocessing::{ReadGenomeCoverage, GenomeIndex, GBaseIndex};
+
 use nalgebra_sparse::CsrMatrix;
 use anyhow::{Context, Result, ensure};
 use flate2::{Compression, write::GzEncoder};
@@ -16,9 +17,9 @@ use bigtools::{bigwig::bigwigwrite::BigWigWrite, bed::bedparser::BedParser};
 use futures::executor::ThreadPool;
 use indicatif::{ProgressIterator, style::ProgressStyle};
 
-use crate::preprocessing::{ChromValues, ChromValuesReader, GenomeIndex, GBaseIndex};
+impl<T> Exporter for T where T: ReadGenomeCoverage {}
 
-pub trait Exporter: ChromValuesReader {
+pub trait Exporter: ReadGenomeCoverage {
     fn export_bed<P: AsRef<Path>>(
         &self,
         barcodes: Option<&Vec<&str>>,
@@ -27,7 +28,45 @@ pub trait Exporter: ChromValuesReader {
         dir: P,
         prefix: &str,
         suffix:&str,
-    ) -> Result<HashMap<String, PathBuf>>;
+    ) -> Result<HashMap<String, PathBuf>> {
+        ensure!(self.n_obs() == group_by.len(), "lengths differ");
+        let mut groups: HashSet<&str> = group_by.iter().map(|x| *x).unique().collect();
+        if let Some(select) = selections { groups.retain(|x| select.contains(x)); }
+        std::fs::create_dir_all(&dir)
+            .with_context(|| format!("cannot create directory: {}", dir.as_ref().display()))?;
+        let mut files = groups.into_iter().map(|x| {
+            let filename = dir.as_ref().join(
+                prefix.to_string() + x.replace("/", "+").as_str() + suffix
+            );
+            let f = BufWriter::with_capacity(
+                1024*1024,
+                File::create(&filename).with_context(|| format!("cannot create file: {}", filename.display()))?,
+            );
+            let e: Box<dyn Write> = if filename.extension().unwrap() == "gz" {
+                Box::new(GzEncoder::new(f, Compression::default()))
+            } else {
+                Box::new(f)
+            };
+            Ok((x, (filename, e)))
+        }).collect::<Result<HashMap<_, _>>>()?;
+
+        let style = ProgressStyle::with_template("[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})")?;
+        self.raw_count_iter(500)?.progress_with_style(style).try_for_each(|(vals, start, _)|
+            vals.into_iter().enumerate().try_for_each::<_, Result<_>>(|(i, ins)| {
+                if let Some((_, fl)) = files.get_mut(group_by[start + i]) {
+                    ins.into_iter().try_for_each(|x| {
+                        let bed = match barcodes {
+                            None => format!("{}\t{}\t{}", x.chrom(), x.start(), x.end()),
+                            Some(barcodes_) => format!("{}\t{}\t{}\t{}", x.chrom(), x.start(), x.end(), barcodes_[start + i]),
+                        };
+                        (0..(x.value as usize)).try_for_each(|_| writeln!(fl, "{}", bed))
+                    })?;
+                }
+                Ok(())
+            })
+        )?;
+        Ok(files.into_iter().map(|(k, (v, _))| (k.to_string(), v)).collect())
+    }
 
     fn export_bigwig<P: AsRef<Path>>(
         &self,
@@ -37,7 +76,13 @@ pub trait Exporter: ChromValuesReader {
         dir: P,
         prefix: &str,
         suffix:&str,
-    ) -> Result<HashMap<String, PathBuf>>;
+    ) -> Result<HashMap<String, PathBuf>> {
+        export_insertions_as_bigwig(
+            self.read_obsm_item_iter("insertion", 500)?.map(|(chunk, _, _)| chunk.downcast().unwrap()),
+            &self.read_chrom_sizes()?.into_iter().map(|(a, b)| (a, b as u32)).collect(),
+            &self.read_geome_index()?, group_by, selections, resolution, dir, prefix, suffix,
+        )
+    }
 
     fn call_peaks<P: AsRef<Path> + std::marker::Sync>(
         &self,
@@ -58,7 +103,7 @@ pub trait Exporter: ChromValuesReader {
         std::fs::create_dir_all(&dir)?;
         info!("Exporting data...");
         let files = self.export_bed(None, group_by, selections, &dir, "", "_insertion.bed.gz")?;
-        let genome_size = self.get_reference_seq_info()?.into_iter().map(|(_, v)| v).sum();
+        let genome_size = self.read_chrom_sizes()?.into_iter().map(|(_, v)| v).sum();
         info!("Calling peaks for {} groups ...", files.len());
         files.into_par_iter().map(|(key, fl)| {
             let out_file = dir.as_ref().join(
@@ -68,158 +113,6 @@ pub trait Exporter: ChromValuesReader {
             Ok((key, out_file))
         }).collect()
     }
-}
-
-impl Exporter for AnnData {
-    fn export_bed<P: AsRef<Path>>(
-        &self,
-        barcodes: Option<&Vec<&str>>,
-        group_by: &Vec<&str>,
-        selections: Option<HashSet<&str>>,
-        dir: P,
-        prefix: &str,
-        suffix:&str,
-    ) -> Result<HashMap<String, PathBuf>> {
-        export_insertions_as_bed(
-            &mut self.raw_count_iter(500)?,
-            barcodes, group_by, selections, dir, prefix, suffix,
-        )
-    }
-
-    fn export_bigwig<P: AsRef<Path>>(
-        &self,
-        group_by: &Vec<&str>,
-        selections: Option<HashSet<&str>>,
-        resolution: usize,
-        dir: P,
-        prefix: &str,
-        suffix:&str,
-    ) -> Result<HashMap<String, PathBuf>> {
-        // Read genome information
-        let chrom_sizes = self.get_reference_seq_info()?.into_iter()
-            .map(|(a, b)| (a, b as u32)).collect();
-        let genome_index = GBaseIndex::read_from_anndata(&mut self.get_uns().inner())?;
-
-        let obsm = self.get_obsm().inner();
-        let insertion_elem = obsm.get("insertion")
-            .expect(".obsm does not contain key: insertion");
-        export_insertions_as_bigwig(
-            insertion_elem.chunked(500).map(|chunk|
-                chunk.into_any().downcast::<CsrMatrix<u8>>().unwrap()
-            ),
-            &chrom_sizes, &genome_index, group_by,
-            selections, resolution, dir, prefix, suffix,
-        )
-    }
-}
-
-impl Exporter for AnnDataSet {
-    fn export_bed<P: AsRef<Path>>(
-        &self,
-        barcodes: Option<&Vec<&str>>,
-        group_by: &Vec<&str>,
-        selections: Option<HashSet<&str>>,
-        dir: P,
-        prefix: &str,
-        suffix:&str,
-    ) -> Result<HashMap<String, PathBuf>> {
-        export_insertions_as_bed(
-            &mut self.raw_count_iter(500)?,
-            barcodes, group_by, selections, dir, prefix, suffix,
-        )
-    }
-
-    fn export_bigwig<P: AsRef<Path>>(
-        &self,
-        group_by: &Vec<&str>,
-        selections: Option<HashSet<&str>>,
-        resolution: usize,
-        dir: P,
-        prefix: &str,
-        suffix:&str,
-    ) -> Result<HashMap<String, PathBuf>> {
-        // Read genome information
-        let chrom_sizes = self.get_reference_seq_info()?.into_iter()
-            .map(|(a, b)| (a, b as u32)).collect();
-        let genome_index = GBaseIndex::read_from_anndata(
-            &mut self.anndatas.inner().iter().next().unwrap().1.get_uns().inner()
-        )?;
-
-        let adatas = self.anndatas.inner();
-        let insertion_elem = adatas.obsm.data.get("insertion").unwrap();
-        export_insertions_as_bigwig(
-            insertion_elem.chunked(500).map(|chunk|
-                chunk.into_any().downcast::<CsrMatrix<u8>>().unwrap()
-            ),
-            &chrom_sizes, &genome_index, group_by,
-            selections, resolution, dir, prefix, suffix,
-        )
-    }
-}
-
-
-/// Export TN5 insertion sites to bed files with following fields:
-///     1. chromosome
-///     2. start
-///     3. end (which is start + 1)
-///     4. cell ID
-fn export_insertions_as_bed<I, P>(
-    insertions: &mut I,
-    barcodes: Option<&Vec<&str>>,
-    group_by: &Vec<&str>,
-    selections: Option<HashSet<&str>>,
-    dir: P,
-    prefix: &str,
-    suffix:&str,
-) -> Result<HashMap<String, PathBuf>>
-where
-    I: Iterator<Item = Vec<ChromValues<u8>>> + ExactSizeIterator,
-    P: AsRef<Path>,
-{
-    let mut groups: HashSet<&str> = group_by.iter().map(|x| *x).unique().collect();
-    if let Some(select) = selections { groups.retain(|x| select.contains(x)); }
-    std::fs::create_dir_all(&dir)
-        .with_context(|| format!("cannot create directory: {}", dir.as_ref().display()))?;
-    let mut files = groups.into_iter().map(|x| {
-        let filename = dir.as_ref().join(
-            prefix.to_string() + x.replace("/", "+").as_str() + suffix
-        );
-        let f = BufWriter::with_capacity(
-            1024*1024,
-            File::create(&filename).with_context(|| format!("cannot create file: {}", filename.display()))?,
-        );
-        let e: Box<dyn Write> = if filename.extension().unwrap() == "gz" {
-            Box::new(GzEncoder::new(f, Compression::default()))
-        } else {
-            Box::new(f)
-        };
-        Ok((x, (filename, e)))
-    }).collect::<Result<HashMap<_, _>>>()?;
-
-    let style = ProgressStyle::with_template(
-        "[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})"
-    ).unwrap();
-    let total_records = insertions.progress_with_style(style).try_fold::<_, _, Result<_>>(0, |accum, x| {
-        let n_records = x.len();
-        x.into_iter().enumerate().try_for_each::<_, Result<_>>(|(i, ins)| {
-            if let Some((_, fl)) = files.get_mut(group_by[accum + i]) {
-                ins.into_iter().try_for_each(|x| {
-                    let bed = match barcodes {
-                        None => format!("{}\t{}\t{}", x.chrom(), x.start(), x.end()),
-                        Some(barcodes_) => format!("{}\t{}\t{}\t{}", x.chrom(), x.start(), x.end(), barcodes_[accum + i]),
-                    };
-                    (0..(x.value as usize)).try_for_each(|_| writeln!(fl, "{}", bed))
-                })?;
-            }
-            Ok(())
-        })?;
-        Ok(accum + n_records)
-    })?;
-    ensure!(
-        total_records == group_by.len(),
-        "length of group differs",
-    );
-    Ok(files.into_iter().map(|(k, (v, _))| (k.to_string(), v)).collect())
 }
 
 /// Export TN5 insertions as bigwig files
@@ -386,8 +279,7 @@ where
         if strs[4].parse::<u64>().unwrap() > 1000 {
             strs[4] = "1000";
         }
-        let line: String = strs.into_iter().intersperse("\t").collect();
-        write!(writer, "{}\n", line)?;
+        write!(writer, "{}\n", strs.into_iter().join("\t"))?;
     }
     Ok(())
 }

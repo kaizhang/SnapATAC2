@@ -1,3 +1,11 @@
+Landed in HEAD
+===================
+
+Major changes:
+
+- Support in-memory AnnData and flexible conversions between backed and in-memory
+  AnnData (WIP).
+
 v2.1.3 (2022-11-02)
 ===================
 

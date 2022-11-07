@@ -52,6 +52,9 @@ def call_peaks(
     out_dir = out_dir if out_dir is None else str(out_dir)
     res = _snapatac2.call_peaks(adata, groupby, selections, q_value, out_dir)
     if inplace:
-        adata.uns[key_added] = res
+        if adata.isbacked:
+            adata.uns[key_added] = res
+        else:
+            adata.uns[key_added] = res.to_pandas()
     else:
         return res

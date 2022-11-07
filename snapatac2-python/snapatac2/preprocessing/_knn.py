@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 from scipy.sparse import csr_matrix
 
+from snapatac2._utils import is_anndata 
 from snapatac2._snapatac2 import AnnData, AnnDataSet, approximate_nearest_neighbors
 
 # TODO: add random state
@@ -41,7 +42,7 @@ def knn(
         if `inplace=True`, store KNN in `.obsp['distances']`.
         Otherwise, return a sparse matrix.
     """
-    if isinstance(adata, AnnData) or isinstance(adata, AnnDataSet):
+    if is_anndata(adata):
         if use_rep is None: use_rep = "X_spectral"
         data = adata.obsm[use_rep]
     else:

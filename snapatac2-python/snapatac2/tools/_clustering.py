@@ -5,7 +5,7 @@ import scipy.sparse as ss
 import numpy as np
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
-from snapatac2._utils import get_igraph_from_adjacency
+from snapatac2._utils import get_igraph_from_adjacency, is_anndata 
 
 def leiden(
     adata: AnnData | AnnDataSet | ss.spmatrix,
@@ -64,7 +64,7 @@ def leiden(
     from collections import Counter
     import polars
 
-    if isinstance(adata, AnnData) or isinstance(adata, AnnDataSet):
+    if is_anndata(adata):
         adjacency = adata.obsp["distances"]
     else:
         inplace = False
@@ -167,7 +167,7 @@ def kmeans(
     """
     import polars
 
-    if isinstance(adata, AnnData) or isinstance(adata, AnnDataSet):
+    if is_anndata(adata):
         data = adata.obsm[use_rep]
     else:
         data = adata
