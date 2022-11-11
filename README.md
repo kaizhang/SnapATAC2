@@ -9,10 +9,11 @@ SnapATAC2
 
 SnapATAC2 is the successor of the SnapATAC R package, featuring:
 
-- Faster and less memory usage, scale to >1M cells.
+- Faster and less memory usage than the R version and other alternatives, scale to >1M cells.
 - Blazingly fast preprocessing tools for BAM to fragment files conversion and count matrix generation.
 - One of the best dimension reduction algorithms for single-cell ATAC data.
 - End-to-end analysis pipeline, including preprocessing, dimension reduction, clustering, data integration, peak calling, differential analysis, motif analysis, regulatory network analysis.
+- Seamless integration with other single-cell analysis packages such scanpy.
 
 **To find tutorials and the full APIs, please go to this [website](https://kzhang.org/SnapATAC2/).**
 

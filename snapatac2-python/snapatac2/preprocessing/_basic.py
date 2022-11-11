@@ -253,7 +253,10 @@ def make_peak_matrix(
                 peaks = [line.strip() for line in f]
 
     anndata = internal.mk_peak_matrix(adata, peaks, file, chunk_size)
-    anndata.obs = adata.obs[:]
+    if file is None and adata.isbacked: # anndata accepts only pandas DataFrame
+        anndata.obs = adata.obs[:].to_pandas()
+    else:
+        anndata.obs = adata.obs[:]
     return anndata
 
 def make_gene_matrix(
@@ -298,7 +301,10 @@ def make_gene_matrix(
     if file is not None:
         file = str(file)
     anndata = internal.mk_gene_matrix(adata, str(gff_file), file, chunk_size, use_x, id_type)
-    anndata.obs = adata.obs[:]
+    if file is None and adata.isbacked: # anndata accepts only pandas DataFrame
+        anndata.obs = adata.obs[:].to_pandas()
+    else:
+        anndata.obs = adata.obs[:]
     return anndata
 
 def filter_cells(

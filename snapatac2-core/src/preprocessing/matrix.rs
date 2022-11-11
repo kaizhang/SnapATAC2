@@ -337,10 +337,10 @@ impl ReadGenomeInfo for PyAnnData<'_> {}
 impl ReadGenomeInfo for AnnDataSet {
     fn read_chrom_sizes(&self) -> Result<Vec<(String, u64)>> {
         ensure!(
-            self.anndatas.inner().values().map(|x| x.read_chrom_sizes().unwrap()).all_equal(),
+            self.get_inner_adatas().inner().values().map(|x| x.read_chrom_sizes().unwrap()).all_equal(),
             "reference genome information mismatch",
         );
-        self.anndatas.inner().values().next().unwrap().read_chrom_sizes()
+        self.get_inner_adatas().inner().values().next().unwrap().read_chrom_sizes()
     }
 }
 

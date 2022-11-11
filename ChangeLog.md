@@ -1,10 +1,19 @@
 Landed in HEAD
 ===================
 
-Major changes:
+## Major changes:
 
 - Support in-memory AnnData and flexible conversions between backed and in-memory
-  AnnData (WIP).
+  AnnData.
+
+## Breaking changes:
+
+### Argument renaming:
+
+- `storage` is renamed to `file` in a variety of AnnData IO functions, including
+   `create_dataset`, `read_mtx`, and `read_csv`.
+- `mode` is renamed to `backed` in `.read()`. AnnData is read into memory by default.
+  To keep the old behavior, use `snap.read('data.h5ad', backed=true)`.
 
 v2.1.3 (2022-11-02)
 ===================
@@ -21,7 +30,7 @@ Minor bug fixes and performance improvements.
 v2.1.1 (2022-09-28)
 ===================
 
-Major changes:
+## Major changes:
 
 - Fix bugs in "ex.export_bigwig". NOTE: prior to this version, this function
   does not work as expected. Please update and rerun if you have used this function
@@ -31,7 +40,7 @@ Major changes:
 v2.1.0 (2022-09-17)
 ===================
 
-Major changes:
+## Major changes:
 
 - Various bug fixes and performance improvements.
 - Add "tl.diff_test" to identify differentially accessible regions.
@@ -40,7 +49,7 @@ Major changes:
 - Add "read_10x_mtx" for reading files produced by 10X CellRanger pipeline.
 - Add "ex.export_bigwig" to generate bigwig files.
 
-Breaking changes:
+## Breaking changes:
 
 - "pp.make_tile_matrix" has been renamed to "pp.add_tile_matrix".
 - "snapatac2.genome" has been redesigned. A new "Genome" class is added for
