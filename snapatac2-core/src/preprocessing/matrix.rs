@@ -1,6 +1,5 @@
-use anndata_rs::{AnnData, AnnDataSet, AnnDataOp, AnnDataIterator, iterator::CsrIterator};
+use anndata_rs::{AnnDataSet, AnnDataOp, AnnDataIterator, iterator::CsrIterator};
 use anndata_rs::data::{DataType, MatrixData};
-use pyanndata::PyAnnData;
 use polars::prelude::{NamedFrom, DataFrame, Series};
 use anyhow::{Context, Result, ensure};
 use rayon::iter::{ParallelIterator, IntoParallelIterator};
@@ -303,16 +302,7 @@ impl GenomeIndex for GIntervalIndex {
 
 pub trait ReadGenomeInfo: AnnDataOp {
     /// Return chromosome names and sizes.
-    fn read_chrom_sizes(&self) -> Result<Vec<(String, u64)>> {
-        let df = self.read_uns_item("reference_sequences")?
-            .context("key 'reference_sequences' is not present in the '.uns'")?
-            .downcast::<DataFrame>().unwrap();
-        let chrs = df.column("reference_seq_name").unwrap().utf8()?;
-        let chr_sizes = df.column("reference_seq_length").unwrap().u64()?;
-        let res = chrs.into_iter().flatten().map(|x| x.to_string())
-            .zip(chr_sizes.into_iter().flatten()).collect();
-        Ok(res)
-    }
+    fn read_chrom_sizes(&self) -> Result<Vec<(String, u64)>>;
 
     fn read_geome_index(&self) -> Result<GBaseIndex> {
         let (chrs, chr_sizes): (Vec<_>, Vec<_>) = self.read_chrom_sizes()?.into_iter().unzip();
@@ -330,9 +320,18 @@ pub trait ReadGenomeInfo: AnnDataOp {
     }
 }
 
-impl ReadGenomeInfo for AnnData {}
-
-impl ReadGenomeInfo for PyAnnData<'_> {}
+impl<T> ReadGenomeInfo for T where T: AnnDataOp {
+    default fn read_chrom_sizes(&self) -> Result<Vec<(String, u64)>> {
+        let df = self.read_uns_item("reference_sequences")?
+            .context("key 'reference_sequences' is not present in the '.uns'")?
+            .downcast::<DataFrame>().unwrap();
+        let chrs = df.column("reference_seq_name").unwrap().utf8()?;
+        let chr_sizes = df.column("reference_seq_length").unwrap().u64()?;
+        let res = chrs.into_iter().flatten().map(|x| x.to_string())
+            .zip(chr_sizes.into_iter().flatten()).collect();
+        Ok(res)
+    }
+}
 
 impl ReadGenomeInfo for AnnDataSet {
     fn read_chrom_sizes(&self) -> Result<Vec<(String, u64)>> {
@@ -343,7 +342,6 @@ impl ReadGenomeInfo for AnnDataSet {
         self.get_inner_adatas().inner().values().next().unwrap().read_chrom_sizes()
     }
 }
-
 
 /// Genomic interval associating with integer values
 pub type ChromValues<N> = Vec<BedGraph<N>>;

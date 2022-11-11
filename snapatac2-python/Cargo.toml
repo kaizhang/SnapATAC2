@@ -13,8 +13,8 @@ keywords = ["single-cell", "biology"]
 [dependencies]
 #anndata-rs = { path = "../../anndata-rs/anndata-rs" }
 #pyanndata = { path = "../../anndata-rs/pyanndata" }
-anndata-rs = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "6e788ec07f560ae5364bd860a0f17294c5993439" }
-pyanndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "6e788ec07f560ae5364bd860a0f17294c5993439" }
+anndata-rs = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "f24ddbe34c04cc40a7f34386d0cc734d124c9c3f" }
+pyanndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "f24ddbe34c04cc40a7f34386d0cc734d124c9c3f" }
 #snapatac2-core = { git = "https://github.com/kaizhang/SnapATAC2.git", rev = "32453ec0598123e4d9aa25884704ee7ebb2bbe7e" }
 snapatac2-core = { path = "../snapatac2-core" }
 anyhow = "1.0"
@@ -31,7 +31,7 @@ noodles = { version = "0.27.0", features = ["bam", "sam"] }
 numpy = "0.17.2"
 nalgebra-sparse = "0.8"
 ndarray = "0.15"
-polars = { version = "0.23", features = ["ndarray", "dtype-categorical"] }
+polars = { version = "0.25", features = ["ndarray", "dtype-categorical"] }
 pyo3-log = "0.7"
 rand_isaac = "0.3"
 rand_core = "0.6"

@@ -18,7 +18,7 @@ jobs:
     env:
        CIBW_BUILD_VERBOSITY: 1
        CIBW_BEFORE_ALL_LINUX: >
-         curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable -y &&
+         curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly -y &&
          yum install -y openssl-devel zlib-devel
 
        CIBW_ARCHS_LINUX: "auto64"
