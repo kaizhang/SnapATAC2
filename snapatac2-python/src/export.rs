@@ -12,7 +12,7 @@ pub fn export_bed<'py>(
     barcodes: Vec<&str>,
     group_by: Vec<&str>,
     selections: Option<HashSet<&str>>,
-    dir: &str,
+    dir: PathBuf,
     prefix: &str,
     suffix: &str,
 ) -> Result<HashMap<String, PathBuf>> {
@@ -36,7 +36,7 @@ pub fn export_bigwig<'py>(
     group_by: Vec<&str>,
     selections: Option<HashSet<&str>>,
     resolution: usize,
-    dir: &str,
+    dir: PathBuf,
     prefix: &str,
     suffix: &str,
 ) -> Result<HashMap<String, PathBuf>> {

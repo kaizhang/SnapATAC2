@@ -81,7 +81,7 @@ def aggregate_X(
         result = {x: np.zeros(adata.n_vars) for x in natsorted(np.unique(groups))}
         for chunk, start, stop in adata.chunked_X(2000):
             for i in range(start, stop):
-                result[groups[i]] += chunk[i, :]
+                result[groups[i]] += chunk[i-start, :]
         for k in result.keys():
             result[k] = norm(np.ravel(result[k]))
 

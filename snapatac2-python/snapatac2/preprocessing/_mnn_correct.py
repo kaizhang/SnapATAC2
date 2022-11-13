@@ -5,9 +5,10 @@ import itertools
 from scipy.special import logsumexp
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
+from snapatac2._utils import is_anndata 
 
 def mnc_correct(
-    data: AnnData,
+    adata: AnnData | AnnDataSet | np.adarray,
     batch: str | list[str],
     n_neighbors: int = 5,
     n_clusters: int = 40,
@@ -45,13 +46,18 @@ def mnc_correct(
         ``adata.obsm[`use_rep`_mnn]``, containing adjusted principal components.
         Otherwise, it returns the result as a numpy array.
     """
-    mat = data.obsm[use_rep] if isinstance(data, AnnData) or isinstance(data, AnnDataSet) else data
+    if is_anndata(adata):
+        mat = adata.obsm[use_rep]
+    else:
+        mat = adata
+        inplace = False
+
     if isinstance(use_dims, int): use_dims = range(use_dims) 
     mat = mat if use_dims is None else mat[:, use_dims]
     mat = np.asarray(mat)
 
     if isinstance(batch, str):
-        labels = data.obs[batch]
+        labels = adata.obs[batch]
 
     label_uniq = list(set(labels))
 
@@ -69,8 +75,8 @@ def mnc_correct(
             new[idx[i]] = mat_[i,:]
         mat = new
 
-    if (isinstance(data, AnnData) or isinstance(data, AnnDataSet)) and inplace:
-        data.obsm[use_rep + "_mnn"] = mat
+    if inplace:
+        adata.obsm[use_rep + "_mnn"] = mat
     else:
         return mat
 

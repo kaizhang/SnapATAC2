@@ -6,9 +6,10 @@ from __future__ import annotations
 import numpy as np
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
+from snapatac2._utils import is_anndata 
 
 def harmony(
-    adata: AnnData,
+    adata: AnnData | AnnDataSet | np.ndarray,
     batch: str,
     use_dims: int | list[int] | None = None,
     use_rep: str = "X_spectral",
@@ -56,12 +57,17 @@ def harmony(
     except ImportError:
         raise ImportError("\nplease install harmonypy:\n\n\tpip install harmonypy")
 
-    mat = adata.obsm[use_rep] if isinstance(adata, AnnData) or isinstance(adata, AnnDataSet) else adata
+    if is_anndata(adata):
+        mat = adata.obsm[use_rep]
+    else:
+        mat = adata
+        inplace = False
+
     if isinstance(use_dims, int): use_dims = range(use_dims) 
     mat = mat if use_dims is None else mat[:, use_dims]
 
     harmony_out = harmonypy.run_harmony(mat, adata.obs[...].to_pandas(), batch, **kwargs)
-    if (isinstance(adata, AnnData) or isinstance(adata, AnnDataSet)) and inplace:
+    if inplace:
         adata.obsm[use_rep + "_harmony"] = harmony_out.Z_corr.T
     else:
         return harmony_out.Z_corr.T

@@ -13,8 +13,7 @@ Landed in HEAD
 - Argument `storage` is renamed to `file` in a variety of AnnData IO functions, including
    `create_dataset`, `read_mtx`, and `read_csv`.
 - Argument `no_check` is removed in `read_dataset`.
-- `mode` is renamed to `backed` in `.read()`. AnnData is read into memory by default.
-  To keep the old behavior, use `snap.read('data.h5ad', backed=true)`.
+- `mode` is renamed to `backed` in `.read()`.
 
 v2.1.3 (2022-11-02)
 ===================

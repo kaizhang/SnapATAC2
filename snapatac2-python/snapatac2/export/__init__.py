@@ -28,7 +28,7 @@ def export_bed(
     selections
         Export only the selected groups.
     ids
-        Cell ids add to the bed records, default to the `.obs_names`.
+        Cell ids add to the bed records. If `None`, `.obs_names` is used.
     out_dir
         Directory for saving the outputs.
     prefix
@@ -48,12 +48,12 @@ def export_bed(
         selections = set(selections)
     
     if ids is None:
-        ids = adata.obs[:, 0]
+        ids = adata.obs_names
     elif isinstance(ids, str):
         ids = adata.obs[ids]
 
     return internal.export_bed(
-        adata, list(ids), list(groupby), selections, str(out_dir), prefix, suffix,
+        adata, list(ids), list(groupby), selections, out_dir, prefix, suffix,
     )
 
 
@@ -100,5 +100,5 @@ def export_bigwig(
         selections = set(selections)
     
     return internal.export_bigwig(
-        adata, list(groupby), selections, resolution, str(out_dir), prefix, suffix,
+        adata, list(groupby), selections, resolution, out_dir, prefix, suffix,
     )

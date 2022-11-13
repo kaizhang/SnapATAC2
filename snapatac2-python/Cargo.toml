@@ -11,10 +11,10 @@ homepage = "https://github.com/"
 keywords = ["single-cell", "biology"]
 
 [dependencies]
-#anndata-rs = { path = "../../anndata-rs/anndata-rs" }
-#pyanndata = { path = "../../anndata-rs/pyanndata" }
-anndata-rs = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "f24ddbe34c04cc40a7f34386d0cc734d124c9c3f" }
-pyanndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "f24ddbe34c04cc40a7f34386d0cc734d124c9c3f" }
+anndata-rs = { path = "../../anndata-rs/anndata-rs" }
+pyanndata = { path = "../../anndata-rs/pyanndata" }
+#anndata-rs = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "f24ddbe34c04cc40a7f34386d0cc734d124c9c3f" }
+#pyanndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "f24ddbe34c04cc40a7f34386d0cc734d124c9c3f" }
 #snapatac2-core = { git = "https://github.com/kaizhang/SnapATAC2.git", rev = "32453ec0598123e4d9aa25884704ee7ebb2bbe7e" }
 snapatac2-core = { path = "../snapatac2-core" }
 anyhow = "1.0"
