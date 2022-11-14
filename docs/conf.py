@@ -110,7 +110,7 @@ html_css_files = [
 ]
 
 if ".dev" in version:
-    switcher_version = "devdocs"
+    switcher_version = "dev"
 else:
     switcher_version = f"{version}"
 
@@ -120,6 +120,6 @@ html_theme_options = {
 
     "switcher": {
       "version_match": switcher_version,
-      "json_url": "kzhang.org/SnapATAC2/_static/versions.json", 
+      "json_url": "https://kzhang.org/SnapATAC2/_static/versions.json", 
     },
 }
