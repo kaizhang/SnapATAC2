@@ -1,0 +1,59 @@
+name: Build and upload documentation
+
+on:
+  push:
+    branches:
+      - main
+  release:
+    types:
+      - published
+
+env:
+  SnapATAC_Version_PATH: /
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Update SnapATAC Version_PATH
+      if: ${{ startsWith(github.ref, 'refs/tags/') }}
+      run: echo SnapATAC_Version_PATH=/version/$(echo $GITHUB_REF | cut -d / -f 3 | cut -d v -f 2- | cut -d . -f 1,2)/ >> $GITHUB_ENV
+
+    - name: Checkout code
+      uses: nschloe/action-cached-lfs-checkout@v1
+
+    - uses: actions/setup-python@v2
+      name: Install Python
+      with:
+          python-version: '3.10'
+
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: 1.65.0
+
+    - name: Install dependency
+      run: |
+        rustup default nightly
+        sudo apt-get install -y pandoc
+        sudo pip install --upgrade pip
+        pip install --user sphinx==4.5.0 pydata-sphinx-theme==0.12.0rc1 pandoc nbsphinx \
+          Pygments==2.13.0 sphinx-autodoc-typehints myst-parser \
+          markupsafe==2.0.1 sphinx-plotly-directive
+
+    - name: Build Python package
+      run: |
+        cd ${GITHUB_WORKSPACE}/snapatac2-python
+        pip install -e .
+
+    - name: Build doc
+      run: sphinx-build ${GITHUB_WORKSPACE}/docs _build/html
+
+    - name: Deploy 🚀
+      uses: JamesIves/github-pages-deploy-action@v4
+      with:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        branch: gh-pages
+        folder: _build/html
+        target_folder: ${{ env.SnapATAC_Version_PATH }}
+        clean: true
+        clean_exclude: '["version"]'

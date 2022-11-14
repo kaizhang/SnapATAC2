@@ -111,9 +111,10 @@ def add_cor_scores(
 
     This function can be used to compute correlation scores for any type of
     associations. There are typically three types of edges in the network:
-        1. Region -> gene: CREs regulate target genes.
-        2. Gene -> gene: genes regulate other genes.
-        3. Gene -> region: TFs bind to CREs.
+
+    1. Region -> gene: CREs regulate target genes.
+    2. Gene -> gene: genes regulate other genes.
+    3. Gene -> region: TFs bind to CREs.
 
     Parameters
     ----------
@@ -133,7 +134,7 @@ def add_cor_scores(
     from tqdm import tqdm
 
     key = "cor_score"
-    if peak_mat is not None and peak_mat.obs_names != gene_mat.obs_names:
+    if list(peak_mat.obs_names) != list(gene_mat.obs_names):
         raise NameError("gene matrix and peak matrix should have the same obs_names")
     if select is not None:
         select = set(select)
@@ -200,7 +201,7 @@ def add_regr_scores(
     from tqdm import tqdm
 
     key = "regr_score"
-    if peak_mat.obs_names != gene_mat.obs_names:
+    if list(peak_mat.obs_names) != list(gene_mat.obs_names):
         raise NameError("gene matrix and peak matrix should have the same obs_names")
     if select is not None:
         select = set(select)
@@ -487,13 +488,19 @@ def _get_data_iter(
         if len(genes) == gene_mat.n_vars:
             g_mat = gene_mat.X[:]
         else:
-            ix = gene_mat.var_ix([node_getter(x).id for x in genes])
+            if gene_mat.isbacked:
+                ix = gene_mat.var_ix([node_getter(x).id for x in genes])
+            else:
+                ix = [gene_mat.var_names.get_loc(node_getter(x).id) for x in genes]
             g_mat = gene_mat.X[:, ix]
 
         if len(peaks) == peak_mat.n_vars:
             p_mat = peak_mat.X[:]
         else:
-            ix = peak_mat.var_ix([node_getter(x).id for x in peaks])
+            if peak_mat.isbacked:
+                ix = peak_mat.var_ix([node_getter(x).id for x in peaks])
+            else:
+                ix = [peak_mat.var_names.get_loc(node_getter(x).id) for x in peaks]
             p_mat = peak_mat.X[:, ix]
 
         if len(genes) == 0:

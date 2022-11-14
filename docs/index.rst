@@ -39,7 +39,7 @@ Example visualization
    :maxdepth: 3
    :hidden:
 
-   tutorials/index
    install
-   api
+   tutorials/index
+   reference/index
    algorithms/index

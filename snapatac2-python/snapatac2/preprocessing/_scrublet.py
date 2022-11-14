@@ -97,8 +97,9 @@ def call_doublets(
     threshold
         Mannually specify a threshold or use one of the default methods to
         automatically identify a threshold:
-            - 'gmm': fit a 2-component gaussian mixture model.
-            - 'scrublet': the method used in the scrublet paper (not implemented).
+
+        - 'gmm': fit a 2-component gaussian mixture model.
+        - 'scrublet': the method used in the scrublet paper (not implemented).
     random_state
         Random state
     inplace

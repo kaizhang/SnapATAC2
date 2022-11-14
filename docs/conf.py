@@ -1,5 +1,6 @@
 # -- Path setup --------------------------------------------------------------
 
+import re
 import snapatac2
 
 # -- Project information -----------------------------------------------------
@@ -7,7 +8,13 @@ import snapatac2
 project = 'SnapATAC2'
 copyright = '2022, Kai Zhang'
 author = 'Kai Zhang'
+
+# The short X.Y version (including .devXXXX, rcX, b1 suffixes if present)
+version = re.sub(r'(\d+\.\d+)\.\d+(.*)', r'\1\2', snapatac2.__version__)
+version = re.sub(r'(\.dev\d+).*?$', r'\1', version)
+# The full version, including alpha/beta/rc tags.
 release = snapatac2.__version__
+print("%s %s" % (version, release))
 
 # -- General configuration ---------------------------------------------------
 
@@ -95,6 +102,24 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 # -- Options for HTML output -------------------------------------------------
 
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'pydata_sphinx_theme'
 html_show_sphinx = False
 html_static_path = ['_static']
+html_css_files = [
+    'css/custom.css',
+]
+
+if ".dev" in version:
+    switcher_version = "devdocs"
+else:
+    switcher_version = f"{version}"
+
+html_theme_options = {
+    "github_url": "https://github.com/kaizhang/SnapATAC2",
+    "navbar_end": ["version-switcher", "theme-switcher", "navbar-icon-links"],
+
+    "switcher": {
+      "version_match": switcher_version,
+      "json_url": "kzhang.org/SnapATAC2/_static/versions.json", 
+    },
+}

@@ -18,7 +18,7 @@ def aggregate_X(
     groupby: str | list[str] | None = None,
     normalize: Literal["RPM", "RPKM"] | None = None,
     file: Path | None = None,
-) -> np.ndarray | dict[str, np.ndarray] | AnnData:
+) -> np.ndarray | AnnData:
     """
     Aggregate values in adata.X in a row-wise fashion.
 
@@ -39,12 +39,13 @@ def aggregate_X(
 
     Returns
     -------
-    np.ndarray | dict[str, np.ndarray] | AnnData
-        If `file=None`, return the result as numpy array.
-        Otherwise, return an anndata object.
+    np.ndarray | AnnData
+        If `grouby` is `None, return a 1d array. Otherwise, return an AnnData
+        object.
     """
     import polars as pl
     from natsort import natsorted
+    import anndata as ad
 
     def norm(x):
         if normalize is None:
@@ -63,16 +64,7 @@ def aggregate_X(
             (np.ravel(chunk.sum(axis=0)) for chunk, _, _ in adata.chunked_X(1000)),
         )
         row_sum = norm(row_sum)
-
-        if file is None:
-            return row_sum
-        else:
-            out_adata = AnnData(
-                filename = file,
-                X = np.array([row_sum]),
-                var = None if adata.var is None else adata.var[:],
-            )
-            return out_adata
+        return row_sum
     else:
         groups = adata.obs[groupby].to_numpy() if isinstance(groupby, str) else np.array(groupby)
         if groups.size != adata.n_obs:
@@ -85,18 +77,14 @@ def aggregate_X(
         for k in result.keys():
             result[k] = norm(np.ravel(result[k]))
 
+        keys, values = zip(*result.items())
         if file is None:
-            return result
+            out_adata = ad.AnnData(X=np.array(values))
         else:
-            keys, values = zip(*result.items())
-            column_name = groupby if isinstance(groupby, str) else "_index"
-            out_adata = AnnData(
-                filename = file,
-                X = np.array(values),
-                obs = pl.DataFrame({ column_name: np.array(keys) }),
-                var = None if adata.var is None else adata.var[:],
-            )
-            return out_adata
+            out_adata = AnnData(filename=file, X=np.array(values))
+        out_adata.obs_names = list(keys)
+        out_adata.var_names = adata.var_names
+        return out_adata
 
 def aggregate_cells(
     adata: AnnData | AnnDataSet | np.ndarray,
