@@ -57,5 +57,5 @@ jobs:
         folder: _build/html
         target_folder: ${{ env.SnapATAC_Version_PATH }}
         clean: true
-        clean_exclude: |
+        clean-exclude: |
           version

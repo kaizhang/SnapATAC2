@@ -22,6 +22,7 @@ The Rust compiler can be installed using:
 
 ```
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+rustup default nightly
 ```
 
 Once you have cmake and the Rust compiler properly installed,
@@ -52,6 +53,7 @@ The Rust compiler can be installed using:
 
 ```
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+rustup default nightly
 ```
 
 Once you have cmake and the Rust compiler properly installed,
