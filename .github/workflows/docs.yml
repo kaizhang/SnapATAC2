@@ -52,8 +52,10 @@ jobs:
       uses: JamesIves/github-pages-deploy-action@v4
       with:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        single-commit: true
         branch: gh-pages
         folder: _build/html
         target_folder: ${{ env.SnapATAC_Version_PATH }}
         clean: true
-        clean_exclude: '["version"]'
+        clean_exclude: |
+          version
