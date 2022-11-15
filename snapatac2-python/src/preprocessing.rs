@@ -1,5 +1,6 @@
 use crate::utils::*;
 
+use std::path::PathBuf;
 use std::{io::BufReader, str::FromStr, collections::BTreeMap, ops::Deref, collections::HashSet};
 use pyo3::{prelude::*, Python};
 use bed_utils::{bed, bed::GenomicRange};
@@ -33,8 +34,8 @@ impl PyFlagStat {
 
 #[pyfunction]
 pub(crate) fn make_fragment_file(
-    bam_file: &str,
-    output_file: &str,
+    bam_file: PathBuf,
+    output_file: PathBuf,
     is_paired: bool,
     barcode_tag: Option<&str>,
     barcode_regex: Option<&str>,
@@ -66,9 +67,9 @@ pub(crate) fn make_fragment_file(
 #[pyfunction]
 pub(crate) fn import_fragments<'py>(
     py: Python<'py>,
-    output_file: Option<&str>,
-    fragment_file: &str,
-    gtf_file: &str,
+    output_file: Option<PathBuf>,
+    fragment_file: PathBuf,
+    gtf_file: PathBuf,
     chrom_size: BTreeMap<&str, u64>,
     min_num_fragment: u64,
     min_tsse: f64,
@@ -84,7 +85,7 @@ pub(crate) fn import_fragments<'py>(
     } else {
         let mut barcode_count = preprocessing::get_barcode_count(
             bed::io::Reader::new(
-                open_file(fragment_file),
+                open_file(&fragment_file),
                 Some("#".to_string()),
             ).into_records().map(Result::unwrap)
         );
@@ -97,7 +98,7 @@ pub(crate) fn import_fragments<'py>(
     };
     let is_sorted = if !fragment_is_sorted_by_name && low_memory { true } else { false };
     let chrom_sizes = chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect();
-    let fragments = bed::io::Reader::new(open_file(fragment_file), Some("#".to_string()))
+    let fragments = bed::io::Reader::new(open_file(&fragment_file), Some("#".to_string()))
         .into_records::<Fragment>().map(Result::unwrap);
     let sorted_fragments: Box<dyn Iterator<Item = Fragment>> = if !fragment_is_sorted_by_name && low_memory {
         Box::new(bed::sort_bed_by_key(fragments, |x| x.barcode.clone()))
@@ -144,7 +145,7 @@ pub(crate) fn mk_peak_matrix<'py>(
     py: Python<'py>,
     input: &'py PyAny,
     peaks_str: &'py PyAny,
-    output_file: Option<&str>,
+    output_file: Option<PathBuf>,
     chunk_size: usize,
 ) -> PyResult<PyObject>
 {
@@ -180,8 +181,8 @@ pub(crate) fn mk_peak_matrix<'py>(
 pub(crate) fn mk_gene_matrix<'py>(
     py: Python<'py>,
     input: &PyAny,
-    gff_file: &str,
-    output_file: Option<&str>,
+    gff_file: PathBuf,
+    output_file: Option<PathBuf>,
     chunk_size: usize,
     use_x: bool,
     id_type: &str,

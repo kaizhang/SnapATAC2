@@ -75,7 +75,7 @@ def make_fragment_file(
         Various statistics.
     """
     return internal.make_fragment_file(
-        str(bam_file), str(output_file), is_paired, barcode_tag, barcode_regex,
+        bam_file, output_file, is_paired, barcode_tag, barcode_regex,
         umi_tag, umi_regex, shift_left, shift_right, min_mapq, chunk_size
     )
 
@@ -158,10 +158,8 @@ def import_data(
                 whitelist = set([line.strip() for line in fl])
         else:
             whitelist = set(whitelist)
-    if file is not None:
-        file = str(file)
     return internal.import_fragments(
-        file, str(fragment_file), str(gff_file), chrom_size, min_num_fragments,
+        file, fragment_file, gff_file, chrom_size, min_num_fragments,
         min_tsse, sorted_by_barcode, low_memory, whitelist, chunk_size,
     )
 
@@ -236,7 +234,6 @@ def make_peak_matrix(
 
     if peak_file is not None and use_rep is not None:
         raise RuntimeError("'peak_file' and 'use_rep' cannot be both set") 
-    file = str(file) if file is not None else None
 
     if isinstance(use_rep, str):
         df = adata.uns[use_rep]
@@ -298,9 +295,7 @@ def make_gene_matrix(
     if isinstance(gff_file, Genome):
         gff_file = gff_file.fetch_annotations()
 
-    if file is not None:
-        file = str(file)
-    anndata = internal.mk_gene_matrix(adata, str(gff_file), file, chunk_size, use_x, id_type)
+    anndata = internal.mk_gene_matrix(adata, gff_file, file, chunk_size, use_x, id_type)
     if file is None and adata.isbacked: # anndata accepts only pandas DataFrame
         anndata.obs = adata.obs[:].to_pandas()
     else:

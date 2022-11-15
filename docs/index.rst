@@ -1,39 +1,22 @@
-SnapATAC2: Single Nucleus Analysis Pipeline for ATAC-seq
-========================================================
+SnapATAC2: A Python/Rust package for single-cell epigenomics analysis
+=====================================================================
 
 SnapATAC2 is the successor of the SnapATAC R package, featuring:
 
-- Faster and less memory usage, scale to >1M cells.
-- Improved dimension reduction and sampling algorithm.
+- Faster and less memory usage than the R version and other alternatives, scale to >1M cells.
+- Blazingly fast preprocessing tools for BAM to fragment files conversion and count matrix generation.
+- One of the best dimension reduction algorithms for single-cell ATAC data.
+- End-to-end analysis pipeline, including preprocessing, dimension reduction, clustering, data integration, peak calling, differential analysis, motif analysis, regulatory network analysis.
+- Seamless integration with other single-cell analysis packages such scanpy.
 
-Benchmark
----------
+How to cite
+-----------
 
-Impact of dimension reduction algorithms on clustering accuracy
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The SnapATAC2 manuscript has not been published yet. The key algorithms used in
+SnapATAC2 have been described in the following papers:
 
-Same matrices were given to each algorithm to perform dimension reduction, the
-result was then input to the same clustering procedure (KNN + leiden) to get clusters and compare
-with ground truth.
-During the clustering step, we tested a wide range of parameters for each method and the
-best outcome was recorded.
-
-.. image:: _static/benchmark.svg
-
-Subsampling test
-^^^^^^^^^^^^^^^^
-
-.. image:: _static/benchmark_subsample.svg
-
-Running time and space complexity
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. image:: _static/benchmark_performance.svg
-
-Example visualization
-^^^^^^^^^^^^^^^^^^^^^
-
-.. image:: _static/Zhang_Cell_2021_GI.png
+- Zhang, K. et al. A single-cell atlas of chromatin accessibility in the human genome. Cell 184, 5985-6001.e19 (2021).
+- Fang, R. et al. Comprehensive analysis of single cell ATAC-seq data with SnapATAC. Nat Commun 12, 1337 (2021).
 
 .. toctree::
    :maxdepth: 3

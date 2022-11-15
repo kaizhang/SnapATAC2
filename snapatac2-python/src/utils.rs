@@ -11,6 +11,7 @@ use snapatac2_core::utils::similarity;
 use hdf5::H5Type;
 use bed_utils::{bed, bed::GenomicRange, bed::BED};
 use std::{str::FromStr, fs::File};
+use std::path::Path;
 use flate2::read::MultiGzDecoder;
 use hdf5;
 use linreg::lin_reg_imprecise;
@@ -297,16 +298,16 @@ where
     (data, indices, indptr)
 }
 
-pub(crate) fn open_file(file: &str) -> Box<dyn std::io::Read> {
-    if is_gzipped(file) {
-        Box::new(MultiGzDecoder::new(File::open(file).unwrap()))
+pub(crate) fn open_file<P: AsRef<Path>>(file: P) -> Box<dyn std::io::Read> {
+    if is_gzipped(file.as_ref()) {
+        Box::new(MultiGzDecoder::new(File::open(file.as_ref()).unwrap()))
     } else {
-        Box::new(File::open(file).unwrap())
+        Box::new(File::open(file.as_ref()).unwrap())
     }
 }
 
 /// Determine if a file is gzipped.
-pub(crate) fn is_gzipped(file: &str) -> bool {
+pub(crate) fn is_gzipped<P: AsRef<Path>>(file: P) -> bool {
     MultiGzDecoder::new(File::open(file).unwrap()).header().is_some()
 }
 
