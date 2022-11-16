@@ -39,7 +39,7 @@ def spectral(
 
     Note
     ----
-    The space complexity of this function is $O(N^2)$, where $N$ is the minimum between
+    The space complexity of this function is :math:`O(N^2)`, where $N$ is the minimum between
     the total of cells and the `sample_size`.
     The memory usage in bytes is given by $N^2 * 8 * 2$. For example,
     when $N = 10,000$ it will use roughly 745 MB memory.

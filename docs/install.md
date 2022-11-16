@@ -58,7 +58,7 @@ rustup default nightly
 
 Once you have cmake and the Rust compiler properly installed,
 clone the source code repository and go to the `snapatac2-python` directory,
-use `pip install .` or `python setup.py install` to install the package.
+use `pip install .` to install the package.
 
 ```
 git clone https://github.com/kaizhang/SnapATAC2.git

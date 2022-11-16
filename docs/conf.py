@@ -1,6 +1,11 @@
 # -- Path setup --------------------------------------------------------------
 
 import re
+import sys
+import warnings
+import os
+import subprocess
+
 import snapatac2
 
 # -- Project information -----------------------------------------------------
@@ -33,6 +38,7 @@ extensions = [
     "sphinx.ext.coverage",
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
+    "sphinx.ext.linkcode",
     "sphinx_autodoc_typehints",
     "sphinx_plotly_directive",
 ]
@@ -124,3 +130,73 @@ html_theme_options = {
       "json_url": "https://kzhang.org/SnapATAC2/_static/versions.json", 
     },
 }
+
+
+commit = subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip().decode('ascii')
+code_url = f"https://github.com/kaizhang/SnapATAC2/blob/{commit}"
+
+# based on numpy doc/source/conf.py
+def linkcode_resolve(domain, info):
+    """
+    Determine the URL corresponding to Python object
+    """
+    import inspect
+
+    if domain != "py":
+        return None
+
+    modname = info["module"]
+    fullname = info["fullname"]
+
+    submod = sys.modules.get(modname)
+    if submod is None:
+        return None
+
+    obj = submod
+    for part in fullname.split("."):
+        try:
+            with warnings.catch_warnings():
+                # Accessing deprecated objects will generate noisy warnings
+                warnings.simplefilter("ignore", FutureWarning)
+                obj = getattr(obj, part)
+        except AttributeError:
+            return None
+
+    try:
+        fn = inspect.getsourcefile(inspect.unwrap(obj))
+    except TypeError:
+        try:  # property
+            fn = inspect.getsourcefile(inspect.unwrap(obj.fget))
+        except (AttributeError, TypeError):
+            fn = None
+    if not fn:
+        return None
+
+    try:
+        source, lineno = inspect.getsourcelines(obj)
+    except TypeError:
+        try:  # property
+            source, lineno = inspect.getsourcelines(obj.fget)
+        except (AttributeError, TypeError):
+            lineno = None
+    except OSError:
+        lineno = None
+
+    if lineno:
+        linespec = f"#L{lineno}-L{lineno + len(source) - 1}"
+    else:
+        linespec = ""
+
+    fn = os.path.relpath(fn, start=os.path.dirname(snapatac2.__file__))
+
+    return f"{code_url}/snapatac2-python/snapatac2/{fn}{linespec}"
+
+    '''
+    if "+" in snapatac2.__version__:
+        return f"https://github.com/kaizhang/SnapATAC2/blob/main/snapatac2-python/snapatac2/{fn}{linespec}"
+    else:
+        return (
+            f"https://github.com/kaizhang/SnapATAC2/blob/"
+            f"v{snapatac2.__version__}/snapatac2-python/snapatac2/{fn}{linespec}"
+        )
+    '''

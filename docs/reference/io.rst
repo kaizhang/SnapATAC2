@@ -1,10 +1,19 @@
-=======
-Data IO
-=======
+============
+Input/Output
+============
 .. currentmodule:: snapatac2
 
-SnapATAC2 uses its own implementation of the AnnData format, for more details see
-`anndata-rs-docs <http://kzhang.org/anndata-rs/api.html>`_.
+Backed AnnData objects
+~~~~~~~~~~~~~~~~~~~~~~
+
+.. autosummary::
+    :toctree: _autosummary
+
+    AnnData
+    AnnDataSet
+
+AnnData IO 
+~~~~~~~~~~
 
 .. autosummary::
     :toctree: _autosummary
@@ -14,3 +23,8 @@ SnapATAC2 uses its own implementation of the AnnData format, for more details se
     read_10x_mtx
     read_dataset
     create_dataset
+    AnnData.write
+    AnnData.subset
+    AnnData.copy
+    AnnDataSet.subset
+    AnnDataSet.copy

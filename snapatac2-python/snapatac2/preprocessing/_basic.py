@@ -47,7 +47,7 @@ def make_fragment_file(
         Indicate whether the BAM file contain paired-end reads
     barcode_tag
         Extract barcodes from TAG fields of BAM records, e.g., `barcode_tag = "CB"`.
-    barcode_regex: str | None
+    barcode_regex
         Extract barcodes from read names of BAM records using regular expressions.
         Reguler expressions should contain exactly one capturing group 
         (Parentheses group the regex between them) that matches
