@@ -123,11 +123,14 @@ else:
 
 html_theme_options = {
     "github_url": "https://github.com/kaizhang/SnapATAC2",
+    "external_links": [
+        {"name": "Learn", "url": "https://kzhang.org/epigenomics-analysis/"}
+    ],
     "navbar_end": ["version-switcher", "theme-switcher", "navbar-icon-links"],
 
     "switcher": {
-      "version_match": switcher_version,
-      "json_url": "https://kzhang.org/SnapATAC2/_static/versions.json", 
+        "version_match": switcher_version,
+        "json_url": "https://kzhang.org/SnapATAC2/_static/versions.json", 
     },
 }
 

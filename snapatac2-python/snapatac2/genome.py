@@ -1,4 +1,4 @@
-from snapatac2.datasets import _datasets
+from snapatac2.datasets import datasets
 from pooch import Decompress
 
 class Genome:
@@ -8,10 +8,10 @@ class Genome:
         self._fasta_filename = fasta
 
     def fetch_annotations(self):
-        return _datasets.fetch(self._annotation_filename)
+        return datasets().fetch(self._annotation_filename)
 
     def fetch_fasta(self):
-        return _datasets.fetch(self._fasta_filename, processor = Decompress(method = "gzip"))
+        return datasets().fetch(self._fasta_filename, processor = Decompress(method = "gzip"))
 
 GRCh37 = Genome(
     {
