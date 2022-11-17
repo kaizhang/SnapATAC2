@@ -21,10 +21,10 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
 
     m.add_class::<pyanndata::AnnData>().unwrap();
     m.add_class::<pyanndata::AnnDataSet>().unwrap();
+    m.add_class::<pyanndata::PyMatrixElem>().unwrap();
     m.add_function(wrap_pyfunction!(pyanndata::read, m)?)?;
     m.add_function(wrap_pyfunction!(pyanndata::read_mtx, m)?)?;
     m.add_function(wrap_pyfunction!(pyanndata::read_csv, m)?)?;
-    m.add_function(wrap_pyfunction!(pyanndata::create_dataset, m)?)?;
     m.add_function(wrap_pyfunction!(pyanndata::read_dataset, m)?)?;
 
     m.add_class::<motif::PyDNAMotif>().unwrap();

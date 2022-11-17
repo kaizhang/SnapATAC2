@@ -8,6 +8,9 @@ Landed in HEAD
 
 ## Breaking changes:
 
+- `create_dataset` has been removed. Please use the `AnnDataSet` constructor to
+  create the AnnDataSet object.
+
 ### Argument renaming:
 
 - Argument `storage` is renamed to `file` in a variety of AnnData IO functions, including

@@ -27,6 +27,7 @@ where
             x
         }),
         iterative_merge,
+        None::<&str>,
     )
 }
 

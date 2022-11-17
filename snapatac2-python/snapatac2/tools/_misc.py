@@ -30,8 +30,8 @@ def aggregate_X(
     adata
         The AnnData or AnnDataSet object.
     groupby
-        Group the cells into different groups. If a `str`, groups are obtained from
-        `.obs[groupby]`.
+        Group the cells into different groups. If a `str`, groups are obtained
+        from `.obs[groupby]`.
     normalize
         normalization method: "RPM" or "RPKM".
     file
@@ -40,7 +40,7 @@ def aggregate_X(
     Returns
     -------
     np.ndarray | AnnData
-        If `grouby` is `None, return a 1d array. Otherwise, return an AnnData
+        If `grouby` is `None`, return a 1d array. Otherwise, return an AnnData
         object.
     """
     import polars as pl

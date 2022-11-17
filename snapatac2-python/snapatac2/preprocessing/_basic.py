@@ -92,6 +92,7 @@ def import_data(
     low_memory: bool = True,
     whitelist: Path | list[str] | None = None,
     chunk_size: int = 2000,
+    tempdir: Path | None = None,
 ) -> AnnData:
     """Import dataset and compute QC metrics.
 
@@ -137,9 +138,9 @@ def import_data(
         will be retained.
     chunk_size
         Increasing the chunk_size speeds up I/O but uses more memory.
-    n_jobs
-        number of CPUs to use. The bottleneck of this step is usually the IO, so
-        using more CPUs may not be necessary.
+    tempdir
+        Location to store temporary files. If `None`, system temporary directory
+        will be used.
 
     Returns
     -------
@@ -160,7 +161,7 @@ def import_data(
             whitelist = set(whitelist)
     return internal.import_fragments(
         file, fragment_file, gff_file, chrom_size, min_num_fragments,
-        min_tsse, sorted_by_barcode, low_memory, whitelist, chunk_size,
+        min_tsse, sorted_by_barcode, low_memory, whitelist, chunk_size, tempdir
     )
 
 def add_tile_matrix(
@@ -186,7 +187,7 @@ def add_tile_matrix(
     chunk_size
         Increasing the chunk_size speeds up I/O but uses more memory.
     n_jobs
-        number of CPUs to use.
+        Number of CPUs to use.
     """
     internal.mk_tile_matrix(adata, bin_size, chunk_size, n_jobs)
 

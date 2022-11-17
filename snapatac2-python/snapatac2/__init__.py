@@ -6,8 +6,8 @@ from . import plotting as pl
 from . import export as ex
 
 from snapatac2._snapatac2 import (
-    AnnData, AnnDataSet, read, read_mtx, create_dataset, read_dataset,
-    PyDNAMotif, read_motifs,
+    AnnData, AnnDataSet, PyDNAMotif,
+    read, read_mtx, read_csv, read_dataset, read_motifs,
 )
 
 import sys

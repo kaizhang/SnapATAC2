@@ -77,6 +77,7 @@ pub(crate) fn import_fragments<'py>(
     low_memory: bool,
     white_list: Option<HashSet<String>>,
     chunk_size: usize,
+    tempdir: Option<PathBuf>,
 ) -> Result<PyObject>
 {
     let promoters = preprocessing::make_promoter_map(preprocessing::read_tss(open_file(gtf_file)));
@@ -101,7 +102,7 @@ pub(crate) fn import_fragments<'py>(
     let fragments = bed::io::Reader::new(open_file(&fragment_file), Some("#".to_string()))
         .into_records::<Fragment>().map(Result::unwrap);
     let sorted_fragments: Box<dyn Iterator<Item = Fragment>> = if !fragment_is_sorted_by_name && low_memory {
-        Box::new(bed::sort_bed_by_key(fragments, |x| x.barcode.clone()))
+        Box::new(bed::sort_bed_by_key(fragments, |x| x.barcode.clone(), tempdir))
     } else {
         Box::new(fragments)
     };

@@ -12,11 +12,11 @@ keywords = ["single-cell", "biology"]
 
 [dependencies]
 #anndata-rs = { path = "../../anndata-rs/anndata-rs" }
-anndata-rs = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "bf0861e3e310b291a864f6ee2f73189c755f13a9" }
+anndata-rs = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "8252b38b9ea22441229a424b266c40ad9bd34dff" }
 anyhow = "1.0"
 bigtools = "0.1"
 bincode = "1.3"
-bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "204088a9977946b6bbec519f28fd42ae681c51d3" }
+bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "19832eda2909dbe87289e09ba966af0797adb9f8" }
 extsort = "0.4"
 either = "1.8"
 flate2 = "1.0"

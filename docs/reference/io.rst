@@ -21,8 +21,8 @@ AnnData IO
     read
     read_mtx
     read_10x_mtx
+    read_csv
     read_dataset
-    create_dataset
     AnnData.write
     AnnData.subset
     AnnData.copy
