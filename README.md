@@ -1,5 +1,5 @@
-SnapATAC2
-=========
+SnapATAC2: A Python/Rust package for single-cell epigenomics analysis
+=====================================================================
 
 ![PyPI](https://img.shields.io/pypi/v/snapatac2)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/snapatac2)
@@ -13,7 +13,8 @@ SnapATAC2 is the successor of the SnapATAC R package, featuring:
 - Blazingly fast preprocessing tools for BAM to fragment files conversion and count matrix generation.
 - One of the best dimension reduction algorithms for single-cell ATAC data.
 - End-to-end analysis pipeline, including preprocessing, dimension reduction, clustering, data integration, peak calling, differential analysis, motif analysis, regulatory network analysis.
-- Seamless integration with other single-cell analysis packages such scanpy.
+- Seamless integration with other single-cell analysis packages such as scanpy.
+- Implementation of fully backed AnnData.
 
 **To find tutorials and the full APIs, please go to this [website](https://kzhang.org/SnapATAC2/).**
 

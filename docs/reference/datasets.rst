@@ -3,6 +3,14 @@ Datasets
 ========
 .. currentmodule:: snapatac2
 
+These functions facilitate the download of public datasets and auxiliary data used
+in the SnapATAC2 package.
+
+.. note::
+
+    You can change the data cache directory by setting the `SNAP_DATA_DIR` environmental
+    variable.
+
 Genome
 ~~~~~~
 
