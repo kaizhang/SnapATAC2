@@ -94,9 +94,15 @@ def diff_test(
                 return xs
             elif all([isinstance(item, str) for item in xs]):
                 if type == "obs":
-                    return data.obs_ix(xs)
+                    if data.isbacked:
+                        return data.obs_ix(xs)
+                    else:
+                        return [data.obs_names.get_loc(x) for x in xs]
                 else:
-                    return data.var_ix(xs)
+                    if data.isbacked:
+                        return data.var_ix(xs)
+                    else:
+                        return [data.var_names.get_loc(x) for x in xs]
             else:
                 raise NameError("invalid type")
         else:
