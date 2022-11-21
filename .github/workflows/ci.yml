@@ -22,15 +22,19 @@ jobs:
       run: |
         rustup default nightly
         sudo pip install --upgrade pip
-        pip install --user pytest hypothesis
+        pip install --user coverage pytest hypothesis
 
     - name: Test Rust package
       run: |
-        cd ${GITHUB_WORKSPACE}/snapatac2-core && \
-          cargo test --all --no-fail-fast --features anndata-rs/static
-
-    - name: Build Python package
-      run: cd ${GITHUB_WORKSPACE}/snapatac2-python && pip install --user .
+        cd ${GITHUB_WORKSPACE}/snapatac2-core
+        cargo test --all --no-fail-fast --features anndata-rs/static
 
     - name: Test Python package
-      run: pytest ${GITHUB_WORKSPACE}/snapatac2-python/tests -v
+      run: |
+        cd ${GITHUB_WORKSPACE}/snapatac2-python
+        pip install -e .
+        coverage run -m pytest ${GITHUB_WORKSPACE}/snapatac2-python/tests
+        mv .coverage ${GITHUB_WORKSPACE}
+
+    - name: Upload Coverage to Codecov
+      uses: codecov/codecov-action@v3

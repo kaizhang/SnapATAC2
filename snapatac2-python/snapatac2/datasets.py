@@ -20,6 +20,7 @@ def datasets():
             # The registry specifies the files that can be fetched
             registry={
                 "atac_pbmc_500.tsv.gz": "sha256:196c5d7ee0169957417e9f4d5502abf1667ef99453328f8d290d4a7f3b205c6c",
+                "atac_pbmc_500_downsample.tsv.gz": "sha256:6053cf4578a140bfd8ce34964602769dc5f5ec6b25ba4f2db23cdbd4681b0e2f",
                 "atac_pbmc_5k.tsv.gz": "sha256:5fe44c0f8f76ce1534c1ae418cf0707ca5ef712004eee77c3d98d2d4b35ceaec",
                 "atac_pbmc_5k.h5ad": "sha256:dcaca8ca4ac28674ec2172b4a975f75fba2ede1fc86571f7c452ba00f5cd4b94",
                 "atac_pbmc_5k_annotated.h5ad": "sha256:3d5f147ce13a01cd2bdc3d9d2e8cf7897ee98e44255ff12f868517dd78427a87",
@@ -44,6 +45,7 @@ def datasets():
             },
             urls={
                 "atac_pbmc_500.tsv.gz": "https://cf.10xgenomics.com/samples/cell-atac/2.0.0/atac_pbmc_500_nextgem/atac_pbmc_500_nextgem_fragments.tsv.gz",
+                "atac_pbmc_500_downsample.tsv.gz": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_atac/atac_pbmc_500_downsample.tsv.gz",
 
                 "atac_pbmc_5k.tsv.gz": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_atac/atac_pbmc_5k_nextgem_fragments.tsv.gz",
                 "atac_pbmc_5k.h5ad": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_atac/atac_pbmc_5k.h5ad",
@@ -70,15 +72,23 @@ def datasets():
         )
     return _datasets
 
-def pbmc500() -> Path:
+def pbmc500(downsampled: bool = False) -> Path:
     """500 PBMCs from 10x Genomics.
+
+    Parameters
+    ----------
+    downsampled
+        Whether to return downsampled dataset.
 
     Returns
     -------
     Path
         Path to the fragment file.
     """
-    return Path(datasets().fetch("atac_pbmc_500.tsv.gz"))
+    if downsampled:
+        return Path(datasets().fetch("atac_pbmc_500_downsample.tsv.gz"))
+    else:
+        return Path(datasets().fetch("atac_pbmc_500.tsv.gz"))
 
 def pbmc5k(type: Literal["fragment, h5ad, gene, annotated_h5ad"] = "fragment") -> Path:
     """5k PBMCs from 10x Genomics.
