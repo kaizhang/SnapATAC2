@@ -21,7 +21,7 @@ setup(
     license='MIT',
     version=VERSION['__version__'],
     rust_extensions=[
-        RustExtension("snapatac2._snapatac2", binding=Binding.PyO3),
+        RustExtension("snapatac2._snapatac2", debug=False, binding=Binding.PyO3),
     ],
     packages=[
         "snapatac2",

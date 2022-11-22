@@ -1,17 +1,16 @@
 name: Build wheels
 
-on:
-  push:
-    tags:
-      - 'v*'
-    branches:
-      - main
-      - wheels
+on: [push]
+    #tags:
+    #  - 'v*'
+    #branches:
+    #  - main
 
 jobs:
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    if: ${{ startsWith(github.ref, 'refs/tags/') || contains(github.event.head_commit.message, 'wheel') }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-10.15]
@@ -31,12 +30,7 @@ jobs:
       - name: Checkout code
         uses: nschloe/action-cached-lfs-checkout@v1
 
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          #toolchain: stable
-          toolchain: nightly # polars requires nightly
-          override: true
+      - uses: ./.github/actions/setup-rust
 
       - if: runner.os != 'Linux'
         name: Setup env when not using docker

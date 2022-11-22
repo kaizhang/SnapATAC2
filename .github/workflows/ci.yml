@@ -1,4 +1,4 @@
-name: Continuous integration
+name: Run Tests
 
 on: [push, pull_request]
 
@@ -14,20 +14,19 @@ jobs:
       with:
           python-version: '3.10'
 
-    - uses: actions-rs/toolchain@v1
+    - uses: ./.github/actions/setup-rust
       with:
-        toolchain: 1.65.0
+        cache: true
 
     - name: Install dependency
       run: |
-        rustup default nightly
         sudo pip install --upgrade pip
         pip install --user coverage pytest hypothesis
 
     - name: Test Rust package
       run: |
         cd ${GITHUB_WORKSPACE}/snapatac2-core
-        cargo test --all --no-fail-fast --features anndata-rs/static
+        cargo test --release --all --no-fail-fast --features anndata-rs/static
 
     - name: Test Python package
       run: |

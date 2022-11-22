@@ -1,6 +1,25 @@
+bugs
+build
+
+# Rust
 target
 Cargo.lock
-*.h5ad
+
+# Python
 __pycache__/
 *.egg-info/
 *.egg
+
+# Sphinx documentation
+_build
+_autosummary
+
+*.bed.gz
+
+# Test suite artifacts
+.hypothesis
+.coverage
+
+# h5ad
+*.h5ad
+*.h5ads
