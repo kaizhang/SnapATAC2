@@ -26,4 +26,4 @@ SnapATAC2 have been described in the following papers:
    install
    tutorials/index
    reference/index
-   develop
+   Development<develop>

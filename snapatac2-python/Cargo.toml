@@ -13,10 +13,10 @@ keywords = ["single-cell", "biology"]
 [dependencies]
 #anndata-rs = { path = "../../anndata-rs/anndata-rs" }
 #pyanndata = { path = "../../anndata-rs/pyanndata" }
+#snapatac2-core = { path = "../snapatac2-core" }
 anndata-rs = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "5159de91d5c20bac89d88c592efb6d7e8bffd6ab" }
 pyanndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "5159de91d5c20bac89d88c592efb6d7e8bffd6ab" }
-#snapatac2-core = { git = "https://github.com/kaizhang/SnapATAC2.git", rev = "32453ec0598123e4d9aa25884704ee7ebb2bbe7e" }
-snapatac2-core = { path = "../snapatac2-core" }
+snapatac2-core = { git = "https://github.com/kaizhang/SnapATAC2.git", rev = "417d163f94d259fcf6086206e64a6eb6ae9c9e1e" }
 anyhow = "1.0"
 bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "19832eda2909dbe87289e09ba966af0797adb9f8" }
 flate2 = "1.0"
