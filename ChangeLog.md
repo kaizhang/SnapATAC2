@@ -1,4 +1,4 @@
-Landed in HEAD
+v2.2.0 (2022-12-02)
 ===================
 
 ## Major changes:

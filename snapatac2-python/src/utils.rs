@@ -258,9 +258,9 @@ pub(crate) fn approximate_nearest_neighbors(
 ) -> PyResult<(Vec<f32>, Vec<i32>, Vec<i32>)>
 {
     let data = data_.as_array();
-    let dimension = data.shape()[1];
+    let shape = data.shape();
     let mut index = hora::index::hnsw_idx::HNSWIndex::<f32, usize>::new(
-        dimension,
+        shape[1],
         &hora::index::hnsw_params::HNSWParams::<f32>::default(),
     );
     for (i, sample) in data.axis_iter(ndarray::Axis(0)).enumerate() {

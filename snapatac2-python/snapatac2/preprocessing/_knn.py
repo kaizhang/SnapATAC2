@@ -1,9 +1,10 @@
 from __future__ import annotations
+from typing_extensions import Literal
 
 import numpy as np
 from scipy.sparse import csr_matrix
 
-from snapatac2._utils import is_anndata 
+from snapatac2._utils import is_anndata
 from snapatac2._snapatac2 import AnnData, AnnDataSet, approximate_nearest_neighbors
 
 # TODO: add random state
@@ -12,9 +13,10 @@ def knn(
     n_neighbors: int = 50,
     use_dims: int | list[int] | None = None,
     use_rep: str | None = None,
-    use_approximate_search: bool = True,
+    method: Literal['hora', 'pynndescent', 'exact'] = "hora",
     n_jobs: int = -1,
     inplace: bool = True,
+    random_state: int = 0,
 ) -> csr_matrix | None:
     """
     Compute a neighborhood graph of observations.
@@ -29,12 +31,14 @@ def knn(
         The dimensions used for computation.
     use_rep
         The key for the matrix
-    use_approximate_search
-        Whether to use approximate nearest neighbor search
+    method
+        'hora', 'pynndescent', or 'exact'
     n_jobs
         number of CPUs to use
     inplace
         Whether to store the result in the anndata object.
+    random_state
+        Random seed for approximate nearest neighbor search.
 
     Returns
     -------
@@ -58,9 +62,17 @@ def knn(
             data = data[:, use_dims]
 
     n = data.shape[0]
-    if use_approximate_search:
+    if method == 'hora':
         (d, indices, indptr) = approximate_nearest_neighbors(data.astype(np.float32), n_neighbors)
         adj = csr_matrix((d, indices, indptr), shape=(n, n))
+    elif method == 'pynndescent':
+        import pynndescent
+        index = pynndescent.NNDescent(data, n_neighbors=max(50, n_neighbors), random_state=random_state)
+        adj, distances = index.neighbor_graph
+        indices = np.ravel(adj[:, :n_neighbors])
+        distances = np.ravel(distances[:, :n_neighbors]) 
+        indptr = np.arange(0, distances.size + 1, n_neighbors)
+        adj = csr_matrix((distances, indices, indptr), shape=(n, n))
     else:
         from sklearn.neighbors import kneighbors_graph
         adj = kneighbors_graph(data, n_neighbors, mode='distance', n_jobs=n_jobs)
