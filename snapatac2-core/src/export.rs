@@ -1,4 +1,4 @@
-use crate::preprocessing::{ReadGenomeCoverage, GenomeIndex, GBaseIndex};
+use crate::preprocessing::{SnapData, genome::GenomeCoverage};
 
 use nalgebra_sparse::CsrMatrix;
 use anyhow::{Context, Result, ensure};
@@ -17,9 +17,9 @@ use bigtools::{bigwig::bigwigwrite::BigWigWrite, bed::bedparser::BedParser};
 use futures::executor::ThreadPool;
 use indicatif::{ProgressIterator, style::ProgressStyle};
 
-impl<T> Exporter for T where T: ReadGenomeCoverage {}
+impl<T> Exporter for T where T: SnapData {}
 
-pub trait Exporter: ReadGenomeCoverage {
+pub trait Exporter: SnapData {
     fn export_bed<P: AsRef<Path>>(
         &self,
         barcodes: Option<&Vec<&str>>,
@@ -51,7 +51,7 @@ pub trait Exporter: ReadGenomeCoverage {
         }).collect::<Result<HashMap<_, _>>>()?;
 
         let style = ProgressStyle::with_template("[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})")?;
-        self.raw_count_iter(500)?.progress_with_style(style).try_for_each(|(vals, start, _)|
+        self.raw_count_iter(500)?.into_chrom_values::<usize>().progress_with_style(style).try_for_each(|(vals, start, _)|
             vals.into_iter().enumerate().try_for_each::<_, Result<_>>(|(i, ins)| {
                 if let Some((_, fl)) = files.get_mut(group_by[start + i]) {
                     ins.into_iter().try_for_each(|x| {
@@ -59,7 +59,7 @@ pub trait Exporter: ReadGenomeCoverage {
                             None => format!("{}\t{}\t{}", x.chrom(), x.start(), x.end()),
                             Some(barcodes_) => format!("{}\t{}\t{}\t{}", x.chrom(), x.start(), x.end(), barcodes_[start + i]),
                         };
-                        (0..(x.value as usize)).try_for_each(|_| writeln!(fl, "{}", bed))
+                        (0..x.value).try_for_each(|_| writeln!(fl, "{}", bed))
                     })?;
                 }
                 Ok(())
@@ -78,9 +78,7 @@ pub trait Exporter: ReadGenomeCoverage {
         suffix:&str,
     ) -> Result<HashMap<String, PathBuf>> {
         export_insertions_as_bigwig(
-            self.read_obsm_item_iter("insertion", 500)?.map(|(chunk, _, _)| chunk.downcast().unwrap()),
-            &self.read_chrom_sizes()?.into_iter().map(|(a, b)| (a, b as u32)).collect(),
-            &self.read_geome_index()?, group_by, selections, resolution, dir, prefix, suffix,
+            self.raw_count_iter(500)?, group_by, selections, resolution, dir, prefix, suffix,
         )
     }
 
@@ -123,9 +121,7 @@ pub trait Exporter: ReadGenomeCoverage {
 /// * `genome_index` - 
 /// * `chrom_sizes` - 
 fn export_insertions_as_bigwig<P, I>(
-    iter: I,
-    chrom_sizes: &HashMap<String, u32>,
-    genome_index: &GBaseIndex,
+    mut coverage: GenomeCoverage<I>,
     group_by: &Vec<&str>,
     selections: Option<HashSet<&str>>,
     resolution: usize,
@@ -134,7 +130,7 @@ fn export_insertions_as_bigwig<P, I>(
     suffix:&str,
 ) -> Result<HashMap<String, PathBuf>>
 where
-    I: Iterator<Item = Box<CsrMatrix<u8>>> + ExactSizeIterator,
+    I: ExactSizeIterator<Item = (CsrMatrix<u8>, usize, usize)>,
     P: AsRef<Path>,
 {
     // Create directory
@@ -145,6 +141,10 @@ where
         "[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})"
     ).unwrap();
 
+    coverage = coverage.with_resolution(resolution);
+    let index = coverage.index.clone();
+    let chrom_sizes: HashMap<String, u32> = index.chrom_sizes().map(|(k, v)| (k.to_string(), v as u32)).collect();
+
     // Collect groups
     let mut groups: HashSet<&str> = group_by.iter().map(|x| *x).unique().collect();
     if let Some(select) = selections { groups.retain(|x| select.contains(x)); }
@@ -153,19 +153,15 @@ where
     let mut counts: HashMap<&str, BTreeMap<usize, u32>> =
         groups.into_iter().map(|grp| (grp, BTreeMap::new())).collect();
     info!("Compute coverage for {} groups...", counts.len());
-    let mut cur_row_idx = 0;
-    iter.progress_with_style(style.clone()).for_each(|csr| csr.row_iter().for_each(|row| {
-        if let Some(count) = counts.get_mut(group_by[cur_row_idx]) {
-            row.col_indices().iter().zip(row.values()).for_each(|(i, v)| {
-                let e = count.entry(
-                    genome_index.index_downsampled(*i, resolution)
-                ).or_insert(0);
-                *e += *v as u32;
-            })
-        }
-        cur_row_idx += 1;
-    }));
-    ensure!(cur_row_idx == group_by.len(), "the length of group differs");
+    coverage.into_values::<u32>().progress_with_style(style.clone()).for_each(|(csr, start, end)|
+        (start..end).zip(csr.row_iter()).for_each(|(row_idx, row)|
+            if let Some(count) = counts.get_mut(group_by[row_idx]) {
+                row.col_indices().iter().zip(row.values()).for_each(|(i, v)|
+                    *count.entry(*i).or_insert(0) += *v
+                );
+            }
+        )
+    );
 
     // Exporting
     info!("Exporting bigwig files...");
@@ -179,8 +175,8 @@ where
         let norm_factor = total_count * resolution as f64 / 1e9;
 
         // Make BedGraph
-        let mut bedgraph: Vec<BedGraph<f32>> = count.into_iter().map(move |(k, v)| {
-            let mut region = genome_index.lookup_region(k);
+        let mut bedgraph: Vec<BedGraph<f32>> = count.into_iter().map(|(k, v)| {
+            let mut region = index.index(k);
             region.set_end(region.start() + resolution as u64);
             BedGraph::from_bed(&region, (v as f64 / norm_factor) as f32)
         }).group_by(|x| x.value).into_iter().flat_map(|(_, groups)|

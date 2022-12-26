@@ -1,25 +1,14 @@
-mod qc;
-mod matrix;
-mod mark_duplicates;
-
-pub use qc::{Fragment, CellBarcode, read_tss, make_promoter_map, get_barcode_count};
-pub use matrix::{
-    ReadGenomeInfo, ReadGenomeCoverage, ChromValues, GenomeIndex, GBaseIndex, Promoters,
-    Transcript, read_transcripts, create_tile_matrix, create_peak_matrix, create_gene_matrix,
-};
-pub use mark_duplicates::FlagStat;
-
-use crate::preprocessing::{
-    mark_duplicates::{BarcodeLocation, filter_bam, group_bam_by_barcode},
-    qc::{FragmentSummary, QualityControl, compute_qc_count},
-};
+use crate::{preprocessing::{
+    mark_duplicates::{FlagStat, BarcodeLocation, filter_bam, group_bam_by_barcode},
+    qc::{Fragment, FragmentSummary, QualityControl, compute_qc_count},
+}, utils::from_csr_rows};
 
 use noodles::{bam, sam::{Header, record::data::field::Tag}};
 use tempfile::Builder;
 use regex::Regex;
 use bed_utils::bed::{BEDLike, tree::{GenomeRegions, BedTree, SparseBinnedCoverage}};
 use anyhow::Result;
-use anndata_rs::{AnnDataOp, AnnDataIterator, iterator::{CsrIterator, RowIterator}};
+use anndata::{AnnDataOp, AnnDataIterator};
 use indicatif::{ProgressDrawTarget, ProgressIterator, ProgressBar, style::ProgressStyle};
 use flate2::{Compression, write::GzEncoder};
 use polars::prelude::{NamedFrom, DataFrame, Series};
@@ -27,6 +16,7 @@ use rayon::iter::{ParallelIterator, IntoParallelIterator};
 use itertools::Itertools;
 use std::{path::Path, fs::File, io::{Write, BufWriter}, collections::{HashSet, HashMap}};
 use either::Either;
+
 
 /// Convert a BAM file to a fragment file by performing the following steps:
 /// 
@@ -172,10 +162,9 @@ where
             ProgressStyle::with_template("{spinner} Processed {human_pos} barcodes in {elapsed} ({per_sec}) ...").unwrap()
         );
         let mut scanned_barcodes = HashSet::new();
-        anndata.add_obsm_item_from_row_iter(
+        anndata.add_obsm_from_iter(
             "insertion",
-            CsrIterator {
-                iterator: fragments
+            fragments
                 .group_by(|x| { x.barcode.clone() }).into_iter().progress_with(spinner)
                 .filter(|(key, _)| white_list.map_or(true, |x| x.contains(key)))
                 .chunks(chunk_size).into_iter().map(|chunk| {
@@ -186,7 +175,7 @@ where
                             barcode,
                             compute_qc_count(x, promoter, regions, min_num_fragment, min_tsse)
                         )).collect();
-                    result.into_iter().filter_map(|(barcode, r)| {
+                    let counts = result.into_iter().filter_map(|(barcode, r)| {
                         if !scanned_barcodes.insert(barcode.clone()) {
                             panic!("Please sort fragment file by barcodes");
                         }
@@ -198,10 +187,9 @@ where
                                 Some(count)
                             },
                         }
-                    }).collect::<Vec<_>>()
-                }),
-                num_cols: num_features,
-            }
+                    }).collect::<Vec<_>>();
+                    from_csr_rows(counts, num_features)
+            }),
         )?;
     } else {
         let spinner = ProgressBar::with_draw_target(None, ProgressDrawTarget::stderr_with_hz(1)).with_style(
@@ -226,8 +214,8 @@ where
                 }
             }
         });
-        let csr_matrix = CsrIterator {
-            iterator: scanned_barcodes.drain()
+        let csr_matrix = from_csr_rows(
+            scanned_barcodes.drain()
             .filter_map(|(barcode, (summary, binned_coverage))| {
                 let q = summary.get_qc();
                 if q.num_unique_fragment < min_num_fragment || q.tss_enrichment < min_tsse {
@@ -237,21 +225,21 @@ where
                     qc.push(q);
                     let count: Vec<(usize, u8)> = binned_coverage.get_coverage()
                         .iter().map(|(k, v)| (*k, *v)).collect();
-                    Some(vec![count])
+                    Some(count)
                 }
-            }),
-            num_cols: num_features,
-        }.to_csr_matrix();
-        anndata.add_obsm_item("insertion", csr_matrix)?;
+            }).collect::<Vec<_>>(),
+            num_features,
+        );
+        anndata.add_obsm("insertion", csr_matrix)?;
     }
 
     let chrom_sizes = DataFrame::new(vec![
         Series::new("reference_seq_name", regions.regions.iter().map(|x| x.chrom()).collect::<Series>()),
         Series::new("reference_seq_length", regions.regions.iter().map(|x| x.end()).collect::<Series>()),
     ])?;
-    anndata.add_uns_item("reference_sequences", chrom_sizes)?;
+    anndata.add_uns("reference_sequences", chrom_sizes)?;
     anndata.set_obs_names(saved_barcodes.into())?;
-    anndata.set_obs(Some(qc_to_df(qc)))?;
+    anndata.set_obs(qc_to_df(qc))?;
     Ok(())
 }
 

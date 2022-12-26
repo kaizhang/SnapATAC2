@@ -1,19 +1,16 @@
-use pyanndata::{AnnData, AnnDataSet, PyAnnData};
+use pyanndata::{AnnData, PyAnnData, AnnDataSet};
 use pyo3::{
     prelude::*,
     types::PyIterator,
     PyResult, Python,
-    PyTypeInfo,
 };
 use numpy::{Element, PyReadonlyArrayDyn, PyReadonlyArray, Ix1, Ix2, PyArray, IntoPyArray};
 use snapatac2_core::utils::similarity;
 
-use hdf5::H5Type;
 use bed_utils::{bed, bed::GenomicRange, bed::BED};
 use std::{str::FromStr, fs::File};
 use std::path::Path;
 use flate2::read::MultiGzDecoder;
-use hdf5;
 use linreg::lin_reg_imprecise;
 use linfa::{DatasetBase, traits::{Fit, Predict}};
 use linfa_clustering::KMeans;
@@ -277,7 +274,6 @@ pub(crate) fn approximate_nearest_neighbors(
 pub(crate) fn to_csr_matrix<I, D>(iter: I) -> (Vec<D>, Vec<i32>, Vec<i32>)
 where
     I: Iterator<Item = Vec<(usize, D)>>,
-    D: H5Type,
 {
     let mut data: Vec<D> = Vec::new();
     let mut indices: Vec<i32> = Vec::new();
@@ -317,18 +313,51 @@ where OP: FnOnce() -> R + Send, R: Send
     ThreadPoolBuilder::new().num_threads(num_cpu).build().unwrap().install(op)
 }
 
-pub enum AnnDataObj<'a> {
+#[derive(FromPyObject)]
+pub enum AnnDataLike<'py> {
     AnnData(AnnData),
-    PyAnnData(PyAnnData<'a>),
+    PyAnnData(PyAnnData<'py>),
     AnnDataSet(AnnDataSet),
 }
 
-pub fn extract_anndata<'py>(py: Python<'py>, anndata: &'py PyAny) -> PyResult<AnnDataObj<'py>> {
-    if anndata.is_instance(AnnData::type_object(py))? {
-        Ok(AnnDataObj::AnnData(anndata.extract::<AnnData>()?))
-    } else if anndata.is_instance(AnnDataSet::type_object(py))? {
-        Ok(AnnDataObj::AnnDataSet(anndata.extract::<AnnDataSet>()?))
-    } else {
-        anndata.extract::<PyAnnData>().map(|x| AnnDataObj::PyAnnData(x))
+impl IntoPy<PyObject> for AnnDataLike<'_> {
+    fn into_py(self, py: Python<'_>) -> PyObject {
+        match self {
+            AnnDataLike::AnnData(x) => x.into_py(py),
+            AnnDataLike::PyAnnData(x) => x.into_py(py),
+            AnnDataLike::AnnDataSet(x) => x.into_py(py),
+        }
+    }
+}
+
+impl From<AnnData> for AnnDataLike<'_> {
+    fn from(value: AnnData) -> Self {
+        AnnDataLike::AnnData(value)
+    }
+}
+
+impl From<AnnDataSet> for AnnDataLike<'_> {
+    fn from(x: AnnDataSet) -> Self {
+        AnnDataLike::AnnDataSet(x)
+    }
+}
+
+impl<'py> From<PyAnnData<'py>> for AnnDataLike<'py> {
+    fn from(x: PyAnnData<'py>) -> Self {
+        AnnDataLike::PyAnnData(x)
+    }
+}
+
+#[macro_export]
+macro_rules! with_anndata {
+    ($anndata:expr, $fun:ident) => {
+        match $anndata {
+            AnnDataLike::AnnData(x) => match x.backend().as_str() {
+                H5::NAME => { $fun!(x.inner_ref::<H5>().deref()) },
+                x => panic!("Unsupported backend: {}", x),
+            },
+            AnnDataLike::AnnDataSet(x) => todo!(),
+            AnnDataLike::PyAnnData(x) => { $fun!(x) },
+        }
     }
 }

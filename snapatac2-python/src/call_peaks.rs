@@ -1,8 +1,11 @@
-use crate::utils::{AnnDataObj, extract_anndata};
+use crate::utils::AnnDataLike;
 use snapatac2_core::{export::Exporter, utils::merge_peaks};
 
-use pyanndata::utils::conversion::RustToPy;
-use pyo3::{prelude::*, Python};
+use std::ops::Deref;
+use anndata::Backend;
+use anndata_hdf5::H5;
+use pyanndata::data::PyDataFrame;
+use pyo3::prelude::*;
 use bed_utils::bed::{BEDLike, GenomicRange, io::Reader, tree::BedTree};
 use flate2::read::MultiGzDecoder;
 use tempfile::Builder;
@@ -13,29 +16,24 @@ use std::collections::HashSet;
 use anyhow::Result;
 
 #[pyfunction]
-pub fn call_peaks<'py>(
-    py: Python<'py>,
-    anndata: &PyAny,
+pub fn call_peaks(
+    anndata: AnnDataLike,
     group_by: Vec<&str>,
     selections: Option<HashSet<&str>>,
     q_value: f64,
     out_dir: Option<&str>,
-) -> Result<PyObject> {
+) -> Result<PyDataFrame> {
     let dir = Builder::new().tempdir_in("./").unwrap();
     let temp_dir = out_dir.unwrap_or(dir.path().to_str().unwrap());
 
-    let peak_files = match extract_anndata(py, anndata)? {
-        AnnDataObj::AnnData(data) => data.inner().call_peaks(
-            q_value, &group_by, selections, temp_dir, "", ".NarrowPeak.gz",
-        )?,
-        AnnDataObj::AnnDataSet(data) => data.inner().call_peaks(
-            q_value, &group_by, selections, temp_dir, "", ".NarrowPeak.gz",
-        )?,
-        AnnDataObj::PyAnnData(data) => data.call_peaks(
-            q_value, &group_by, selections, temp_dir, "", ".NarrowPeak.gz",
-        )?,
-    };
-
+    macro_rules! run {
+        ($data:expr) => {
+            $data.call_peaks(
+                q_value, &group_by, selections, temp_dir, "", ".NarrowPeak.gz",
+            )?
+        }
+    }
+    let peak_files = crate::with_anndata!(&anndata, run);
     let peak_iter = peak_files.values().flat_map(|fl|
         Reader::new(MultiGzDecoder::new(File::open(fl).unwrap()), None)
         .into_records().map(Result::unwrap)
@@ -60,5 +58,5 @@ pub fn call_peaks<'py>(
 
     let df = DataFrame::new(std::iter::once(peaks_str).chain(iter).collect())?;
     dir.close()?;
-    Ok(df.rust_into_py(py)?)
+    Ok(df.into())
 }
