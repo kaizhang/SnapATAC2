@@ -1,5 +1,9 @@
 bugs
 build
+*.png
+*.ipynb
+*.bw
+*.gz
 
 # Rust
 target
@@ -13,8 +17,6 @@ __pycache__/
 # Sphinx documentation
 _build
 _autosummary
-
-*.bed.gz
 
 # Test suite artifacts
 .hypothesis

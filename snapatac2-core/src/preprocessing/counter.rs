@@ -9,21 +9,13 @@ use super::Promoters;
 pub trait FeatureCounter {
     type Value;
 
+    fn num_features(&self) -> usize { self.get_feature_ids().len() }
+
     /// Reset the counter.
     fn reset(&mut self);
 
     /// Update counter according to the region and the assocated count.
     fn insert<B: BEDLike, N: ToPrimitive + Copy>(&mut self, tag: &B, count: N);
-
-    /*
-    fn inserts<B, N>(&mut self, data: B)
-    where
-        B: Into<ChromValues<N>>,
-        N: ToPrimitive + Copy,
-    {
-        data.into().into_iter().for_each(|x| self.insert(&x, x.value));
-    }
-    */
 
     /// Retrieve feature ids.
     fn get_feature_ids(&self) -> Vec<String>;

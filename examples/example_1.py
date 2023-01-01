@@ -38,7 +38,7 @@ print(data)
 logging.info("make bin matrix - OK")
 print("######################################################\n")
 
-snap.pl.tsse(data, out_file="tsse.png")
+#snap.pl.tsse(data, out_file="tsse.png")
 
 print("######################################################")
 logging.info("Filter cells - begin")

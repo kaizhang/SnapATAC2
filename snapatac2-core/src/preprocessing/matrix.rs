@@ -1,7 +1,8 @@
 use crate::preprocessing::genome::{Promoters, Transcript, SnapData};
 use crate::preprocessing::counter::{FeatureCounter, TranscriptCount, GeneCount};
 
-use anndata::{AnnDataOp, AnnDataIterator};
+use anndata::AnnDataOp;
+use indicatif::{ProgressIterator, ProgressStyle};
 use polars::prelude::{NamedFrom, DataFrame, Series};
 use anyhow::Result;
 use bed_utils::bed::{BEDLike, tree::{GenomeRegions, SparseCoverage}};
@@ -20,14 +21,20 @@ pub fn create_tile_matrix<A, B>(
     ) -> Result<()>
 where
     A: SnapData,
-    B: AnnDataIterator,
+    B: AnnDataOp,
 {
+    let style = ProgressStyle::with_template(
+        "[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})"
+    ).unwrap();
     let counts = adata.raw_count_iter(chunk_size)?.with_resolution(bin_size);
+    let feature_names = counts.index.to_ranges().map(|x| x.pretty_show()).collect();
+    let data_iter = counts.into_values::<u32>().map(|x| x.0).progress_with_style(style);
     if let Some(adata_out) =  out {
-        adata_out.set_x_from_iter(counts.into_values::<u32>().map(|x| x.0))?;
+        adata_out.set_x_from_iter(data_iter)?;
+        adata_out.set_var_names(feature_names)?;
     } else {
-        adata.set_x_from_iter(counts.into_values::<u32>().map(|x| x.0))?;
-        //anndata.set_var_names()?;
+        adata.set_x_from_iter(data_iter)?;
+        adata.set_var_names(feature_names)?;
     }
     Ok(())
 }
@@ -42,7 +49,7 @@ where
     A: SnapData,
     I: Iterator<Item = D>,
     D: BEDLike + Send + Sync + Clone,
-    B: AnnDataOp + AnnDataIterator,
+    B: AnnDataOp,
 {
     let regions: GenomeRegions<D> = peaks.collect();
     let counter = SparseCoverage::new(&regions);
@@ -67,7 +74,7 @@ pub fn create_gene_matrix<A, B>(
     ) -> Result<()>
 where
     A: SnapData,
-    B: AnnDataOp + AnnDataIterator,
+    B: AnnDataOp,
 {
     let promoters = Promoters::new(transcripts, 2000, 0, true);
     let transcript_counter: TranscriptCount<'_> = TranscriptCount::new(&promoters);

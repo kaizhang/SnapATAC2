@@ -1,4 +1,7 @@
-use pyanndata::{AnnData, PyAnnData, AnnDataSet};
+mod anndata;
+
+pub use self::anndata::{PyAnnData, AnnDataLike};
+
 use pyo3::{
     prelude::*,
     types::PyIterator,
@@ -311,53 +314,4 @@ pub fn with_cpu<OP, R>(num_cpu: usize, op: OP) -> R
 where OP: FnOnce() -> R + Send, R: Send
 {
     ThreadPoolBuilder::new().num_threads(num_cpu).build().unwrap().install(op)
-}
-
-#[derive(FromPyObject)]
-pub enum AnnDataLike<'py> {
-    AnnData(AnnData),
-    PyAnnData(PyAnnData<'py>),
-    AnnDataSet(AnnDataSet),
-}
-
-impl IntoPy<PyObject> for AnnDataLike<'_> {
-    fn into_py(self, py: Python<'_>) -> PyObject {
-        match self {
-            AnnDataLike::AnnData(x) => x.into_py(py),
-            AnnDataLike::PyAnnData(x) => x.into_py(py),
-            AnnDataLike::AnnDataSet(x) => x.into_py(py),
-        }
-    }
-}
-
-impl From<AnnData> for AnnDataLike<'_> {
-    fn from(value: AnnData) -> Self {
-        AnnDataLike::AnnData(value)
-    }
-}
-
-impl From<AnnDataSet> for AnnDataLike<'_> {
-    fn from(x: AnnDataSet) -> Self {
-        AnnDataLike::AnnDataSet(x)
-    }
-}
-
-impl<'py> From<PyAnnData<'py>> for AnnDataLike<'py> {
-    fn from(x: PyAnnData<'py>) -> Self {
-        AnnDataLike::PyAnnData(x)
-    }
-}
-
-#[macro_export]
-macro_rules! with_anndata {
-    ($anndata:expr, $fun:ident) => {
-        match $anndata {
-            AnnDataLike::AnnData(x) => match x.backend().as_str() {
-                H5::NAME => { $fun!(x.inner_ref::<H5>().deref()) },
-                x => panic!("Unsupported backend: {}", x),
-            },
-            AnnDataLike::AnnDataSet(x) => todo!(),
-            AnnDataLike::PyAnnData(x) => { $fun!(x) },
-        }
-    }
 }

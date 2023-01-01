@@ -1,5 +1,5 @@
 from ._version import __version__
-from ._io import read_10x_mtx
+#from ._io import read_10x_mtx
 from . import preprocessing as pp
 from . import tools as tl
 from . import plotting as pl
@@ -7,7 +7,7 @@ from . import export as ex
 
 from snapatac2._snapatac2 import (
     AnnData, AnnDataSet, PyDNAMotif,
-    read, read_mtx, read_csv, read_dataset, read_motifs,
+    read, read_dataset, read_motifs,
 )
 
 import sys

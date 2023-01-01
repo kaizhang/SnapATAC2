@@ -1,5 +1,7 @@
+use anndata::container::{ChunkedArrayElem, StackedChunkedArrayElem};
 use bed_utils::bed::{tree::GenomeRegions, GenomicRange, BedGraph};
-use anndata::{AnnDataOp, AnnDataIterator};
+use anndata::{AnnDataOp, ElemCollectionOp, AxisArraysOp, AnnDataSet, Backend, AnnData};
+use anndata::data::index::NamedRange;
 use polars::frame::DataFrame;
 use nalgebra_sparse::CsrMatrix;
 use noodles::{
@@ -164,6 +166,23 @@ impl GenomeBaseIndex {
         }
     }
 
+    pub fn to_ranges(&self) -> impl Iterator<Item = GenomicRange> + '_ {
+        self.chrom_sizes()
+            .flat_map(|(chrom, length)| {
+                let range = NamedRange {
+                    name: chrom.clone(),
+                    start: 0,
+                    end: length as usize,
+                    step: self.resolution,
+                };
+                range.map(|(chr, start, end)| GenomicRange::new(chr, start as u64, end as u64))
+            })
+    }
+
+    pub fn len(&self) -> usize {
+        self.accum_lengths.last().map(|x| x.1.1 as usize).unwrap_or(0)
+    }
+
     pub fn chrom_sizes(&self) -> impl Iterator<Item = (&String, u64)> {
         let iter = self.accum_lengths.as_slice().windows(2).map(|x| {
             let (_, (acc, _)) = &x[0];
@@ -318,7 +337,7 @@ where
                 CsrMatrix::try_from_pattern_and_values(pattern, new_data).unwrap()
             } else {
                 let n = j - i;
-                let n_col = mat.ncols();
+                let n_col = index.len();
                 let vec = (0..n)
                     .into_par_iter()
                     .map(|k| {
@@ -343,22 +362,22 @@ where
 
     pub fn aggregate_by<C, T>(
         self,
-        counter: C,
+        mut counter: C,
     ) -> impl ExactSizeIterator<Item = (CsrMatrix<T>, usize, usize)> + 'a
     where
         C: FeatureCounter<Value = T> + Clone + Sync + 'a,
         T: Send,
     {
+        let n_col = counter.num_features();
+        counter.reset();
         let index = self.index.with_resolution(1);
         self.coverage.map(move |(mat, i, j)| {
             let n = j - i;
-            let n_col = mat.ncols();
             let vec = (0..n)
                 .into_par_iter()
                 .map(|k| {
                     let row = mat.get_row(k).unwrap();
                     let mut coverage = counter.clone();
-                    coverage.reset();
                     row.col_indices()
                         .into_iter()
                         .zip(row.values())
@@ -381,19 +400,12 @@ where
 }
 */
 
-pub trait SnapData: AnnDataOp + AnnDataIterator {
+pub trait SnapData: AnnDataOp {
+    type CountIter: ExactSizeIterator<Item = (CsrMatrix<u8>, usize, usize)>;
+
     /// Return chromosome names and sizes.
-    fn read_chrom_sizes(&self) -> Result<ChromSizes>;
-
-    /// Read genome-wide base-resolution coverage
-    fn raw_count_iter<'a>(
-        &'a self, chunk_size: usize
-    ) -> Result<GenomeCoverage<Self::ArrayIter<'a, CsrMatrix<u8>>>>;
-}
-
-impl<T> SnapData for T where T: AnnDataOp + AnnDataIterator {
-    default fn read_chrom_sizes(&self) -> Result<ChromSizes> {
-        let df = self.fetch_uns::<DataFrame>("reference_sequences")?
+    fn read_chrom_sizes(&self) -> Result<ChromSizes> {
+        let df = self.uns().get_item::<DataFrame>("reference_sequences")?
             .context("key 'reference_sequences' is not present in the '.uns'")?;
         let chrs = df.column("reference_seq_name").unwrap().utf8()?;
         let chr_sizes = df.column("reference_seq_length").unwrap().u64()?;
@@ -402,13 +414,36 @@ impl<T> SnapData for T where T: AnnDataOp + AnnDataIterator {
         Ok(ChromSizes(res))
     }
 
-    default fn raw_count_iter<'a>(
-        &'a self, chunk_size: usize
-    ) -> Result<GenomeCoverage<Self::ArrayIter<'a, CsrMatrix<u8>>>>
+    /// Read genome-wide base-resolution coverage
+    fn raw_count_iter(
+        &self, chunk_size: usize
+    ) -> Result<GenomeCoverage<Self::CountIter>>;
+}
+
+impl<B: Backend> SnapData for AnnData<B> {
+    type CountIter = ChunkedArrayElem<B, CsrMatrix<u8>>;
+
+    fn raw_count_iter(
+        &self, chunk_size: usize
+    ) -> Result<GenomeCoverage<Self::CountIter>>
     {
         Ok(GenomeCoverage::new(
             self.read_chrom_sizes()?,
-            self.fetch_obsm_iter("insertion", chunk_size)?,
+            self.obsm().get_item_iter("insertion", chunk_size).unwrap(),
+        ))
+    }
+}
+
+impl<B: Backend> SnapData for AnnDataSet<B> {
+    type CountIter = StackedChunkedArrayElem<B, CsrMatrix<u8>>;
+
+    fn raw_count_iter(
+        &self, chunk_size: usize
+    ) -> Result<GenomeCoverage<Self::CountIter>>
+    {
+        Ok(GenomeCoverage::new(
+            self.read_chrom_sizes()?,
+            self.adatas().obsm().get_item_iter("insertion", chunk_size).unwrap(),
         ))
     }
 }

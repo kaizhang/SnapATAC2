@@ -1,4 +1,3 @@
-#![feature(min_specialization)]
 #![feature(int_roundings)]
 pub mod utils;
 pub mod preprocessing;

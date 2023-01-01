@@ -8,7 +8,7 @@ use tempfile::Builder;
 use regex::Regex;
 use bed_utils::bed::{BEDLike, tree::{GenomeRegions, BedTree, SparseBinnedCoverage}};
 use anyhow::Result;
-use anndata::{AnnDataOp, AnnDataIterator};
+use anndata::{AnnDataOp, AxisArraysOp, ElemCollectionOp};
 use indicatif::{ProgressDrawTarget, ProgressIterator, ProgressBar, style::ProgressStyle};
 use flate2::{Compression, write::GzEncoder};
 use polars::prelude::{NamedFrom, DataFrame, Series};
@@ -149,7 +149,7 @@ pub fn import_fragments<A, B, I>(
     chunk_size: usize,
     ) -> Result<()>
 where
-    A: AnnDataOp + AnnDataIterator,
+    A: AnnDataOp,
     B: BEDLike + Clone + std::marker::Sync,
     I: Iterator<Item = Fragment>,
 {
@@ -162,7 +162,7 @@ where
             ProgressStyle::with_template("{spinner} Processed {human_pos} barcodes in {elapsed} ({per_sec}) ...").unwrap()
         );
         let mut scanned_barcodes = HashSet::new();
-        anndata.add_obsm_from_iter(
+        anndata.obsm().add_iter(
             "insertion",
             fragments
                 .group_by(|x| { x.barcode.clone() }).into_iter().progress_with(spinner)
@@ -230,14 +230,14 @@ where
             }).collect::<Vec<_>>(),
             num_features,
         );
-        anndata.add_obsm("insertion", csr_matrix)?;
+        anndata.obsm().add("insertion", csr_matrix)?;
     }
 
     let chrom_sizes = DataFrame::new(vec![
         Series::new("reference_seq_name", regions.regions.iter().map(|x| x.chrom()).collect::<Series>()),
         Series::new("reference_seq_length", regions.regions.iter().map(|x| x.end()).collect::<Series>()),
     ])?;
-    anndata.add_uns("reference_sequences", chrom_sizes)?;
+    anndata.uns().add("reference_sequences", chrom_sizes)?;
     anndata.set_obs_names(saved_barcodes.into())?;
     anndata.set_obs(qc_to_df(qc))?;
     Ok(())

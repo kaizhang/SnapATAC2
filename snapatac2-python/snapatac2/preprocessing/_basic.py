@@ -4,6 +4,7 @@ from typing_extensions import Literal
 from pathlib import Path
 import numpy as np
 import math
+import anndata as ad
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet, PyFlagStat
 import snapatac2._snapatac2 as internal
@@ -93,6 +94,7 @@ def import_data(
     whitelist: Path | list[str] | None = None,
     chunk_size: int = 2000,
     tempdir: Path | None = None,
+    backend: str | None = None,
 ) -> AnnData:
     """Import dataset and compute QC metrics.
 
@@ -141,6 +143,8 @@ def import_data(
     tempdir
         Location to store temporary files. If `None`, system temporary directory
         will be used.
+    backend
+        The backend.
 
     Returns
     -------
@@ -159,17 +163,23 @@ def import_data(
                 whitelist = set([line.strip() for line in fl])
         else:
             whitelist = set(whitelist)
-    return internal.import_fragments(
-        file, fragment_file, gff_file, chrom_size, min_num_fragments,
+        
+    adata = ad.AnnData() if file is None else AnnData(filename=file, backend=backend)
+    internal.import_fragments(
+        adata, fragment_file, gff_file, chrom_size, min_num_fragments,
         min_tsse, sorted_by_barcode, low_memory, whitelist, chunk_size, tempdir
     )
+    return adata
 
 def add_tile_matrix(
     adata: AnnData,
+    *,
     bin_size: int = 500,
+    inplace: bool = True,
+    file: Path | None = None,
+    backend: str | None = None,
     chunk_size: int = 500,
-    n_jobs: int = 4
-) -> None:
+) -> AnnData | None:
     """Generate cell by bin count matrix.
 
     This function is used to generate and add a cell by bin count matrix to the AnnData
@@ -184,17 +194,36 @@ def add_tile_matrix(
         Rows correspond to cells and columns to regions.
     bin_size
         The size of consecutive genomic regions used to record the counts.
+    inplace
+        Whether to add the tile matrix to the AnnData object or return a new AnnData object.
+    file
+        File name of the output file used to store the result. If provided, result will
+        be saved to a backed AnnData, otherwise an in-memory AnnData is used.
+    backend
+        The backend to use for storing the result. If `None`, the default backend will be used.
     chunk_size
         Increasing the chunk_size speeds up I/O but uses more memory.
-    n_jobs
-        Number of CPUs to use.
     """
-    internal.mk_tile_matrix(adata, bin_size, chunk_size, n_jobs)
+    if inplace:
+        internal.mk_tile_matrix(adata, bin_size, chunk_size, None)
+    else:
+        if file is None:
+            if adata.isbacked:
+                out = ad.AnnData(obs=adata.obs[:].to_pandas())
+            else:
+                out = ad.AnnData(obs=adata.obs[:])
+        else:
+            out = AnnData(filename=file, backend=backend, obs=adata.obs[:])
+        internal.mk_tile_matrix(adata, bin_size, chunk_size, out)
+        return out
 
 def make_peak_matrix(
     adata: AnnData | AnnDataSet,
-    file: Path | None = None,
+    *,
     use_rep: str | list[str] = "peaks",
+    inplace: bool = False,
+    file: Path | None = None,
+    backend: str | None = None,
     peak_file: Path | None = None,
     chunk_size: int = 500,
 ) -> AnnData:
@@ -210,14 +239,18 @@ def make_peak_matrix(
     adata
         The (annotated) data matrix of shape `n_obs` x `n_vars`.
         Rows correspond to cells and columns to regions.
-    file
-        File name of the output h5ad file used to store the result. If provided,
-        result will be saved to a backed AnnData, otherwise an in-memory AnnData
-        is used.
     use_rep
         This is used to read peak information from `.uns[use_rep]`.
         The peaks can also be provided by a list of strings:
         ["chr1:1-100", "chr2:2-200"].
+    inplace
+        Whether to add the tile matrix to the AnnData object or return a new AnnData object.
+    file
+        File name of the output h5ad file used to store the result. If provided,
+        result will be saved to a backed AnnData, otherwise an in-memory AnnData
+        is used.
+    backend
+        The backend to use for storing the result. If `None`, the default backend will be used.
     peak_file
         Bed file containing the peaks. If provided, peak information will be read
         from this file.
@@ -226,7 +259,7 @@ def make_peak_matrix(
 
     Returns
     -------
-    AnnData | ad.AnnData
+    AnnData | ad.AnnData | None
         An annotated data matrix of shape `n_obs` x `n_vars`. Rows correspond to
         cells and columns to peaks. If `file=None`, an in-memory AnnData will be
         returned, otherwise a backed AnnData is returned.
@@ -250,17 +283,26 @@ def make_peak_matrix(
             with open(peak_file, 'r') as f:
                 peaks = [line.strip() for line in f]
 
-    anndata = internal.mk_peak_matrix(adata, peaks, file, chunk_size)
-    if file is None and adata.isbacked: # anndata accepts only pandas DataFrame
-        anndata.obs = adata.obs[:].to_pandas()
+    if inplace:
+        internal.mk_peak_matrix(adata, peaks, chunk_size, None)
     else:
-        anndata.obs = adata.obs[:]
-    return anndata
+        if file is None:
+            if adata.isbacked:
+                out = ad.AnnData(obs=adata.obs[:].to_pandas())
+            else:
+                out = ad.AnnData(obs=adata.obs[:])
+        else:
+            out = AnnData(filename=file, backend=backend, obs=adata.obs[:])
+        internal.mk_peak_matrix(adata, peaks, chunk_size, out)
+        return out
 
 def make_gene_matrix(
     adata: AnnData | AnnDataSet,
     gff_file: Genome | Path,
+    *,
+    inplace: bool = False,
     file: Path | None = None,
+    backend: str | None = None,
     chunk_size: int = 500,
     use_x: bool = False,
     id_type: Literal['gene', 'transcript'] = "gene",
@@ -296,12 +338,18 @@ def make_gene_matrix(
     if isinstance(gff_file, Genome):
         gff_file = gff_file.fetch_annotations()
 
-    anndata = internal.mk_gene_matrix(adata, gff_file, file, chunk_size, use_x, id_type)
-    if file is None and adata.isbacked: # anndata accepts only pandas DataFrame
-        anndata.obs = adata.obs[:].to_pandas()
+    if inplace:
+        internal.mk_gene_matrix(adata, gff_file, chunk_size, use_x, id_type, None)
     else:
-        anndata.obs = adata.obs[:]
-    return anndata
+        if file is None:
+            if adata.isbacked:
+                out = ad.AnnData(obs=adata.obs[:].to_pandas())
+            else:
+                out = ad.AnnData(obs=adata.obs[:])
+        else:
+            out = AnnData(filename=file, backend=backend, obs=adata.obs[:])
+        internal.mk_gene_matrix(adata, gff_file, chunk_size, use_x, id_type, out)
+        return out
 
 def filter_cells(
     data: AnnData,
