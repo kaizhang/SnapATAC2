@@ -11,12 +11,13 @@ homepage = "https://github.com/"
 keywords = ["single-cell", "biology"]
 
 [dependencies]
-anndata = { path = "../../anndata-rs/anndata" }
-anndata-hdf5 = { path = "../../anndata-rs/anndata-hdf5" }
-pyanndata = { path = "../../anndata-rs/pyanndata" }
+#anndata = { path = "../../anndata-rs/anndata" }
+#anndata-hdf5 = { path = "../../anndata-rs/anndata-hdf5" }
+#pyanndata = { path = "../../anndata-rs/pyanndata" }
 snapatac2-core = { path = "../snapatac2-core" }
-#anndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "5159de91d5c20bac89d88c592efb6d7e8bffd6ab" }
-#pyanndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "5159de91d5c20bac89d88c592efb6d7e8bffd6ab" }
+anndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "864488b3848c33ffeefb0e40c0299e763f6f96d2" }
+anndata-hdf5 = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "864488b3848c33ffeefb0e40c0299e763f6f96d2" }
+pyanndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "864488b3848c33ffeefb0e40c0299e763f6f96d2" }
 #snapatac2-core = { git = "https://github.com/kaizhang/SnapATAC2.git", rev = "417d163f94d259fcf6086206e64a6eb6ae9c9e1e" }
 anyhow = "1.0"
 bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "19832eda2909dbe87289e09ba966af0797adb9f8" }
