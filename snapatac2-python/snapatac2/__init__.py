@@ -7,7 +7,7 @@ from . import export as ex
 
 from snapatac2._snapatac2 import (
     AnnData, AnnDataSet, PyDNAMotif,
-    read, read_dataset, read_motifs,
+    read, read_mtx, read_dataset, read_motifs,
 )
 
 import sys

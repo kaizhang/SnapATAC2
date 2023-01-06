@@ -1,7 +1,6 @@
 use anndata::container::{ChunkedArrayElem, StackedChunkedArrayElem};
 use bed_utils::bed::{tree::GenomeRegions, GenomicRange, BedGraph};
 use anndata::{AnnDataOp, ElemCollectionOp, AxisArraysOp, AnnDataSet, Backend, AnnData};
-use anndata::data::index::NamedRange;
 use polars::frame::DataFrame;
 use nalgebra_sparse::CsrMatrix;
 use noodles::{
@@ -166,17 +165,17 @@ impl GenomeBaseIndex {
         }
     }
 
-    pub fn to_ranges(&self) -> impl Iterator<Item = GenomicRange> + '_ {
+    pub fn to_index(&self) -> anndata::data::index::Index {
         self.chrom_sizes()
-            .flat_map(|(chrom, length)| {
-                let range = NamedRange {
-                    name: chrom.clone(),
+            .map(|(chrom, length)| {
+                let i = anndata::data::index::Interval {
                     start: 0,
                     end: length as usize,
+                    size: self.resolution,
                     step: self.resolution,
                 };
-                range.map(|(chr, start, end)| GenomicRange::new(chr, start as u64, end as u64))
-            })
+                (chrom.to_owned(), i)
+            }).collect()
     }
 
     pub fn len(&self) -> usize {

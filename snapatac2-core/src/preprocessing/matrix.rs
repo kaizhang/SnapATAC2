@@ -27,7 +27,7 @@ where
         "[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})"
     ).unwrap();
     let counts = adata.raw_count_iter(chunk_size)?.with_resolution(bin_size);
-    let feature_names = counts.index.to_ranges().map(|x| x.pretty_show()).collect();
+    let feature_names = counts.index.to_index().into();
     let data_iter = counts.into_values::<u32>().map(|x| x.0).progress_with_style(style);
     if let Some(adata_out) =  out {
         adata_out.set_x_from_iter(data_iter)?;
@@ -57,6 +57,7 @@ where
     let data = adata.raw_count_iter(chunk_size)?;
     if let Some(adata_out) =  out {
         adata_out.set_x_from_iter(data.aggregate_by(counter).map(|x| x.0))?;
+        adata_out.set_obs_names(adata.obs_names())?;
         adata_out.set_var_names(feature_names.into())?;
     } else {
         adata.set_x_from_iter(data.aggregate_by(counter).map(|x| x.0))?;
@@ -85,6 +86,7 @@ where
             let ids = transcript_counter.get_feature_ids();
             if let Some(adata_out) = out {
                 adata_out.set_x_from_iter(data.aggregate_by(transcript_counter).map(|x| x.0))?;
+                adata_out.set_obs_names(adata.obs_names())?;
                 adata_out.set_var_names(ids.into())?;
                 adata_out.set_var(DataFrame::new(vec![Series::new("gene_name", gene_names)])?)?;
             } else {
@@ -98,6 +100,7 @@ where
             let ids = gene_counter.get_feature_ids();
             if let Some(adata_out) = out {
                 adata_out.set_x_from_iter(data.aggregate_by(gene_counter).map(|x| x.0))?;
+                adata_out.set_obs_names(adata.obs_names())?;
                 adata_out.set_var_names(ids.into())?;
             } else {
                 adata.set_x_from_iter(data.aggregate_by(gene_counter).map(|x| x.0))?;

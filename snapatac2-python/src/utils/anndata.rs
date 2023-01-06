@@ -85,10 +85,10 @@ impl<'py> AnnDataOp for PyAnnData<'py> {
         self.0.set_var_names(index)
     }
 
-    fn obs_ix(&self, names: &[String]) -> Result<Vec<usize>> {
+    fn obs_ix<'a, I: IntoIterator<Item = &'a str>>(&self, names: I) -> Result<Vec<usize>> {
         self.0.obs_ix(names)
     }
-    fn var_ix(&self, names: &[String]) -> Result<Vec<usize>> {
+    fn var_ix<'a, I: IntoIterator<Item = &'a str>>(&self, names: I) -> Result<Vec<usize>> {
         self.0.var_ix(names)
     }
 
