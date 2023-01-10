@@ -207,7 +207,9 @@ def spectral_eigenvalues(
 
     df = pd.DataFrame({"Component": map(str, range(1, data.shape[0] + 1)), "Eigenvalue": data})
     fig = px.scatter(df, x="Component", y="Eigenvalue", template="plotly_white")
-    fig.add_vline(x=_detect(data))
+    n = _detect(data)
+    adata.uns["num_eigen"] = n
+    fig.add_vline(x=n)
 
     return render_plot(fig, width, height, interactive, show, out_file)
 

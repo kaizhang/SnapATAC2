@@ -31,6 +31,7 @@ where
     let data_iter = counts.into_values::<u32>().map(|x| x.0).progress_with_style(style);
     if let Some(adata_out) =  out {
         adata_out.set_x_from_iter(data_iter)?;
+        adata_out.set_obs_names(adata.obs_names())?;
         adata_out.set_var_names(feature_names)?;
     } else {
         adata.set_x_from_iter(data_iter)?;

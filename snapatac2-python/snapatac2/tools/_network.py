@@ -16,7 +16,7 @@ from snapatac2._snapatac2 import (
 
 __all__ = ['NodeData', 'LinkData',
            'init_network_from_annotation', 'add_cor_scores', 'add_regr_scores',
-           'add_tf_binding', 'link_tf_to_gene', 'prune_network']
+           'add_tf_binding', 'link_tf_to_gene', 'prune_network', 'pagerank']
 
 class NodeData:
     def __init__(self, id: str = "", type: str = "") -> None:
@@ -89,7 +89,7 @@ def init_network_from_annotation(
         coding_gene_only,
     )
     for (id, type), regions in links.items():
-        to = graph.add_node(NodeData(id, type))
+        to = graph.add_node(NodeData(id.upper(), type))
         for i, t, distance in regions:
             key = (i, t)
             if key in region_added:
@@ -256,7 +256,7 @@ def add_tf_binding(
         bound = motif.with_nucl_prob().exists(sequences)
         if any(bound):
             name = motif.id if motif.name is None else motif.name
-            nid = network.add_node(NodeData(name, "motif"))
+            nid = network.add_node(NodeData(name.upper(), "motif"))
             network.add_edges_from(
                 [(nid, i, LinkData()) for i, _ in itertools.compress(regions, bound)]
             )
@@ -374,25 +374,55 @@ def prune_network(
 
     return graph
 
-def pagerank(network):
+def pagerank(
+    network,
+    node_weights: str | list[float] | None = None,
+    edge_weights: str | list[float] | None = None,
+) -> list[tuple[str, float]]:
     tfs = {network[nid].id for nid in network.node_indices() if network.out_degree(nid) > 0}
-    g = _to_igraph(network, reverse_edge=True)
-    return [(i['name'], s) for i, s in zip(g.vs, g.pagerank(weights='regr_score')) if i['name'] in tfs]
+    g = _to_igraph(network, node_weights, edge_weights, True)
+    pagerank_scores = g.personalized_pagerank(
+        reset=None if node_weights is None else 'weight',
+        weights=None if edge_weights is None else 'weight',
+    )
+    return [(i['name'], s) for i, s in zip(g.vs, pagerank_scores) if i['name'] in tfs]
 
-def _to_igraph(graph, edge_weight="regr_score", reverse_edge=False):
+def _to_igraph(
+    graph,
+    node_weights: str | list[float] | None = None,
+    edge_weights: str | list[float] | None = None,
+    reverse_edge: bool = False,
+):
     import igraph as ig
     g = ig.Graph()
-    g.add_vertices([x.id for x in graph.nodes()])
+
+    nodes = [x.id for x in graph.nodes()]
+    node_attributes = None
+    if node_weights is not None:
+        if isinstance(node_weights, str):
+            node_attributes = {"weight": [getattr(x, node_weights) for x in graph.nodes()]}
+        else:
+            node_attributes = {"weight": node_weights}
+    g.add_vertices(nodes, attributes=node_attributes)
     
     edges = []
-    regr_score = []
+    if edge_weights is not None and isinstance(edge_weights, list):
+        weights = edge_weights
+    else:
+        weights = []
     for fr, to, edge in graph.edge_index_map().values():
         if reverse_edge:
             edges.append((graph[to].id, graph[fr].id))
         else:
             edges.append((graph[fr].id, graph[to].id))
-        regr_score.append(edge.regr_score)
-    g.add_edges(edges, attributes={"regr_score": regr_score})
+        if edge_weights is not None and isinstance(edge_weights, str):
+            weights.append(getattr(edge, edge_weights))
+    if len(weights) > 0:
+        edge_attributes = {"weight": weights}
+    else:
+        edge_attributes = None
+    g.add_edges(edges, attributes=edge_attributes)
+
     return g
 
 def _network_stats(network: rx.PyDiGraph):
@@ -488,10 +518,8 @@ def _get_data_iter(
         if len(genes) == gene_mat.n_vars:
             g_mat = gene_mat.X[:]
         else:
-            if gene_mat.isbacked:
-                ix = gene_mat.var_ix([node_getter(x).id for x in genes])
-            else:
-                ix = [gene_mat.var_names.get_loc(node_getter(x).id) for x in genes]
+            idx_map = {x.upper(): i for i, x in enumerate(gene_mat.var_names)}
+            ix = [idx_map[node_getter(x).id] for x in genes]
             g_mat = gene_mat.X[:, ix]
 
         if len(peaks) == peak_mat.n_vars:
@@ -516,7 +544,7 @@ def _get_data_iter(
             mat = np.hstack(mats)
         return (genes + peaks, mat)
 
-    all_genes = set(gene_mat.var_names)
+    all_genes = set([x.upper() for x in gene_mat.var_names])
     select = all_genes if select is None else select
     id_XY = []
 

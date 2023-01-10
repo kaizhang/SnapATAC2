@@ -220,7 +220,7 @@ def add_tile_matrix(
 def make_peak_matrix(
     adata: AnnData | AnnDataSet,
     *,
-    use_rep: str | list[str] = "peaks",
+    use_rep: str | list[str] | None = None,
     inplace: bool = False,
     file: Path | None = None,
     backend: str | None = None,
@@ -268,6 +268,9 @@ def make_peak_matrix(
 
     if peak_file is not None and use_rep is not None:
         raise RuntimeError("'peak_file' and 'use_rep' cannot be both set") 
+
+    if use_rep is None and peak_file is None:
+        use_rep = "peaks"
 
     if isinstance(use_rep, str):
         df = adata.uns[use_rep]
