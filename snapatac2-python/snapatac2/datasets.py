@@ -22,7 +22,7 @@ def datasets():
                 "atac_pbmc_500.tsv.gz": "sha256:196c5d7ee0169957417e9f4d5502abf1667ef99453328f8d290d4a7f3b205c6c",
                 "atac_pbmc_500_downsample.tsv.gz": "sha256:6053cf4578a140bfd8ce34964602769dc5f5ec6b25ba4f2db23cdbd4681b0e2f",
                 "atac_pbmc_5k.tsv.gz": "sha256:5fe44c0f8f76ce1534c1ae418cf0707ca5ef712004eee77c3d98d2d4b35ceaec",
-                "atac_pbmc_5k.h5ad": "sha256:dcaca8ca4ac28674ec2172b4a975f75fba2ede1fc86571f7c452ba00f5cd4b94",
+                "atac_pbmc_5k.h5ad": "sha256:a3618ec13cfc434996211b616c6aab4c78c4bf0b7f8eca770bbec576d35edc3c",
                 "atac_pbmc_5k_annotated.h5ad": "sha256:3d5f147ce13a01cd2bdc3d9d2e8cf7897ee98e44255ff12f868517dd78427a87",
                 "atac_pbmc_5k_gene.h5ad": "sha256:333f08af090c3306c681d26cce93614a71fee2a12d268b54ef1fce29fda8f078",
 
@@ -45,20 +45,19 @@ def datasets():
             },
             urls={
                 "atac_pbmc_500.tsv.gz": "https://cf.10xgenomics.com/samples/cell-atac/2.0.0/atac_pbmc_500_nextgem/atac_pbmc_500_nextgem_fragments.tsv.gz",
-                "atac_pbmc_500_downsample.tsv.gz": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_atac/atac_pbmc_500_downsample.tsv.gz",
+                "atac_pbmc_500_downsample.tsv.gz": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/b0e7e9e8-9ffb-4710-8619-73f7e5cbd10b?a=758c37e5-4832-4c91-af89-9a1a83a051b3",
 
-                "atac_pbmc_5k.tsv.gz": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_atac/atac_pbmc_5k_nextgem_fragments.tsv.gz",
-                "atac_pbmc_5k.h5ad": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_atac/atac_pbmc_5k.h5ad",
+                "atac_pbmc_5k.tsv.gz": "https://cf.10xgenomics.com/samples/cell-atac/2.0.0/atac_pbmc_5k_nextgem/atac_pbmc_5k_nextgem_fragments.tsv.gz", 
+                "atac_pbmc_5k.h5ad": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/d90adfd1-b4b8-4dcd-8704-9ab19f104116?a=758c37e5-4832-4c91-af89-9a1a83a051b3", 
                 "atac_pbmc_5k_gene.h5ad": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_atac/atac_pbmc_5k_gene.h5ad",
                 "atac_pbmc_5k_annotated.h5ad": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_atac/atac_pbmc_5k_annotated.h5ad",
 
+                "10x-Multiome-Pbmc10k-ATAC.h5ad": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/165dfb5c-c557-42a0-bd21-1276d4d7b23e?a=758c37e5-4832-4c91-af89-9a1a83a051b3",
+                "10x-Multiome-Pbmc10k-RNA.h5ad": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/d079a087-2913-4e29-979e-638e5932bd8c?a=758c37e5-4832-4c91-af89-9a1a83a051b3", 
 
-                "10x-Multiome-Pbmc10k-ATAC.h5ad": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_multiome/10x-Multiome-Pbmc10k-ATAC.h5ad",
-                "10x-Multiome-Pbmc10k-RNA.h5ad": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_multiome/10x-Multiome-Pbmc10k-RNA.h5ad",
-
-                "colon_transverse.tar": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_atac/colon_transverse.tar",
-                "HEA_cCRE.bed.gz": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_atac/HEA_cCRE.bed.gz",
-                "cisBP_human.meme": "http://renlab.sdsc.edu/kai/public_datasets/cisBP_human_rev_1.meme",
+                "colon_transverse.tar": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/eaa46151-a73f-4ef5-8b05-9648c8d1efda?a=758c37e5-4832-4c91-af89-9a1a83a051b3", 
+                "HEA_cCRE.bed.gz": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/91f93222-1a24-49a5-92e3-d9105ec53f91?a=758c37e5-4832-4c91-af89-9a1a83a051b3",
+                "cisBP_human.meme": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/9eff4b7d-d769-49a2-8fb4-acd472402165?a=758c37e5-4832-4c91-af89-9a1a83a051b3", 
 
                 "gencode_v41_GRCh37.gff3.gz": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_41/GRCh37_mapping/gencode.v41lift37.basic.annotation.gff3.gz",
                 "gencode_v41_GRCh37.fa.gz": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_41/GRCh37_mapping/GRCh37.primary_assembly.genome.fa.gz",
