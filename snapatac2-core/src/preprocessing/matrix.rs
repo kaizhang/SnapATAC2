@@ -52,16 +52,20 @@ where
     D: BEDLike + Send + Sync + Clone,
     B: AnnDataOp,
 {
+    let style = ProgressStyle::with_template(
+        "[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})"
+    ).unwrap();
     let regions: GenomeRegions<D> = peaks.collect();
     let counter = SparseCoverage::new(&regions);
     let feature_names = counter.get_feature_ids();
-    let data = adata.raw_count_iter(chunk_size)?;
+    let data = adata.raw_count_iter(chunk_size)?
+        .aggregate_by(counter).map(|x| x.0).progress_with_style(style);
     if let Some(adata_out) =  out {
-        adata_out.set_x_from_iter(data.aggregate_by(counter).map(|x| x.0))?;
+        adata_out.set_x_from_iter(data)?;
         adata_out.set_obs_names(adata.obs_names())?;
         adata_out.set_var_names(feature_names.into())?;
     } else {
-        adata.set_x_from_iter(data.aggregate_by(counter).map(|x| x.0))?;
+        adata.set_x_from_iter(data)?;
         adata.set_var_names(feature_names.into())?;
     }
     Ok(())

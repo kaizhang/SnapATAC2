@@ -130,7 +130,7 @@ html_theme_options = {
 
     "switcher": {
         "version_match": switcher_version,
-        "json_url": "https://kzhang.org/SnapATAC2/_static/versions.json", 
+        "json_url": "https://raw.githubusercontent.com/kaizhang/SnapATAC2/main/docs/_static/versions.json", 
     },
 }
 

@@ -1,10 +1,6 @@
 name: Build wheels
 
 on: [push]
-    #tags:
-    #  - 'v*'
-    #branches:
-    #  - main
 
 jobs:
   build_wheels:
@@ -40,7 +36,7 @@ jobs:
       - uses: actions/setup-python@v2
 
       - name: Install cibuildwheel
-        run: python -m pip install cibuildwheel==2.10.0
+        run: python -m pip install cibuildwheel==2.11.4
 
       - name: Build wheels
         run: python -m cibuildwheel --output-dir wheelhouse snapatac2-python
