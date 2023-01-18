@@ -4,3 +4,4 @@ pub mod preprocessing;
 pub mod network;
 pub mod motif;
 pub mod export;
+pub mod embedding;

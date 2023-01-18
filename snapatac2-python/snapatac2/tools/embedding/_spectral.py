@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import scipy as sp
+from scipy.sparse.linalg import svds
 import numpy as np
 import gc
 import logging
@@ -258,48 +259,42 @@ class JaccardNormalizer:
             np.clip(jm, a_min=clip_min, a_max=clip_max, out=jm)
         gc.collect()
 
+def spectral_cosine(
+    adata: AnnData | AnnDataSet,
+    n_comps: int = 50,
+    features: str | np.ndarray | None = "selected",
+    random_state: int = 0,
+    feature_weights: str | np.ndarray | None = "idf",
+    inplace: bool = True,
+) -> tuple[np.ndarray, np.ndarray] | None:
+    np.random.seed(random_state)
 
-"""
-def nystrom_full(mat, sample_size, n_dim):
-    n, m = mat.shape
-    sample_indices = np.random.choice(n, size=sample_size, replace=False)
-    mask = np.ones(n, bool)
-    mask[sample_indices] = False
-    sample = mat[sample_indices, :]
-    other_data = mat[mask, :]
+    if isinstance(features, str):
+        if features in adata.var:
+            features = adata.var[features]
+        else:
+            raise NameError("Please call `select_features` first or explicitly set `features = None`")
 
-    # Compute affinity matrix
-    coverage = sample.sum(axis=1) / m
-    A = jaccard_similarity(sample)
-    normalizer = JaccardNormalizer(A, coverage)
-    normalizer.normalize(A, coverage, coverage)
-    np.fill_diagonal(A, 0)
-    normalizer.outlier = np.quantile(np.asarray(A), 0.999)
-    np.clip(A, a_min=0, a_max=normalizer.outlier, out=A)
+    X = adata.X[:, features] if features is not None else adata.X[:]
 
-    # Compute distance matrix B
-    B = jaccard_similarity(sample, other_data)
-    normalizer.normalize(B, coverage, other_data.sum(axis=1) / m,
-        clip_min=0, clip_max=normalizer.outlier)
+    # IDF
+    idf = np.log(1 / (1 + np.ravel(X.sum(axis = 0))))
+    X = X @ sp.sparse.diags(idf)
 
-    # Compute degree
-    a_r = A.sum(axis=1)
-    b_r = B.sum(axis=1)
-    b_c = B.sum(axis=0).reshape((-1, 1))
-    d1 = np.sqrt(a_r + b_r)
-    d2 = np.sqrt(np.clip(b_c + B.T @ np.linalg.pinv(A) @ b_r, a_min=1e-10, a_max=None))
+    s = np.ravel(sp.sparse.linalg.norm(X, ord=2, axis=1))
+    X = sp.sparse.diags(s) @ X
 
-    # normalization
-    np.divide(A, d1, out=A)
-    np.divide(A, d1.T, out=A)
-    np.divide(B, d1.reshape((-1, 1)), out=B)
-    np.divide(B, d2.reshape((1, -1)), out=B)
+    D = np.ravel(X @ X.sum(axis = 0).T)
+    X = sp.sparse.diags(1 / np.sqrt(D)) @ X
 
-    # compute eigenvector
-    evals, U = sp.sparse.linalg.eigsh(A, n_dim + 1, which='LM')
-    U_ = np.divide(B.T @ U, evals.reshape((1, -1)))
-    result = np.empty((n, n_dim))
-    result[sample_indices] = U[:, 1:]
-    result[mask] = U_[:, 1:]
-    return result
-"""
+    u, s, _ = svds(X, k = n_comps + 1, return_singular_vectors="u")
+    # reorder
+    ix = s.argsort()[::-1]
+    s = s[ix]
+    u = u[:, ix]
+
+    if inplace:
+        adata.uns['spectral_eigenvalue'] = s[1:]
+        adata.obsm['X_spectral'] = u[:, 1:]
+    else:
+        return (s[1:], u[:, 1:])
