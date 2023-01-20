@@ -25,6 +25,15 @@ def chunks(mat, chunk_size: int):
         j = max(i + chunk_size, n)
         yield mat[i:j, :]
 
+def find_elbow(x, saturation=0.01):
+    accum_gap = 0
+    for i in range(1, len(x)):
+        gap = x[i-1] - x[i]
+        accum_gap = accum_gap + gap
+        if gap < saturation * accum_gap:
+            return i
+    return None
+
 def fetch_seq(fasta, region):
     chr, x = region.split(':')
     start, end = x.split('-')

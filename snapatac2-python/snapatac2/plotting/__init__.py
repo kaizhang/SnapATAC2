@@ -4,6 +4,7 @@ import numpy as np
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
 from snapatac2.tools._misc import aggregate_X
+from snapatac2._utils import find_elbow
 from ._base import render_plot, heatmap
 from ._network import network_scores, network_edge_stat
 
@@ -207,7 +208,7 @@ def spectral_eigenvalues(
 
     df = pd.DataFrame({"Component": map(str, range(1, data.shape[0] + 1)), "Eigenvalue": data})
     fig = px.scatter(df, x="Component", y="Eigenvalue", template="plotly_white")
-    n = _detect(data)
+    n = find_elbow(data)
     adata.uns["num_eigen"] = n
     fig.add_vline(x=n)
 
@@ -432,12 +433,3 @@ def motif_enrichment(
         colorscale='RdBu_r',
     )
     return render_plot(fig, width, height, interactive, show, out_file)
-
-def _detect(x, saturation=0.01):
-    accum_gap = 0
-    for i in range(1, len(x)):
-        gap = x[i-1] - x[i]
-        accum_gap = accum_gap + gap
-        if gap < saturation * accum_gap:
-            return i
-    return None

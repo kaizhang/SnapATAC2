@@ -2,6 +2,7 @@ Dev
 ==================
 
 - Fix #97.
+- Improve the performance of `tl.spectral`.
 
 v2.2.0 (2022-12-02)
 ===================
