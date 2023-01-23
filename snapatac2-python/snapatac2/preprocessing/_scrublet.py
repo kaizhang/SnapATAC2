@@ -8,7 +8,7 @@ import logging
 
 from .._utils import chunks
 from snapatac2._snapatac2 import AnnData, approximate_nearest_neighbors
-from snapatac2.tools.embedding._spectral import Spectral
+from snapatac2.tools.embedding._spectral import SpectralMatrixFree
 
 def scrublet(
     adata: AnnData,
@@ -198,13 +198,10 @@ def scrub_doublets_core(
     return (doublet_scores_obs, doublet_scores_sim, manifold_obs, manifold_sim)
 
 def get_manifold(obs_norm, sim_norm, n_comps=30, random_state=0):
-    model = Spectral(n_dim=n_comps, distance="jaccard").fit(obs_norm, verbose=0)
-    for c in chunks(obs_norm, 2000):
-        model.extend(c)
-    for c in chunks(sim_norm, 2000):
-        model.extend(c)
-    manifold = np.asanyarray(model.transform()[1])
     n = obs_norm.shape[0]
+    model = SpectralMatrixFree(out_dim=n_comps)
+    model.fit(ss.vstack([obs_norm, sim_norm]), verbose=0)
+    manifold = np.asanyarray(model.transform()[1])
     manifold_obs = manifold[0:n, ]
     manifold_sim = manifold[n:, ]
     return (manifold_obs, manifold_sim)

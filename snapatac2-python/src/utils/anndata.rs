@@ -213,7 +213,7 @@ macro_rules! with_anndata {
                 }
                 x => panic!("Unsupported backend: {}", x),
             },
-            AnnDataLike::AnnDataSet(x) => todo!(),
+            AnnDataLike::AnnDataSet(_) => todo!(),
             AnnDataLike::PyAnnData(x) => {
                 $fun!(x)
             }

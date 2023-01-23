@@ -261,7 +261,7 @@ pub(crate) fn approximate_nearest_neighbors(
     let shape = data.shape();
     let mut index = hora::index::hnsw_idx::HNSWIndex::<f32, usize>::new(
         shape[1],
-        &hora::index::hnsw_params::HNSWParams::<f32>::default(),
+        &hora::index::hnsw_params::HNSWParams::<f32>::default().max_item(shape[0].max(1000000)),
     );
     for (i, sample) in data.axis_iter(ndarray::Axis(0)).enumerate() {
         index.add(sample.to_vec().as_slice(), i).unwrap();

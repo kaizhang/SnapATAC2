@@ -2,6 +2,7 @@ mod export;
 mod utils;
 mod call_peaks;
 mod preprocessing;
+mod embedding;
 mod network;
 mod motif;
 
@@ -17,7 +18,8 @@ static GLOBAL: Jemalloc = Jemalloc;
 
 #[pymodule]
 fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
-    pyo3_log::init();
+    //TODO: lift this restriction
+    //pyo3_log::init();
 
     m.add_class::<pyanndata::AnnData>().unwrap();
     m.add_class::<pyanndata::AnnDataSet>().unwrap();
@@ -54,6 +56,7 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(utils::intersect_bed, m)?)?;
     m.add_function(wrap_pyfunction!(utils::kmeans, m)?)?;
     m.add_function(wrap_pyfunction!(utils::approximate_nearest_neighbors, m)?)?;
+    m.add_function(wrap_pyfunction!(embedding::spectral_embedding, m)?)?;
 
     Ok(())
 }

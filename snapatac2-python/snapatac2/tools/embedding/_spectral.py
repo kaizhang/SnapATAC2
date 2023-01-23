@@ -7,7 +7,7 @@ import gc
 import logging
 import math
 
-from snapatac2._snapatac2 import AnnData, AnnDataSet, jm_regress, jaccard_similarity, cosine_similarity
+from snapatac2._snapatac2 import AnnData, AnnDataSet, jm_regress, jaccard_similarity, cosine_similarity, spectral_embedding
 
 def idf(data, features=None):
     n, m = data.shape
@@ -102,16 +102,18 @@ def spectral(
         else:
             sample_size = int(sample_size * n_sample)
 
-    feature_weights = idf(adata, features)
-    if distance_metric == "cosine":
-        model = SpectralMatrixFree(n_comps, feature_weights=feature_weights)
-    else:
-        model = Spectral(n_comps, distance_metric, feature_weights)
-
     if sample_size >= n_sample:
-        X = adata.X[...] if features is None else adata.X[:, features]
-        model.fit(X)
+        if distance_metric == "cosine":
+            evals, evecs = spectral_embedding(adata, features, n_comps)
+        else:
+            feature_weights = idf(adata, features)
+            model = Spectral(n_comps, distance_metric, feature_weights)
+            X = adata.X[...] if features is None else adata.X[:, features]
+            model.fit(X)
+            evals, evecs = model.transform()
     else:
+        feature_weights = idf(adata, features)
+        model = Spectral(n_comps, distance_metric, feature_weights)
         if adata.isbacked:
             S = adata.X.chunk(sample_size, replace=False)
         else:
@@ -127,8 +129,7 @@ def spectral(
                 batch.data = np.ones(batch.indices.shape, dtype=np.float64)
             if features is not None: batch = batch[:, features]
             model.extend(batch)
-
-    evals, evecs = model.transform()
+        evals, evecs = model.transform()
 
     if weighted_by_sd:
         idx = [i for i in range(evals.shape[0]) if evals[i] > 0]

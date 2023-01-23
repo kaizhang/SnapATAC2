@@ -93,7 +93,6 @@ pub(crate) fn import_fragments(
             Some(x) => Some(list.intersection(&x).map(Clone::clone).collect()),
         }
     };
-    let is_sorted = if !fragment_is_sorted_by_name && low_memory { true } else { false };
     let chrom_sizes = chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect();
     let fragments = bed::io::Reader::new(open_file(&fragment_file), Some("#".to_string()))
         .into_records::<Fragment>().map(Result::unwrap);
@@ -102,6 +101,7 @@ pub(crate) fn import_fragments(
     } else {
         Box::new(fragments)
     };
+    let is_sorted = if fragment_is_sorted_by_name || low_memory { true } else { false };
 
     macro_rules! run {
         ($data:expr) => {
