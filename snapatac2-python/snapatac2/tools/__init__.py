@@ -1,4 +1,4 @@
-from .embedding import *
+from ._embedding import *
 
 from ._clustering import leiden, kmeans, dbscan, hdbscan
 from ._smooth import smooth

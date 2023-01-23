@@ -50,12 +50,7 @@ impl PyDNAMotif {
 
     fn info_content(&self) -> f64 { self.0.info_content() }
 
-    #[args(
-        a = "0.25",
-        c = "0.25",
-        g = "0.25",
-        t = "0.25",
-    )]
+    #[pyo3(signature = (a=0.25, c=0.25, g=0.25, t=0.25))]
     fn with_nucl_prob(&self, a: f64, c: f64, g: f64, t: f64) -> PyDNAMotifScanner {
         PyDNAMotifScanner(self.0.clone().to_scanner(motif::BackgroundProb([a, c, g, t])))
     }
@@ -74,37 +69,23 @@ impl PyDNAMotifScanner {
     #[getter]
     fn name(&self) -> Option<String> { self.0.motif.name.clone() }
 
-    #[args(
-        seq,
-        pvalue = "1e-5",
-    )]
+    #[pyo3(signature = (seq, pvalue=1e-5))]
     fn find(&self, seq: &str, pvalue: f64) -> Vec<(usize, f64)> {
         self.0.find(seq.as_bytes(), pvalue).collect()
     }
 
-    #[args(
-        seq,
-        pvalue = "1e-5",
-        rc = "true",
-    )]
+    #[pyo3(signature = (seq, pvalue=1e-5, rc=true))]
     fn exist(&self, seq: &str, pvalue: f64, rc: bool) -> bool {
         self.0.find(seq.as_bytes(), pvalue).next().is_some() ||
             (rc && self.0.find(rev_compl(seq).as_bytes(), pvalue).next().is_some())
     }
 
-    #[args(
-        seqs,
-        pvalue = "1e-5",
-        rc = "true",
-    )]
+    #[pyo3(signature = (seqs, pvalue =1e-5, rc=true))]
     fn exists(&self, seqs: Vec<&str>, pvalue: f64, rc: bool) -> Vec<bool> {
         seqs.into_par_iter().map(|x| self.exist(x, pvalue, rc)).collect()
     }
 
-    #[args(
-        seqs,
-        pvalue = "1e-5",
-    )]
+    #[pyo3(signature = (seqs, pvalue=1e-5))]
     fn with_background(&self, seqs: Vec<&str>, pvalue: f64) -> PyDNAMotifTest {
         let n = seqs.len();
         PyDNAMotifTest {
