@@ -24,7 +24,8 @@ pub struct Fragment {
 
 impl Sortable for Fragment {
     fn encode<W: std::io::Write>(&self, writer: &mut W) {
-        bincode::serialize_into(writer, self).unwrap();
+        bincode::serialize_into(writer, self)
+            .unwrap_or_else(|e| panic!("Failed to serialize fragment: {}", e));
     }
 
     fn decode<R: std::io::Read>(reader: &mut R) -> Option<Self> {

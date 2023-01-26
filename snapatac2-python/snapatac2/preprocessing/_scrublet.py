@@ -8,7 +8,7 @@ import logging
 
 from .._utils import chunks
 from snapatac2._snapatac2 import AnnData, approximate_nearest_neighbors
-from snapatac2.tools.embedding._spectral import SpectralMatrixFree
+from snapatac2.tools._embedding import SpectralMatrixFree
 
 def scrublet(
     adata: AnnData,

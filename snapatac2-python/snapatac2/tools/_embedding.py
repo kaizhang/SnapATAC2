@@ -76,7 +76,7 @@ def spectral(
     random_state: int = 0,
     sample_size: int | float | None = None,
     chunk_size: int = 20000,
-    distance_metric: Literal["jaccard", "cosine"] = "jaccard",
+    distance_metric: Literal["jaccard", "cosine"] = "cosine",
     weighted_by_sd: bool = True,
     inplace: bool = True,
 ) -> tuple[np.ndarray, np.ndarray] | None:

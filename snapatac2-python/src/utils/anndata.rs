@@ -213,7 +213,12 @@ macro_rules! with_anndata {
                 }
                 x => panic!("Unsupported backend: {}", x),
             },
-            AnnDataLike::AnnDataSet(_) => todo!(),
+            AnnDataLike::AnnDataSet(x) => match x.backend().as_str() {
+                H5::NAME => {
+                    $fun!(x.inner_ref::<H5>().deref())
+                }
+                x => panic!("Unsupported backend: {}", x),
+            },
             AnnDataLike::PyAnnData(x) => {
                 $fun!(x)
             }

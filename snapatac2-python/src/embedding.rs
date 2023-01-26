@@ -37,7 +37,7 @@ fn _spectral_embedding<A: AnnDataOp>(
     n_components: usize,
 ) -> Result<(Array1<f64>, Array2<f64>)>
 {
-    let mat: CsrMatrix<f64> = adata.x().slice_axis::<DynCsrMatrix, _>(1, features)?.unwrap().try_into()?;
+    let mat: CsrMatrix<f64> = adata.x().slice_axis(1, features)?.unwrap();
     let idf = idf(&mat);
     spectral_mf(mat, &idf, n_components)
 }
