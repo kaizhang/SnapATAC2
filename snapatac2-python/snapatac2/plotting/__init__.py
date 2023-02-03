@@ -5,7 +5,7 @@ import numpy as np
 from snapatac2._snapatac2 import AnnData, AnnDataSet
 from snapatac2.tools._misc import aggregate_X
 from snapatac2._utils import find_elbow
-from ._base import render_plot, heatmap
+from ._base import render_plot, heatmap, kde2d
 from ._network import network_scores, network_edge_stat
 
 __all__ = [
@@ -15,13 +15,10 @@ __all__ = [
 
 def tsse(
     adata: AnnData,
-    show_cells: bool = False,
     min_fragment: int = 500,
-    width: int = 600,
+    width: int = 500,
     height: int = 400,
-    show: bool = True,
-    interactive: bool = True,
-    out_file: str | None = None,
+    **kwargs,
 ) -> 'plotly.graph_objects.Figure' | None:
     """Plot the TSS enrichment vs. number of fragments density figure.
 
@@ -29,21 +26,16 @@ def tsse(
     ----------
     adata
         Annotated data matrix.
-    show_cells
-        Whether to show individual cells as dots on the plot
     min_fragment
         The cells' unique fragments lower than it should be removed
     width
         The width of the plot
     height
         The height of the plot
-    show
-        Show the figure
-    interactive
-        Whether to make interactive plot
-    out_file
-        Path of the output file for saving the output image, end with
-        '.svg' or '.pdf' or '.png' or '.html'.
+    kwargs        
+        Additional arguments passed to :func:`~snapatac2.pl.render_plot` to
+        control the final plot output. Please see :func:`~snapatac2.pl.render_plot`
+        for details.
 
     Returns
     -------
@@ -60,49 +52,17 @@ def tsse(
         >>> fig = snap.pl.tsse(data, show=False, out_file=None)
         >>> fig.show()
     """
-    import plotly.graph_objects as go
-
     selected_cells = adata.obs["n_fragment"] >= min_fragment
     x = adata.obs["n_fragment"][selected_cells]
     y = adata.obs["tsse"][selected_cells]
 
-    log_x = np.log10(x)
-    log_x_min, log_x_max = log_x.min(), log_x.max()
-    x_range = log_x_max - log_x_min
-    bin_x = np.linspace(log_x_min - 0.1 * x_range, log_x_max + 0.2 * x_range, 20)
-
-    y_min, y_max = y.min(), y.max()
-    y_range = y_max - y_min
-    bin_y = np.linspace(y_min - 0.1 * y_range, y_max + 0.2 * y_range, 15)
-
-    (z, rx, ry) = np.histogram2d(log_x,y, bins=(bin_x, bin_y))
-    fig = go.Figure(data =
-        go.Contour(
-            z = z.T,
-            x = 10**rx,
-            y = ry,
-            colorscale = 'Blues',
-        )
-    )
-
-    if show_cells:
-        fig.add_trace(go.Scatter(
-                x = x,
-                y = y,
-                xaxis = 'x',
-                yaxis = 'y',
-                mode = 'markers',
-                marker = dict(color = 'rgba(0,0,0,0.3)', size = 3)
-        ))
-
-    fig.update_xaxes(type="log")
+    fig = kde2d(x, y, log_x=True, log_y=False)
     fig.update_layout(
-        template="simple_white",
         xaxis_title="Number of unique fragments",
         yaxis_title="TSS enrichment score",
     )
 
-    return render_plot(fig, width, height, interactive, show, out_file)
+    return render_plot(fig, width, height, **kwargs)
 
 def scrublet(
     adata: AnnData,

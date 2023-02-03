@@ -442,7 +442,7 @@ impl<B: Backend> SnapData for AnnDataSet<B> {
     {
         Ok(GenomeCoverage::new(
             self.read_chrom_sizes()?,
-            self.adatas().obsm().get_item_iter("insertion", chunk_size).unwrap(),
+            self.adatas().inner().get_obsm().get_item_iter("insertion", chunk_size).unwrap(),
         ))
     }
 }
