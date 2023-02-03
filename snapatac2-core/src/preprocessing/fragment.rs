@@ -104,9 +104,8 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>>(
     group_bam_by_barcode(filtered_records, &barcode, umi.as_ref(), is_paired, tmp_dir.path().to_path_buf(), chunk_size)
         .into_fragments(&header).for_each(|rec| match rec {
             Either::Left(mut x) => {
-                // TODO: use checked_add_signed.
-                x.set_start((x.start() as i64 + shift_left) as u64);
-                x.set_end((x.end() as i64 + shift_right) as u64);
+                x.set_start(x.start().checked_add_signed(shift_left).expect("shift_left is too large"));
+                x.set_end(x.end().checked_add_signed(shift_right).expect("shift_right is too large"));
                 writeln!(output, "{}", x).unwrap();
             },
             Either::Right(x) => writeln!(output, "{}", x).unwrap(),
