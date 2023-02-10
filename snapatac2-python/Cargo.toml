@@ -16,9 +16,9 @@ snapatac2-core = { path = "../snapatac2-core" }
 #anndata = { path = "../../anndata-rs/anndata" }
 #anndata-hdf5 = { path = "../../anndata-rs/anndata-hdf5" }
 #pyanndata = { path = "../../anndata-rs/pyanndata" }
-anndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "7bd065a5cda77a9c350925496c91f979c9e34066" }
-anndata-hdf5 = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "7bd065a5cda77a9c350925496c91f979c9e34066" }
-pyanndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "7bd065a5cda77a9c350925496c91f979c9e34066" }
+anndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "c50e7b347d0bdf08fba871217789885118a72064" }
+anndata-hdf5 = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "c50e7b347d0bdf08fba871217789885118a72064" }
+pyanndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "c50e7b347d0bdf08fba871217789885118a72064" }
 anyhow = "1.0"
 bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "19832eda2909dbe87289e09ba966af0797adb9f8" }
 flate2 = "1.0"
@@ -37,6 +37,7 @@ polars = { version = "0.26", features = ["ndarray", "dtype-categorical"] }
 #pyo3-log = "0.7"
 rand_isaac = "0.3"
 rand_core = "0.6"
+rand = "0.8"
 rayon = "1.5"
 statrs = "0.16"
 tempfile = "3.3"

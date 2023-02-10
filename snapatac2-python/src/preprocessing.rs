@@ -145,6 +145,7 @@ pub(crate) fn mk_peak_matrix(
     anndata: AnnDataLike,
     peaks: &PyAny,
     chunk_size: usize,
+    use_x: bool,
     out: Option<AnnDataLike>,
 ) -> Result<()>
 {
@@ -156,12 +157,12 @@ pub(crate) fn mk_peak_matrix(
             if let Some(out) = out {
                 macro_rules! run2 {
                     ($out_data:expr) => {
-                        preprocessing::create_peak_matrix($data, peaks, chunk_size, Some($out_data))?
+                        preprocessing::create_peak_matrix($data, peaks, chunk_size, Some($out_data), use_x)?
                     };
                 }
                 crate::with_anndata!(&out, run2);
             } else {
-                preprocessing::create_peak_matrix($data, peaks, chunk_size, None::<&PyAnnData>)?;
+                preprocessing::create_peak_matrix($data, peaks, chunk_size, None::<&PyAnnData>, use_x)?;
             }
         }
     }
@@ -185,12 +186,12 @@ pub(crate) fn mk_gene_matrix(
             if let Some(out) = out {
                 macro_rules! run2 {
                     ($out_data:expr) => {
-                        preprocessing::create_gene_matrix($data, transcripts, id_type, chunk_size, Some($out_data))?
+                        preprocessing::create_gene_matrix($data, transcripts, id_type, chunk_size, Some($out_data), use_x)?
                     };
                 }
                 crate::with_anndata!(&out, run2);
             } else {
-                preprocessing::create_gene_matrix($data, transcripts, id_type, chunk_size, None::<&PyAnnData>)?;
+                preprocessing::create_gene_matrix($data, transcripts, id_type, chunk_size, None::<&PyAnnData>, use_x)?;
             }
         }
     }

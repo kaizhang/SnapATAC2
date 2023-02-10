@@ -227,8 +227,10 @@ def add_regr_scores(
 
 def add_tf_binding(
     network: rx.PyDiGraph,
+    *,
     motifs: list[PyDNAMotif],
     genome_fasta: Path | Genome,
+    pvalue: float = 1e-5,
 ):
     """Add TF motif binding information.
 
@@ -240,6 +242,8 @@ def add_tf_binding(
         TF motifs
     genome_fasta
         A fasta file containing the genome sequences or a Genome object.
+    pvalue
+        P-value threshold for motif binding.
     """
     from pyfaidx import Fasta
     from tqdm import tqdm
@@ -253,7 +257,7 @@ def add_tf_binding(
 
     logging.info("Searching for the binding sites of {} motifs ...".format(len(motifs)))
     for motif in tqdm(motifs):
-        bound = motif.with_nucl_prob().exists(sequences)
+        bound = motif.with_nucl_prob().exists(sequences, pvalue=pvalue)
         if any(bound):
             name = motif.id if motif.name is None else motif.name
             nid = network.add_node(NodeData(name.upper(), "motif"))

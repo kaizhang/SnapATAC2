@@ -80,7 +80,7 @@ impl PyDNAMotifScanner {
             (rc && self.0.find(rev_compl(seq).as_bytes(), pvalue).next().is_some())
     }
 
-    #[pyo3(signature = (seqs, pvalue =1e-5, rc=true))]
+    #[pyo3(signature = (seqs, pvalue=1e-5, rc=true))]
     fn exists(&self, seqs: Vec<&str>, pvalue: f64, rc: bool) -> Vec<bool> {
         seqs.into_par_iter().map(|x| self.exist(x, pvalue, rc)).collect()
     }

@@ -226,6 +226,7 @@ def make_peak_matrix(
     backend: str | None = None,
     peak_file: Path | None = None,
     chunk_size: int = 500,
+    use_x: bool = False,
 ) -> AnnData:
     """Generate cell by peak count matrix.
 
@@ -256,6 +257,9 @@ def make_peak_matrix(
         from this file.
     chunk_size
         Chunk size
+    use_x
+        If True, use the matrix stored in `.X` as raw counts.
+        Otherwise the `.obsm['insertion']` is used.
 
     Returns
     -------
@@ -287,7 +291,7 @@ def make_peak_matrix(
                 peaks = [line.strip() for line in f]
 
     if inplace:
-        internal.mk_peak_matrix(adata, peaks, chunk_size, None)
+        internal.mk_peak_matrix(adata, peaks, chunk_size, use_x, None)
     else:
         if file is None:
             if adata.isbacked:
@@ -296,7 +300,7 @@ def make_peak_matrix(
                 out = ad.AnnData(obs=adata.obs[:])
         else:
             out = AnnData(filename=file, backend=backend, obs=adata.obs[:])
-        internal.mk_peak_matrix(adata, peaks, chunk_size, out)
+        internal.mk_peak_matrix(adata, peaks, chunk_size, use_x, out)
         return out
 
 def make_gene_matrix(

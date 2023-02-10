@@ -8,7 +8,8 @@ import logging
 import math
 
 from snapatac2._utils import is_anndata 
-from snapatac2._snapatac2 import AnnData, AnnDataSet, jm_regress, jaccard_similarity, cosine_similarity, spectral_embedding
+from snapatac2._snapatac2 import (AnnData, AnnDataSet, jm_regress, jaccard_similarity,
+    cosine_similarity, spectral_embedding, spectral_embedding_nystrom)
 
 __all__ = ['umap', 'spectral']
 
@@ -162,24 +163,28 @@ def spectral(
             model.fit(X)
             evals, evecs = model.transform()
     else:
-        feature_weights = idf(adata, features)
-        model = Spectral(n_comps, distance_metric, feature_weights)
-        if adata.isbacked:
-            S = adata.X.chunk(sample_size, replace=False)
+        if distance_metric == "cosine":
+            v, u = spectral_embedding_nystrom(adata, features, n_comps, sample_size, chunk_size)
+            evals, evecs = orthogonalize(v, u)
         else:
-            S = sp.sparse.csr_matrix(adata.chunk_X(sample_size, replace=False))
-        if features is not None: S = S[:, features]
+            feature_weights = idf(adata, features)
+            model = Spectral(n_comps, distance_metric, feature_weights)
+            if adata.isbacked:
+                S = adata.X.chunk(sample_size, replace=False)
+            else:
+                S = sp.sparse.csr_matrix(adata.chunk_X(sample_size, replace=False))
+            if features is not None: S = S[:, features]
 
-        model.fit(S)
+            model.fit(S)
 
-        from tqdm import tqdm
-        logging.info("Perform Nystrom extension")
-        for batch, _, _ in tqdm(adata.chunked_X(chunk_size), total=math.ceil(adata.n_obs/chunk_size)):
-            if distance_metric == "jaccard":
-                batch.data = np.ones(batch.indices.shape, dtype=np.float64)
-            if features is not None: batch = batch[:, features]
-            model.extend(batch)
-        evals, evecs = model.transform()
+            from tqdm import tqdm
+            logging.info("Perform Nystrom extension")
+            for batch, _, _ in tqdm(adata.chunked_X(chunk_size), total=math.ceil(adata.n_obs/chunk_size)):
+                if distance_metric == "jaccard":
+                    batch.data = np.ones(batch.indices.shape, dtype=np.float64)
+                if features is not None: batch = batch[:, features]
+                model.extend(batch)
+            evals, evecs = model.transform()
 
     if weighted_by_sd:
         idx = [i for i in range(evals.shape[0]) if evals[i] > 0]
@@ -288,6 +293,23 @@ class Spectral:
             else:
                 self.evecs = Q
         return (self.evals, self.evecs)
+
+def orthogonalize(evals, evecs):
+    sigma, V = np.linalg.eig(evecs.T @ evecs)
+    sigma = np.sqrt(sigma)
+    B = np.multiply(V.T, evals.reshape((1,-1))) @ V
+    np.multiply(B, sigma.reshape((-1, 1)), out=B)
+    np.multiply(B, sigma.reshape((1, -1)), out=B)
+    evals_new, evecs_new = np.linalg.eig(B)
+
+    # reorder
+    ix = evals_new.argsort()[::-1]
+    evals_new = evals_new[ix]
+    evecs_new = evecs_new[:, ix]
+
+    np.divide(evecs_new, sigma.reshape((-1, 1)), out=evecs_new)
+    evecs_new = evecs @ V @ evecs_new
+    return (evals_new, evecs_new)
 
 class JaccardNormalizer:
     def __init__(self, jm, c):

@@ -45,6 +45,7 @@ pub fn create_peak_matrix<A, I, D, B>(
     peaks: I,
     chunk_size: usize,
     out: Option<&B>,
+    use_x: bool,
     ) -> Result<()>
 where
     A: SnapData,
@@ -58,14 +59,19 @@ where
     let regions: GenomeRegions<D> = peaks.collect();
     let counter = SparseCoverage::new(&regions);
     let feature_names = counter.get_feature_ids();
-    let data = adata.raw_count_iter(chunk_size)?
-        .aggregate_by(counter).map(|x| x.0).progress_with_style(style);
+    let data: Box<dyn ExactSizeIterator<Item = _>> = if use_x {
+        Box::new(adata.read_chrom_values(chunk_size)?
+            .aggregate_by(counter).map(|x| x.0))
+    } else {
+        Box::new(adata.raw_count_iter(chunk_size)?
+            .aggregate_by(counter).map(|x| x.0))
+    };
     if let Some(adata_out) =  out {
-        adata_out.set_x_from_iter(data)?;
+        adata_out.set_x_from_iter(data.progress_with_style(style))?;
         adata_out.set_obs_names(adata.obs_names())?;
         adata_out.set_var_names(feature_names.into())?;
     } else {
-        adata.set_x_from_iter(data)?;
+        adata.set_x_from_iter(data.progress_with_style(style))?;
         adata.set_var_names(feature_names.into())?;
     }
     Ok(())
@@ -77,6 +83,7 @@ pub fn create_gene_matrix<A, B>(
     id_type: &str, 
     chunk_size: usize,
     out: Option<&B>,
+    use_x: bool,
     ) -> Result<()>
 where
     A: SnapData,
@@ -84,18 +91,24 @@ where
 {
     let promoters = Promoters::new(transcripts, 2000, 0, true);
     let transcript_counter: TranscriptCount<'_> = TranscriptCount::new(&promoters);
-    let data = adata.raw_count_iter(chunk_size)?;
     match id_type {
         "transcript" => {
             let gene_names: Vec<String> = transcript_counter.gene_names().iter().map(|x| x.clone()).collect();
             let ids = transcript_counter.get_feature_ids();
+            let data: Box<dyn ExactSizeIterator<Item = _>> = if use_x {
+                Box::new(adata.read_chrom_values(chunk_size)?
+                    .aggregate_by(transcript_counter).map(|x| x.0))
+            } else {
+                Box::new(adata.raw_count_iter(chunk_size)?
+                    .aggregate_by(transcript_counter).map(|x| x.0))
+            };
             if let Some(adata_out) = out {
-                adata_out.set_x_from_iter(data.aggregate_by(transcript_counter).map(|x| x.0))?;
+                adata_out.set_x_from_iter(data)?;
                 adata_out.set_obs_names(adata.obs_names())?;
                 adata_out.set_var_names(ids.into())?;
                 adata_out.set_var(DataFrame::new(vec![Series::new("gene_name", gene_names)])?)?;
             } else {
-                adata.set_x_from_iter(data.aggregate_by(transcript_counter).map(|x| x.0))?;
+                adata.set_x_from_iter(data)?;
                 adata.set_var_names(ids.into())?;
                 adata.set_var(DataFrame::new(vec![Series::new("gene_name", gene_names)])?)?;
             }
@@ -103,12 +116,19 @@ where
         "gene" => {
             let gene_counter: GeneCount<'_> = GeneCount::new(transcript_counter);
             let ids = gene_counter.get_feature_ids();
+            let data: Box<dyn ExactSizeIterator<Item = _>> = if use_x {
+                Box::new(adata.read_chrom_values(chunk_size)?
+                    .aggregate_by(gene_counter).map(|x| x.0))
+            } else {
+                Box::new(adata.raw_count_iter(chunk_size)?
+                    .aggregate_by(gene_counter).map(|x| x.0))
+            };
             if let Some(adata_out) = out {
-                adata_out.set_x_from_iter(data.aggregate_by(gene_counter).map(|x| x.0))?;
+                adata_out.set_x_from_iter(data)?;
                 adata_out.set_obs_names(adata.obs_names())?;
                 adata_out.set_var_names(ids.into())?;
             } else {
-                adata.set_x_from_iter(data.aggregate_by(gene_counter).map(|x| x.0))?;
+                adata.set_x_from_iter(data)?;
                 adata.set_var_names(ids.into())?;
             }
         },

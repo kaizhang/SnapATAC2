@@ -2,12 +2,13 @@ use crate::utils::AnnDataLike;
 
 use anndata_hdf5::H5;
 use std::ops::Deref;
-use ndarray::{Array1, Array2};
+use ndarray::{Array1, Array2, Axis};
 use numpy::{PyArray1, PyArray2};
 use pyanndata::data::PyArrayData;
 use pyo3::prelude::*;
-use anndata::{ArrayData, AnnDataOp, ArrayElemOp, data::{SelectInfoElem, DynCsrMatrix}, Backend};
-use nalgebra::DVector;
+use rand::SeedableRng;
+use anndata::{ArrayData, AnnDataOp, ArrayOp, ArrayElemOp, data::{SelectInfoElem}, Backend};
+use nalgebra::{DVector, DMatrix};
 use nalgebra_sparse::CsrMatrix;
 use rayon::prelude::{ParallelBridge, ParallelIterator};
 use anyhow::Result;
@@ -23,7 +24,14 @@ pub(crate) fn spectral_embedding<'py>(
     macro_rules! run {
         ($data:expr) => {{
             let slice = pyanndata::data::to_select_elem(selected_features, $data.n_vars())?;
-            _spectral_embedding($data, &slice, n_components)
+            let mut mat: CsrMatrix<f64> = $data.x().slice_axis(1, slice)?.unwrap();
+            let feature_weights = idf(&mat);
+
+            // feature weighting and L2 norm normalization.
+            normalize(&mut mat, &feature_weights);
+
+            let (v, u, _) = spectral_mf(mat,n_components)?;
+            anyhow::Ok((v, u))
         }}
     }
     let (evals, evecs) = crate::with_anndata!(&anndata, run)?;
@@ -31,43 +39,56 @@ pub(crate) fn spectral_embedding<'py>(
     Ok((PyArray1::from_owned_array(py, evals), PyArray2::from_owned_array(py, evecs)))
 }
 
-fn _spectral_embedding<A: AnnDataOp>(
-    adata: &A,
-    features: &SelectInfoElem,
+#[pyfunction]
+pub(crate) fn spectral_embedding_nystrom<'py>(
+    py: Python<'py>,
+    anndata: AnnDataLike,
+    selected_features: &PyAny,
     n_components: usize,
-) -> Result<(Array1<f64>, Array2<f64>)>
+    sample_size: usize,
+    chunk_size: usize,
+) -> Result<(&'py PyArray1<f64>, &'py PyArray2<f64>)>
 {
-    let mat: CsrMatrix<f64> = adata.x().slice_axis(1, features)?.unwrap();
-    let idf = idf(&mat);
-    spectral_mf(mat, &idf, n_components)
-}
+    macro_rules! run {
+        ($data:expr) => {{
+            let selected_features = pyanndata::data::to_select_elem(selected_features, $data.n_vars())?;
 
-fn idf(input: &CsrMatrix<f64>) -> Vec<f64> {
-    let mut idf = vec![0.0; input.ncols()];
-    input.col_indices().iter().for_each(|i| idf[*i] += 1.0);
-    let n = input.nrows() as f64;
-    idf.iter_mut().for_each(|x| *x = (n / *x).ln());
-    idf
+            let n_obs = $data.n_obs();
+            let mut rng = rand::rngs::StdRng::seed_from_u64(2023);
+            let idx = rand::seq::index::sample(&mut rng, n_obs, sample_size).into_vec();
+            let selected_samples = SelectInfoElem::from(idx);
+
+            let feature_weights = idf_from_chunks(
+                $data.x().iter(5000).map(|x: (CsrMatrix<f64>, _, _)| x.0.select_axis(1, &selected_features))
+            );
+            let mut seed_mat: CsrMatrix<f64> = $data.x().slice(&[selected_samples, selected_features.clone()])?.unwrap();
+
+            // feature weighting and L2 norm normalization.
+            normalize(&mut seed_mat, &feature_weights);
+
+            let (v, mut u, d) = spectral_mf(seed_mat.clone(), n_components)?;
+            anyhow::Ok(nystrom(seed_mat, &v, &mut u, &d,
+                $data.x().iter(chunk_size).map(|x: (CsrMatrix<f64>, _, _)| {
+                    let mut mat = x.0.select_axis(1, &selected_features);
+                    normalize(&mut mat, &feature_weights);
+                    mat
+                })
+            ))
+        }}
+    }
+
+    let (evals, evecs) = crate::with_anndata!(&anndata, run)?;
+
+    Ok((PyArray1::from_owned_array(py, evals), PyArray2::from_owned_array(py, evecs)))
 }
 
 /// Matrix-free spectral embedding.
+/// The input is assumed to be a csr matrix with rows normalized to unit L2 norm.
 fn spectral_mf(
     mut input: CsrMatrix<f64>,
-    feature_weights: &[f64],
     n_components: usize,
-) -> Result<(Array1<f64>, Array2<f64>)>
+) -> Result<(Array1<f64>, Array2<f64>, Array1<f64>)>
 {
-    // feature weighting and L2 norm normalization.
-    input.row_iter_mut().par_bridge().for_each(|mut row| {
-        let (indices, data) = row.cols_and_values_mut();
-        indices.iter().zip(data.iter_mut()).for_each(|(i, x)|
-            *x *= feature_weights[*i]
-        );
-
-        let norm = data.iter().map(|x| x*x).sum::<f64>().sqrt();
-        data.iter_mut().for_each(|x| *x /= norm);
-    });
-
     // Compute degrees.
     let mut col_sum = vec![0.0; input.ncols()];
     input.col_indices().iter().zip(input.values().iter()).for_each(|(i, x)| col_sum[*i] += x);
@@ -80,7 +101,7 @@ fn spectral_mf(
     );
 
     // Compute eigenvalues and eigenvectors
-    Python::with_gil(|py| {
+    let (v, u) = Python::with_gil(|py| {
         let fun: Py<PyAny> = PyModule::from_code(
             py,
             "def eigen(X, D, k):
@@ -106,6 +127,88 @@ fn spectral_mf(
         );
         let result = fun.call1(py, args)?;
         let (evals, evecs): (&PyArray1<f64>, &PyArray2<f64>) = result.extract(py)?;
-        Ok((evals.to_owned_array(), evecs.to_owned_array()))
-    })
+
+        anyhow::Ok((evals.to_owned_array(), evecs.to_owned_array()))
+    })?;
+    degree_inv.iter_mut().for_each(|x| *x = x.recip());
+    Ok((v, u, degree_inv.into_iter().copied().collect()))
+}
+
+/// The input is assumed to be a csr matrix with rows normalized to unit L2 norm.
+fn nystrom<I>(
+    seed_matrix: CsrMatrix<f64>,
+    evals: &Array1<f64>,
+    evecs: &mut Array2<f64>,
+    degrees: &Array1<f64>,
+    inputs: I,
+) -> (Array1<f64>, Array2<f64>)
+where
+    I: IntoIterator<Item = CsrMatrix<f64>>,
+{
+    // normalize the eigenvectors by degrees.
+    evecs.axis_iter_mut(Axis(0)).zip(degrees.iter()).for_each(|(mut row, d)|
+        row *= d.sqrt().recip()
+    );
+    // normalize the eigenvectors by eigenvalues.
+    evecs.axis_iter_mut(Axis(1)).zip(evals.iter()).for_each(|(mut col, v)|
+        col *= v.recip()
+    );
+    let evecs = DMatrix::from_row_iterator(evecs.shape()[0], evecs.shape()[1], evecs.iter().copied());
+
+    let seed_matrix_t = seed_matrix.transpose_as_csc();
+
+    let vec = inputs.into_iter().flat_map(|mat| {
+        let mut q = mat * (&seed_matrix_t * &evecs);
+        let t = q.column_iter().map(|col| col.sum())
+            .zip(evals.iter()).map(|(x, v)| x * v).collect::<Vec<_>>();
+        let mut d = &q * &DVector::from(t);
+        let mut d_min = f64::INFINITY;
+        d.iter().filter(|x| **x > 0.0).for_each(|x| if *x < d_min { d_min = *x });
+        d.iter_mut().for_each(|x| if *x <= 0.0 { *x = d_min });
+
+        q.row_iter_mut().zip(d.iter()).for_each(|(mut row, dd)|
+            row.iter_mut().for_each(|x| *x *= dd.sqrt().recip())
+        );
+        q.transpose().into_iter().copied().collect::<Vec<_>>()
+    }).collect::<Vec<_>>();
+
+    let ncol = evecs.ncols();
+    let nrows = vec.len() / ncol;
+    (evals.clone(), Array2::from_shape_vec((nrows, ncol), vec).unwrap())
+}
+
+fn idf(input: &CsrMatrix<f64>) -> Vec<f64> {
+    let mut idf = vec![0.0; input.ncols()];
+    input.col_indices().iter().for_each(|i| idf[*i] += 1.0);
+    let n = input.nrows() as f64;
+    idf.iter_mut().for_each(|x| *x = (n / *x).ln());
+    idf
+}
+
+fn idf_from_chunks<I>(input: I) -> Vec<f64>
+where
+    I: IntoIterator<Item = CsrMatrix<f64>>,
+{
+    let mut iter = input.into_iter().peekable();
+    let mut idf = vec![0.0; iter.peek().unwrap().ncols()];
+    let mut n = 0.0;
+    iter.for_each(|mat| {
+        mat.col_indices().iter().for_each(|i| idf[*i] += 1.0);
+        n += mat.nrows() as f64;
+    });
+    idf.iter_mut().for_each(|x| *x = (n / *x).ln());
+    idf
+}
+
+/// feature weighting and L2 norm normalization.
+fn normalize(input: &mut CsrMatrix<f64>, feature_weights: &[f64]) {
+    input.row_iter_mut().par_bridge().for_each(|mut row| {
+        let (indices, data) = row.cols_and_values_mut();
+        indices.iter().zip(data.iter_mut()).for_each(|(i, x)|
+            *x *= feature_weights[*i]
+        );
+
+        let norm = data.iter().map(|x| x*x).sum::<f64>().sqrt();
+        data.iter_mut().for_each(|x| *x /= norm);
+    });
 }
