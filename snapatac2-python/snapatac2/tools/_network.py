@@ -101,8 +101,8 @@ def init_network_from_annotation(
 def add_cor_scores(
     network: rx.PyDiGraph,
     *,
-    gene_mat: AnnData | AnnDataSet,
-    peak_mat: AnnData | AnnDataSet,
+    gene_mat: AnnData | AnnDataSet | None = None,
+    peak_mat: AnnData | AnnDataSet | None = None,
     select: list[str] | None = None,
     overwrite: bool = False,
 ):
@@ -154,8 +154,8 @@ def add_cor_scores(
 def add_regr_scores(
     network: rx.PyDiGraph,
     *,
-    peak_mat: AnnData | AnnDataSet,
-    gene_mat: AnnData | AnnDataSet,
+    peak_mat: AnnData | AnnDataSet | None = None,
+    gene_mat: AnnData | AnnDataSet | None = None,
     select: list[str] | None = None,
     method: Literal["gb_tree", "elastic_net"] = "elastic_net",
     scale_X: bool = False,
@@ -495,8 +495,8 @@ class _DataPairIter:
 
 def _get_data_iter(
     network: rx.PyDiGraph,
-    peak_mat: AnnData | AnnDataSet,
-    gene_mat: AnnData | AnnDataSet,
+    peak_mat: AnnData | AnnDataSet | None,
+    gene_mat: AnnData | AnnDataSet | None,
     select: set[str] | None = None,
     without_overwrite: str | None = None,
     scale_X: bool = False,
@@ -509,6 +509,7 @@ def _get_data_iter(
     def get_mat(nids, node_getter, gene_mat, peak_mat):
         genes = []
         peaks = []
+        mats = []
 
         for x in nids:
             nd = node_getter(x) 
@@ -519,28 +520,23 @@ def _get_data_iter(
             else:
                 raise NameError("unknown type: {}".format(nd.type))
 
-        if len(genes) == gene_mat.n_vars:
-            g_mat = gene_mat.X[:]
-        else:
-            idx_map = {x.upper(): i for i, x in enumerate(gene_mat.var_names)}
-            ix = [idx_map[node_getter(x).id] for x in genes]
-            g_mat = gene_mat.X[:, ix]
-
-        if len(peaks) == peak_mat.n_vars:
-            p_mat = peak_mat.X[:]
-        else:
-            if peak_mat.isbacked:
-                ix = peak_mat.var_ix([node_getter(x).id for x in peaks])
+        if len(genes) != 0:
+            if len(genes) == gene_mat.n_vars:
+                mats.append(gene_mat.X[:])
             else:
-                ix = [peak_mat.var_names.get_loc(node_getter(x).id) for x in peaks]
-            p_mat = peak_mat.X[:, ix]
+                idx_map = {x.upper(): i for i, x in enumerate(gene_mat.var_names)}
+                ix = [idx_map[node_getter(x).id] for x in genes]
+                mats.append(gene_mat.X[:, ix])
 
-        if len(genes) == 0:
-            mats = [p_mat]
-        elif len(peaks) == 0:
-            mats = [g_mat]
-        else:
-            mats = [g_mat, p_mat]
+        if len(peaks) != 0:
+            if len(peaks) == peak_mat.n_vars:
+                mats.append(peak_mat.X[:])
+            else:
+                if peak_mat.isbacked:
+                    ix = peak_mat.var_ix([node_getter(x).id for x in peaks])
+                else:
+                    ix = [peak_mat.var_names.get_loc(node_getter(x).id) for x in peaks]
+                mats.append(peak_mat.X[:, ix])
         
         if all([sp.issparse(x) for x in mats]):
             mat = sp.hstack(mats, format="csc")
