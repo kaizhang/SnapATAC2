@@ -11,8 +11,7 @@ def heatmap(
     cluster_rows: bool = True,
     colorscale = "Blues",
     linkage: str = "ward",
-    width: int = 800,
-    height: int = 600,
+    **kwargs,
 ):
     import plotly.graph_objects as go
     import plotly.figure_factory as ff
@@ -56,9 +55,7 @@ def heatmap(
     for data in heatmap:
         fig.add_trace(data)
         
-    fig.update_layout({ 'width': width, 'height': height,
-        'showlegend':False, 'hovermode': 'closest',
-    })
+    fig.update_layout({'showlegend':False, 'hovermode': 'closest'})
     
     if cluster_rows:
         fig.update_layout(
@@ -85,7 +82,7 @@ def heatmap(
                 'ticks':""
             },
         )
-    return fig
+    return render_plot(fig, **kwargs)
 
 def render_plot(
     fig: 'plotly.graph_objects.Figure',

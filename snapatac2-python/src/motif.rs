@@ -24,6 +24,7 @@ impl PyDNAMotif {
         let motif = motif::DNAMotif {
             id: id.to_string(),
             name: None,
+            family: None,
             probability: pwm.as_array().rows().into_iter()
                 .map(|row| row.into_iter().map(|x| *x).collect::<Vec<_>>().try_into().unwrap()).collect(),
         };
@@ -45,6 +46,15 @@ impl PyDNAMotif {
     #[setter]
     fn set_name(&mut self, value: String) -> PyResult<()> {
         self.0.name = Some(value);
+        Ok(())
+    }
+
+    #[getter]
+    fn family(&self) -> Option<String> { self.0.family.clone() }
+
+    #[setter]
+    fn set_family(&mut self, value: String) -> PyResult<()> {
+        self.0.family = Some(value);
         Ok(())
     }
 

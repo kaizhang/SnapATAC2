@@ -64,7 +64,9 @@ def motif_enrichment(
     genome = Fasta(genome, one_based_attributes=False)
     sequences = [fetch_seq(genome, region) for region in all_regions]
 
+    motif_id = []
     motif_name = []
+    motif_family = []
     group_name = []
     fold_change = []
     n_fg = []
@@ -90,7 +92,9 @@ def motif_enrichment(
             else:
                 log_fc = log2((bound_fg / total_fg) / (bound_bg / total_bg))
 
-            motif_name.append(motif.id)
+            motif_id.append(motif.id)
+            motif_name.append(motif.name)
+            motif_family.append(motif.family)
             group_name.append(key)
             fold_change.append(log_fc)
             n_fg.append(bound_fg)
@@ -106,12 +110,14 @@ def motif_enrichment(
         raise NameError("'method' needs to be 'binomial' or 'hypergeometric'")
 
     result = dict(
-        (key, {'motif name': [], 'log2(fold change)': [], 'p-value': []}) for key in regions.keys()
+        (key, {'id': [], 'name': [], 'family': [], 'log2(fold change)': [], 'p-value': []}) for key in regions.keys()
     )
     for i, key in enumerate(group_name):
         log_fc = fold_change[i]
         p = (1 - pval[i]) if log_fc >= 0 else pval[i]
-        result[key]['motif name'].append(motif_name[i])
+        result[key]['id'].append(motif_id[i])
+        result[key]['name'].append(motif_name[i])
+        result[key]['family'].append(motif_family[i])
         result[key]['log2(fold change)'].append(log_fc)
         result[key]['p-value'].append(float(p))
 

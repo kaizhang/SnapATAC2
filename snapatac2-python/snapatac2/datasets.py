@@ -28,10 +28,13 @@ def datasets():
 
                 "colon_transverse.tar": "sha256:18c56bf405ec0ef8e0e2ea31c63bf2299f21bcb82c67f46e8f70f8d71c65ae0e",
                 "HEA_cCRE.bed.gz": "sha256:d69ae94649201cd46ffdc634852acfccc317196637c1786aba82068618001408",
-                "cisBP_human.meme": "sha256:8bf995450258e61cb1c535d5bf9656d580eb68ba68893fa36b77d17ee0730579",
 
                 "10x-Multiome-Pbmc10k-ATAC.h5ad": "sha256:24d030fb7f90453a0303b71a1e3e4e7551857d1e70072752d7fff9c918f77217",
                 "10x-Multiome-Pbmc10k-RNA.h5ad": "sha256:a25327acff48b20b295c12221a84fd00f8f3f486ff3e7bd090fdef241b996a22",
+
+                # TF motifs
+                "cisBP_human.meme": "sha256:8bf995450258e61cb1c535d5bf9656d580eb68ba68893fa36b77d17ee0730579",
+                "Meuleman_2020.meme": "sha256:400dd60ca61dc8388aa0942b42c95920aad7f6bedf5324005cee7e84bcf5b6d0",
 
                 # Genome files
                 "gencode_v41_GRCh37.gff3.gz": "sha256:df96d3f0845127127cc87c729747ae39bc1f4c98de6180b112e71dda13592673",
@@ -57,7 +60,9 @@ def datasets():
 
                 "colon_transverse.tar": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/eaa46151-a73f-4ef5-8b05-9648c8d1efda?a=758c37e5-4832-4c91-af89-9a1a83a051b3", 
                 "HEA_cCRE.bed.gz": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/91f93222-1a24-49a5-92e3-d9105ec53f91?a=758c37e5-4832-4c91-af89-9a1a83a051b3",
+
                 "cisBP_human.meme": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/9eff4b7d-d769-49a2-8fb4-acd472402165?a=758c37e5-4832-4c91-af89-9a1a83a051b3", 
+                "Meuleman_2020.meme": "https://osf.io/download/6uet5/",
 
                 "gencode_v41_GRCh37.gff3.gz": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_41/GRCh37_mapping/gencode.v41lift37.basic.annotation.gff3.gz",
                 "gencode_v41_GRCh37.fa.gz": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_41/GRCh37_mapping/GRCh37.primary_assembly.genome.fa.gz",
@@ -166,4 +171,24 @@ def cis_bp(unique: bool = True) -> list[PyDNAMotif]:
                ):
                unique_motifs[name] = motif
         motifs = list(unique_motifs.values())
+    return motifs
+
+def Meuleman_2020() -> list[PyDNAMotif]:
+    """Motifs from CIS-BP database.
+
+    Parameters
+    ----------
+    unique
+        A transcription factor may have multiple motifs. If `unique=True`, 
+        only the motifs with the highest information content will be selected.
+
+    Returns
+    -------
+    list[PyDNAMotif]
+        A list of motifs.
+    """
+    motifs = read_motifs(datasets().fetch("Meuleman_2020.meme"))
+    for motif in motifs:
+        motif.name = motif.id.split('_')[0]
+        motif.family = motif.id.split('+')[-1]
     return motifs

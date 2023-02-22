@@ -76,6 +76,7 @@ def spectral(
     features: str | np.ndarray | None = "selected",
     random_state: int = 0,
     sample_size: int | float | None = None,
+    sample_method: Literal["random", "degree"] = "random",
     chunk_size: int = 20000,
     distance_metric: Literal["jaccard", "cosine"] = "cosine",
     weighted_by_sd: bool = True,
@@ -164,7 +165,11 @@ def spectral(
             evals, evecs = model.transform()
     else:
         if distance_metric == "cosine":
-            v, u = spectral_embedding_nystrom(adata, features, n_comps, sample_size, chunk_size)
+            if sample_method == "random":
+                weighted_by_degree = False
+            else:
+                weighted_by_degree = True
+            v, u = spectral_embedding_nystrom(adata, features, n_comps, sample_size, weighted_by_degree, chunk_size)
             evals, evecs = orthogonalize(v, u)
         else:
             feature_weights = idf(adata, features)

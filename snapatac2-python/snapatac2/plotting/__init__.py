@@ -331,11 +331,7 @@ def motif_enrichment(
     enrichment: list(str, 'pl.DataFrame'),
     min_log_fc: float = 1,
     max_fdr: float = 0.01,
-    width: float = 600,
-    height: float = 400,
-    show: bool = True,
-    interactive: bool = True,
-    out_file: str | None = None,
+    **kwargs,
 ) -> 'plotly.graph_objects.Figure' | None:
     """Plot the motif enrichment result.
 
@@ -347,15 +343,10 @@ def motif_enrichment(
         Retain motifs that satisfy: log2-fold-change >= `min_log_fc`.
     max_fdr
         Retain motifs that satisfy: FDR <= `max_fdr`.
-    width
-        The width of the plot.
-    height
-        The height of the plot.
-    interactive
-        Whether to make interactive plot.
-    out_file
-        Path of the output file for saving the output image, end with
-        '.svg' or '.pdf' or '.png' or '.html'.
+    kwargs        
+        Additional arguments passed to :func:`~snapatac2.pl.render_plot` to
+        control the final plot output. Please see :func:`~snapatac2.pl.render_plot`
+        for details.
 
     Returns
     -------
@@ -386,10 +377,10 @@ def motif_enrichment(
         index=next(iter(enrichment.values()))['motif name'].to_numpy()[passed],
     )
       
-    fig = heatmap(
+    return heatmap(
         df.to_numpy(),
         row_names=df.index,
         column_names=df.columns,
         colorscale='RdBu_r',
+        **kwargs,
     )
-    return render_plot(fig, width, height, interactive, show, out_file)

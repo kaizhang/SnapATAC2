@@ -7,7 +7,7 @@ use numpy::{PyArray1, PyArray2};
 use pyanndata::data::PyArrayData;
 use pyo3::prelude::*;
 use rand::SeedableRng;
-use anndata::{ArrayData, AnnDataOp, ArrayOp, ArrayElemOp, data::{SelectInfoElem}, Backend};
+use anndata::{ArrayData, AnnDataOp, ArrayOp, ArrayElemOp, data::{SelectInfoElem, BoundedSelectInfoElem}, Backend};
 use nalgebra::{DVector, DMatrix};
 use nalgebra_sparse::CsrMatrix;
 use rayon::prelude::{ParallelBridge, ParallelIterator};
@@ -46,21 +46,26 @@ pub(crate) fn spectral_embedding_nystrom<'py>(
     selected_features: &PyAny,
     n_components: usize,
     sample_size: usize,
+    weighted_by_degree: bool,
     chunk_size: usize,
 ) -> Result<(&'py PyArray1<f64>, &'py PyArray2<f64>)>
 {
     macro_rules! run {
         ($data:expr) => {{
             let selected_features = pyanndata::data::to_select_elem(selected_features, $data.n_vars())?;
-
-            let n_obs = $data.n_obs();
-            let mut rng = rand::rngs::StdRng::seed_from_u64(2023);
-            let idx = rand::seq::index::sample(&mut rng, n_obs, sample_size).into_vec();
-            let selected_samples = SelectInfoElem::from(idx);
-
             let feature_weights = idf_from_chunks(
                 $data.x().iter(5000).map(|x: (CsrMatrix<f64>, _, _)| x.0.select_axis(1, &selected_features))
             );
+
+            let n_obs = $data.n_obs();
+            let mut rng = rand::rngs::StdRng::seed_from_u64(2023);
+            let idx = if weighted_by_degree {
+                let weights = compute_probs(&compute_degrees($data, &selected_features, &feature_weights));
+                rand::seq::index::sample_weighted(&mut rng, n_obs, |i| {weights[i]}, sample_size)?.into_vec()
+            } else {
+                rand::seq::index::sample(&mut rng, n_obs, sample_size).into_vec()
+            };
+            let selected_samples = SelectInfoElem::from(idx);
             let mut seed_mat: CsrMatrix<f64> = $data.x().slice(&[selected_samples, selected_features.clone()])?.unwrap();
 
             // feature weighting and L2 norm normalization.
@@ -211,4 +216,44 @@ fn normalize(input: &mut CsrMatrix<f64>, feature_weights: &[f64]) {
         let norm = data.iter().map(|x| x*x).sum::<f64>().sqrt();
         data.iter_mut().for_each(|x| *x /= norm);
     });
+}
+
+fn compute_degrees<A: AnnDataOp>(
+    adata: &A,
+    selected_features: &SelectInfoElem,
+    feature_weights: &[f64],
+) -> Vec<f64> {
+    let n = BoundedSelectInfoElem::new(selected_features, adata.n_vars()).len();
+    let mut col_sum = vec![0.0; n];
+
+    // First pass to compute the sum of each column.
+    adata
+        .x()
+        .iter(5000)
+        .for_each(|x: (CsrMatrix<f64>, _, _)| {
+            let mut mat = x.0.select_axis(1, selected_features);
+            normalize(&mut mat, feature_weights);
+            mat.row_iter().for_each(|row| {
+                row.col_indices().iter().zip(row.values().iter()).for_each(|(i, x)|
+                    col_sum[*i] += x
+                );
+            });
+        });
+    let col_sum = DVector::from(col_sum);
+    
+    // Second pass to compute the degree.
+    adata
+        .x()
+        .iter(5000)
+        .flat_map(|x: (CsrMatrix<f64>, _, _)| {
+            let mut mat = x.0.select_axis(1, selected_features);
+            normalize(&mut mat, feature_weights);
+            let v = &mat * &col_sum;
+            v.into_iter().map(|x| *x - 1.0).collect::<Vec<_>>()
+        }).collect::<Vec<_>>()
+}
+
+fn compute_probs(degrees: &[f64]) -> Vec<f64> {
+    let s: f64 = degrees.iter().map(|x| x.recip()).sum();
+    degrees.iter().map(|x| x.recip() / s).collect()
 }

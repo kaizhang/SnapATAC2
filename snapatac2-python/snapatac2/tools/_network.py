@@ -201,8 +201,9 @@ def add_regr_scores(
     from tqdm import tqdm
 
     key = "regr_score"
-    if list(peak_mat.obs_names) != list(gene_mat.obs_names):
-        raise NameError("gene matrix and peak matrix should have the same obs_names")
+    if peak_mat is not None and gene_mat is not None:
+        if list(peak_mat.obs_names) != list(gene_mat.obs_names):
+            raise NameError("gene matrix and peak matrix should have the same obs_names")
     if select is not None:
         select = set(select)
     without_overwrite = None if overwrite else key 
