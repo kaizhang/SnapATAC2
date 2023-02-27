@@ -52,7 +52,7 @@ def tsse(
         >>> fig = snap.pl.tsse(data, show=False, out_file=None)
         >>> fig.show()
     """
-    selected_cells = adata.obs["n_fragment"] >= min_fragment
+    selected_cells = np.where(adata.obs["n_fragment"] >= min_fragment)[0]
     x = adata.obs["n_fragment"][selected_cells]
     y = adata.obs["tsse"][selected_cells]
 

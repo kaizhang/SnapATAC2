@@ -31,6 +31,7 @@ def datasets():
 
                 "10x-Multiome-Pbmc10k-ATAC.h5ad": "sha256:24d030fb7f90453a0303b71a1e3e4e7551857d1e70072752d7fff9c918f77217",
                 "10x-Multiome-Pbmc10k-RNA.h5ad": "sha256:a25327acff48b20b295c12221a84fd00f8f3f486ff3e7bd090fdef241b996a22",
+                "pbmc_10k_atac.tsv.gz": "md5:a959ef83dfb9cae6ff73ab0147d547d1",
 
                 # TF motifs
                 "cisBP_human.meme": "sha256:8bf995450258e61cb1c535d5bf9656d580eb68ba68893fa36b77d17ee0730579",
@@ -57,6 +58,7 @@ def datasets():
 
                 "10x-Multiome-Pbmc10k-ATAC.h5ad": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/165dfb5c-c557-42a0-bd21-1276d4d7b23e?a=758c37e5-4832-4c91-af89-9a1a83a051b3",
                 "10x-Multiome-Pbmc10k-RNA.h5ad": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/d079a087-2913-4e29-979e-638e5932bd8c?a=758c37e5-4832-4c91-af89-9a1a83a051b3", 
+                "pbmc_10k_atac.tsv.gz": "https://cf.10xgenomics.com/samples/cell-arc/1.0.0/pbmc_granulocyte_sorted_10k/pbmc_granulocyte_sorted_10k_atac_fragments.tsv.gz",
 
                 "colon_transverse.tar": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/eaa46151-a73f-4ef5-8b05-9648c8d1efda?a=758c37e5-4832-4c91-af89-9a1a83a051b3", 
                 "HEA_cCRE.bed.gz": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/91f93222-1a24-49a5-92e3-d9105ec53f91?a=758c37e5-4832-4c91-af89-9a1a83a051b3",
@@ -123,13 +125,19 @@ def pbmc5k(type: Literal["fragment, h5ad, gene, annotated_h5ad"] = "fragment") -
         raise NameError("type '{}' is not available.".format(type))
     
 
-def pbmc_multiome(modality: Literal["ATAC", "RNA"] = "RNA") -> Path:
+def pbmc10k_multiome(
+    modality: Literal['ATAC', 'RNA'] = 'RNA',
+    type: Literal['fragment', 'h5ad'] = 'h5ad',
+) -> Path:
     """10k PBMCs from 10x Genomics.
     """
-    if modality == "RNA":
+    if modality == 'RNA':
         return Path(datasets().fetch("10x-Multiome-Pbmc10k-RNA.h5ad"))
-    elif modality == "ATAC":
-        return Path(datasets().fetch("10x-Multiome-Pbmc10k-ATAC.h5ad"))
+    elif modality == 'ATAC':
+        if type == 'fragment':
+            return Path(datasets().fetch("pbmc_10k_atac.tsv.gz"))
+        else:
+            return Path(datasets().fetch("10x-Multiome-Pbmc10k-ATAC.h5ad"))
     else:
         raise NameError("modality '{}' is not available.".format(modality))
 
