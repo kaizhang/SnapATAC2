@@ -21,7 +21,6 @@ use rand_core::SeedableRng;
 use rand_isaac::Isaac64Rng;
 use hora::core::ann_index::ANNIndex;
 use nalgebra_sparse::CsrMatrix;
-use rayon::ThreadPoolBuilder;
 
 macro_rules! with_sparsity_pattern {
     ($dtype:expr, $indices:expr, $indptr:expr, $n:expr, $fun:ident) => {
@@ -308,10 +307,4 @@ pub(crate) fn open_file<P: AsRef<Path>>(file: P) -> Box<dyn std::io::Read> {
 /// Determine if a file is gzipped.
 pub(crate) fn is_gzipped<P: AsRef<Path>>(file: P) -> bool {
     MultiGzDecoder::new(File::open(file).unwrap()).header().is_some()
-}
-
-pub fn with_cpu<OP, R>(num_cpu: usize, op: OP) -> R
-where OP: FnOnce() -> R + Send, R: Send
-{
-    ThreadPoolBuilder::new().num_threads(num_cpu).build().unwrap().install(op)
 }

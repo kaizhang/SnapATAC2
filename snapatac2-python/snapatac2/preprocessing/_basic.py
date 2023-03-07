@@ -3,14 +3,12 @@ from typing_extensions import Literal
 
 from pathlib import Path
 import numpy as np
-import math
 import anndata as ad
 
 import snapatac2
 from snapatac2._snapatac2 import AnnData, AnnDataSet, PyFlagStat
 import snapatac2._snapatac2 as internal
 from snapatac2.genome import Genome
-from snapatac2._utils import is_anndata 
 
 def make_fragment_file(
     bam_file: Path,
@@ -62,9 +60,9 @@ def make_fragment_file(
         Extract UMI from read names of BAM records using regular expressions.
         See `barcode_regex` for more details.
     shift_left
-        Insertion site correction for the left end.
+        Insertion site correction for the left end. Note this has no effect on single-end reads.
     shift_right
-        Insertion site correction for the right end.
+        Insertion site correction for the right end. Note this has no effect on single-end reads.
     min_mapq
         Filter the reads based on MAPQ.
     chunk_size
@@ -77,8 +75,8 @@ def make_fragment_file(
         Various statistics.
     """
     return internal.make_fragment_file(
-        bam_file, output_file, is_paired, barcode_tag, barcode_regex,
-        umi_tag, umi_regex, shift_left, shift_right, min_mapq, chunk_size
+        bam_file, output_file, is_paired, shift_left, shift_right, chunk_size,
+        barcode_tag, barcode_regex, umi_tag, umi_regex, min_mapq,
     )
 
 def import_data(
@@ -93,6 +91,8 @@ def import_data(
     sorted_by_barcode: bool = True,
     low_memory: bool = True,
     whitelist: Path | list[str] | None = None,
+    shift_left: int = 0,
+    shift_right: int = 0,
     chunk_size: int = 2000,
     tempdir: Path | None = None,
     backend: str | None = None,
@@ -139,6 +139,11 @@ def import_data(
         File name or a list of barcodes. If it is a file name, each line
         must contain a valid barcode. When provided, only barcodes in the whitelist
         will be retained.
+    shift_left
+        Insertion site correction for the left end.
+    shift_right
+        Insertion site correction for the right end. Note this has no effect on single-end reads.
+        For single-end reads, `shift_right` will be set using the value of `shift_left`.
     chunk_size
         Increasing the chunk_size speeds up I/O but uses more memory.
     tempdir
@@ -168,7 +173,8 @@ def import_data(
     adata = ad.AnnData() if file is None else AnnData(filename=file, backend=backend)
     internal.import_fragments(
         adata, fragment_file, gff_file, chrom_size, min_num_fragments,
-        min_tsse, sorted_by_barcode, low_memory, whitelist, chunk_size, tempdir
+        min_tsse, sorted_by_barcode, low_memory, shift_left, shift_right,
+        chunk_size, whitelist, tempdir,
     )
     return adata
 

@@ -34,14 +34,14 @@ pub(crate) fn make_fragment_file(
     bam_file: PathBuf,
     output_file: PathBuf,
     is_paired: bool,
+    shift_left: i64,
+    shift_right: i64,
+    chunk_size: usize,
     barcode_tag: Option<&str>,
     barcode_regex: Option<&str>,
     umi_tag: Option<&str>,
     umi_regex: Option<&str>,
-    shift_left: i64,
-    shift_right: i64,
     mapq: Option<u8>,
-    chunk_size: usize,
 ) -> PyFlagStat
 {
     fn parse_tag(tag: &str) -> [u8; 2] {
@@ -71,8 +71,10 @@ pub(crate) fn import_fragments(
     min_tsse: f64,
     fragment_is_sorted_by_name: bool,
     low_memory: bool,
-    white_list: Option<HashSet<String>>,
+    shift_left: i64,
+    shift_right: i64,
     chunk_size: usize,
+    white_list: Option<HashSet<String>>,
     tempdir: Option<PathBuf>,
 ) -> Result<()>
 {
@@ -95,7 +97,11 @@ pub(crate) fn import_fragments(
     };
     let chrom_sizes = chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect();
     let fragments = bed::io::Reader::new(open_file(&fragment_file), Some("#".to_string()))
-        .into_records::<Fragment>().map(Result::unwrap);
+        .into_records::<Fragment>().map(|x| {
+            let mut f = x.unwrap();
+            shift_fragment(&mut f, shift_left, shift_right);
+            f
+    });
     let sorted_fragments: Box<dyn Iterator<Item = Fragment>> = if !fragment_is_sorted_by_name && low_memory {
         Box::new(bed::sort_bed_by_key(fragments, |x| x.barcode.clone(), tempdir))
     } else {
@@ -115,6 +121,18 @@ pub(crate) fn import_fragments(
     crate::with_anndata!(&anndata, run);
     Ok(())
 } 
+
+fn shift_fragment(fragment: &mut Fragment, shift_left: i64, shift_right: i64) {
+    if shift_left != 0 {
+        fragment.start = fragment.start.checked_add_signed(shift_left).unwrap();
+        if fragment.strand.is_some() {
+            fragment.end = fragment.end.checked_add_signed(shift_left).unwrap();
+        }
+    }
+    if shift_right != 0 && fragment.strand.is_none() {
+        fragment.end = fragment.end.checked_add_signed(shift_right).unwrap();
+    }
+}
 
 #[pyfunction]
 pub(crate) fn mk_tile_matrix(
