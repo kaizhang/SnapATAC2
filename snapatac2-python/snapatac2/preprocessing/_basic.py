@@ -6,6 +6,7 @@ import numpy as np
 import math
 import anndata as ad
 
+import snapatac2
 from snapatac2._snapatac2 import AnnData, AnnDataSet, PyFlagStat
 import snapatac2._snapatac2 as internal
 from snapatac2.genome import Genome
@@ -408,13 +409,36 @@ def filter_cells(
             data._inplace_subset_obs(selected_cells)
     else:
         return selected_cells
+
+def _find_most_accessible_features(
+    adata: AnnData | AnnDataSet,
+    filter_lower_quantile,
+    filter_upper_quantile,
+    total_features,
+) -> np.ndarray:
+    count = np.zeros(adata.shape[1])
+    for batch, _, _ in adata.chunked_X(2000):
+        count += np.ravel(batch.sum(axis = 0))
+    idx = np.argsort(count)
+    for i in idx:
+        if count[i] > 0:
+            break
+    idx = idx[i:]
+    n = idx.size
+    n_lower = int(filter_lower_quantile * n)
+    n_upper = int(filter_upper_quantile * n)
+    idx = idx[n_lower:n-n_upper]
+    return idx[::-1][:total_features]
+ 
  
 def select_features(
     adata: AnnData | AnnDataSet,
-    min_cells: int = 1,
-    most_variable: int | float | None = 1000000,
+    n_features: int = 500000,
+    filter_lower_quantile: float = 0.005,
+    filter_upper_quantile: float = 0.005,
     whitelist: Path | None = None,
     blacklist: Path | None = None,
+    max_iter: int = 1,
     inplace: bool = True,
 ) -> np.ndarray | None:
     """
@@ -430,10 +454,12 @@ def select_features(
     adata
         The (annotated) data matrix of shape `n_obs` x `n_vars`.
         Rows correspond to cells and columns to regions.
-    min_cells
-        Minimum number of cells.
-    most_variable
-        If None, do not perform feature selection using most variable features
+    n_features
+        Number of features to select.
+    filter_lower_quantile
+        Lower quantile of the feature count distribution to filter out.
+    filter_upper_quantile
+        Upper quantile of the feature count distribution to filter out.
     whitelist
         A user provided bed file containing genome-wide whitelist regions.
         Features that are overlapped with these regions will be retained.
@@ -450,26 +476,32 @@ def select_features(
         where `True` means that the feature is kept, `False` means the feature is removed.
         Otherwise, store this index mask directly to `.var['selected']`.
     """
-    count = np.zeros(adata.shape[1])
-    for batch, _, _ in adata.chunked_X(2000):
-        batch.data = np.ones(batch.indices.shape, dtype=np.float64)
-        count += np.ravel(batch.sum(axis = 0))
-
-    selected_features = count >= min_cells
-
     if whitelist is not None:
-        selected_features &= internal.intersect_bed(adata.var_names, str(whitelist))
+        whitelist = np.array(internal.intersect_bed(adata.var_names, str(whitelist)))
     if blacklist is not None:
-        selected_features &= np.logical_not(internal.intersect_bed(adata.var_names, str(blacklist)))
+        blacklist = np.logical_not(internal.intersect_bed(adata.var_names, str(blacklist)))
+    iter = 0
+    while iter < max_iter:
+        if iter == 0:
+            selected_features = _find_most_accessible_features(
+                adata, filter_lower_quantile, filter_upper_quantile, n_features 
+            )
+        else:
+            embedding = snapatac2.tl.spectral(adata, features=selected_features, inplace=False)[1]
+            clusters = snapatac2.tl.leiden(snapatac2.pp.knn(embedding, inplace=False))
+            rpm = snapatac2.tl.aggregate_X(adata, groupby=clusters).X
+            var = np.var(np.log(rpm + 1), axis=0)
+            selected_features = np.argsort(var)[::-1][:n_features]
 
-    if most_variable is not None and len(count[selected_features]) > most_variable:
-        mean = count[selected_features].mean()
-        std = math.sqrt(count[selected_features].var())
-        zscores = np.absolute((count - mean) / std)
-        cutoff = np.sort(zscores)[most_variable - 1]
-        selected_features &= zscores <= cutoff
+        if whitelist is not None:
+            selected_features = selected_features[whitelist[selected_features]]
+        if blacklist is not None:
+            selected_features = selected_features[np.logical_not(blacklist[selected_features])]
+        iter += 1
 
+    result = np.full(adata.shape[1], False, dtype=bool)
+    result[selected_features] = True
     if inplace:
-        adata.var["selected"] = selected_features
+        adata.var["selected"] = result
     else:
-        return selected_features
+        return result

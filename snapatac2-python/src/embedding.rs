@@ -1,17 +1,19 @@
 use crate::utils::AnnDataLike;
 
 use anndata_hdf5::H5;
+use snapatac2_core::utils::similarity;
 use std::ops::Deref;
 use ndarray::{Array1, Array2, Axis};
 use numpy::{PyArray1, PyArray2};
 use pyanndata::data::PyArrayData;
 use pyo3::prelude::*;
 use rand::SeedableRng;
-use anndata::{ArrayData, AnnDataOp, ArrayOp, ArrayElemOp, data::{SelectInfoElem, BoundedSelectInfoElem}, Backend};
+use anndata::{ArrayData, AnnDataOp, ArrayOp, ArrayElemOp, data::{SelectInfoElem, BoundedSelectInfoElem, from_csr_rows}, Backend};
 use nalgebra::{DVector, DMatrix};
 use nalgebra_sparse::CsrMatrix;
 use rayon::prelude::{ParallelBridge, ParallelIterator};
 use anyhow::Result;
+use ndarray::Zip;
 
 #[pyfunction]
 pub(crate) fn spectral_embedding<'py>(
@@ -30,7 +32,7 @@ pub(crate) fn spectral_embedding<'py>(
             // feature weighting and L2 norm normalization.
             normalize(&mut mat, &feature_weights);
 
-            let (v, u, _) = spectral_mf(mat,n_components)?;
+            let (v, u, _) = spectral_mf(mat, n_components)?;
             anyhow::Ok((v, u))
         }}
     }
@@ -38,6 +40,69 @@ pub(crate) fn spectral_embedding<'py>(
 
     Ok((PyArray1::from_owned_array(py, evals), PyArray2::from_owned_array(py, evecs)))
 }
+
+#[pyfunction]
+pub(crate) fn spectral_embedding_multi<'py>(
+    py: Python<'py>,
+    anndata: Vec<AnnDataLike>,
+    selected_features: Vec<&PyAny>,
+    n_components: usize,
+) -> Result<(&'py PyArray1<f64>, &'py PyArray2<f64>)>
+{
+    let mat = anndata.into_iter().zip(selected_features.into_iter()).map(|(a, s)| {
+        macro_rules! get_mat {
+                ($data:expr) => {{
+                    let slice = pyanndata::data::to_select_elem(s, $data.n_vars()).unwrap();
+                    let mut mat: CsrMatrix<f64> = $data.x().slice_axis(1, slice).unwrap().unwrap();
+                    let feature_weights = idf(&mat);
+
+                    // feature weighting and L2 norm normalization.
+                    normalize(&mut mat, &feature_weights);
+                    anyhow::Ok(mat)
+                }}
+        }
+        crate::with_anndata!(&a, get_mat).unwrap()
+    }).reduce(|a, b| 
+        hstack(a, b)
+    ).unwrap();
+
+    let (evals, evecs, _) = spectral_mf(mat, n_components)?;
+    Ok((PyArray1::from_owned_array(py, evals), PyArray2::from_owned_array(py, evecs)))
+}
+
+#[pyfunction]
+pub(crate) fn spectral_embedding_multi2<'py>(
+    py: Python<'py>,
+    anndata: Vec<AnnDataLike>,
+    selected_features: Vec<&PyAny>,
+) -> Result<&'py PyArray2<f64>>
+{
+    let mat = anndata.into_iter().zip(selected_features.into_iter()).map(|(a, s)| {
+        macro_rules! get_mat {
+                ($data:expr) => {{
+                    let slice = pyanndata::data::to_select_elem(s, $data.n_vars()).unwrap();
+                    let mut mat: CsrMatrix<f64> = $data.x().slice_axis(1, slice).unwrap().unwrap();
+                    let feature_weights = idf(&mat);
+
+                    // feature weighting and L2 norm normalization.
+                    normalize(&mut mat, &feature_weights);
+
+                    anyhow::Ok(similarity::cosine(mat, None))
+                }}
+        }
+        crate::with_anndata!(&a, get_mat).unwrap()
+    }).reduce(|mut a, b| {
+        Zip::from(&mut a)
+            .and(&b)
+            .for_each(|w, &x| {
+                *w = w.max(x);
+            });
+        a
+    }).unwrap();
+
+    Ok(PyArray2::from_owned_array(py, mat))
+}
+
 
 #[pyfunction]
 pub(crate) fn spectral_embedding_nystrom<'py>(
@@ -256,4 +321,17 @@ fn compute_degrees<A: AnnDataOp>(
 fn compute_probs(degrees: &[f64]) -> Vec<f64> {
     let s: f64 = degrees.iter().map(|x| x.recip()).sum();
     degrees.iter().map(|x| x.recip() / s).collect()
+}
+
+fn hstack(m1: CsrMatrix<f64>, m2: CsrMatrix<f64>) -> CsrMatrix<f64>
+{
+    let c1 = m1.ncols();
+    let vec = m1.row_iter().zip(m2.row_iter()).map(|(r1, r2)| {
+        let mut indices = r1.col_indices().to_vec();
+        let mut data = r1.values().to_vec();
+        indices.extend(r2.col_indices().iter().map(|x| x + c1));
+        data.extend(r2.values().iter().map(|x| *x));
+        indices.into_iter().zip(data.into_iter()).collect::<Vec<_>>()
+    }).collect::<Vec<_>>();
+    from_csr_rows(vec, c1 + m2.ncols())
 }
