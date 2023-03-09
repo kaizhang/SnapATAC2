@@ -18,8 +18,7 @@ static GLOBAL: Jemalloc = Jemalloc;
 
 #[pymodule]
 fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
-    //TODO: lift this restriction
-    //pyo3_log::init();
+    pyo3_log::init();
 
     m.add_class::<pyanndata::AnnData>().unwrap();
     m.add_class::<pyanndata::AnnDataSet>().unwrap();
@@ -57,8 +56,7 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(utils::kmeans, m)?)?;
     m.add_function(wrap_pyfunction!(utils::approximate_nearest_neighbors, m)?)?;
     m.add_function(wrap_pyfunction!(embedding::spectral_embedding, m)?)?;
-    m.add_function(wrap_pyfunction!(embedding::spectral_embedding_multi, m)?)?;
-    m.add_function(wrap_pyfunction!(embedding::spectral_embedding_multi2, m)?)?;
+    m.add_function(wrap_pyfunction!(embedding::multi_spectral_embedding, m)?)?;
     m.add_function(wrap_pyfunction!(embedding::spectral_embedding_nystrom, m)?)?;
 
     Ok(())

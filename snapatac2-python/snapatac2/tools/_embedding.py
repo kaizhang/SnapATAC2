@@ -9,9 +9,9 @@ import math
 
 from snapatac2._utils import is_anndata 
 from snapatac2._snapatac2 import (AnnData, AnnDataSet, jm_regress, jaccard_similarity,
-    cosine_similarity, spectral_embedding, spectral_embedding_nystrom)
+    cosine_similarity, spectral_embedding, multi_spectral_embedding, spectral_embedding_nystrom)
 
-__all__ = ['umap', 'spectral']
+__all__ = ['umap', 'spectral', 'multi_spectral']
 
 def umap(
     adata: AnnData | AnnDataSet | np.ndarray,
@@ -383,3 +383,76 @@ def _eigen(X, D, k):
     n = X.shape[0]
     A = sp.sparse.linalg.LinearOperator((n, n), matvec=f, dtype=np.float64)
     return sp.sparse.linalg.eigsh(A, k=k)
+
+def multi_spectral(
+    adatas: AnnData | AnnDataSet,
+    n_comps: int = 30,
+    features: str | np.ndarray | None = "selected",
+    weights = None,
+    random_state: int = 0,
+    weighted_by_sd: bool = True,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Compute Laplacian Eigenmaps of chromatin accessibility profiles.
+
+    Convert chromatin accessibility profiles of cells into lower dimensional representations
+    using the spectrum of the normalized graph Laplacian defined by pairwise similarity
+    between cells.
+
+    Note
+    ----
+    The space complexity of this function is :math:`O(N^2)`, where $N$ is the minimum between
+    the total of cells and the `sample_size`.
+    The memory usage in bytes is given by $N^2 * 8 * 2$. For example,
+    when $N = 10,000$ it will use roughly 745 MB memory.
+    When `sample_size` is set, the Nystrom algorithm will be used to approximate
+    the embedding. For large datasets, try to set the `sample_size` appropriately to
+    reduce the memory usage.
+
+    Parameters
+    ----------
+    adata
+        AnnData or AnnDataSet object.
+    n_comps
+        Number of dimensions to keep.
+    features
+        Boolean index mask. True means that the feature is kept.
+        False means the feature is removed.
+    random_state
+        Seed of the random state generator
+    sample_size
+        Sample size used in the Nystrom method. It could be either an integer
+        indicating the number of cells to sample or a real value from 0 to 1
+        indicating the fraction of cells to sample.
+    chunk_size
+        Chunk size used in the Nystrom method
+    distance_metric
+        distance metric: "jaccard", "cosine".
+    weighted_by_sd
+        Whether to weight the result eigenvectors by the square root of eigenvalues.
+    inplace
+        Whether to store the result in the anndata object.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray] | None
+        if `inplace=True` it stores Spectral embedding of data in
+        `adata.obsm["X_spectral"]` and `adata.uns["spectral_eigenvalue"]`.
+        Otherwise, it returns the result as numpy arrays.
+    """
+    np.random.seed(random_state)
+
+    if isinstance(features, str):
+        features = [adata.var[features] for adata in adatas]
+
+    if weights is None:
+        weights = [1.0 for _ in adatas]
+
+    evals, evecs = multi_spectral_embedding(adatas, features, weights, n_comps)
+
+    if weighted_by_sd:
+        idx = [i for i in range(evals.shape[0]) if evals[i] > 0]
+        evals = evals[idx]
+        evecs = evecs[:, idx] * np.sqrt(evals)
+
+    return (evals, evecs)

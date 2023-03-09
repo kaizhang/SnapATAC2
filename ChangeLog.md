@@ -7,6 +7,7 @@ Dev
   1. Change the default similarity metric to the cosine similarity.
   2. Significantly improve the scalability of the algorithm when using the cosine similarity. Both the time and space complexity are now linear!
   3. The returned eigenvectors are now weighted by eigenvalues so that using the elbow method to select the number of eigenvectors is no longer necessary. To restore the old behavior, set `weighted_by_sd=False`.
+- Implement `tl.multi_spectral` to perform dimension reduction on multiple modalities simultaneously.
 
 ## Breaking changes:
 
@@ -15,7 +16,7 @@ Dev
 
 ## Other changes:
 
-- Fix #97, #102.
+- Fix #97, #102, #103, #109, #110.
 
 v2.2.0 (2022-12-02)
 ===================
