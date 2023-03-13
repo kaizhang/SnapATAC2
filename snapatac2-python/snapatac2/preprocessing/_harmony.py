@@ -10,7 +10,7 @@ from snapatac2._utils import is_anndata
 
 def harmony(
     adata: AnnData | AnnDataSet | np.ndarray,
-    batch: str,
+    batch: str | list[str],
     use_dims: int | list[int] | None = None,
     use_rep: str = "X_spectral",
     inplace: bool = True,
@@ -52,21 +52,30 @@ def harmony(
         adjusted by Harmony such that different experiments are integrated.
         Otherwise, it returns the result as a numpy array.
     """
+    import pandas as pd
+
     try:
         import harmonypy
     except ImportError:
         raise ImportError("\nplease install harmonypy:\n\n\tpip install harmonypy")
 
+    # Check if the data is in an AnnData object
     if is_anndata(adata):
         mat = adata.obsm[use_rep]
     else:
         mat = adata
         inplace = False
 
+    # Use only the specified dimensions
     if isinstance(use_dims, int): use_dims = range(use_dims) 
     mat = mat if use_dims is None else mat[:, use_dims]
 
-    harmony_out = harmonypy.run_harmony(mat, adata.obs[...].to_pandas(), batch, **kwargs)
+    # Create a pandas dataframe with the batch information
+    if isinstance(batch, str):
+        batch = adata.obs[batch].to_numpy()
+    meta = pd.DataFrame({'batch': batch})
+
+    harmony_out = harmonypy.run_harmony(mat, meta, 'batch', **kwargs)
     if inplace:
         adata.obsm[use_rep + "_harmony"] = harmony_out.Z_corr.T
     else:

@@ -12,6 +12,7 @@ use nalgebra::{DVector, DMatrix};
 use nalgebra_sparse::CsrMatrix;
 use rayon::prelude::{ParallelBridge, ParallelIterator};
 use anyhow::Result;
+use itertools::Itertools;
 use log::info;
 
 #[pyfunction]
@@ -188,8 +189,19 @@ fn idf(input: &CsrMatrix<f64>) -> Vec<f64> {
     let mut idf = vec![0.0; input.ncols()];
     input.col_indices().iter().for_each(|i| idf[*i] += 1.0);
     let n = input.nrows() as f64;
-    idf.iter_mut().for_each(|x| *x = (n / *x).ln());
-    idf
+    if idf.iter().all_equal() {
+        vec![1.0; idf.len()]
+    } else {
+        idf.iter_mut().for_each(|x| {
+            if *x == 0.0 {
+                *x = 1.0;
+            } else if *x == n {
+                *x = n - 1.0;
+            }
+            *x = (n / *x).ln()
+        });
+        idf
+    }
 }
 
 fn idf_from_chunks<I>(input: I) -> Vec<f64>
@@ -203,8 +215,19 @@ where
         mat.col_indices().iter().for_each(|i| idf[*i] += 1.0);
         n += mat.nrows() as f64;
     });
-    idf.iter_mut().for_each(|x| *x = (n / *x).ln());
-    idf
+    if idf.iter().all_equal() {
+        vec![1.0; idf.len()]
+    } else {
+        idf.iter_mut().for_each(|x| {
+            if *x == 0.0 {
+                *x = 1.0;
+            } else if *x == n {
+                *x = n - 1.0;
+            }
+            *x = (n / *x).ln()
+        });
+        idf
+    }
 }
 
 /// feature weighting and L2 norm normalization.

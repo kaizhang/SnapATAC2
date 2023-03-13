@@ -216,6 +216,9 @@ class Spectral:
             self.compute_similarity = lambda x, y=None: jaccard_similarity(x, y, feature_weights)
         elif (self.distance == "cosine"):
             self.compute_similarity = lambda x, y=None: cosine_similarity(x, y, feature_weights)
+        elif (self.distance == "rbf"):
+            from sklearn.metrics.pairwise import rbf_kernel
+            self.compute_similarity = lambda x, y=None: rbf_kernel(x, y)
         else:
             raise ValueError("Invalid distance")
 
