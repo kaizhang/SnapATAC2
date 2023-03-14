@@ -80,6 +80,7 @@ def spectral(
     chunk_size: int = 20000,
     distance_metric: Literal["jaccard", "cosine"] = "cosine",
     weighted_by_sd: bool = True,
+    feature_weights: list[float] | None = None,
     inplace: bool = True,
 ) -> tuple[np.ndarray, np.ndarray] | None:
     """
@@ -156,9 +157,10 @@ def spectral(
 
     if sample_size >= n_sample:
         if distance_metric == "cosine":
-            evals, evecs = spectral_embedding(adata, features, n_comps)
+            evals, evecs = spectral_embedding(adata, features, n_comps, feature_weights)
         else:
-            feature_weights = idf(adata, features)
+            if feature_weights is None:
+                feature_weights = idf(adata, features)
             model = Spectral(n_comps, distance_metric, feature_weights)
             X = adata.X[...] if features is None else adata.X[:, features]
             model.fit(X)
@@ -172,7 +174,8 @@ def spectral(
             v, u = spectral_embedding_nystrom(adata, features, n_comps, sample_size, weighted_by_degree, chunk_size)
             evals, evecs = orthogonalize(v, u)
         else:
-            feature_weights = idf(adata, features)
+            if feature_weights is None:
+                feature_weights = idf(adata, features)
             model = Spectral(n_comps, distance_metric, feature_weights)
             if adata.isbacked:
                 S = adata.X.chunk(sample_size, replace=False)

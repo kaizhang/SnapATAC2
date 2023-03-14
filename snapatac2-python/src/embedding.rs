@@ -21,16 +21,19 @@ pub(crate) fn spectral_embedding<'py>(
     anndata: AnnDataLike,
     selected_features: &PyAny,
     n_components: usize,
+    feature_weights: Option<Vec<f64>>,
 ) -> Result<(&'py PyArray1<f64>, &'py PyArray2<f64>)>
 {
     macro_rules! run {
         ($data:expr) => {{
             let slice = pyanndata::data::to_select_elem(selected_features, $data.n_vars())?;
             let mut mat: CsrMatrix<f64> = $data.x().slice_axis(1, slice)?.unwrap();
-            let feature_weights = idf(&mat);
-
-            // feature weighting and L2 norm normalization.
-            normalize(&mut mat, &feature_weights);
+            if let Some(weights) = feature_weights {
+                normalize(&mut mat, &weights);
+            } else {
+                let weights = idf(&mat);
+                normalize(&mut mat, &weights);
+            }
 
             let (v, u, _) = spectral_mf(mat, n_components)?;
             anyhow::Ok((v, u))
@@ -50,19 +53,24 @@ pub(crate) fn spectral_embedding_nystrom<'py>(
     sample_size: usize,
     weighted_by_degree: bool,
     chunk_size: usize,
+    feature_weights: Option<Vec<f64>>,
 ) -> Result<(&'py PyArray1<f64>, &'py PyArray2<f64>)>
 {
     macro_rules! run {
         ($data:expr) => {{
             let selected_features = pyanndata::data::to_select_elem(selected_features, $data.n_vars())?;
-            let feature_weights = idf_from_chunks(
-                $data.x().iter(5000).map(|x: (CsrMatrix<f64>, _, _)| x.0.select_axis(1, &selected_features))
-            );
+            let weights = if let Some(weights) = feature_weights {
+                weights
+            } else {
+                idf_from_chunks(
+                    $data.x().iter(5000).map(|x: (CsrMatrix<f64>, _, _)| x.0.select_axis(1, &selected_features))
+                )
+            };
 
             let n_obs = $data.n_obs();
             let mut rng = rand::rngs::StdRng::seed_from_u64(2023);
             let idx = if weighted_by_degree {
-                let weights = compute_probs(&compute_degrees($data, &selected_features, &feature_weights));
+                let weights = compute_probs(&compute_degrees($data, &selected_features, &weights));
                 rand::seq::index::sample_weighted(&mut rng, n_obs, |i| {weights[i]}, sample_size)?.into_vec()
             } else {
                 rand::seq::index::sample(&mut rng, n_obs, sample_size).into_vec()
@@ -71,13 +79,13 @@ pub(crate) fn spectral_embedding_nystrom<'py>(
             let mut seed_mat: CsrMatrix<f64> = $data.x().slice(&[selected_samples, selected_features.clone()])?.unwrap();
 
             // feature weighting and L2 norm normalization.
-            normalize(&mut seed_mat, &feature_weights);
+            normalize(&mut seed_mat, &weights);
 
             let (v, mut u, d) = spectral_mf(seed_mat.clone(), n_components)?;
             anyhow::Ok(nystrom(seed_mat, &v, &mut u, &d,
                 $data.x().iter(chunk_size).map(|x: (CsrMatrix<f64>, _, _)| {
                     let mut mat = x.0.select_axis(1, &selected_features);
-                    normalize(&mut mat, &feature_weights);
+                    normalize(&mut mat, &weights);
                     mat
                 })
             ))
