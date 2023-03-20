@@ -331,6 +331,7 @@ where
     fn len(&self) -> usize { self.length }
 }
 
+/// A struct to store the base-resolution coverage of a genome.
 pub struct GenomeCoverage<I> {
     pub index: GenomeBaseIndex,
     coverage: I,
@@ -347,11 +348,13 @@ where
         }
     }
 
+    /// Set the resolution of the coverage matrix.
     pub fn with_resolution(mut self, s: usize) -> Self {
         self.index = self.index.with_resolution(s);
         self
     }
 
+    /// Convert the coverage matrix into a vector of `BedGraph` objects.
     pub fn into_chrom_values<T: Zero + FromPrimitive + AddAssign + Send>(
         self,
     ) -> impl ExactSizeIterator<Item = (Vec<ChromValues<T>>, usize, usize)> {
@@ -390,6 +393,7 @@ where
         })
     }
 
+    /// Output the raw coverage matrix.
     pub fn into_values<T: Zero + FromPrimitive + AddAssign + Send>(
         self,
     ) -> impl ExactSizeIterator<Item = (CsrMatrix<T>, usize, usize)> {
@@ -427,6 +431,7 @@ where
         })
     }
 
+    /// Aggregate the coverage by a feature counter.
     pub fn aggregate_by<C, T>(
         self,
         mut counter: C,

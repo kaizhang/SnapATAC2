@@ -182,6 +182,7 @@ def add_tile_matrix(
     adata: AnnData,
     *,
     bin_size: int = 500,
+    exclude_chroms: list[str] | str | None = ["chrM", "chrY"],
     inplace: bool = True,
     file: Path | None = None,
     backend: str | None = None,

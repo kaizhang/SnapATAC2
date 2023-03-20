@@ -39,6 +39,7 @@ GRCh37 = Genome(
         "chr22": 51304566,
         "chrX": 155270560,
         "chrY": 59373566,
+        "chrM": 16571,
     },
     "gencode_v41_GRCh37.gff3.gz",
     "gencode_v41_GRCh37.fa.gz",

@@ -1,32 +1,45 @@
-use crate::{preprocessing::{
-    mark_duplicates::{FlagStat, BarcodeLocation, filter_bam, group_bam_by_barcode},
-    qc::{Fragment, FragmentSummary, QualityControl, compute_qc_count},
-}, utils::from_csr_rows};
+use crate::{
+    preprocessing::{
+        mark_duplicates::{filter_bam, group_bam_by_barcode, BarcodeLocation, FlagStat},
+        qc::{compute_qc_count, Fragment, FragmentSummary, QualityControl},
+    },
+    utils::from_csr_rows,
+};
 
-use noodles::{bam, sam::{Header, record::data::field::Tag}};
-use tempfile::Builder;
-use regex::Regex;
-use bed_utils::bed::{BEDLike, tree::{GenomeRegions, BedTree, SparseBinnedCoverage}};
-use anyhow::Result;
 use anndata::{AnnDataOp, AxisArraysOp, ElemCollectionOp};
-use indicatif::{ProgressDrawTarget, ProgressIterator, ProgressBar, style::ProgressStyle};
-use flate2::{Compression, write::GzEncoder};
-use polars::prelude::{NamedFrom, DataFrame, Series};
-use rayon::iter::{ParallelIterator, IntoParallelIterator};
-use itertools::Itertools;
-use std::{path::Path, fs::File, io::{Write, BufWriter}, collections::{HashSet, HashMap}};
+use anyhow::Result;
+use bed_utils::bed::{
+    tree::{BedTree, GenomeRegions, SparseBinnedCoverage},
+    BEDLike,
+};
 use either::Either;
-
+use flate2::{write::GzEncoder, Compression};
+use indicatif::{style::ProgressStyle, ProgressBar, ProgressDrawTarget, ProgressIterator};
+use itertools::Itertools;
+use noodles::{
+    bam,
+    sam::{record::data::field::Tag, Header},
+};
+use polars::prelude::{DataFrame, NamedFrom, Series};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use regex::Regex;
+use std::{
+    collections::{HashMap, HashSet},
+    fs::File,
+    io::{BufWriter, Write},
+    path::Path,
+};
+use tempfile::Builder;
 
 /// Convert a BAM file to a fragment file by performing the following steps:
-/// 
+///
 /// 1. Filtering: remove reads that are unmapped, not primary alignment, mapq < 30,
 ///    fails platform/vendor quality checks, or optical duplicate.
 ///    For paired-end sequencing, it also removes reads that are not properly aligned.
 /// 2. Deduplicate: Sort the reads by cell barcodes and remove duplicated reads
 ///    for each unique cell barcode.
 /// 3. Output: Convert BAM records to fragments (if paired-end) or single-end reads.
-/// 
+///
 /// Note the bam file needn't be sorted or filtered.
 ///
 /// # Arguments
@@ -36,7 +49,7 @@ use either::Either;
 /// * `is_paired` - Indicate whether the BAM file contain paired-end reads.
 /// * `barcode_tag` - Extract barcodes from TAG fields of BAM records, e.g., `barcode_tag = "CB"`.
 /// * `barcode_regex` - Extract barcodes from read names of BAM records using regular expressions.
-///     Reguler expressions should contain exactly one capturing group 
+///     Reguler expressions should contain exactly one capturing group
 ///     (Parentheses group the regex between them) that matches
 ///     the barcodes. For example, `barcode_regex = "(..:..:..:..):\w+$"`
 ///     extracts `bd:69:Y6:10` from
@@ -60,9 +73,9 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>>(
     shift_right: i64,
     mapq: Option<u8>,
     chunk_size: usize,
-) -> FlagStat
-{
-    let tmp_dir = Builder::new().tempdir_in("./")
+) -> FlagStat {
+    let tmp_dir = Builder::new()
+        .tempdir_in("./")
         .expect("failed to create tmperorary directory");
 
     if barcode_regex.is_some() && barcode_tag.is_some() {
@@ -76,40 +89,54 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>>(
         None => match barcode_regex {
             Some(regex) => BarcodeLocation::Regex(Regex::new(regex).unwrap()),
             None => BarcodeLocation::InReadName,
-        }
+        },
     };
     let umi = match umi_tag {
         Some(tag) => Some(BarcodeLocation::InData(Tag::try_from(tag).unwrap())),
         None => match umi_regex {
             Some(regex) => Some(BarcodeLocation::Regex(Regex::new(regex).unwrap())),
             None => None,
-        }
+        },
     };
- 
-    let mut reader = File::open(bam_file).map(bam::Reader::new).expect("cannot open bam file");
+
+    let mut reader = File::open(bam_file)
+        .map(bam::Reader::new)
+        .expect("cannot open bam file");
     let header: Header = fix_header(reader.read_header().unwrap()).parse().unwrap();
     reader.read_reference_sequences().unwrap();
 
     let f = File::create(output_file.as_ref().clone()).expect("cannot create the output file");
-    let mut output: Box<dyn Write> = if output_file.as_ref().extension().and_then(|x| x.to_str()) == Some("gz") {
-        Box::new(GzEncoder::new(BufWriter::new(f), Compression::default()))
-    } else {
-        Box::new(BufWriter::new(f))
-    };
+    let mut output: Box<dyn Write> =
+        if output_file.as_ref().extension().and_then(|x| x.to_str()) == Some("gz") {
+            Box::new(GzEncoder::new(BufWriter::new(f), Compression::default()))
+        } else {
+            Box::new(BufWriter::new(f))
+        };
 
     let mut flagstat = FlagStat::default();
     let filtered_records = filter_bam(
-        reader.lazy_records().map(|x| x.unwrap()), is_paired, mapq, &mut flagstat,
+        reader.lazy_records().map(|x| x.unwrap()),
+        is_paired,
+        mapq,
+        &mut flagstat,
     );
-    group_bam_by_barcode(filtered_records, &barcode, umi.as_ref(), is_paired, tmp_dir.path().to_path_buf(), chunk_size)
-        .into_fragments(&header).for_each(|rec| match rec {
-            Either::Left(mut x) => {
-                x.set_start(x.start().checked_add_signed(shift_left).expect("shift_left is too large"));
-                x.set_end(x.end().checked_add_signed(shift_right).expect("shift_right is too large"));
-                writeln!(output, "{}", x).unwrap();
-            },
-            Either::Right(x) => writeln!(output, "{}", x).unwrap(),
-        });
+    group_bam_by_barcode(
+        filtered_records,
+        &barcode,
+        umi.as_ref(),
+        is_paired,
+        tmp_dir.path().to_path_buf(),
+        chunk_size,
+    )
+    .into_fragments(&header)
+    .for_each(|rec| match rec {
+        Either::Left(mut x) => {
+            x.set_start(x.start().saturating_add_signed(shift_left));
+            x.set_end(x.end().saturating_add_signed(shift_right));
+            writeln!(output, "{}", x).unwrap();
+        }
+        Either::Right(x) => writeln!(output, "{}", x).unwrap(),
+    });
     flagstat
 }
 
@@ -146,7 +173,7 @@ pub fn import_fragments<A, B, I>(
     min_tsse: f64,
     fragment_is_sorted_by_name: bool,
     chunk_size: usize,
-    ) -> Result<()>
+) -> Result<()>
 where
     A: AnnDataOp,
     B: BEDLike + Clone + std::marker::Sync,
@@ -157,84 +184,123 @@ where
     let mut qc = Vec::new();
 
     if fragment_is_sorted_by_name {
-        let spinner = ProgressBar::with_draw_target(None, ProgressDrawTarget::stderr_with_hz(1)).with_style(
-            ProgressStyle::with_template("{spinner} Processed {human_pos} barcodes in {elapsed} ({per_sec}) ...").unwrap()
-        );
+        let spinner = ProgressBar::with_draw_target(None, ProgressDrawTarget::stderr_with_hz(1))
+            .with_style(
+                ProgressStyle::with_template(
+                    "{spinner} Processed {human_pos} barcodes in {elapsed} ({per_sec}) ...",
+                )
+                .unwrap(),
+            );
         let mut scanned_barcodes = HashSet::new();
         anndata.obsm().add_iter(
             "insertion",
             fragments
-                .group_by(|x| { x.barcode.clone() }).into_iter().progress_with(spinner)
+                .group_by(|x| x.barcode.clone())
+                .into_iter()
+                .progress_with(spinner)
                 .filter(|(key, _)| white_list.map_or(true, |x| x.contains(key)))
-                .chunks(chunk_size).into_iter().map(|chunk| {
-                    let data: Vec<(String, Vec<Fragment>)> = chunk
-                        .map(|(barcode, x)| (barcode, x.collect())).collect();
-                    let result: Vec<_> = data.into_par_iter()
-                        .map(|(barcode, x)| (
-                            barcode,
-                            compute_qc_count(x, promoter, regions, min_num_fragment, min_tsse)
-                        )).collect();
-                    let counts = result.into_iter().filter_map(|(barcode, r)| {
-                        if !scanned_barcodes.insert(barcode.clone()) {
-                            panic!("Please sort fragment file by barcodes");
-                        }
-                        match r {
-                            None => None,
-                            Some((q, count)) => {
-                                saved_barcodes.push(barcode);
-                                qc.push(q);
-                                Some(count)
-                            },
-                        }
-                    }).collect::<Vec<_>>();
+                .chunks(chunk_size)
+                .into_iter()
+                .map(|chunk| {
+                    let data: Vec<(String, Vec<Fragment>)> =
+                        chunk.map(|(barcode, x)| (barcode, x.collect())).collect();
+                    let result: Vec<_> = data
+                        .into_par_iter()
+                        .map(|(barcode, x)| {
+                            (
+                                barcode,
+                                compute_qc_count(x, promoter, regions, min_num_fragment, min_tsse),
+                            )
+                        })
+                        .collect();
+                    let counts = result
+                        .into_iter()
+                        .filter_map(|(barcode, r)| {
+                            if !scanned_barcodes.insert(barcode.clone()) {
+                                panic!("Please sort fragment file by barcodes");
+                            }
+                            match r {
+                                None => None,
+                                Some((q, count)) => {
+                                    saved_barcodes.push(barcode);
+                                    qc.push(q);
+                                    Some(count)
+                                }
+                            }
+                        })
+                        .collect::<Vec<_>>();
                     from_csr_rows(counts, num_features)
-            }),
+                }),
         )?;
     } else {
-        let spinner = ProgressBar::with_draw_target(None, ProgressDrawTarget::stderr_with_hz(1)).with_style(
-            ProgressStyle::with_template("{spinner} Processed {human_pos} reads in {elapsed} ({per_sec}) ...").unwrap()
-        );
+        let spinner = ProgressBar::with_draw_target(None, ProgressDrawTarget::stderr_with_hz(1))
+            .with_style(
+                ProgressStyle::with_template(
+                    "{spinner} Processed {human_pos} reads in {elapsed} ({per_sec}) ...",
+                )
+                .unwrap(),
+            );
         let mut scanned_barcodes = HashMap::new();
-        fragments.progress_with(spinner)
-        .filter(|frag| white_list.map_or(true, |x| x.contains(frag.barcode.as_str())))
-        .for_each(|frag| {
-            let key = frag.barcode.as_str();
-            match scanned_barcodes.get_mut(key) {
-                None => {
-                    let mut summary= FragmentSummary::new(promoter);
-                    let mut counts = SparseBinnedCoverage::new(regions, 1);
-                    summary.update(&frag);
-                    frag.to_insertions().into_iter().for_each(|x| counts.insert(&x, 1));
-                    scanned_barcodes.insert(key.to_string(), (summary, counts));
-                },
-                Some((summary, counts)) => {
-                    summary.update(&frag);
-                    frag.to_insertions().into_iter().for_each(|x| counts.insert(&x, 1));
+        fragments
+            .progress_with(spinner)
+            .filter(|frag| white_list.map_or(true, |x| x.contains(frag.barcode.as_str())))
+            .for_each(|frag| {
+                let key = frag.barcode.as_str();
+                match scanned_barcodes.get_mut(key) {
+                    None => {
+                        let mut summary = FragmentSummary::new(promoter);
+                        let mut counts = SparseBinnedCoverage::new(regions, 1);
+                        summary.update(&frag);
+                        frag.to_insertions()
+                            .into_iter()
+                            .for_each(|x| counts.insert(&x, 1));
+                        scanned_barcodes.insert(key.to_string(), (summary, counts));
+                    }
+                    Some((summary, counts)) => {
+                        summary.update(&frag);
+                        frag.to_insertions()
+                            .into_iter()
+                            .for_each(|x| counts.insert(&x, 1));
+                    }
                 }
-            }
-        });
+            });
         let csr_matrix = from_csr_rows(
-            scanned_barcodes.drain()
-            .filter_map(|(barcode, (summary, binned_coverage))| {
-                let q = summary.get_qc();
-                if q.num_unique_fragment < min_num_fragment || q.tss_enrichment < min_tsse {
-                    None
-                } else {
-                    saved_barcodes.push(barcode);
-                    qc.push(q);
-                    let count: Vec<(usize, u8)> = binned_coverage.get_coverage()
-                        .iter().map(|(k, v)| (*k, *v)).collect();
-                    Some(count)
-                }
-            }).collect::<Vec<_>>(),
+            scanned_barcodes
+                .drain()
+                .filter_map(|(barcode, (summary, binned_coverage))| {
+                    let q = summary.get_qc();
+                    if q.num_unique_fragment < min_num_fragment || q.tss_enrichment < min_tsse {
+                        None
+                    } else {
+                        saved_barcodes.push(barcode);
+                        qc.push(q);
+                        let count: Vec<(usize, u8)> = binned_coverage
+                            .get_coverage()
+                            .iter()
+                            .map(|(k, v)| (*k, *v))
+                            .collect();
+                        Some(count)
+                    }
+                })
+                .collect::<Vec<_>>(),
             num_features,
         );
         anndata.obsm().add("insertion", csr_matrix)?;
     }
 
     let chrom_sizes = DataFrame::new(vec![
-        Series::new("reference_seq_name", regions.regions.iter().map(|x| x.chrom()).collect::<Series>()),
-        Series::new("reference_seq_length", regions.regions.iter().map(|x| x.end()).collect::<Series>()),
+        Series::new(
+            "reference_seq_name",
+            regions
+                .regions
+                .iter()
+                .map(|x| x.chrom())
+                .collect::<Series>(),
+        ),
+        Series::new(
+            "reference_seq_length",
+            regions.regions.iter().map(|x| x.end()).collect::<Series>(),
+        ),
     ])?;
     anndata.uns().add("reference_sequences", chrom_sizes)?;
     anndata.set_obs_names(saved_barcodes.into())?;
@@ -245,22 +311,23 @@ where
 fn qc_to_df(qc: Vec<QualityControl>) -> DataFrame {
     DataFrame::new(vec![
         Series::new(
-            "tsse", 
+            "tsse",
             qc.iter().map(|x| x.tss_enrichment).collect::<Series>(),
         ),
         Series::new(
-            "n_fragment", 
+            "n_fragment",
             qc.iter().map(|x| x.num_unique_fragment).collect::<Series>(),
         ),
         Series::new(
-            "frac_dup", 
+            "frac_dup",
             qc.iter().map(|x| x.frac_duplicated).collect::<Series>(),
         ),
         Series::new(
-            "frac_mito", 
+            "frac_mito",
             qc.iter().map(|x| x.frac_mitochondrial).collect::<Series>(),
         ),
-    ]).unwrap()
+    ])
+    .unwrap()
 }
 
 #[cfg(test)]

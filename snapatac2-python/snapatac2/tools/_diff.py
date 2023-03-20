@@ -17,27 +17,22 @@ def marker_regions(
     A quick-and-dirty way to get marker regions.
     """
     import scipy.stats
-    import polars as pl
 
-    count = pl.DataFrame(aggregate_X(data, groupby, normalize="RPKM"))
-    names = np.array(data.var_names)
-    z = scipy.stats.zscore(
-        np.log2(1 + count.to_numpy()),
-        axis = 1,
-    )
+    count = aggregate_X(data, groupby, normalize="RPKM")
+    z = scipy.stats.zscore(np.log2(1 + count.X), axis = 0)
     peaks = {}
-    for i in range(z.shape[1]):
-        pvals = scipy.stats.norm.sf(z[:, i])
+    for i in range(z.shape[0]):
+        pvals = scipy.stats.norm.sf(z[i, :])
         select = pvals < pvalue
         if np.where(select)[0].size >= 1:
-            peaks[count.columns[i]] = names[select]
+            peaks[count.obs_names[i]] = count.var_names[select]
     return peaks
 
 def diff_test(
     data: AnnData | AnnDataSet,
-    cell_group1: list[int] | list[str] | 'np.ndarray[bool]',
-    cell_group2: list[int] | list[str] | 'np.ndarray[bool]',
-    features : list[str] | list[int] | 'np.ndarray[bool]' | None = None,
+    cell_group1: list[int] | list[str],
+    cell_group2: list[int] | list[str],
+    features : list[str] | list[int] | None = None,
     covariates: list[str] | None = None,
     direction: Literal["positive", "negative", "both"] = "both",
     min_log_fc: float = 0.25,
@@ -79,37 +74,25 @@ def diff_test(
     """
     import polars as pl
 
-    def to_indices(xs, n, type):
-        if isinstance(xs, np.ndarray):
-            if xs.dtype == 'bool':
-                if xs.shape != (n, ):
-                    raise NameError("the length of boolean mask must be the same as the number of cells")
+    def to_indices(xs, type):
+        xs = [x for x in xs]
+        if all([isinstance(item, str) for item in xs]):
+            if type == "obs":
+                if data.isbacked:
+                    return data.obs_ix(xs)
                 else:
-                    return np.where(xs)[0].tolist()
+                    return [data.obs_names.get_loc(x) for x in xs]
             else:
-                xs = xs.tolist()
-
-        if isinstance(xs, list):
-            if all([isinstance(item, int) for item in xs]):
-                return xs
-            elif all([isinstance(item, str) for item in xs]):
-                if type == "obs":
-                    if data.isbacked:
-                        return data.obs_ix(xs)
-                    else:
-                        return [data.obs_names.get_loc(x) for x in xs]
+                if data.isbacked:
+                    return data.var_ix(xs)
                 else:
-                    if data.isbacked:
-                        return data.var_ix(xs)
-                    else:
-                        return [data.var_names.get_loc(x) for x in xs]
-            else:
-                raise NameError("invalid type")
+                    return [data.var_names.get_loc(x) for x in xs]
         else:
-            raise NameError("invalid type")
-    cell_group1 = to_indices(cell_group1, data.n_obs, "obs")
+            return xs
+
+    cell_group1 = to_indices(cell_group1, "obs")
     n_group1 = len(cell_group1)
-    cell_group2 = to_indices(cell_group2, data.n_obs, "obs")
+    cell_group2 = to_indices(cell_group2, "obs")
     n_group2 = len(cell_group2)
 
     cell_by_peak = data.X[cell_group1 + cell_group2, :].tocsc()
@@ -117,7 +100,7 @@ def diff_test(
     if covariates is not None:
         raise NameError("covariates is not implemented")
 
-    features = range(data.n_vars) if features is None else to_indices(features, data.n_vars, "var")
+    features = range(data.n_vars) if features is None else to_indices(features, "var")
     logging.info("Input contains {} features, now perform filtering with 'min_log_fc = {}' and 'min_pct = {}' ...".format(len(features), min_log_fc, min_pct))
     filtered = _filter_features(
         cell_by_peak[:n_group1, :],
@@ -263,13 +246,13 @@ def _likelihood_ratio_test(
     from sklearn.linear_model import LogisticRegression
     from sklearn.metrics import log_loss
 
-    model = LogisticRegression(penalty="none", random_state=0, n_jobs=1,
+    model = LogisticRegression(penalty=None, random_state=0, n_jobs=1,
         solver="lbfgs", multi_class='ovr', warm_start=False,
         max_iter = 1000,
         ).fit(X0, y)
     reduced = -log_loss(y, model.predict_proba(X0), normalize=False)
 
-    model = LogisticRegression(penalty="none", random_state=0, n_jobs=1,
+    model = LogisticRegression(penalty=None, random_state=0, n_jobs=1,
         solver="lbfgs", multi_class='ovr', warm_start=False,
         max_iter = 1000,
         ).fit(X1, y)
