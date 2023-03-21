@@ -124,13 +124,13 @@ pub(crate) fn import_fragments(
 
 fn shift_fragment(fragment: &mut Fragment, shift_left: i64, shift_right: i64) {
     if shift_left != 0 {
-        fragment.start = fragment.start.checked_add_signed(shift_left).unwrap();
+        fragment.start = fragment.start.saturating_add_signed(shift_left);
         if fragment.strand.is_some() {
-            fragment.end = fragment.end.checked_add_signed(shift_left).unwrap();
+            fragment.end = fragment.end.saturating_add_signed(shift_left);
         }
     }
     if shift_right != 0 && fragment.strand.is_none() {
-        fragment.end = fragment.end.checked_add_signed(shift_right).unwrap();
+        fragment.end = fragment.end.saturating_add_signed(shift_right);
     }
 }
 
