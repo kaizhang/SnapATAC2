@@ -183,11 +183,11 @@ def add_tile_matrix(
     adata: AnnData,
     *,
     bin_size: int = 500,
-    exclude_chroms: list[str] | str | None = ["chrM", "chrY"],
     inplace: bool = True,
+    chunk_size: int = 500,
+    exclude_chroms: list[str] | str | None = ["chrM", "chrY"],
     file: Path | None = None,
     backend: str | None = None,
-    chunk_size: int = 500,
 ) -> AnnData | None:
     """Generate cell by bin count matrix.
 
@@ -205,13 +205,15 @@ def add_tile_matrix(
         The size of consecutive genomic regions used to record the counts.
     inplace
         Whether to add the tile matrix to the AnnData object or return a new AnnData object.
+    chunk_size
+        Increasing the chunk_size speeds up I/O but uses more memory.
+    exclude_chroms
+        A list of chromosomes to exclude.
     file
         File name of the output file used to store the result. If provided, result will
         be saved to a backed AnnData, otherwise an in-memory AnnData is used.
     backend
         The backend to use for storing the result. If `None`, the default backend will be used.
-    chunk_size
-        Increasing the chunk_size speeds up I/O but uses more memory.
     """
     if inplace:
         internal.mk_tile_matrix(adata, bin_size, chunk_size, None)

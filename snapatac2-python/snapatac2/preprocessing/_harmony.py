@@ -10,9 +10,12 @@ from snapatac2._utils import is_anndata
 
 def harmony(
     adata: AnnData | AnnDataSet | np.ndarray,
+    *,
     batch: str | list[str],
-    use_dims: int | list[int] | None = None,
     use_rep: str = "X_spectral",
+    use_dims: int | list[int] | None = None,
+    groupby: str | list[str] | None = None,
+    add_key: str | None = None,
     inplace: bool = True,
     **kwargs,
 ) -> np.ndarray | None:
@@ -33,11 +36,17 @@ def harmony(
     batch
         The name of the column in ``adata.obs`` that differentiates
         among experiments/batches.
-    use_dims
-        Use these dimensions in `use_rep`.
     use_rep
         The name of the field in ``adata.obsm`` where the lower dimensional
         representation is stored.
+    use_dims
+        Use these dimensions in `use_rep`.
+    groupby
+        If specified, split the data into groups and perform batch correction
+        on each group separately.
+    add_key
+        If specified, add the result to ``adata.obsm`` with this key. Otherwise,
+        it will be stored in ``adata.obsm[use_rep + "_harmony"]``.
     inplace
         Whether to store the result in the anndata object.
     kwargs
@@ -52,13 +61,6 @@ def harmony(
         adjusted by Harmony such that different experiments are integrated.
         Otherwise, it returns the result as a numpy array.
     """
-    import pandas as pd
-
-    try:
-        import harmonypy
-    except ImportError:
-        raise ImportError("\nplease install harmonypy:\n\n\tpip install harmonypy")
-
     # Check if the data is in an AnnData object
     if is_anndata(adata):
         mat = adata.obsm[use_rep]
@@ -72,11 +74,32 @@ def harmony(
 
     # Create a pandas dataframe with the batch information
     if isinstance(batch, str):
-        batch = adata.obs[batch].to_numpy()
-    meta = pd.DataFrame({'batch': batch})
+        batch = adata.obs[batch]
 
-    harmony_out = harmonypy.run_harmony(mat, meta, 'batch', **kwargs)
-    if inplace:
-        adata.obsm[use_rep + "_harmony"] = harmony_out.Z_corr.T
+    if groupby is None:
+        mat = _harmony(mat, batch, **kwargs)
     else:
-        return harmony_out.Z_corr.T
+        if isinstance(groupby, str): groupby = adata.obs[groupby]
+        groups = list(set(groupby))
+        for group in groups:
+            group_idx = [i for i, x in enumerate(groupby) if x == group]
+            mat[group_idx, :] = _harmony(mat[group_idx, :], batch[group_idx], **kwargs)
+
+    if inplace:
+        if add_key is None:
+            adata.obsm[use_rep + "_harmony"] = mat
+        else:
+            adata.obsm[add_key] = mat
+    else:
+        return mat
+
+def _harmony(data_matrix, batch_labels, **kwargs):
+    try:
+        import harmonypy
+    except ImportError:
+        raise ImportError("\nplease install harmonypy:\n\n\tpip install harmonypy")
+    import pandas as pd
+
+    meta = pd.DataFrame({'batch': np.array(batch_labels)})
+    harmony_out = harmonypy.run_harmony(data_matrix, meta, 'batch', **kwargs)
+    return harmony_out.Z_corr.T

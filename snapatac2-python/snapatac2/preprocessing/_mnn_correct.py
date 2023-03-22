@@ -16,7 +16,8 @@ def mnc_correct(
     n_iter: int = 1,
     use_rep: str = "X_spectral",
     use_dims: int | list[int] | None = None,
-    groupby: str | None = None,
+    groupby: str | list[str] | None = None,
+    add_key: str | None = None,
     inplace: bool = True,
 ) -> np.ndarray | None:
     """
@@ -41,6 +42,9 @@ def mnc_correct(
     groupby
         If specified, split the data into groups and perform batch correction
         on each group separately.
+    add_key
+        If specified, add the result to ``adata.obsm`` with this key. Otherwise,
+        it will be stored in ``adata.obsm[use_rep + "_mnn"]``.
     inplace
         Whether to store the result in the anndata object.
 
@@ -61,13 +65,22 @@ def mnc_correct(
     mat = mat if use_dims is None else mat[:, use_dims]
     mat = np.asarray(mat)
 
-    if isinstance(batch, str):
-        labels = adata.obs[batch]
+    if isinstance(batch, str): labels = adata.obs[batch]
 
-    mat = _mnc_correct_main(mat, labels, n_iter, n_neighbors, n_clusters)
+    if groupby is None:
+        mat = _mnc_correct_main(mat, labels, n_iter, n_neighbors, n_clusters)
+    else:
+        if isinstance(groupby, str): groupby = adata.obs[groupby]
+        groups = list(set(groupby))
+        for group in groups:
+            group_idx = [i for i, x in enumerate(groupby) if x == group]
+            mat[group_idx, :] = _mnc_correct_main(mat[group_idx, :], labels[group_idx], n_iter, n_neighbors, n_clusters)
 
     if inplace:
-        adata.obsm[use_rep + "_mnn"] = mat
+        if add_key is None:
+            adata.obsm[use_rep + "_mnn"] = mat
+        else:
+            adata.obsm[add_key] = mat
     else:
         return mat
 
@@ -81,27 +94,20 @@ def _mnc_correct_main(
 ):
     label_uniq = list(set(batch_labels))
 
-    for _ in range(n_iter):
-        batch_idx = []
-        data_by_batch = []
-        for label in label_uniq:
-            idx = [i for i, x in enumerate(batch_labels) if x == label]
-            batch_idx.append(idx)
-            data_by_batch.append(data_matrix[idx,:])
-        new_matrix = _mnc_correct_multi(data_by_batch, n_neighbors, n_clusters, random_state)
+    if len(label_uniq) > 1:
+        for _ in range(n_iter):
+            batch_idx = []
+            data_by_batch = []
+            for label in label_uniq:
+                idx = [i for i, x in enumerate(batch_labels) if x == label]
+                batch_idx.append(idx)
+                data_by_batch.append(data_matrix[idx,:])
+            new_matrix = _mnc_correct_multi(data_by_batch, n_neighbors, n_clusters, random_state)
 
-        idx = list(itertools.chain.from_iterable(batch_idx))
-        idx = np.argsort(idx)
-        data_matrix = new_matrix[idx, :]
+            idx = list(itertools.chain.from_iterable(batch_idx))
+            idx = np.argsort(idx)
+            data_matrix = new_matrix[idx, :]
     return data_matrix
-
-    '''
-    new = np.array(data_matrix, copy=True)
-    for i in range(len(batch_labels)):
-        new[idx[i]] = mat_[i,:]
-    mat = new
-    '''
- 
 
 def _mnc_correct_multi(datas, n_neighbors, n_clusters, random_state):
     data0 = datas[0]
