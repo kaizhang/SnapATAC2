@@ -5,10 +5,11 @@ from __future__ import annotations
 import numpy as np
 import scipy.sparse as ss
 import logging
+import anndata as ad
 
 from .._utils import chunks
 from snapatac2._snapatac2 import AnnData, approximate_nearest_neighbors
-from snapatac2.tools._embedding import SpectralMatrixFree
+from snapatac2.tools._embedding import spectral
 
 def scrublet(
     adata: AnnData,
@@ -19,6 +20,8 @@ def scrublet(
     n_neighbors: int | None = None,
     use_approx_neighbors=True,
     random_state: int = 0,
+    inplace: bool = True,
+    verbose: bool = True,
 ) -> None:
     """
     Compute probability of being a doublet using the scrublet algorithm.
@@ -44,16 +47,18 @@ def scrublet(
         Whether to use approximate search.
     random_state
         Random state.
+    inplace
+        Whether update the AnnData object inplace
+    verbose
+        Whether to print progress messages.
     
     Returns
     -------
-    None
-        It updates adata with the following fields:
-            - ``adata.obs["doublet_score"]``: scrublet doublet score
-            - ``adata.uns["scrublet"]["sim_doublet_score"]``: doublet scores of simulated doublets 
+    tuple[np.ndarray, np.ndarray] | None:
+        if ``inplace = True``, it updates adata with the following fields:
+            - ``adata.obs["is_doublet"]``: boolean mask
+            - ``adata.obs["doublet_probability"]``: probability of being a doublet
     """
-    #- adata.uns["scrublet_cell_embedding"]: embedding of cells
-    #- adata.uns["scrublet_sim_doublet_embedding"]: embedding of simulated doublets
 
     if isinstance(features, str):
         if features in adata.var:
@@ -71,72 +76,26 @@ def scrublet(
     if n_neighbors is None:
         n_neighbors = int(round(0.5 * np.sqrt(count_matrix.shape[0])))
 
-    (doublet_scores_obs, doublet_scores_sim, manifold_obs, manifold_sim) = scrub_doublets_core(
+    doublet_scores_obs, doublet_scores_sim, _, _ = scrub_doublets_core(
         count_matrix, n_neighbors, sim_doublet_ratio, expected_doublet_rate,
         n_comps=n_comps,
         use_approx_neighbors = use_approx_neighbors,
-        random_state=random_state
-        )
-    adata.obs["doublet_score"] = doublet_scores_obs
-    adata.uns["scrublet_sim_doublet_score"] = doublet_scores_sim
-
-def call_doublets(
-    adata: AnnData,
-    threshold: str | float = "gmm",
-    random_state: int = 0,
-    inplace: bool = True,
-) -> tuple[np.ndarray, float] | None:
-    """
-    Find doublet score threshold for calling doublets.
-    `pp.scrublet` must be run first.
-
-    Parameters
-    ----------
-    adata
-        AnnData object
-    threshold
-        Mannually specify a threshold or use one of the default methods to
-        automatically identify a threshold:
-
-        - 'gmm': fit a 2-component gaussian mixture model.
-        - 'scrublet': the method used in the scrublet paper (not implemented).
-    random_state
-        Random state
-    inplace
-        Whether update the AnnData object inplace
-    
-    Returns
-    -------
-    tuple[np.ndarray, float] | None:
-        if ``inplace = True``, it updates adata with the following fields:
-            - ``adata.obs["is_doublet"]``: boolean mask
-            - ``adata.uns["scrublet"]["threshold"]``: saved threshold
-    """
-
-    if 'scrublet_sim_doublet_score' not in adata.uns:
-        raise NameError("Please call `scrublet` first")
-
-    doublet_scores_sim = adata.uns["scrublet_sim_doublet_score"]
-    doublet_scores_obs = adata.obs["doublet_score"].to_numpy()
-
-    if isinstance(threshold, float):
-        thres = threshold
-    elif threshold == "gmm":
-        thres, _ = get_doublet_probability(
-            doublet_scores_sim, doublet_scores_obs, random_state
-        )
-    elif threshold == "scrublet":
-        from skimage.filters import threshold_minimum
-        thres = threshold_minimum(doublet_scores_sim)
-    else:
-        raise NameError("Invalid value for the `threshold` argument")
-
-    doublets = doublet_scores_obs >= thres
+        random_state=random_state,
+        verbose=False,
+    )
+    probs = get_doublet_probability(
+        doublet_scores_sim, doublet_scores_obs, random_state,
+    )
+    is_doublet = probs > 0.5
+    if verbose: logging.info(f"Detected doublet rate = {np.mean(is_doublet)*100:.3f}%")
+ 
     if inplace:
-        adata.uns["scrublet_threshold"] = thres
-        adata.obs["is_doublet"] = doublets
+        adata.obs["doublet_probability"] = probs
+        adata.obs["is_doublet"] = is_doublet
+        adata.obs["doublet_score"] = doublet_scores_obs
+        adata.uns["scrublet_sim_doublet_score"] = doublet_scores_sim
     else:
-        return (doublets, thres)
+        return (is_doublet, probs)
 
 def scrub_doublets_core(
     count_matrix: ss.spmatrix,
@@ -147,6 +106,7 @@ def scrub_doublets_core(
     n_comps: int = 30,
     use_approx_neighbors: bool = True,
     random_state: int = 0,
+    verbose: bool = False,
 ) -> None:
     """
     Modified scrublet pipeline for single-cell ATAC-seq data.
@@ -178,16 +138,16 @@ def scrub_doublets_core(
     """
     total_counts_obs = count_matrix.sum(1).A.squeeze()
 
-    logging.info('Simulating doublets...')
+    if verbose: logging.info('Simulating doublets...')
     (count_matrix_sim, total_counts_sim, _) = simulate_doublets(
         count_matrix, total_counts_obs, sim_doublet_ratio,
         synthetic_doublet_umi_subsampling, random_state
     )
 
-    logging.info('Spectral embedding ...')
+    if verbose: logging.info('Spectral embedding ...')
     (manifold_obs, manifold_sim) = get_manifold(count_matrix, count_matrix_sim, n_comps=n_comps)
 
-    logging.info('Calculating doublet scores...')
+    if verbose: logging.info('Calculating doublet scores...')
     (doublet_scores_obs, doublet_scores_sim) = calculate_doublet_scores(
         manifold_obs, manifold_sim, k = n_neighbors,
         exp_doub_rate = expected_doublet_rate,
@@ -199,12 +159,17 @@ def scrub_doublets_core(
 
 def get_manifold(obs_norm, sim_norm, n_comps=30, random_state=0):
     n = obs_norm.shape[0]
-    model = SpectralMatrixFree(out_dim=n_comps)
-    model.fit(ss.vstack([obs_norm, sim_norm]), verbose=0)
-    manifold = np.asanyarray(model.transform()[1])
+    _, evecs = spectral(
+        ad.AnnData(X=ss.vstack([obs_norm, sim_norm]), dtype=np.float64),
+        features=None,
+        n_comps=n_comps,
+        inplace=False,
+    )
+    manifold = np.asanyarray(evecs)
     manifold_obs = manifold[0:n, ]
     manifold_sim = manifold[n:, ]
     return (manifold_obs, manifold_sim)
+
 
 def simulate_doublets(
     count_matrix: ss.spmatrix,
@@ -328,6 +293,7 @@ def get_doublet_probability(
     doublet_scores_sim: np.ndarray,
     doublet_scores: np.ndarray,
     random_state: int = 0,
+    verbose: bool = False,
 ):
     from sklearn.mixture import BayesianGaussianMixture
 
@@ -335,10 +301,9 @@ def get_doublet_probability(
     gmm = BayesianGaussianMixture(
         n_components=2, n_init=10, max_iter=1000, random_state=random_state
     ).fit(X)
+
+    if verbose:
+        logging.info("GMM means: {}".format(gmm.means_))
+
     i = np.argmax(gmm.means_)
-
-    probs_sim = gmm.predict_proba(X)[:,i]
-    vals = X[probs_sim > 0.5]
-    threshold = X.max() if vals.size == 0 else vals.min()
-
-    return (threshold, gmm.predict_proba(doublet_scores.reshape((-1, 1)))[:,i])
+    return gmm.predict_proba(doublet_scores.reshape((-1, 1)))[:,i]

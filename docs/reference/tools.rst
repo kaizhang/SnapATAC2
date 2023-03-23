@@ -15,6 +15,7 @@ Embeddings
    :toctree: _autosummary
 
    tl.spectral
+   tl.multi_spectral
    tl.umap
 
 Clustering
