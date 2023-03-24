@@ -136,7 +136,9 @@ fn shift_fragment(fragment: &mut Fragment, shift_left: i64, shift_right: i64) {
 
 #[pyfunction]
 pub(crate) fn mk_tile_matrix(
-    anndata: AnnDataLike, bin_size: usize, chunk_size: usize, out: Option<AnnDataLike>
+    anndata: AnnDataLike, bin_size: usize, chunk_size: usize, 
+    exclude_chroms: Option<Vec<&str>>,
+    out: Option<AnnDataLike>
 ) -> Result<()>
 {
     macro_rules! run {
@@ -144,12 +146,24 @@ pub(crate) fn mk_tile_matrix(
             if let Some(out) = out {
                 macro_rules! run2 {
                     ($out_data:expr) => {
-                        preprocessing::create_tile_matrix($data, bin_size, chunk_size, Some($out_data))?
+                        preprocessing::create_tile_matrix(
+                            $data,
+                            bin_size,
+                            chunk_size,
+                            exclude_chroms.as_ref().map(|x| x.as_slice()),
+                            Some($out_data)
+                        )?
                     };
                 }
                 crate::with_anndata!(&out, run2);
             } else {
-                preprocessing::create_tile_matrix($data, bin_size, chunk_size, None::<&PyAnnData>)?;
+                preprocessing::create_tile_matrix(
+                    $data,
+                    bin_size,
+                    chunk_size,
+                    exclude_chroms.as_ref().map(|x| x.as_slice()),
+                    None::<&PyAnnData>
+                )?;
             }
         };
     }

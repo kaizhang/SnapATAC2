@@ -17,6 +17,7 @@ pub fn create_tile_matrix<A, B>(
     adata: &A,
     bin_size: usize,
     chunk_size: usize,
+    exclude_chroms: Option<&[&str]>,
     out: Option<&B>,
     ) -> Result<()>
 where
@@ -26,8 +27,11 @@ where
     let style = ProgressStyle::with_template(
         "[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})"
     ).unwrap();
-    let counts = adata.raw_count_iter(chunk_size)?.with_resolution(bin_size);
-    let feature_names = counts.index.to_index().into();
+    let mut counts = adata.raw_count_iter(chunk_size)?.with_resolution(bin_size);
+    if let Some(exclude_chroms) = exclude_chroms {
+        counts = counts.exclude(exclude_chroms);
+    }
+    let feature_names = counts.get_gindex().to_index().into();
     let data_iter = counts.into_values::<u32>().map(|x| x.0).progress_with_style(style);
     if let Some(adata_out) =  out {
         adata_out.set_x_from_iter(data_iter)?;

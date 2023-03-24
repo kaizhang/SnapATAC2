@@ -1,6 +1,7 @@
 use anndata::{container::{ChunkedArrayElem, StackedChunkedArrayElem}, ArrayElemOp};
-use bed_utils::bed::{tree::GenomeRegions, GenomicRange, BedGraph};
+use bed_utils::bed::{tree::GenomeRegions, GenomicRange, BedGraph, BEDLike};
 use anndata::{AnnDataOp, ElemCollectionOp, AxisArraysOp, AnnDataSet, Backend, AnnData};
+use indexmap::IndexSet;
 use polars::frame::DataFrame;
 use nalgebra_sparse::CsrMatrix;
 use noodles::{
@@ -11,10 +12,10 @@ use num::{traits::{FromPrimitive, Zero}, integer::div_ceil};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use anyhow::{Result, Context};
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     fmt::Debug,
     io::BufRead,
-    ops::AddAssign, str::FromStr,
+    ops::{AddAssign, Range}, str::FromStr,
 };
 
 use crate::utils::from_csr_rows;
@@ -134,6 +135,7 @@ impl Promoters {
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ChromSizes(Vec<(String, u64)>);
 
 impl IntoIterator for ChromSizes {
@@ -145,24 +147,43 @@ impl IntoIterator for ChromSizes {
     }
 }
 
+/// 0-based index that maps genomic loci to integers.
 #[derive(Debug, Clone)]
 pub struct GenomeBaseIndex {
-    accum_lengths: Vec<(String, (u64, u64))>,
+    chroms: IndexSet<String>,
+    base_accum_len: Vec<u64>,
+    binned_accum_len: Vec<u64>,
     resolution: usize,
 }
 
 impl GenomeBaseIndex {
-    fn new(chrom_sizes: ChromSizes) -> Self {
-        let mut accum_lengths = Vec::new();
+    fn new(chrom_sizes: &ChromSizes) -> Self {
         let mut acc = 0;
-        for (chrom, length) in &chrom_sizes.0 {
-            acc += length;
-            accum_lengths.push((chrom.clone(), (acc, acc)));
-        }
+        let base_accum_len = chrom_sizes
+            .0
+            .iter()
+            .map(|(_, length)| {
+                acc += length;
+                acc
+            }).collect::<Vec<_>>();
         Self {
-            accum_lengths,
+            chroms: chrom_sizes.0.iter().map(|x| x.0.clone()).collect(),
+            binned_accum_len: base_accum_len.clone(),
+            base_accum_len,
             resolution: 1,
         }
+    }
+
+    /// Retreive the range of a chromosome.
+    pub fn get_range(&self, chr: &str) -> Option<Range<usize>> {
+        let i = self.chroms.get_index_of(chr)?;
+        let end = self.binned_accum_len[i];
+        let start = if i == 0 {
+            0
+        } else {
+            self.binned_accum_len[i - 1]
+        };
+        Some(start as usize .. end as usize)
     }
 
     pub fn to_index(&self) -> anndata::data::index::Index {
@@ -178,60 +199,90 @@ impl GenomeBaseIndex {
             }).collect()
     }
 
+    /// Number of indices.
     pub fn len(&self) -> usize {
-        self.accum_lengths.last().map(|x| x.1.1 as usize).unwrap_or(0)
+        self.binned_accum_len.last().map(|x| *x as usize).unwrap_or(0)
     }
 
-    pub fn chrom_sizes(&self) -> impl Iterator<Item = (&String, u64)> {
-        let iter = self.accum_lengths.as_slice().windows(2).map(|x| {
-            let (_, (acc, _)) = &x[0];
-            let (chrom, (acc_next, _)) = &x[1];
-            (chrom, acc_next - acc)
-        });
-        std::iter::once((&self.accum_lengths[0].0, self.accum_lengths[0].1.0))
-            .chain(iter)
+    pub fn chrom_sizes(&self) -> impl Iterator<Item = (&String, u64)> + '_ {
+        let mut prev = 0;
+        self.chroms.iter().zip(self.base_accum_len.iter()).map(move |(chrom, acc)| {
+            let length = acc - prev;
+            prev = *acc;
+            (chrom, length)
+        })
     }
 
     fn with_resolution(&self, s: usize) -> Self {
-        let mut accum_lengths = Vec::new();
         let mut prev = 0;
         let mut acc_low_res = 0;
-
-        for (chrom, (acc, _)) in &self.accum_lengths {
+        let binned_accum_len = self.base_accum_len.iter().map(|acc| {
             let length = acc - prev;
             prev = *acc;
             acc_low_res += length.div_ceil(s as u64);
-            accum_lengths.push((chrom.clone(), (*acc, acc_low_res)));
-        }
-
+            acc_low_res
+        }).collect();
         Self {
-            accum_lengths,
+            chroms: self.chroms.clone(),
+            base_accum_len: self.base_accum_len.clone(),
+            binned_accum_len,
             resolution: s,
         }
     }
 
-    // O(log(N)). Given a index, find the corresponding chromosome and position.
-    pub fn index(&self, pos: usize) -> GenomicRange {
+    /// Given a genomic position, return the corresponding index. 
+    pub fn get_position(&self, chrom: &str, pos: u64) -> usize {
+        let i = self.chroms.get_index_of(chrom).unwrap();
+        let size = if i == 0 {
+            self.base_accum_len[i]
+        } else {
+            self.base_accum_len[i] - self.base_accum_len[i - 1]
+        };
+        if pos as u64 >= size {
+            panic!("Position {} is out of range for chromosome {}", pos, chrom);
+        }
+        let pos = (pos as usize) / self.resolution;
+        if i == 0 {
+            pos
+        } else {
+            self.binned_accum_len[i - 1] as usize + pos
+        }
+    }
+
+    /// O(log(N)). Given a index, find the corresponding chromosome.
+    pub fn get_chrom(&self, pos: usize) -> &String {
         let i = pos as u64;
-        match self.accum_lengths.binary_search_by_key(&i, |s| s.1 .1) {
+        let j = match self.binned_accum_len.binary_search(&i) {
+            Ok(j) => j + 1,
+            Err(j) => j,
+        };
+        self.chroms.get_index(j).unwrap()
+    }
+
+    /// O(log(N)). Given a index, find the corresponding chromosome and position.
+    pub fn get_locus(&self, pos: usize) -> GenomicRange {
+        let i = pos as u64;
+        match self.binned_accum_len.binary_search(&i) {
             Ok(j) => {
-                let (chr, (acc, _)) = &self.accum_lengths[j + 1];
-                let size = *acc - self.accum_lengths[j].1 .0;
+                let chr = self.chroms.get_index(j+1).unwrap();
+                let acc = self.base_accum_len[j + 1];
+                let size = acc - self.base_accum_len[j];
                 let start = 0;
                 let end = (start + self.resolution as u64).min(size);
                 GenomicRange::new(chr, start, end)
             }
             Err(j) => {
-                let (chr, (acc, _)) = &self.accum_lengths[j];
+                let chr = self.chroms.get_index(j).unwrap();
+                let acc = self.base_accum_len[j];
                 let size = if j == 0 {
-                    *acc
+                    acc
                 } else {
-                    *acc - self.accum_lengths[j - 1].1 .0
+                    acc - self.base_accum_len[j - 1]
                 };
                 let prev = if j == 0 {
                     0
                 } else {
-                    self.accum_lengths[j - 1].1 .1
+                    self.binned_accum_len[j - 1]
                 };
                 let start = (i - prev) * self.resolution as u64;
                 let end = (start + self.resolution as u64).min(size);
@@ -241,18 +292,18 @@ impl GenomeBaseIndex {
     }
 
     // Given a base index, find the corresponding index in the downsampled matrix.
-    fn get_index(&self, pos: usize) -> usize {
+    fn get_coarsed_position(&self, pos: usize) -> usize {
         if self.resolution <= 1 {
             pos
         } else {
             let i = pos as u64;
-            match self.accum_lengths.binary_search_by_key(&i, |s| s.1 .0) {
-                Ok(j) => self.accum_lengths[j].1 .1 as usize,
+            match self.base_accum_len.binary_search(&i) {
+                Ok(j) => self.binned_accum_len[j] as usize,
                 Err(j) => {
                     let (acc, acc_low_res) = if j == 0 {
                         (0, 0)
                     } else {
-                        self.accum_lengths[j - 1].1
+                        (self.base_accum_len[j - 1], self.binned_accum_len[j - 1])
                     };
                     (acc_low_res + (i - acc) / self.resolution as u64) as usize
                 }
@@ -333,8 +384,10 @@ where
 
 /// A struct to store the base-resolution coverage of a genome.
 pub struct GenomeCoverage<I> {
-    pub index: GenomeBaseIndex,
+    index: GenomeBaseIndex,
     coverage: I,
+    resolution: usize,
+    exclude_chroms: HashSet<String>,
 }
 
 impl<I> GenomeCoverage<I>
@@ -343,14 +396,38 @@ where
 {
     pub fn new(chrom_sizes: ChromSizes, coverage: I) -> Self {
         Self {
-            index: GenomeBaseIndex::new(chrom_sizes),
+            index: GenomeBaseIndex::new(&chrom_sizes),
             coverage,
+            resolution: 1,
+            exclude_chroms: HashSet::new(),
+        }
+    }
+
+    pub fn get_gindex(&self) -> GenomeBaseIndex {
+        if !self.exclude_chroms.is_empty() {
+            let chr_sizes = ChromSizes(
+                self.index.chrom_sizes().filter_map(|(chr, size)| {
+                    if self.exclude_chroms.contains(chr) {
+                        None
+                    } else {
+                        Some((chr.clone(), size))
+                    }
+            }).collect());
+            GenomeBaseIndex::new(&chr_sizes).with_resolution(self.resolution)
+        } else {
+            self.index.with_resolution(self.resolution)
         }
     }
 
     /// Set the resolution of the coverage matrix.
     pub fn with_resolution(mut self, s: usize) -> Self {
-        self.index = self.index.with_resolution(s);
+        self.resolution = s;
+        self
+    }
+
+    pub fn exclude(mut self, chroms: &[&str]) -> Self {
+        self.exclude_chroms = chroms.iter().filter(|x| self.index.chroms.contains(**x))
+            .map(|x| x.to_string()).collect();
         self
     }
 
@@ -358,7 +435,10 @@ where
     pub fn into_chrom_values<T: Zero + FromPrimitive + AddAssign + Send>(
         self,
     ) -> impl ExactSizeIterator<Item = (Vec<ChromValues<T>>, usize, usize)> {
-        let index = self.index;
+        if !self.exclude_chroms.is_empty() {
+            todo!("Implement exclude_chroms")
+        }
+        let index = self.get_gindex();
         self.coverage.map(move |(mat, i, j)| {
             let n = j - i;
             let values = (0..n)
@@ -369,21 +449,21 @@ where
                     if index.resolution <= 1 {
                         row_entry_iter
                             .map(|(idx, val)| {
-                                let region = index.index(*idx);
+                                let region = index.get_locus(*idx);
                                 BedGraph::from_bed(&region, T::from_u8(*val).unwrap())
                             })
                             .collect::<Vec<_>>()
                     } else {
                         let mut count: BTreeMap<usize, T> = BTreeMap::new();
                         row_entry_iter.for_each(|(idx, val)| {
-                            let i = index.get_index(*idx);
+                            let i = index.get_coarsed_position(*idx);
                             let val = T::from_u8(*val).unwrap();
                             *count.entry(i).or_insert(Zero::zero()) += val;
                         });
                         count
                             .into_iter()
                             .map(|(i, val)| {
-                                let region = index.index(i);
+                                let region = index.get_locus(i);
                                 BedGraph::from_bed(&region, val)
                             })
                             .collect::<Vec<_>>()
@@ -397,9 +477,10 @@ where
     pub fn into_values<T: Zero + FromPrimitive + AddAssign + Send>(
         self,
     ) -> impl ExactSizeIterator<Item = (CsrMatrix<T>, usize, usize)> {
-        let index = self.index;
+        let index = self.get_gindex();
+        let ori_index = self.index;
         self.coverage.map(move |(mat, i, j)| {
-            let new_mat = if index.resolution <= 1 {
+            let new_mat = if self.resolution <= 1 && self.exclude_chroms.is_empty() {
                 let (pattern, data) = mat.into_pattern_and_values();
                 let new_data = data
                     .into_iter()
@@ -408,7 +489,6 @@ where
                 CsrMatrix::try_from_pattern_and_values(pattern, new_data).unwrap()
             } else {
                 let n = j - i;
-                let n_col = index.len();
                 let vec = (0..n)
                     .into_par_iter()
                     .map(|k| {
@@ -418,14 +498,17 @@ where
                             .into_iter()
                             .zip(row.values())
                             .for_each(|(idx, val)| {
-                                let i = index.get_index(*idx);
-                                let val = T::from_u8(*val).unwrap();
-                                *count.entry(i).or_insert(Zero::zero()) += val;
+                                let locus = ori_index.get_locus(*idx);
+                                if self.exclude_chroms.is_empty() || !self.exclude_chroms.contains(locus.chrom()) {
+                                    let i = index.get_position(locus.chrom(), locus.start());
+                                    let val = T::from_u8(*val).unwrap();
+                                    *count.entry(i).or_insert(Zero::zero()) += val;
+                                }
                             });
                         count.into_iter().collect::<Vec<_>>()
                     })
                     .collect();
-                from_csr_rows(vec, n_col)
+                from_csr_rows(vec, index.len())
             };
             (new_mat, i, j)
         })
@@ -440,9 +523,12 @@ where
         C: FeatureCounter<Value = T> + Clone + Sync,
         T: Send,
     {
+        if !self.exclude_chroms.is_empty() {
+            todo!("Implement exclude_chroms")
+        }
         let n_col = counter.num_features();
         counter.reset();
-        let index = self.index.with_resolution(1);
+        let index = self.index;
         self.coverage.map(move |(mat, i, j)| {
             let n = j - i;
             let vec = (0..n)
@@ -454,7 +540,7 @@ where
                         .into_iter()
                         .zip(row.values())
                         .for_each(|(idx, val)| {
-                            coverage.insert(&index.index(*idx), *val);
+                            coverage.insert(&index.get_locus(*idx), *val);
                         });
                     coverage.get_counts()
                 })
@@ -530,6 +616,7 @@ impl<B: Backend> SnapData for AnnDataSet<B> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bed_utils::bed::BEDLike;
 
     #[test]
     fn test_index1() {
@@ -538,8 +625,16 @@ mod tests {
             ("2".to_owned(), 71),
             ("3".to_owned(), 100),
         ]);
+        let mut index = GenomeBaseIndex::new(&chrom_sizes);
 
-        let mut index = GenomeBaseIndex::new(chrom_sizes);
+        assert_eq!(index.get_range("1").unwrap(), 0..13);
+        assert_eq!(index.get_range("2").unwrap(), 13..84);
+        assert_eq!(index.get_range("3").unwrap(), 84..184);
+
+        assert_eq!(
+            chrom_sizes.clone(),
+            ChromSizes(index.chrom_sizes().map(|(a,b)| (a.to_owned(),b)).collect()),
+        );
 
         [
             (0, "1:0-1"),
@@ -548,12 +643,20 @@ mod tests {
             (100, "3:16-17"),
         ]
         .into_iter()
-        .for_each(|(i, expected)| assert_eq!(index.index(i).pretty_show(), expected));
+        .for_each(|(i, txt)| {
+            let locus = GenomicRange::from_str(txt).unwrap();
+            assert_eq!(index.get_locus(i), locus);
+            assert_eq!(index.get_position(locus.chrom(), locus.start()), i);
+        });
 
         index = index.with_resolution(2);
         [(0, "1:0-2"), (6, "1:12-13"), (7, "2:0-2"), (11, "2:8-10")]
             .into_iter()
-            .for_each(|(i, expected)| assert_eq!(index.index(i).pretty_show(), expected));
+            .for_each(|(i, txt)| {
+                let locus = GenomicRange::from_str(txt).unwrap();
+                assert_eq!(index.get_locus(i), locus);
+                assert_eq!(index.get_position(locus.chrom(), locus.start()), i);
+            });
 
         index = index.with_resolution(3);
         [
@@ -565,7 +668,11 @@ mod tests {
             (62, "3:99-100"),
         ]
         .into_iter()
-        .for_each(|(i, expected)| assert_eq!(index.index(i).pretty_show(), expected));
+        .for_each(|(i, txt)| {
+            let locus = GenomicRange::from_str(txt).unwrap();
+            assert_eq!(index.get_locus(i), locus);
+            assert_eq!(index.get_position(locus.chrom(), locus.start()), i);
+        });
     }
 
     #[test]
@@ -576,12 +683,14 @@ mod tests {
             ("3".to_owned(), 100),
         ]);
 
-        let mut index = GenomeBaseIndex::new(chrom_sizes);
+        let index = GenomeBaseIndex::new(&chrom_sizes);
         [(0, 0), (12, 12), (13, 13), (100, 100)]
             .into_iter()
-            .for_each(|(i, expected)| assert_eq!(index.get_index(i), expected));
+            .for_each(|(i, i_)| {
+                assert_eq!(index.get_coarsed_position(i), i_)
+            });
 
-        index = index.with_resolution(2);
+        let index2 = index.with_resolution(2);
         [
             (0, 0),
             (1, 0),
@@ -601,7 +710,11 @@ mod tests {
             (15, 8),
         ]
         .into_iter()
-        .for_each(|(i, expected)| assert_eq!(index.get_index(i), expected));
+        .for_each(|(i1, i2)| {
+            assert_eq!(index2.get_coarsed_position(i1), i2);
+            let locus = index.get_locus(i1);
+            assert_eq!(index2.get_position(locus.chrom(), locus.start()), i2);
+        });
     }
 
     #[test]

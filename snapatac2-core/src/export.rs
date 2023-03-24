@@ -142,7 +142,7 @@ where
     ).unwrap();
 
     coverage = coverage.with_resolution(resolution);
-    let index = coverage.index.clone();
+    let index = coverage.get_gindex();
     let chrom_sizes: HashMap<String, u32> = index.chrom_sizes().map(|(k, v)| (k.to_string(), v as u32)).collect();
 
     // Collect groups
@@ -176,7 +176,7 @@ where
 
         // Make BedGraph
         let mut bedgraph: Vec<BedGraph<f32>> = count.into_iter().map(|(k, v)| {
-            let mut region = index.index(k);
+            let mut region = index.get_locus(k);
             region.set_end(region.start() + resolution as u64);
             BedGraph::from_bed(&region, (v as f64 / norm_factor) as f32)
         }).group_by(|x| x.value).into_iter().flat_map(|(_, groups)|

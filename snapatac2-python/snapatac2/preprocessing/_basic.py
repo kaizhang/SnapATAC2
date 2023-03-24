@@ -115,14 +115,18 @@ def import_data(
         result will be saved to a backed AnnData, otherwise an in-memory AnnData
         is used.
     genome
-        A Genome object. If not set, `gff_file` and `chrom_size` must be provided.
+        A Genome object, providing gene annotation and chromosome sizes.
+        If not set, `gff_file` and `chrom_size` must be provided.
+        `genome` has lower priority than `gff_file` and `chrom_size`.
     gff_file
         File name of the gene annotation file in GFF format.
         This is required if `genome` is not set.
+        Setting `gff_file` will override the `genome` parameter.
     chrom_size
         A dictionary containing chromosome sizes, for example,
         `{"chr1": 2393, "chr2": 2344, ...}`.
         This is required if `genome` is not set.
+        Setting `chrom_size` will override the `genome` parameter.
     min_num_fragments
         Number of unique fragments threshold used to filter cells
     min_tsse
@@ -161,8 +165,10 @@ def import_data(
         returned, otherwise a backed AnnData is returned.
     """
     if genome is not None:
-        chrom_size = genome.chrom_sizes
-        gff_file = genome.fetch_annotations()
+        if chrom_size is None:
+            chrom_size = genome.chrom_sizes
+        if gff_file is None:
+            gff_file = genome.fetch_annotations()
 
     if whitelist is not None:
         if isinstance(whitelist, str) or isinstance(whitelist, Path):
@@ -185,7 +191,7 @@ def add_tile_matrix(
     bin_size: int = 500,
     inplace: bool = True,
     chunk_size: int = 500,
-    exclude_chroms: list[str] | str | None = ["chrM", "chrY"],
+    exclude_chroms: list[str] | str | None = ["chrM", "chrY", "M", "Y"],
     file: Path | None = None,
     backend: str | None = None,
 ) -> AnnData | None:
@@ -215,8 +221,11 @@ def add_tile_matrix(
     backend
         The backend to use for storing the result. If `None`, the default backend will be used.
     """
+    if isinstance(exclude_chroms, str):
+        exclude_chroms = [exclude_chroms]
+
     if inplace:
-        internal.mk_tile_matrix(adata, bin_size, chunk_size, None)
+        internal.mk_tile_matrix(adata, bin_size, chunk_size, exclude_chroms, None)
     else:
         if file is None:
             if adata.isbacked:
@@ -225,7 +234,7 @@ def add_tile_matrix(
                 out = ad.AnnData(obs=adata.obs[:])
         else:
             out = AnnData(filename=file, backend=backend, obs=adata.obs[:])
-        internal.mk_tile_matrix(adata, bin_size, chunk_size, out)
+        internal.mk_tile_matrix(adata, bin_size, chunk_size, exclude_chroms, out)
         return out
 
 def make_peak_matrix(
