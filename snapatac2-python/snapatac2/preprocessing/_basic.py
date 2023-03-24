@@ -186,7 +186,7 @@ def import_data(
     return adata
 
 def add_tile_matrix(
-    adata: AnnData,
+    adata: AnnData | list[AnnData],
     *,
     bin_size: int = 500,
     inplace: bool = True,
@@ -194,6 +194,7 @@ def add_tile_matrix(
     exclude_chroms: list[str] | str | None = ["chrM", "chrY", "M", "Y"],
     file: Path | None = None,
     backend: str | None = None,
+    n_jobs: int = 8,
 ) -> AnnData | None:
     """Generate cell by bin count matrix.
 
@@ -207,6 +208,8 @@ def add_tile_matrix(
     adata
         The (annotated) data matrix of shape `n_obs` x `n_vars`.
         Rows correspond to cells and columns to regions.
+        `adata` could also be a list of AnnData objects when `inplace=True`.
+        In this case, the function will be applied to each AnnData object in parallel.
     bin_size
         The size of consecutive genomic regions used to record the counts.
     inplace
@@ -220,12 +223,22 @@ def add_tile_matrix(
         be saved to a backed AnnData, otherwise an in-memory AnnData is used.
     backend
         The backend to use for storing the result. If `None`, the default backend will be used.
+    n_jobs
+        Number of jobs to run in parallel when `adata` is a list.
+        If `n_jobs=-1`, all CPUs will be used.
     """
     if isinstance(exclude_chroms, str):
         exclude_chroms = [exclude_chroms]
 
     if inplace:
-        internal.mk_tile_matrix(adata, bin_size, chunk_size, exclude_chroms, None)
+        if isinstance(adata, list):
+            snapatac2._utils.anndata_par(
+                adata,
+                lambda x: internal.mk_tile_matrix(x, bin_size, chunk_size, exclude_chroms, None),
+                n_jobs=n_jobs,
+            )
+        else:
+            internal.mk_tile_matrix(adata, bin_size, chunk_size, exclude_chroms, None)
     else:
         if file is None:
             if adata.isbacked:
@@ -448,7 +461,7 @@ def _find_most_accessible_features(
  
  
 def select_features(
-    adata: AnnData | AnnDataSet,
+    adata: AnnData | AnnDataSet | list[AnnData],
     n_features: int = 500000,
     filter_lower_quantile: float = 0.005,
     filter_upper_quantile: float = 0.005,
@@ -456,7 +469,8 @@ def select_features(
     blacklist: Path | None = None,
     max_iter: int = 1,
     inplace: bool = True,
-) -> np.ndarray | None:
+    n_jobs: int = 8,
+) -> np.ndarray | list[np.ndarray] | None:
     """
     Perform feature selection.
 
@@ -470,6 +484,8 @@ def select_features(
     adata
         The (annotated) data matrix of shape `n_obs` x `n_vars`.
         Rows correspond to cells and columns to regions.
+        `adata` can also be a list of AnnData objects.
+        In this case, the function will be applied to each AnnData object in parallel.
     n_features
         Number of features to keep. Note that the final number of features
         may be smaller than this number if there is not enough features that pass
@@ -487,6 +503,8 @@ def select_features(
         Features that are overlapped with these regions will be removed.
     inplace
         Perform computation inplace or return result.
+    n_jobs
+        Number of parallel jobs to use when `adata` is a list.
     
     Returns
     -------
@@ -495,6 +513,17 @@ def select_features(
         where `True` means that the feature is kept, `False` means the feature is removed.
         Otherwise, store this index mask directly to `.var['selected']`.
     """
+    if isinstance(adata, list):
+        result = snapatac2._utils.anndata_par(
+            adata,
+            lambda x: select_features(x, n_features, filter_lower_quantile, filter_upper_quantile, whitelist, blacklist, max_iter, inplace),
+            n_jobs=n_jobs,
+        )
+        if inplace:
+            return None
+        else:
+            return result
+
     count = np.zeros(adata.shape[1])
     for batch, _, _ in adata.chunked_X(2000):
         count += np.ravel(batch.sum(axis = 0))

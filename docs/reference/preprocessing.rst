@@ -32,6 +32,7 @@ Doublet removal
     :toctree: _autosummary
 
     pp.scrublet
+    pp.filter_doublets
 
 Data Integration
 ~~~~~~~~~~~~~~~~

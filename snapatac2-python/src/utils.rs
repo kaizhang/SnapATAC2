@@ -1,6 +1,6 @@
 mod anndata;
 
-pub use self::anndata::{PyAnnData, AnnDataLike};
+pub use self::anndata::{PyAnnData, AnnDataLike, RustAnnDataLike};
 
 use pyo3::{
     prelude::*,

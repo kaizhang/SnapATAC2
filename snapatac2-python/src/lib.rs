@@ -20,6 +20,7 @@ static GLOBAL: Jemalloc = Jemalloc;
 fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     pyo3_log::init();
 
+    // AnnData related functions
     m.add_class::<pyanndata::AnnData>().unwrap();
     m.add_class::<pyanndata::AnnDataSet>().unwrap();
     m.add_class::<pyanndata::PyArrayElem>().unwrap();
@@ -28,15 +29,18 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     //m.add_function(wrap_pyfunction!(pyanndata::read_csv, m)?)?;
     m.add_function(wrap_pyfunction!(pyanndata::read_dataset, m)?)?;
 
+    // Motif analysis related functions
     m.add_class::<motif::PyDNAMotif>().unwrap();
     m.add_class::<motif::PyDNAMotifScanner>().unwrap();
     m.add_class::<motif::PyDNAMotifTest>().unwrap();
     m.add_function(wrap_pyfunction!(motif::read_motifs, m)?)?;
  
+    // Preprocessing related functions
     m.add_class::<preprocessing::PyFlagStat>().unwrap();
     m.add_function(wrap_pyfunction!(preprocessing::make_fragment_file, m)?)?;
     m.add_function(wrap_pyfunction!(preprocessing::import_fragments, m)?)?;
     m.add_function(wrap_pyfunction!(preprocessing::mk_tile_matrix, m)?)?;
+    m.add_function(wrap_pyfunction!(preprocessing::mk_tile_matrix_par, m)?)?;
     m.add_function(wrap_pyfunction!(preprocessing::mk_gene_matrix, m)?)?;
     m.add_function(wrap_pyfunction!(preprocessing::mk_peak_matrix, m)?)?;
 

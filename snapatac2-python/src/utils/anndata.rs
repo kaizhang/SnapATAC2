@@ -150,6 +150,13 @@ impl<'py> AnnDataOp for PyAnnData<'py> {
     fn del_varp(&self) -> Result<()> {
         self.0.del_varp()
     }
+
+    fn layers(&self) -> Self::AxisArraysRef<'_> {
+        self.0.layers()
+    }
+    fn del_layers(&self) -> Result<()> {
+        self.0.del_layers()
+    }
 }
 
 impl<'py> SnapData for PyAnnData<'py> {
@@ -222,6 +229,54 @@ macro_rules! with_anndata {
             AnnDataLike::PyAnnData(x) => {
                 $fun!(x)
             }
+        }
+    };
+}
+
+
+#[derive(FromPyObject)]
+pub enum RustAnnDataLike {
+    AnnData(AnnData),
+    AnnDataSet(AnnDataSet),
+}
+
+impl IntoPy<PyObject> for RustAnnDataLike {
+    fn into_py(self, py: Python<'_>) -> PyObject {
+        match self {
+            RustAnnDataLike::AnnData(x) => x.into_py(py),
+            RustAnnDataLike::AnnDataSet(x) => x.into_py(py),
+        }
+    }
+}
+
+impl From<AnnData> for RustAnnDataLike {
+    fn from(value: AnnData) -> Self {
+        RustAnnDataLike::AnnData(value)
+    }
+}
+
+impl From<AnnDataSet> for RustAnnDataLike {
+    fn from(x: AnnDataSet) -> Self {
+        RustAnnDataLike::AnnDataSet(x)
+    }
+}
+
+#[macro_export]
+macro_rules! with_rs_anndata {
+    ($anndata:expr, $fun:ident) => {
+        match $anndata {
+            RustAnnDataLike::AnnData(x) => match x.backend().as_str() {
+                H5::NAME => {
+                    $fun!(x.inner_ref::<H5>().deref())
+                }
+                x => panic!("Unsupported backend: {}", x),
+            },
+            RustAnnDataLike::AnnDataSet(x) => match x.backend().as_str() {
+                H5::NAME => {
+                    $fun!(x.inner_ref::<H5>().deref())
+                }
+                x => panic!("Unsupported backend: {}", x),
+            },
         }
     };
 }

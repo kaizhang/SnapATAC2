@@ -19,6 +19,7 @@ def mnc_correct(
     groupby: str | list[str] | None = None,
     add_key: str | None = None,
     inplace: bool = True,
+    n_jobs: int = 8,
 ) -> np.ndarray | None:
     """
     A modified MNN-Correct algorithm based on cluster centroid.
@@ -47,6 +48,8 @@ def mnc_correct(
         it will be stored in ``adata.obsm[use_rep + "_mnn"]``.
     inplace
         Whether to store the result in the anndata object.
+    n_jobs
+        Number of jobs to use for parallelization.
 
     Returns
     -------
@@ -70,11 +73,18 @@ def mnc_correct(
     if groupby is None:
         mat = _mnc_correct_main(mat, labels, n_iter, n_neighbors, n_clusters)
     else:
+        from multiprocess import Pool
+
         if isinstance(groupby, str): groupby = adata.obs[groupby]
         groups = list(set(groupby))
-        for group in groups:
+
+        def _func(group):
             group_idx = [i for i, x in enumerate(groupby) if x == group]
-            mat[group_idx, :] = _mnc_correct_main(mat[group_idx, :], labels[group_idx], n_iter, n_neighbors, n_clusters)
+            return (group_idx, _mnc_correct_main(mat[group_idx, :], labels[group_idx], n_iter, n_neighbors, n_clusters))
+
+        with Pool(n_jobs) as p:
+            for idx, result in p.map(_func, groups):
+                mat[idx, :] = result
 
     if inplace:
         if add_key is None:

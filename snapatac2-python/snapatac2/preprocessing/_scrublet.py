@@ -7,12 +7,12 @@ import scipy.sparse as ss
 import logging
 import anndata as ad
 
-from .._utils import chunks
+from .._utils import chunks, anndata_par
 from snapatac2._snapatac2 import AnnData, approximate_nearest_neighbors
 from snapatac2.tools._embedding import spectral
 
 def scrublet(
-    adata: AnnData,
+    adata: AnnData | list[AnnData],
     features: str | np.ndarray | None = "selected",
     n_comps: int = 15,
     sim_doublet_ratio: float = 2.0,
@@ -21,6 +21,7 @@ def scrublet(
     use_approx_neighbors=True,
     random_state: int = 0,
     inplace: bool = True,
+    n_jobs: int = 8,
     verbose: bool = True,
 ) -> None:
     """
@@ -29,7 +30,10 @@ def scrublet(
     Parameters
     ----------
     adata
-        AnnData object
+        The (annotated) data matrix of shape `n_obs` x `n_vars`.
+        Rows correspond to cells and columns to regions.
+        `adata` can also be a list of AnnData objects.
+        In this case, the function will be applied to each AnnData object in parallel.
     features
         Boolean index mask, where `True` means that the feature is kept, and
         `False` means the feature is removed.
@@ -49,6 +53,8 @@ def scrublet(
         Random state.
     inplace
         Whether update the AnnData object inplace
+    n_jobs
+        Number of jobs to run in parallel.
     verbose
         Whether to print progress messages.
     
@@ -56,9 +62,19 @@ def scrublet(
     -------
     tuple[np.ndarray, np.ndarray] | None:
         if ``inplace = True``, it updates adata with the following fields:
-            - ``adata.obs["is_doublet"]``: boolean mask
             - ``adata.obs["doublet_probability"]``: probability of being a doublet
+            - ``adata.obs["doublet_score"]``: doublet score
     """
+    if isinstance(adata, list):
+        result = anndata_par(
+            adata,
+            lambda x: scrublet(x, features, n_comps, sim_doublet_ratio, expected_doublet_rate, n_neighbors, use_approx_neighbors, random_state, inplace, n_jobs, verbose),
+            n_jobs=n_jobs,
+        )
+        if inplace:
+            return None
+        else:
+            return result
 
     if isinstance(features, str):
         if features in adata.var:
@@ -86,16 +102,78 @@ def scrublet(
     probs = get_doublet_probability(
         doublet_scores_sim, doublet_scores_obs, random_state,
     )
-    is_doublet = probs > 0.5
-    if verbose: logging.info(f"Detected doublet rate = {np.mean(is_doublet)*100:.3f}%")
  
     if inplace:
         adata.obs["doublet_probability"] = probs
-        adata.obs["is_doublet"] = is_doublet
         adata.obs["doublet_score"] = doublet_scores_obs
         adata.uns["scrublet_sim_doublet_score"] = doublet_scores_sim
     else:
-        return (is_doublet, probs)
+        return probs, doublet_scores_obs
+
+def filter_doublets(
+    adata: AnnData | list[AnnData],
+    probability_threshold: float | None = 0.5,
+    score_threshold: float | None = None,
+    inplace: bool = True,
+    n_jobs: int = 8,
+    verbose: bool = True,
+) -> np.ndarray | None:
+    """
+    Remove doublets.
+    :func:`~snapatac2.pp.scrublet` must be ran first in order to use this function.
+
+    Parameters
+    ----------
+    adata
+        The (annotated) data matrix of shape `n_obs` x `n_vars`.
+        Rows correspond to cells and columns to regions.
+    probability_threshold
+        Threshold for doublet probability.
+    score_threshold
+        Threshold for doublet score.
+    inplace
+        Perform computation inplace or return result.
+    n_jobs
+        Number of jobs to run in parallel.
+    verbose
+        Whether to print progress messages.
+
+    Returns
+    -------
+    np.ndarray | None:
+        If `inplace = True`, directly subsets the data matrix. Otherwise return 
+        a boolean index mask that does filtering, where `True` means that the
+        cell is kept, `False` means the cell is removed.
+    """
+    if isinstance(adata, list):
+        result = anndata_par(
+            adata,
+            lambda x: filter_doublets(x, probability_threshold, score_threshold, inplace, n_jobs, verbose),
+            n_jobs=n_jobs,
+        )
+        if inplace:
+            return None
+        else:
+            return result
+
+    if probability_threshold is not None and score_threshold is not None:
+        raise ValueError("Only one of `probability_threshold` and `score_threshold` can be set.")
+    if probability_threshold is not None:
+        probs = adata.obs["doublet_probability"].to_numpy()
+        is_doublet = probs > probability_threshold
+    if score_threshold is not None:
+        scores = adata.obs["doublet_score"].to_numpy()
+        is_doublet = scores > score_threshold
+
+    if verbose: logging.info(f"Detected doublet rate = {np.mean(is_doublet)*100:.3f}%")
+
+    if inplace:
+        if adata.isbacked:
+            adata.subset(~is_doublet)
+        else:
+            adata._inplace_subset_obs(~is_doublet)
+    else:
+        return ~is_doublet
 
 def scrub_doublets_core(
     count_matrix: ss.spmatrix,

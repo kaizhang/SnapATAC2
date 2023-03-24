@@ -2,6 +2,7 @@ use crate::utils::*;
 
 use anndata::Backend;
 use anndata_hdf5::H5;
+use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::path::PathBuf;
 use std::{io::BufReader, str::FromStr, collections::BTreeMap, ops::Deref, collections::HashSet};
 use pyo3::prelude::*;
@@ -169,6 +170,34 @@ pub(crate) fn mk_tile_matrix(
     }
 
     crate::with_anndata!(&anndata, run);
+    Ok(())
+}
+
+/// Create tile matrix in parallel. Due to the limitation of Python GIL,
+/// this function is only applicable to pure Rust AnnData objects.
+#[pyfunction]
+pub(crate) fn mk_tile_matrix_par(
+    adatas: Vec<RustAnnDataLike>, bin_size: usize, chunk_size: usize, 
+    n_jobs: usize, exclude_chroms: Option<Vec<&str>>,
+) -> Result<()>
+{
+    macro_rules! run {
+        ($data:expr) => {
+            preprocessing::create_tile_matrix(
+                $data,
+                bin_size,
+                chunk_size,
+                exclude_chroms.as_ref().map(|x| x.as_slice()),
+                None::<&PyAnnData>
+            ).unwrap()
+        };
+    }
+
+    rayon::ThreadPoolBuilder::new().num_threads(n_jobs).build().unwrap().install(|| {
+        adatas.into_par_iter().for_each(|adata| {
+            crate::with_rs_anndata!(&adata, run);
+        });
+    });
     Ok(())
 }
 

@@ -1,10 +1,38 @@
 import numpy as np
+import anndata as ad
 
-from snapatac2._snapatac2 import AnnData, AnnDataSet
+from snapatac2._snapatac2 import AnnData, AnnDataSet, read
 
 def is_anndata(data) -> bool:
-    import anndata as ad
     return isinstance(data, ad.AnnData) or isinstance(data, AnnData) or isinstance(data, AnnDataSet)
+
+def anndata_par(adatas, func, n_jobs=4):
+    from multiprocess import Pool
+
+    def _func(data):
+        if isinstance(data, ad.AnnData):
+            result = func(data)
+        else:
+            data = read(data)
+            result = func(data)
+            data.close() 
+        return result
+
+    adatas_list = []
+    for data in adatas:
+        if isinstance(data, ad.AnnData):
+            adatas_list.append(data)
+        else:
+            adatas_list.append(data.filename)
+            data.close()
+
+    with Pool(n_jobs) as p:
+        result = p.map(_func, adatas_list)
+    
+    for data in adatas:
+        data.open()
+    
+    return result
 
 def get_igraph_from_adjacency(adj):
     """Get igraph graph from adjacency matrix."""
