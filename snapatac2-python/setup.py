@@ -35,6 +35,7 @@ setup(
     install_requires=[
         "anndata>=0.8.0",
         "kaleido",
+        "multiprocess",
         "natsort",
         "numpy>=1.16.0",
         "pandas",

@@ -15,7 +15,7 @@ def harmony(
     use_rep: str = "X_spectral",
     use_dims: int | list[int] | None = None,
     groupby: str | list[str] | None = None,
-    add_key: str | None = None,
+    key_added: str | None = None,
     inplace: bool = True,
     **kwargs,
 ) -> np.ndarray | None:
@@ -44,7 +44,7 @@ def harmony(
     groupby
         If specified, split the data into groups and perform batch correction
         on each group separately.
-    add_key
+    key_added
         If specified, add the result to ``adata.obsm`` with this key. Otherwise,
         it will be stored in ``adata.obsm[use_rep + "_harmony"]``.
     inplace
@@ -86,10 +86,10 @@ def harmony(
             mat[group_idx, :] = _harmony(mat[group_idx, :], batch[group_idx], **kwargs)
 
     if inplace:
-        if add_key is None:
+        if key_added is None:
             adata.obsm[use_rep + "_harmony"] = mat
         else:
-            adata.obsm[add_key] = mat
+            adata.obsm[key_added] = mat
     else:
         return mat
 

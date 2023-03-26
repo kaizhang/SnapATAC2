@@ -17,7 +17,7 @@ def mnc_correct(
     use_rep: str = "X_spectral",
     use_dims: int | list[int] | None = None,
     groupby: str | list[str] | None = None,
-    add_key: str | None = None,
+    key_added: str | None = None,
     inplace: bool = True,
     n_jobs: int = 8,
 ) -> np.ndarray | None:
@@ -43,7 +43,7 @@ def mnc_correct(
     groupby
         If specified, split the data into groups and perform batch correction
         on each group separately.
-    add_key
+    key_added
         If specified, add the result to ``adata.obsm`` with this key. Otherwise,
         it will be stored in ``adata.obsm[use_rep + "_mnn"]``.
     inplace
@@ -92,10 +92,10 @@ def mnc_correct(
             mat[idx, :] = result
 
     if inplace:
-        if add_key is None:
+        if key_added is None:
             adata.obsm[use_rep + "_mnn"] = mat
         else:
-            adata.obsm[add_key] = mat
+            adata.obsm[key_added] = mat
     else:
         return mat
 

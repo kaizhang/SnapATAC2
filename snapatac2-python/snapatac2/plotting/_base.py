@@ -3,6 +3,144 @@ from __future__ import annotations
 import numpy as np
 from scipy.stats import gaussian_kde
 
+def scatter(
+    X: list[float],
+    Y: list[float],
+    color: list[float] | None = None,
+    x_label: str = "X",
+    y_label: str = "Y",
+    color_label: str = "Color",
+    marker_size: float = 2,
+    marker_opacity: float = 0.5,
+    **kwargs,
+) -> 'plotly.graph_objects.Figure' | None:
+    """Plot a scatter plot.
+
+    Parameters
+    ----------
+    X
+        The x coordinates of the points.
+    Y
+        The y coordinates of the points.
+    color
+        The color of the points.
+    x_label
+        The label of the x axis.
+    y_label
+        The label of the y axis.
+    color_label
+        The label of the color bar.
+    marker_size
+        Size of the dots.
+    marker_opacity
+        Opacity of the dots.
+    kwargs        
+        Additional arguments passed to :func:`~snapatac2.pl.render_plot` to
+        control the final plot output. Please see :func:`~snapatac2.pl.render_plot`
+        for details.
+
+    Returns
+    -------
+    'plotly.graph_objects.Figure' | None
+        If `show=False` and `out_file=None`, an `plotly.graph_objects.Figure` will be 
+        returned, which can then be further customized using the plotly API.
+    """
+    import plotly.express as px
+    import pandas as pd
+
+    df = pd.DataFrame({
+        x_label: X,
+        y_label: Y,
+    })
+    if color is not None: df[color_label] = color
+
+    fig = px.scatter(
+        df, x=x_label, y=y_label, color=color_label,
+        color_discrete_sequence=px.colors.qualitative.Dark24,
+    )
+    fig.update_traces(
+        marker_size=marker_size,
+        marker={"opacity": marker_opacity},
+    )
+    fig.update_layout(
+        template="simple_white",
+        legend={'itemsizing': 'constant'},
+    )
+    return render_plot(fig, **kwargs)
+
+def scatter3d(
+    X: list[float],
+    Y: list[float],
+    Z: list[float],
+    color: list[float] | None = None,
+    x_label: str = "X",
+    y_label: str = "Y",
+    z_label: str = "Z",
+    color_label: str = "Color",
+    marker_size: float = 2,
+    marker_opacity: float = 0.5,
+    **kwargs,
+) -> 'plotly.graph_objects.Figure' | None:
+    """Plot a scatter plot.
+
+    Parameters
+    ----------
+    X
+        The x coordinates of the points.
+    Y
+        The y coordinates of the points.
+    Z
+        The z coordinates of the points.
+    color
+        The color of the points.
+    x_label
+        The label of the x axis.
+    y_label
+        The label of the y axis.
+    z_label
+        The label of the z axis.
+    color_label
+        The label of the color bar.
+    marker_size
+        Size of the dots.
+    marker_opacity
+        Opacity of the dots.
+    kwargs        
+        Additional arguments passed to :func:`~snapatac2.pl.render_plot` to
+        control the final plot output. Please see :func:`~snapatac2.pl.render_plot`
+        for details.
+
+    Returns
+    -------
+    'plotly.graph_objects.Figure' | None
+        If `show=False` and `out_file=None`, an `plotly.graph_objects.Figure` will be 
+        returned, which can then be further customized using the plotly API.
+    """
+    import plotly.express as px
+    import pandas as pd
+
+    df = pd.DataFrame({
+        x_label: X,
+        y_label: Y,
+        z_label: Z,
+    })
+    if color is not None: df[color_label] = color
+
+    fig = px.scatter_3d(
+        df, x=x_label, y=y_label, z=z_label, color=color_label,
+        color_discrete_sequence=px.colors.qualitative.Dark24,
+    )
+    fig.update_traces(
+        marker_size=marker_size,
+        marker={"opacity": marker_opacity},
+    )
+    fig.update_layout(
+        template="simple_white",
+        legend={'itemsizing': 'constant'},
+    )
+    return render_plot(fig, **kwargs)
+
+
 def heatmap(
     data_array: np.ndarray,
     row_names: list[str] | None = None,
@@ -91,6 +229,7 @@ def render_plot(
     interactive: bool = True,
     show: bool = True,
     out_file: str | None = None,
+    scale: float | None = None,
 ) -> 'plotly.graph_objects.Figure' | None:
     fig.update_layout({
         "width": width,
@@ -102,7 +241,7 @@ def render_plot(
         if out_file.endswith(".html"):
             fig.write_html(out_file, include_plotlyjs="cdn")
         else:
-            fig.write_image(out_file)
+            fig.write_image(out_file, scale=scale)
 
     # show figure
     if show:

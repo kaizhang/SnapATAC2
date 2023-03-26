@@ -5,7 +5,7 @@ import numpy as np
 from snapatac2._snapatac2 import AnnData, AnnDataSet
 from snapatac2.tools._misc import aggregate_X
 from snapatac2._utils import find_elbow
-from ._base import render_plot, heatmap, kde2d
+from ._base import render_plot, heatmap, kde2d, scatter, scatter3d
 from ._network import network_scores, network_edge_stat
 
 __all__ = [
@@ -237,15 +237,12 @@ def regions(
 
 def umap(
     adata: AnnData,
-    color: str | np.ndarray,
+    color: str | np.ndarray | None = None,
     use_rep: str = "X_umap",
-    marker_size: float = 2,
-    marker_opacity: float = 0.5,
-    width: float = 550,
-    height: float = 500,
-    show: bool = True,
-    interactive: bool = True,
-    out_file: str | None = None,
+    marker_size: float = None,
+    marker_opacity: float = 1,
+    sample_size: int | None = None,
+    **kwargs,
 ) -> 'plotly.graph_objects.Figure' | None:
     """Plot the UMAP embedding.
 
@@ -262,15 +259,13 @@ def umap(
         Size of the dots.
     marker_opacity
         Opacity of the dots.
-    width
-        The width of the plot.
-    height
-        The height of the plot.
-    interactive
-        Whether to make interactive plot.
-    out_file
-        Path of the output file for saving the output image, end with
-        '.svg' or '.pdf' or '.png' or '.html'.
+    sample_size
+        If the number of cells is larger than `sample_size`, a random sample of
+        `sample_size` cells will be used for plotting.
+    kwargs        
+        Additional arguments passed to :func:`~snapatac2.pl.render_plot` to
+        control the final plot output. Please see :func:`~snapatac2.pl.render_plot`
+        for details.
 
     Returns
     -------
@@ -278,9 +273,7 @@ def umap(
         If `show=False` and `out_file=None`, an `plotly.graph_objects.Figure` will be 
         returned, which can then be further customized using the plotly API.
     """
-    import plotly.express as px
     from natsort import index_natsorted
-    import pandas as pd
 
     embedding = adata.obsm[use_rep] 
 
@@ -289,43 +282,28 @@ def umap(
     else:
         groups = color
         color = "color"
+    
+    if sample_size is not None and adata.shape[0] > sample_size:
+        idx = np.random.choice(adata.shape[0], sample_size, replace=False)
+        embedding = embedding[idx, :]
+        groups = groups[idx]
 
     idx = index_natsorted(groups)
     embedding = embedding[idx, :]
     groups = [groups[i] for i in idx]
 
-    if embedding.shape[1] >= 3:
-        df = pd.DataFrame({
-            "UMAP-1": embedding[:, 0],
-            "UMAP-2": embedding[:, 1],
-            "UMAP-3": embedding[:, 2],
-            color: groups,
-        })
-        fig = px.scatter_3d(df,
-            x='UMAP-1', y='UMAP-2', z='UMAP-3',
-            color=color,
-            color_discrete_sequence=px.colors.qualitative.Dark24,
-        )
-    else:
-        df = pd.DataFrame({
-            "UMAP-1": embedding[:, 0],
-            "UMAP-2": embedding[:, 1],
-            color: groups,
-        })
-        fig = px.scatter(
-            df, x="UMAP-1", y="UMAP-2", color=color,
-            color_discrete_sequence=px.colors.qualitative.Dark24,
-        )
-    fig.update_traces(
-        marker_size=marker_size,
-        marker={"opacity": marker_opacity},
-    )
+    if marker_size is None:
+        num_points = embedding.shape[0]
+        marker_size = (1000 / num_points)**(1/3) * 3
 
-    fig.update_layout(
-        template="simple_white",
-        legend= {'itemsizing': 'constant'},
-    )
-    return render_plot(fig, width, height, interactive, show, out_file)
+    if embedding.shape[1] >= 3:
+        return scatter3d(embedding[:, 0], embedding[:, 1], embedding[:, 2], color=groups,
+            x_label="UMAP-1", y_label="UMAP-2", z_label="UMAP-3",
+            marker_size=marker_size, marker_opacity=marker_opacity, **kwargs)
+    else:
+        return scatter(embedding[:, 0], embedding[:, 1], color=groups,
+            x_label="UMAP-1", y_label="UMAP-2",
+            marker_size=marker_size, marker_opacity=marker_opacity, **kwargs)
 
 def motif_enrichment(
     enrichment: list(str, 'pl.DataFrame'),
