@@ -394,57 +394,36 @@ def multi_spectral(
     adatas: AnnData | AnnDataSet,
     n_comps: int = 30,
     features: str | np.ndarray | None = "selected",
-    weights = None,
+    weights: list[float] | None = None,
     random_state: int = 0,
     weighted_by_sd: bool = True,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
-    Compute Laplacian Eigenmaps of chromatin accessibility profiles.
+    Compute Laplacian Eigenmaps simultaneously on multiple modalities, with linear
+    space and time complexity.
 
-    Convert chromatin accessibility profiles of cells into lower dimensional representations
-    using the spectrum of the normalized graph Laplacian defined by pairwise similarity
-    between cells.
-
-    Note
-    ----
-    The space complexity of this function is :math:`O(N^2)`, where $N$ is the minimum between
-    the total of cells and the `sample_size`.
-    The memory usage in bytes is given by $N^2 * 8 * 2$. For example,
-    when $N = 10,000$ it will use roughly 745 MB memory.
-    When `sample_size` is set, the Nystrom algorithm will be used to approximate
-    the embedding. For large datasets, try to set the `sample_size` appropriately to
-    reduce the memory usage.
+    This is similar to :func:`~snapatac2.tl.spectral`, but it can work on multiple modalities.
 
     Parameters
     ----------
-    adata
-        AnnData or AnnDataSet object.
+    adatas
+        A list of AnnData objects, representing single-cell data from different modalities.
     n_comps
         Number of dimensions to keep.
     features
         Boolean index mask. True means that the feature is kept.
         False means the feature is removed.
+    weights
+        Weights for each modality. If None, all modalities are weighted equally.
     random_state
         Seed of the random state generator
-    sample_size
-        Sample size used in the Nystrom method. It could be either an integer
-        indicating the number of cells to sample or a real value from 0 to 1
-        indicating the fraction of cells to sample.
-    chunk_size
-        Chunk size used in the Nystrom method
-    distance_metric
-        distance metric: "jaccard", "cosine".
     weighted_by_sd
         Whether to weight the result eigenvectors by the square root of eigenvalues.
-    inplace
-        Whether to store the result in the anndata object.
 
     Returns
     -------
-    tuple[np.ndarray, np.ndarray] | None
-        if `inplace=True` it stores Spectral embedding of data in
-        `adata.obsm["X_spectral"]` and `adata.uns["spectral_eigenvalue"]`.
-        Otherwise, it returns the result as numpy arrays.
+    tuple[np.ndarray, np.ndarray]
+        Return the eigenvalues and eigenvectors of the Laplacian matrix.
     """
     np.random.seed(random_state)
 

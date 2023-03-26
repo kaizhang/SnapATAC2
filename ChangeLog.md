@@ -23,6 +23,8 @@ Dev
 
 - Fix #97, #102, #103, #109, #110.
 - `pp.make_tile_matrix`: allow excluding certain chromosomes by setting `exclude_chroms`.
+- Most preprocessing functions can now take a list of `AnnData` objects as input, and
+  process them in parallel.
 
 v2.2.0 (2022-12-02)
 ===================

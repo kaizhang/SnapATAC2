@@ -83,7 +83,7 @@ def scrublet(
             raise NameError("Please call `select_features` first or explicitly set `features = None`")
 
     if features is None:
-        count_matrix = adata.X[...]
+        count_matrix = adata.X[:]
     else:
         count_matrix = adata.X[:, features]
 
@@ -214,6 +214,8 @@ def scrub_doublets_core(
     detectable_doublet_fraction_, overall_doublet_rate_,
     doublet_parents_, doublet_neighbor_parents_ 
     """
+    import gc
+
     total_counts_obs = count_matrix.sum(1).A.squeeze()
 
     if verbose: logging.info('Simulating doublets...')
@@ -223,22 +225,12 @@ def scrub_doublets_core(
     )
 
     if verbose: logging.info('Spectral embedding ...')
-    (manifold_obs, manifold_sim) = get_manifold(count_matrix, count_matrix_sim, n_comps=n_comps)
-
-    if verbose: logging.info('Calculating doublet scores...')
-    (doublet_scores_obs, doublet_scores_sim) = calculate_doublet_scores(
-        manifold_obs, manifold_sim, k = n_neighbors,
-        exp_doub_rate = expected_doublet_rate,
-        use_approx_neighbors = use_approx_neighbors,
-        random_state = random_state,
-    )
-
-    return (doublet_scores_obs, doublet_scores_sim, manifold_obs, manifold_sim)
-
-def get_manifold(obs_norm, sim_norm, n_comps=30, random_state=0):
-    n = obs_norm.shape[0]
+    n = count_matrix.shape[0]
+    merged_matrix = ss.vstack([count_matrix, count_matrix_sim])
+    del count_matrix_sim
+    gc.collect()
     _, evecs = spectral(
-        ad.AnnData(X=ss.vstack([obs_norm, sim_norm]), dtype=np.float64),
+        ad.AnnData(X=merged_matrix, dtype=merged_matrix.dtype),
         features=None,
         n_comps=n_comps,
         inplace=False,
@@ -246,7 +238,16 @@ def get_manifold(obs_norm, sim_norm, n_comps=30, random_state=0):
     manifold = np.asanyarray(evecs)
     manifold_obs = manifold[0:n, ]
     manifold_sim = manifold[n:, ]
-    return (manifold_obs, manifold_sim)
+
+    if verbose: logging.info('Calculating doublet scores...')
+    doublet_scores_obs, doublet_scores_sim = calculate_doublet_scores(
+        manifold_obs, manifold_sim, k = n_neighbors,
+        exp_doub_rate = expected_doublet_rate,
+        use_approx_neighbors = use_approx_neighbors,
+        random_state = random_state,
+    )
+
+    return (doublet_scores_obs, doublet_scores_sim, manifold_obs, manifold_sim)
 
 
 def simulate_doublets(

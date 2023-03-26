@@ -76,15 +76,20 @@ def mnc_correct(
         from multiprocess import Pool
 
         if isinstance(groupby, str): groupby = adata.obs[groupby]
-        groups = list(set(groupby))
 
-        def _func(group):
-            group_idx = [i for i, x in enumerate(groupby) if x == group]
-            return (group_idx, _mnc_correct_main(mat[group_idx, :], labels[group_idx], n_iter, n_neighbors, n_clusters))
+        group_indices = {}
+        for i, group in enumerate(groupby):
+            if group in group_indices:
+                group_indices[group].append(i)
+            else:
+                group_indices[group] = [i]
+        group_indices = [x for x in group_indices.values()]
 
+        inputs = [(mat[group_idx, :], labels[group_idx]) for group_idx in group_indices]
         with Pool(n_jobs) as p:
-            for idx, result in p.map(_func, groups):
-                mat[idx, :] = result
+            results = p.map(lambda x: _mnc_correct_main(x[0], x[1], n_iter, n_neighbors, n_clusters), inputs)
+        for idx, result in zip(group_indices, results):
+            mat[idx, :] = result
 
     if inplace:
         if add_key is None:
