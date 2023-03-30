@@ -75,6 +75,11 @@ def make_fragment_file(
     PyFlagStat
         Various statistics.
     """
+    if barcode_tag is None and barcode_regex is None:
+        raise ValueError("Either barcode_tag or barcode_regex must be set.")
+    if barcode_tag is not None and barcode_regex is not None:
+        raise ValueError("Only one of barcode_tag or barcode_regex can be set.")
+
     return internal.make_fragment_file(
         bam_file, output_file, is_paired, shift_left, shift_right, chunk_size,
         barcode_tag, barcode_regex, umi_tag, umi_regex, min_mapq,

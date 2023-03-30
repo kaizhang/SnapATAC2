@@ -286,11 +286,12 @@ def umap(
     if sample_size is not None and adata.shape[0] > sample_size:
         idx = np.random.choice(adata.shape[0], sample_size, replace=False)
         embedding = embedding[idx, :]
-        groups = groups[idx]
+        if groups is not None: groups = groups[idx]
 
-    idx = index_natsorted(groups)
-    embedding = embedding[idx, :]
-    groups = [groups[i] for i in idx]
+    if groups is not None:
+        idx = index_natsorted(groups)
+        embedding = embedding[idx, :]
+        groups = [groups[i] for i in idx]
 
     if marker_size is None:
         num_points = embedding.shape[0]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing_extensions import Literal
 
+import numpy as np
 from pathlib import Path
 import logging
 
@@ -102,7 +103,7 @@ def motif_enrichment(
             n_bg.append(bound_bg)
             N_bg.append(total_bg)
           
-    if method == "bionomial":
+    if method == "binomial":
         pval = binom.cdf(n_fg, N_fg, np.array(n_bg) / np.array(N_bg))
     elif method == "hypergeometric":
         pval = hypergeom.cdf(n_fg, N_bg, n_bg, N_fg)
