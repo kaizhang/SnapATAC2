@@ -91,7 +91,7 @@ def motif_enrichment(
             if bound_fg == 0:
                 log_fc = 0 if bound_bg == 0 else float('-inf')
             else:
-                log_fc = log2((bound_fg / total_fg) / (bound_bg / total_bg))
+                log_fc = log2((bound_fg / total_fg) / (bound_bg / total_bg)) if bound_bg > 0 else float('inf')
 
             motif_id.append(motif.id)
             motif_name.append(motif.name)
