@@ -21,10 +21,11 @@ def datasets():
             registry={
                 "atac_pbmc_500.tsv.gz": "sha256:196c5d7ee0169957417e9f4d5502abf1667ef99453328f8d290d4a7f3b205c6c",
                 "atac_pbmc_500_downsample.tsv.gz": "sha256:6053cf4578a140bfd8ce34964602769dc5f5ec6b25ba4f2db23cdbd4681b0e2f",
+
                 "atac_pbmc_5k.tsv.gz": "sha256:5fe44c0f8f76ce1534c1ae418cf0707ca5ef712004eee77c3d98d2d4b35ceaec",
-                "atac_pbmc_5k.h5ad": "sha256:a3618ec13cfc434996211b616c6aab4c78c4bf0b7f8eca770bbec576d35edc3c",
-                "atac_pbmc_5k_annotated.h5ad": "sha256:3d5f147ce13a01cd2bdc3d9d2e8cf7897ee98e44255ff12f868517dd78427a87",
-                "atac_pbmc_5k_gene.h5ad": "sha256:333f08af090c3306c681d26cce93614a71fee2a12d268b54ef1fce29fda8f078",
+                "atac_pbmc_5k.h5ad": "sha256:8e48f1506cd64eb6a8d251f0e15ebd5f1adf2920f57c0c62022d120848085204",
+                "atac_pbmc_5k_annotated.h5ad": "sha256:1fb8b5f99ad9d627a970fe954b31dc0a7392323d514f82fa60b5e7469038417c",
+                "atac_pbmc_5k_gene.h5ad": "sha256:eee516e477d37bdabf78ff0d9c9983ae741260ed39f8640751018091d7e4e951",
 
                 "colon_transverse.tar": "sha256:18c56bf405ec0ef8e0e2ea31c63bf2299f21bcb82c67f46e8f70f8d71c65ae0e",
                 "HEA_cCRE.bed.gz": "sha256:d69ae94649201cd46ffdc634852acfccc317196637c1786aba82068618001408",
@@ -52,9 +53,9 @@ def datasets():
                 "atac_pbmc_500_downsample.tsv.gz": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/b0e7e9e8-9ffb-4710-8619-73f7e5cbd10b?a=758c37e5-4832-4c91-af89-9a1a83a051b3",
 
                 "atac_pbmc_5k.tsv.gz": "https://cf.10xgenomics.com/samples/cell-atac/2.0.0/atac_pbmc_5k_nextgem/atac_pbmc_5k_nextgem_fragments.tsv.gz", 
-                "atac_pbmc_5k.h5ad": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/d90adfd1-b4b8-4dcd-8704-9ab19f104116?a=758c37e5-4832-4c91-af89-9a1a83a051b3", 
-                "atac_pbmc_5k_gene.h5ad": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_atac/atac_pbmc_5k_gene.h5ad",
-                "atac_pbmc_5k_annotated.h5ad": "http://renlab.sdsc.edu/kai/public_datasets/single_cell_atac/atac_pbmc_5k_annotated.h5ad",
+                "atac_pbmc_5k.h5ad": "https://osf.io/download/y9t83/",
+                "atac_pbmc_5k_gene.h5ad": "https://osf.io/download/vf5zj/",
+                "atac_pbmc_5k_annotated.h5ad": "https://osf.io/download/rvwhf/",
 
                 "10x-Multiome-Pbmc10k-ATAC.h5ad": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/165dfb5c-c557-42a0-bd21-1276d4d7b23e?a=758c37e5-4832-4c91-af89-9a1a83a051b3",
                 "10x-Multiome-Pbmc10k-RNA.h5ad": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/d079a087-2913-4e29-979e-638e5932bd8c?a=758c37e5-4832-4c91-af89-9a1a83a051b3", 

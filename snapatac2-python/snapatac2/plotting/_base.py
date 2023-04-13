@@ -52,7 +52,10 @@ def scatter(
         x_label: X,
         y_label: Y,
     })
-    if color is not None: df[color_label] = color
+    if color is None:
+        color_label = None
+    else:
+        df[color_label] = color
 
     fig = px.scatter(
         df, x=x_label, y=y_label, color=color_label,

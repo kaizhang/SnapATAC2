@@ -64,6 +64,7 @@ def tsse(
 
     return render_plot(fig, width, height, **kwargs)
 
+'''
 def scrublet(
     adata: AnnData,
     width: int = 800,
@@ -127,6 +128,7 @@ def scrublet(
 
     fig.update(layout_showlegend=False)
     return render_plot(fig, width, height, interactive, show, out_file)
+'''
 
 def spectral_eigenvalues(
     adata: AnnData,
@@ -215,7 +217,8 @@ def regions(
     import polars as pl
     import plotly.graph_objects as go
 
-    count = pl.DataFrame(aggregate_X(data, groupby=groupby, normalize="RPKM"))
+    count = aggregate_X(data, groupby=groupby, normalize="RPKM")
+    count = pl.DataFrame(count.X.T, schema=list(count.obs_names))
     idx = data.var_ix(np.concatenate(list(peaks.values())).tolist())
     mat = np.log2(1 + count.to_numpy()[idx, :])
 
@@ -299,11 +302,11 @@ def umap(
 
     if embedding.shape[1] >= 3:
         return scatter3d(embedding[:, 0], embedding[:, 1], embedding[:, 2], color=groups,
-            x_label="UMAP-1", y_label="UMAP-2", z_label="UMAP-3",
+            x_label="UMAP-1", y_label="UMAP-2", z_label="UMAP-3", color_label=color,
             marker_size=marker_size, marker_opacity=marker_opacity, **kwargs)
     else:
         return scatter(embedding[:, 0], embedding[:, 1], color=groups,
-            x_label="UMAP-1", y_label="UMAP-2",
+            x_label="UMAP-1", y_label="UMAP-2", color_label=color,
             marker_size=marker_size, marker_opacity=marker_opacity, **kwargs)
 
 def motif_enrichment(
@@ -353,7 +356,7 @@ def motif_enrichment(
     df = pd.DataFrame(
         pvals.T,
         columns=list(enrichment.keys()),
-        index=next(iter(enrichment.values()))['motif name'].to_numpy()[passed],
+        index=next(iter(enrichment.values()))['id'].to_numpy()[passed],
     )
       
     return heatmap(

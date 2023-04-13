@@ -76,6 +76,7 @@ def knn(
     else:
         from sklearn.neighbors import kneighbors_graph
         adj = kneighbors_graph(data, n_neighbors, mode='distance', n_jobs=n_jobs)
+        adj.sort_indices()
     
     if inplace:
         adata.obsp['distances'] = adj

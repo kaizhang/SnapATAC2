@@ -75,8 +75,10 @@ def diff_test(
     import polars as pl
 
     def to_indices(xs, type):
-        xs = [x for x in xs]
-        if all([isinstance(item, str) for item in xs]):
+        xs = [_convert_to_bool_if_np_bool(x) for x in xs]
+        if all(isinstance(x, bool) for x in xs):
+            return [i for i, value in enumerate(xs) if value]
+        elif all([isinstance(item, str) for item in xs]):
             if type == "obs":
                 if data.isbacked:
                     return data.obs_ix(xs)
@@ -259,3 +261,8 @@ def _likelihood_ratio_test(
     full = -log_loss(y, model.predict_proba(X1), normalize=False)
     chi = -2 * (reduced - full)
     return chi2.sf(chi, X1.shape[1] - X0.shape[1])
+
+def _convert_to_bool_if_np_bool(value):
+    if isinstance(value, np.bool_):
+        return bool(value)
+    return value
