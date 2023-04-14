@@ -391,9 +391,9 @@ def _eigen(X, D, k):
     return sp.sparse.linalg.eigsh(A, k=k)
 
 def multi_spectral(
-    adatas: AnnData | AnnDataSet,
+    adatas: list[AnnData] | list[AnnDataSet], 
     n_comps: int = 30,
-    features: str | np.ndarray | None = "selected",
+    features: str | list[str] | list[np.ndarray] | None = "selected",
     weights: list[float] | None = None,
     random_state: int = 0,
     weighted_by_sd: bool = True,
@@ -411,8 +411,7 @@ def multi_spectral(
     n_comps
         Number of dimensions to keep.
     features
-        Boolean index mask. True means that the feature is kept.
-        False means the feature is removed.
+        Boolean index mask. True means that the feature is kept. False means the feature is removed.
     weights
         Weights for each modality. If None, all modalities are weighted equally.
     random_state
@@ -428,7 +427,9 @@ def multi_spectral(
     np.random.seed(random_state)
 
     if isinstance(features, str):
-        features = [adata.var[features] for adata in adatas]
+        features = [features] * len(adatas)
+    if all(isinstance(f, str) for f in features):
+        features = [adata.var[feature] for adata, feature in zip(adatas, features)]
 
     if weights is None:
         weights = [1.0 for _ in adatas]

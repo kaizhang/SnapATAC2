@@ -7,15 +7,15 @@ def is_anndata(data) -> bool:
     return isinstance(data, ad.AnnData) or isinstance(data, AnnData) or isinstance(data, AnnDataSet)
 
 def anndata_par(adatas, func, n_jobs=4):
-    from multiprocess import Pool
+    from multiprocess import get_context
 
-    def _func(data):
-        if isinstance(data, ad.AnnData):
-            result = func(data)
+    def _func(input):
+        if isinstance(input, ad.AnnData):
+            result = func(input)
         else:
-            data = read(data)
-            result = func(data)
-            data.close() 
+            adata = read(input)
+            result = func(adata)
+            adata.close() 
         return result
 
     adatas_list = []
@@ -26,7 +26,7 @@ def anndata_par(adatas, func, n_jobs=4):
             adatas_list.append(data.filename)
             data.close()
 
-    with Pool(n_jobs) as p:
+    with get_context("spawn").Pool(n_jobs) as p:
         result = p.map(_func, adatas_list)
     
     for data in adatas:
