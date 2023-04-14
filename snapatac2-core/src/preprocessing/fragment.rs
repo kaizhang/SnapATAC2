@@ -131,9 +131,13 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>>(
     .into_fragments(&header)
     .for_each(|rec| match rec {
         Either::Left(mut x) => {
-            x.set_start(x.start().saturating_add_signed(shift_left));
-            x.set_end(x.end().saturating_add_signed(shift_right));
-            writeln!(output, "{}", x).unwrap();
+            let new_start = x.start().saturating_add_signed(shift_left);
+            let new_end = x.end().saturating_add_signed(shift_right);
+            if new_start < new_end {
+                x.set_start(new_start);
+                x.set_end(new_end);
+                writeln!(output, "{}", x).unwrap();
+            }
         }
         Either::Right(x) => writeln!(output, "{}", x).unwrap(),
     });

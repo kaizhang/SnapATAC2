@@ -48,7 +48,7 @@ def test_backed(tmp_path):
     snap.pp.knn(data)
     snap.tl.leiden(data)
 
-    snap.pp.make_gene_matrix(data, gff_file=snap.genome.hg38, file = h5ad(tmp_path))
+    snap.pp.make_gene_matrix(data, gene_anno=snap.genome.hg38, file = h5ad(tmp_path))
 
 def test_in_memory():
     fragment_file = snap.datasets.pbmc500(True)
@@ -68,4 +68,4 @@ def test_in_memory():
     snap.pp.knn(data)
     snap.tl.leiden(data)
 
-    snap.pp.make_gene_matrix(data, gff_file=snap.genome.hg38)
+    snap.pp.make_gene_matrix(data, gene_anno=snap.genome.hg38)

@@ -101,6 +101,7 @@ impl BarcodeLocation {
     }
 }
 
+/// Minimal information about an alignment extracted from the BAM record.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct AlignmentInfo {
     name: String,
