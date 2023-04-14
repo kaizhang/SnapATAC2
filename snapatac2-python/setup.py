@@ -40,7 +40,7 @@ setup(
         "numpy>=1.16.0",
         "pandas",
         "plotly>=5.6.0",
-        "polars>=0.14.0",
+        "polars>=0.14.0, <=0.18.0",
         "pooch>=1.6.0",
         "igraph>=0.10.0",
         "pynndescent",

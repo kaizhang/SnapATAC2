@@ -426,7 +426,7 @@ def multi_spectral(
     """
     np.random.seed(random_state)
 
-    if isinstance(features, str):
+    if features is None or isinstance(features, str):
         features = [features] * len(adatas)
     if all(isinstance(f, str) for f in features):
         features = [adata.var[feature] for adata, feature in zip(adatas, features)]
