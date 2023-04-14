@@ -177,7 +177,7 @@ fn moving_average(half_window: usize, arr: &[u64]) -> impl Iterator<Item = f64> 
     })
 }
 
-/// Read tss from a gtf file
+/// Read tss from a gtf or gff file
 pub fn read_tss<R: Read>(file: R) -> impl Iterator<Item = (String, u64, bool)> {
     let reader = BufReader::new(file);
     reader.lines().filter_map(|line| {

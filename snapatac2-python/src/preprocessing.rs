@@ -4,14 +4,14 @@ use anndata::Backend;
 use anndata_hdf5::H5;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::path::PathBuf;
-use std::{io::BufReader, str::FromStr, collections::BTreeMap, ops::Deref, collections::HashSet};
+use std::{str::FromStr, collections::BTreeMap, ops::Deref, collections::HashSet};
 use pyo3::prelude::*;
 use bed_utils::{bed, bed::GenomicRange};
 use pyanndata::PyAnnData;
 use anyhow::Result;
 
 use snapatac2_core::{
-    preprocessing::{Fragment, FlagStat, read_transcripts},
+    preprocessing::{Fragment, FlagStat},
     preprocessing,
 };
 
@@ -241,7 +241,7 @@ pub(crate) fn mk_gene_matrix(
     out: Option<AnnDataLike>,
 ) -> Result<()>
 {
-    let transcripts = read_transcripts(BufReader::new(open_file(gff_file)));
+    let transcripts = read_transcripts(gff_file);
     macro_rules! run {
         ($data:expr) => {
             if let Some(out) = out {

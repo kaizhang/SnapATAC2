@@ -18,7 +18,7 @@ jobs:
 
        CIBW_ARCHS_LINUX: "auto64"
        CIBW_ENVIRONMENT: 'PATH="$PATH:$HOME/.cargo/bin"'
-       CIBW_SKIP: "cp36-* pp* *-win32 *-musllinux*"
+       CIBW_SKIP: "cp36-* cp311-* pp* *-win32 *-musllinux*"
        CIBW_TEST_REQUIRES: pytest hypothesis
        CIBW_TEST_COMMAND: "pytest {project}/snapatac2-python/tests"
 

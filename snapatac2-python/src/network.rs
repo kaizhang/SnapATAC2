@@ -1,16 +1,15 @@
-use crate::utils::open_file;
+use crate::utils::read_transcripts;
 
 use pyo3::prelude::*;
 
 use snapatac2_core::{
     network::link_region_to_promoter,
-    preprocessing::{Promoters, read_transcripts},
+    preprocessing::Promoters,
 };
 use bed_utils::bed::GenomicRange;
 use std::{
     str::FromStr,
     collections::HashMap,
-    io::BufReader,
 };
 
 #[pyfunction]
@@ -24,7 +23,7 @@ pub(crate) fn link_region_to_gene(
 ) -> HashMap<(String, String), Vec<(String, String, u64)>>
 {
     let promoters = Promoters::new(
-        read_transcripts(BufReader::new(open_file(annot_fl))).into_iter()
+        read_transcripts(annot_fl).into_iter()
             .filter(|x| if coding_gene_only { x.is_coding.unwrap_or(true) } else { true })
             .collect(),
         upstream,

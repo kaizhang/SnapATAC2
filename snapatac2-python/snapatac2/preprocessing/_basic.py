@@ -90,7 +90,7 @@ def import_data(
     *,
     file: Path | None = None,
     genome: Genome | None = None,
-    gff_file: Path | None = None,
+    gene_anno: Path | None = None,
     chrom_size: dict[str, int] | None = None,
     min_num_fragments: int = 200,
     min_tsse: float = 1,
@@ -123,10 +123,10 @@ def import_data(
         A Genome object, providing gene annotation and chromosome sizes.
         If not set, `gff_file` and `chrom_size` must be provided.
         `genome` has lower priority than `gff_file` and `chrom_size`.
-    gff_file
-        File name of the gene annotation file in GFF format.
+    gene_anno
+        File name of the gene annotation file in GFF or GTF format.
         This is required if `genome` is not set.
-        Setting `gff_file` will override the `genome` parameter.
+        Setting `gene_anno` will override the `genome` parameter.
     chrom_size
         A dictionary containing chromosome sizes, for example,
         `{"chr1": 2393, "chr2": 2344, ...}`.
@@ -172,8 +172,8 @@ def import_data(
     if genome is not None:
         if chrom_size is None:
             chrom_size = genome.chrom_sizes
-        if gff_file is None:
-            gff_file = genome.fetch_annotations()
+        if gene_anno is None:
+            gene_anno = genome.fetch_annotations()
 
     if whitelist is not None:
         if isinstance(whitelist, str) or isinstance(whitelist, Path):
@@ -184,7 +184,7 @@ def import_data(
         
     adata = ad.AnnData() if file is None else AnnData(filename=file, backend=backend)
     internal.import_fragments(
-        adata, fragment_file, gff_file, chrom_size, min_num_fragments,
+        adata, fragment_file, gene_anno, chrom_size, min_num_fragments,
         min_tsse, sorted_by_barcode, low_memory, shift_left, shift_right,
         chunk_size, whitelist, tempdir,
     )
@@ -343,7 +343,7 @@ def make_peak_matrix(
 
 def make_gene_matrix(
     adata: AnnData | AnnDataSet,
-    gff_file: Genome | Path,
+    gene_anno: Genome | Path,
     *,
     inplace: bool = False,
     file: Path | None = None,
@@ -363,8 +363,8 @@ def make_gene_matrix(
     adata
         The (annotated) data matrix of shape `n_obs` x `n_vars`.
         Rows correspond to cells and columns to regions.
-    gff_file
-        Either a Genome object or the path of a gene annotation file in GFF format.
+    gene_anno
+        Either a Genome object or the path of a gene annotation file in GFF or GTF format.
     file
         File name of the h5ad file used to store the result.
     chunk_size
@@ -380,11 +380,11 @@ def make_gene_matrix(
     AnnData
         A new AnnData object, where rows correspond to cells and columns to genes.
     """
-    if isinstance(gff_file, Genome):
-        gff_file = gff_file.fetch_annotations()
+    if isinstance(gene_anno, Genome):
+        gene_anno = gene_anno.fetch_annotations()
 
     if inplace:
-        internal.mk_gene_matrix(adata, gff_file, chunk_size, use_x, id_type, None)
+        internal.mk_gene_matrix(adata, gene_anno, chunk_size, use_x, id_type, None)
     else:
         if file is None:
             if adata.isbacked:
@@ -393,7 +393,7 @@ def make_gene_matrix(
                 out = ad.AnnData(obs=adata.obs[:])
         else:
             out = AnnData(filename=file, backend=backend, obs=adata.obs[:])
-        internal.mk_gene_matrix(adata, gff_file, chunk_size, use_x, id_type, out)
+        internal.mk_gene_matrix(adata, gene_anno, chunk_size, use_x, id_type, out)
         return out
 
 def filter_cells(

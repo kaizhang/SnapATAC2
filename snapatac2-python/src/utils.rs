@@ -8,9 +8,11 @@ use pyo3::{
     PyResult, Python,
 };
 use numpy::{Element, PyReadonlyArrayDyn, PyReadonlyArray, Ix1, Ix2, PyArray, IntoPyArray};
+use snapatac2_core::preprocessing::{Transcript, read_transcripts_from_gff, read_transcripts_from_gtf};
 use snapatac2_core::utils::similarity;
 
 use bed_utils::{bed, bed::GenomicRange, bed::BED};
+use std::io::BufReader;
 use std::{str::FromStr, fs::File};
 use std::path::Path;
 use flate2::read::MultiGzDecoder;
@@ -307,4 +309,20 @@ pub(crate) fn open_file<P: AsRef<Path>>(file: P) -> Box<dyn std::io::Read> {
 /// Determine if a file is gzipped.
 pub(crate) fn is_gzipped<P: AsRef<Path>>(file: P) -> bool {
     MultiGzDecoder::new(File::open(file).unwrap()).header().is_some()
+}
+
+pub fn read_transcripts<P: AsRef<std::path::Path>>(file_path: P) -> Vec<Transcript> {
+    let path = if file_path.as_ref().extension().unwrap() == "gz" {
+        file_path.as_ref().file_stem().unwrap().as_ref()
+    } else {
+        file_path.as_ref()
+    };
+    if path.extension().unwrap() == "gff" {
+        read_transcripts_from_gff(BufReader::new(open_file(file_path))).unwrap()
+    } else if path.extension().unwrap() == "gtf" {
+        read_transcripts_from_gtf(BufReader::new(open_file(file_path))).unwrap()
+    } else {
+        read_transcripts_from_gff(BufReader::new(open_file(file_path.as_ref())))
+            .unwrap_or_else(|_| read_transcripts_from_gtf(BufReader::new(open_file(file_path))).unwrap())
+    }
 }

@@ -9,6 +9,7 @@ logging.info("Import data - begin")
 data = snap.pp.import_data(
     fragment_file,
     genome=snap.genome.hg38,
+    gene_anno="/home/kaizhang/data/genome/GRCh38/gencode.v33.basic.annotation.gtf",
     file="pbmc.h5ad",
     sorted_by_barcode=False,
     low_memory=False,
@@ -56,7 +57,7 @@ print("######################################################\n")
 print("######################################################")
 logging.info("scrublet - begin")
 snap.pp.scrublet(data)
-snap.pp.call_doublets(data)
+snap.pp.filter_doublets(data)
 print(data)
 logging.info("scrublet - OK")
 print("######################################################\n")
@@ -106,7 +107,16 @@ print("######################################################\n")
 
 print("######################################################")
 logging.info("make gene matrix - begin")
-snap.pp.make_gene_matrix(data, gff_file=snap.genome.hg38, file = "gene_matrix.h5ad", use_x = True)
-snap.pp.make_gene_matrix(data, gff_file=snap.genome.hg38, file = "gene_matrix.h5ad")
+snap.pp.make_gene_matrix(
+    data, 
+    gene_anno="/home/kaizhang/data/genome/GRCh38/gencode.v33.basic.annotation.gtf",
+    file = "gene_matrix.h5ad",
+    use_x = True
+)
+snap.pp.make_gene_matrix(
+    data,
+    gene_anno=snap.genome.hg38,
+    file = "gene_matrix.h5ad"
+)
 logging.info("make gene matrix - OK")
 print("######################################################\n")

@@ -79,7 +79,7 @@ impl BarcodeLocation {
     pub fn extract(&self, rec: &Record) -> Result<String> {
         match self {
             BarcodeLocation::InData(tag) => match Data::try_from(rec.data())?
-                .get(*tag).ok_or(anyhow!("No data: {}", tag))?.value()
+                .get(*tag).ok_or(anyhow!("No data: {}", tag))?
                 {
                     Value::String(barcode) => Ok(barcode.to_string()),
                     _ => bail!("Not a String"),
@@ -463,7 +463,7 @@ where
                 (rec2_5p, rec1_5p)
             };
             Some(Either::Left(BED::new(
-                header.reference_sequences()[ref_id1].name().as_str(),
+                header.reference_sequences().get_index(ref_id1).unwrap().0.as_str(),
                 start as u64 - 1,
                 end as u64,
                 Some(rec1.barcode.as_ref().unwrap().clone()),
@@ -481,7 +481,7 @@ where
         rm_dup_single(reads).map(move |(r, c)| {
             let ref_id: usize = r.reference_sequence_id.try_into().unwrap();
             Either::Right(BED::new(
-                header.reference_sequences()[ref_id].name().as_str(),
+                header.reference_sequences().get_index(ref_id).unwrap().0.as_str(),
                 r.alignment_start as u64 - 1,
                 r.alignment_end as u64,
                 Some(r.barcode.as_ref().unwrap().clone()),

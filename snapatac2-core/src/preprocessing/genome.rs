@@ -4,10 +4,7 @@ use anndata::{AnnDataOp, ElemCollectionOp, AxisArraysOp, AnnDataSet, Backend, An
 use indexmap::IndexSet;
 use polars::frame::DataFrame;
 use nalgebra_sparse::CsrMatrix;
-use noodles::{
-    core::Position,
-    gff::{record::Strand, Reader},
-};
+use noodles::{core::Position, gff, gff::record::Strand, gtf};
 use num::{traits::{FromPrimitive, Zero}, integer::div_ceil};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use anyhow::{Result, Context};
@@ -22,7 +19,7 @@ use crate::utils::from_csr_rows;
 
 use super::counter::FeatureCounter;
 
-/// Position is 0-based.
+/// Position is 1-based.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Transcript {
     pub transcript_name: Option<String>,
@@ -34,6 +31,96 @@ pub struct Transcript {
     pub left: Position,
     pub right: Position,
     pub strand: Strand,
+}
+
+impl TryFrom<gtf::Record> for Transcript {
+    type Error = anyhow::Error;
+
+    fn try_from(record: gtf::Record) -> Result<Self, Self::Error> {
+        if record.ty() != "transcript" {
+            return Err(anyhow::anyhow!("record is not a transcript"));
+        }
+
+        let err_msg =
+            |x: &str| -> String { format!("failed to find '{}' in record: {}", x, record) };
+
+        let left = record.start();
+        let right = record.end();
+        let attributes: HashMap<&str, &str> = record
+            .attributes()
+            .iter()
+            .map(|x| (x.key(), x.value()))
+            .collect();
+        Ok(Transcript {
+            transcript_name: attributes.get("transcript_name").map(|x| x.to_string()),
+            transcript_id: attributes
+                .get("transcript_id")
+                .expect(&err_msg("transcript_id"))
+                .to_string(),
+            gene_name: attributes
+                .get("gene_name")
+                .expect(&err_msg("gene_name"))
+                .to_string(),
+            gene_id: attributes
+                .get("gene_id")
+                .expect(&err_msg("gene_id"))
+                .to_string(),
+            is_coding: attributes
+                .get("transcript_type")
+                .map(|x| *x == "protein_coding"),
+            chrom: record.reference_sequence_name().to_string(),
+            left,
+            right,
+            strand: match record.strand() {
+                None => Strand::None,
+                Some(gtf::record::Strand::Forward) => Strand::Forward,
+                Some(gtf::record::Strand::Reverse) => Strand::Reverse,
+            },
+        })
+    }
+}
+
+impl TryFrom<gff::Record> for Transcript {
+    type Error = anyhow::Error;
+
+    fn try_from(record: gff::Record) -> Result<Self, Self::Error> {
+        if record.ty() != "transcript" {
+            return Err(anyhow::anyhow!("record is not a transcript"));
+        }
+
+        let err_msg =
+            |x: &str| -> String { format!("failed to find '{}' in record: {}", x, record) };
+
+        let left = record.start();
+        let right = record.end();
+        let attributes: HashMap<&str, &str> = record
+            .attributes()
+            .iter()
+            .map(|x| (x.key(), x.value()))
+            .collect();
+        Ok(Transcript {
+            transcript_name: attributes.get("transcript_name").map(|x| x.to_string()),
+            transcript_id: attributes
+                .get("transcript_id")
+                .expect(&err_msg("transcript_id"))
+                .to_string(),
+            gene_name: attributes
+                .get("gene_name")
+                .expect(&err_msg("gene_name"))
+                .to_string(),
+            gene_id: attributes
+                .get("gene_id")
+                .expect(&err_msg("gene_id"))
+                .to_string(),
+            is_coding: attributes
+                .get("transcript_type")
+                .map(|x| *x == "protein_coding"),
+            chrom: record.reference_sequence_name().to_string(),
+            left,
+            right,
+            strand: record.strand(),
+        })
+    }
 }
 
 impl Transcript {
@@ -48,51 +135,32 @@ impl Transcript {
     }
 }
 
-pub fn read_transcripts<R>(input: R) -> Vec<Transcript>
+pub fn read_transcripts_from_gtf<R>(input: R) -> Result<Vec<Transcript>>
 where
     R: BufRead,
 {
-    Reader::new(input)
+    gtf::Reader::new(input)
         .records()
-        .flat_map(|r| {
-            let record = r.unwrap();
-            if record.ty() == "transcript" {
-                let err_msg =
-                    |x: &str| -> String { format!("failed to find '{}' in record: {}", x, record) };
-                let left = record.start();
-                let right = record.end();
-                let attributes: HashMap<&str, &str> = record
-                    .attributes()
-                    .iter()
-                    .map(|x| (x.key(), x.value()))
-                    .collect();
-                Some(Transcript {
-                    transcript_name: attributes.get("transcript_name").map(|x| x.to_string()),
-                    transcript_id: attributes
-                        .get("transcript_id")
-                        .expect(&err_msg("transcript_id"))
-                        .to_string(),
-                    gene_name: attributes
-                        .get("gene_name")
-                        .expect(&err_msg("gene_name"))
-                        .to_string(),
-                    gene_id: attributes
-                        .get("gene_id")
-                        .expect(&err_msg("gene_id"))
-                        .to_string(),
-                    is_coding: attributes
-                        .get("transcript_type")
-                        .map(|x| *x == "protein_coding"),
-                    chrom: record.reference_sequence_name().to_string(),
-                    left,
-                    right,
-                    strand: record.strand(),
-                })
-            } else {
-                None
+        .try_fold(Vec::new(), |mut acc, rec| {
+            if let Ok(transcript) = rec?.try_into() {
+                acc.push(transcript);
             }
+            Ok(acc)
         })
-        .collect()
+}
+
+pub fn read_transcripts_from_gff<R>(input: R) -> Result<Vec<Transcript>>
+where
+    R: BufRead,
+{
+    gff::Reader::new(input)
+        .records()
+        .try_fold(Vec::new(), |mut acc, rec| {
+            if let Ok(transcript) = rec?.try_into() {
+                acc.push(transcript);
+            }
+            Ok(acc)
+        })
 }
 
 pub struct Promoters {
@@ -719,11 +787,18 @@ mod tests {
 
     #[test]
     fn test_read_transcript() {
-        let input = "chr1\tHAVANA\tgene\t11869\t14409\t.\t+\t.\tgene_id=ENSG00000223972.5;gene_type=transcribed_unprocessed_pseudogene;gene_name=DDX11L1;level=2;hgnc_id=HGNC:37102;havana_gene=OTTHUMG00000000961.2\n\
+        let gff = "chr1\tHAVANA\tgene\t11869\t14409\t.\t+\t.\tgene_id=ENSG00000223972.5;gene_type=transcribed_unprocessed_pseudogene;gene_name=DDX11L1;level=2;hgnc_id=HGNC:37102;havana_gene=OTTHUMG00000000961.2\n\
                      chr1\tHAVANA\ttranscript\t11869\t14409\t.\t+\t.\tgene_id=ENSG00000223972.5;transcript_id=ENST00000456328.2;gene_type=transcribed_unprocessed_pseudogene;gene_name=DDX11L1;transcript_type=processed_transcript;transcript_name=DDX11L1-202;level=2;transcript_support_level=1\n\
                      chr1\tHAVANA\texon\t11869\t12227\t.\t+\t.\tgene_id=ENSG00000223972.5;transcript_id=ENST00000456328.2;gene_type=transcribed_unprocessed_pseudogene;gene_name=DDX11L1;transcript_type=processed_transcript;transcript_name=DDX11L1-202;exon_number=1\n\
                      chr1\tHAVANA\texon\t12613\t12721\t.\t+\t.\tgene_id=ENSG00000223972.5;transcript_id=ENST00000456328.2;gene_type=transcribed_unprocessed_pseudogene;gene_name=DDX11L1;transcript_type=processed_transcript;transcript_name=DDX11L1-202;exon_number=2\n\
                      chr1\tHAVANA\texon\t13221\t14409\t.\t+\t.\tgene_id=ENSG00000223972.5;transcript_id=ENST00000456328.2;gene_type=transcribed_unprocessed_pseudogene;gene_name=DDX11L1;transcript_type=processed_transcript;transcript_name=DDX11L1-202;exon_number=3";
+        
+        let gtf = "chr1\tHAVANA\tgene\t11869\t14409\t.\t+\t.\tgene_id \"ENSG00000223972.5\"; gene_type \"transcribed_unprocessed_pseudogene\"; gene_name \"DDX11L1\"; level 2; hgnc_id \"HGNC:37102\"; havana_gene \"OTTHUMG00000000961.2\";\n\
+            chr1\tHAVANA\ttranscript\t11869\t14409\t.\t+\t.\tgene_id \"ENSG00000223972.5\"; transcript_id \"ENST00000456328.2\"; gene_type \"transcribed_unprocessed_pseudogene\"; gene_name \"DDX11L1\"; transcript_type \"processed_transcript\"; transcript_name \"DDX11L1-202\"; level 2; transcript_support_level \"1\"; hgnc_id \"HGNC:37102\"; tag \"basic\"; havana_gene \"OTTHUMG00000000961.2\"; havana_transcript \"OTTHUMT00000362751.1\";\n\
+            chr1\tHAVANA\texon\t11869\t12227\t.\t+\t.\tgene_id \"ENSG00000223972.5\"; transcript_id \"ENST00000456328.2\"; gene_type \"transcribed_unprocessed_pseudogene\"; gene_name \"DDX11L1\"; transcript_type \"processed_transcript\"; transcript_name \"DDX11L1-202\"; exon_number 1; exon_id \"ENSE00002234944.1\"; level 2; transcript_support_level \"1\"; hgnc_id \"HGNC:37102\"; tag \"basic\"; havana_gene \"OTTHUMG00000000961.2\"; havana_transcript \"OTTHUMT00000362751.1\";\n\
+            chr1\tHAVANA\texon\t12613\t12721\t.\t+\t.\tgene_id \"ENSG00000223972.5\"; transcript_id \"ENST00000456328.2\"; gene_type \"transcribed_unprocessed_pseudogene\"; gene_name \"DDX11L1\"; transcript_type \"processed_transcript\"; transcript_name \"DDX11L1-202\"; exon_number 2; exon_id \"ENSE00003582793.1\"; level 2; transcript_support_level \"1\"; hgnc_id \"HGNC:37102\"; tag \"basic\"; havana_gene \"OTTHUMG00000000961.2\"; havana_transcript \"OTTHUMT00000362751.1\";\n\
+            chr1\tHAVANA\texon\t13221\t14409\t.\t+\t.\tgene_id \"ENSG00000223972.5\"; transcript_id \"ENST00000456328.2\"; gene_type \"transcribed_unprocessed_pseudogene\"; gene_name \"DDX11L1\"; transcript_type \"processed_transcript\"; transcript_name \"DDX11L1-202\"; exon_number 3; exon_id \"ENSE00002312635.1\"; level 2; transcript_support_level \"1\"; hgnc_id \"HGNC:37102\"; tag \"basic\"; havana_gene \"OTTHUMG00000000961.2\"; havana_transcript \"OTTHUMT00000362751.1\";";
+
         let expected = Transcript {
             transcript_name: Some("DDX11L1-202".to_string()),
             transcript_id: "ENST00000456328.2".to_string(),
@@ -735,6 +810,7 @@ mod tests {
             right: Position::try_from(14409).unwrap(),
             strand: Strand::Forward,
         };
-        assert_eq!(read_transcripts(input.as_bytes())[0], expected)
+        assert_eq!(read_transcripts_from_gff(gff.as_bytes()).unwrap()[0], expected);
+        assert_eq!(read_transcripts_from_gtf(gtf.as_bytes()).unwrap()[0], expected);
     }
 }
