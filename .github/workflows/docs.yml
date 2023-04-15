@@ -16,12 +16,14 @@ jobs:
     steps:
     - name: Update SnapATAC Version_PATH
       if: ${{ startsWith(github.ref, 'refs/tags/') }}
-      run: echo SnapATAC_Version_PATH=/version/$(echo $GITHUB_REF | cut -d / -f 3 | cut -d v -f 2- | cut -d . -f 1,2)/ >> $GITHUB_ENV
+      run: |
+        VERSION_NUMBER=$(echo ${GITHUB_REF} | sed 's/refs\/tags\/v//')
+        echo "SnapATAC_Version_PATH=/version/$VERSION_NUMBER" >> $GITHUB_ENV
 
     - name: Checkout code
       uses: nschloe/action-cached-lfs-checkout@v1
 
-    - uses: actions/setup-python@v2
+    - uses: actions/setup-python@v4
       name: Install Python
       with:
           python-version: '3.10'
