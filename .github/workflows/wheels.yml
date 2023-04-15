@@ -9,7 +9,7 @@ jobs:
     if: ${{ startsWith(github.ref, 'refs/tags/') || contains(github.event.head_commit.message, 'wheel') }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-10.15]
+        os: [ubuntu-latest, macos-11]
     env:
        CIBW_BUILD_VERBOSITY: 1
        CIBW_BEFORE_ALL_LINUX: >

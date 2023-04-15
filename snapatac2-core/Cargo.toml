@@ -12,7 +12,7 @@ keywords = ["single-cell", "biology"]
 
 [dependencies]
 #anndata = { path = "../../anndata-rs/anndata" }
-anndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "3384f7a01a246ff57c43ed62d73845bf42ead2da" }
+anndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "1aba156d6c2f63c16433c7385fd26a8960162283" }
 anyhow = "1.0"
 bigtools = "0.1"
 bincode = "1.3"

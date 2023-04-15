@@ -1,13 +1,14 @@
 SnapATAC2: A Python/Rust package for single-cell epigenomics analysis
 =====================================================================
 
-SnapATAC2 is the successor of the SnapATAC R package, featuring:
+SnapATAC2 is a flexible, versatile, and scalable single-cell omics analysis framework, featuring:
 
-- Faster and less memory usage than the R version and other alternatives, scale to >1M cells.
+- Scale to more than 10 million cells.
 - Blazingly fast preprocessing tools for BAM to fragment files conversion and count matrix generation.
-- One of the best dimension reduction algorithms for single-cell ATAC data.
-- End-to-end analysis pipeline, including preprocessing, dimension reduction, clustering, data integration, peak calling, differential analysis, motif analysis, regulatory network analysis.
-- Seamless integration with other single-cell analysis packages such as scanpy.
+- Matrix-free spectral embedding algorithm that is applicable to a wide range of single-cell omics data, including single-cell ATAC-seq, single-cell RNA-seq, single-cell Hi-C, and single-cell methylation.
+- Efficient and scalable co-embedding algorithm for single-cell multi-omics data integration.
+- End-to-end analysis pipeline for single-cell ATAC-seq data, including preprocessing, dimension reduction, clustering, data integration, peak calling, differential analysis, motif analysis, regulatory network analysis.
+- Seamless integration with other single-cell analysis packages such as Scanpy.
 - Implementation of fully backed AnnData.
 
 How to cite
