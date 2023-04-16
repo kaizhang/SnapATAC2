@@ -6,31 +6,20 @@ on:
     types: 
       - completed
 
-env:
-  SnapATAC_Version_PATH: /
-
 jobs:
   build_docs:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
-    - name: Update SnapATAC Version_PATH
-      if: ${{ startsWith(github.ref, 'refs/tags/') }}
-      run: |
-        VERSION_NUMBER=$(echo ${GITHUB_REF} | sed 's/refs\/tags\/v//')
-        echo "SnapATAC_Version_PATH=/version/$VERSION_NUMBER" >> $GITHUB_ENV
-
     - name: Checkout code
       uses: nschloe/action-cached-lfs-checkout@v1
+      with:
+        ref: ${{ github.event.workflow_run.head_sha }}
 
     - uses: actions/setup-python@v4
       name: Install Python
       with:
           python-version: '3.10'
-
-    - uses: ./.github/actions/setup-rust
-      with:
-        cache: true
 
     - name: Install dependency
       run: |
@@ -40,23 +29,49 @@ jobs:
           Pygments==2.13.0 sphinx-autodoc-typehints myst-parser \
           markupsafe==2.0.1 sphinx-plotly-directive
 
-    - name: Build Python package
-      run: |
-        cd ${GITHUB_WORKSPACE}/snapatac2-python
-        pip install -e .
+    - name: Download wheel files from artifacts
+      id: download-artifact
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        workflow: ci.yml
+        commit: ${{ github.event.workflow_run.head_sha }}
+        name: wheel-files
+        path: wheel_files
+
+    - name: Install wheel files
+      run: pip install --user wheel_files/*.whl
 
     - name: Build doc
       run: sphinx-build ${GITHUB_WORKSPACE}/docs _build/html
 
+    - name: Get SnapATAC2 version
+      id: get_version
+      run: |
+        BRANCH_NAME=${{ github.event.workflow_run.head_branch }}
+        VERSION_NUMBER=$(python -c "import snapatac2;print(snapatac2.__version__)")
+        echo $VERSION_NUMBER
+        echo "VERSION=$VERSION_NUMBER" >> $GITHUB_ENV
+        if [[ $BRANCH_NAME =~ ^v[0-9]+ ]]; then
+          echo "DEPLOY_VERSION=true" >> $GITHUB_ENV
+          echo $DEPLOY_VERSION
+        fi
+
     - name: Deploy 🚀
       uses: JamesIves/github-pages-deploy-action@v4
-      if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags')
+      if: ${{ env.DEPLOY_VERSION != 'true' }}
       with:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         single-commit: true
         branch: gh-pages
         folder: _build/html
-        target_folder: ${{ env.SnapATAC_Version_PATH }}
         clean: true
-        clean-exclude: |
-          version
+        clean-exclude: version
+
+    - name: Deploy (version)
+      uses: JamesIves/github-pages-deploy-action@v4
+      if: ${{ env.DEPLOY_VERSION == 'true' }}
+      with:
+        single-commit: true
+        branch: gh-pages
+        folder: _build/html
+        target-folder: /version/${{ env.VERSION }}/
+        clean: true

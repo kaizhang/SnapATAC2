@@ -8,34 +8,6 @@ inputs:
 runs:
   using: "composite"
   steps: 
-    - name: Install sccache (Linux)
-      if: ${{ runner.os == 'Linux' && inputs.cache }}
-      shell: bash
-      env:
-        LINK: https://github.com/mozilla/sccache/releases/download
-        SCCACHE_VERSION: v0.3.1
-      run: |
-        SCCACHE_FILE=sccache-$SCCACHE_VERSION-x86_64-unknown-linux-musl
-        mkdir -p $HOME/.local/bin
-        curl -L "$LINK/$SCCACHE_VERSION/$SCCACHE_FILE.tar.gz" | tar xz
-        mv -f $SCCACHE_FILE/sccache $HOME/.local/bin/sccache
-        chmod +x $HOME/.local/bin/sccache
-        echo "$HOME/.local/bin" >> $GITHUB_PATH          
-
-    - name: Install sccache (macOS)
-      if: ${{ runner.os == 'macOS' && inputs.cache }}
-      shell: bash
-      run: |
-        brew update
-        brew install sccache     
-
-    - name: Set sccache environment variables
-      if: ${{ inputs.cache }}
-      shell: bash
-      run: |
-        echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
-        echo "SCCACHE_DIR=/home/runner/.cache/sccache" >> $GITHUB_ENV
-
     - name: Install Rust
       uses: actions-rs/toolchain@v1
       with:
@@ -51,16 +23,8 @@ runs:
         path: |
           ~/.cargo/registry
           ~/.cargo/git            
+          snapatac2-core/target/  
+          snapatac2-python/target/  
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: |
           ${{ runner.os }}-cargo-
-
-    - name: Save sccache
-      uses: actions/cache@v3
-      if: ${{ inputs.cache }}
-      continue-on-error: false
-      with:
-        path: /home/runner/.cache/sccache
-        key: ${{ runner.os }}-sccache-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-sccache-

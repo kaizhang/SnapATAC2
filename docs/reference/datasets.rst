@@ -34,6 +34,7 @@ Motifs
     :toctree: _autosummary
 
     datasets.cis_bp
+    datasets.Meuleman_2020
 
 Raw data
 ~~~~~~~~
@@ -41,7 +42,8 @@ Raw data
 .. autosummary::
     :toctree: _autosummary
 
+    datasets.pbmc500
     datasets.pbmc5k
-    datasets.pbmc_multiome
+    datasets.pbmc10k_multiome
     datasets.colon
     datasets.cre_HEA

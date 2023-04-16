@@ -8,7 +8,6 @@ Plotting: `pl`
 
     pl.tsse
     pl.spectral_eigenvalues
-    pl.scrublet
     pl.umap
     pl.motif_enrichment
     pl.regions
