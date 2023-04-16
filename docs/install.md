@@ -62,7 +62,7 @@ use `pip install .` to install the package.
 
 ```
 git clone https://github.com/kaizhang/SnapATAC2.git
-cd snapatac2-python
+cd SnapATAC2/snapatac2-python
 pip install .
 ```
 
