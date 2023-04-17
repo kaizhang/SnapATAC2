@@ -26,7 +26,7 @@ jobs:
     - name: Test Rust package
       run: |
         cd ${GITHUB_WORKSPACE}/snapatac2-core
-        cargo test --release --all --no-fail-fast
+        cargo test --release --all --no-fail-fast --features anndata-rs/static
 
     - name: Build wheel files
       run: |
