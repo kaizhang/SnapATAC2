@@ -9,7 +9,7 @@ jobs:
     - name: Checkout code
       uses: nschloe/action-cached-lfs-checkout@v1
 
-    - uses: actions/setup-python@v2
+    - uses: actions/setup-python@v4
       name: Install Python
       with:
           python-version: '3.10'
@@ -18,22 +18,32 @@ jobs:
       with:
         cache: true
 
-    - name: Install dependency
+    - name: Install dependencies
       run: |
         sudo pip install --upgrade pip
-        pip install --user coverage pytest hypothesis
+        pip install --user coverage pytest hypothesis wheel
 
     - name: Test Rust package
       run: |
         cd ${GITHUB_WORKSPACE}/snapatac2-core
-        cargo test --release --all --no-fail-fast --features anndata-rs/static
+        cargo test --release --all --no-fail-fast
+
+    - name: Build wheel files
+      run: |
+        cd ${GITHUB_WORKSPACE}/snapatac2-python
+        mkdir ${GITHUB_WORKSPACE}/wheel_files
+        pip wheel . --wheel-dir ${GITHUB_WORKSPACE}/wheel_files
 
     - name: Test Python package
       run: |
-        cd ${GITHUB_WORKSPACE}/snapatac2-python
-        pip install -e .
+        pip install --user ${GITHUB_WORKSPACE}/wheel_files/*.whl
         coverage run -m pytest ${GITHUB_WORKSPACE}/snapatac2-python/tests
-        mv .coverage ${GITHUB_WORKSPACE}
 
     - name: Upload Coverage to Codecov
       uses: codecov/codecov-action@v3
+
+    - name: Upload wheel files as artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: wheel-files
+        path: ./wheel_files/snapatac2*.whl
