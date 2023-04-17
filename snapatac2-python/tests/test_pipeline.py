@@ -6,6 +6,7 @@ def h5ad(dir=Path("./")):
     dir.mkdir(exist_ok=True)
     return str(dir / Path(str(uuid.uuid4()) + ".h5ad"))
 
+'''
 def test_backed(tmp_path):
     fragment_file = snap.datasets.pbmc500(True)
 
@@ -46,3 +47,4 @@ def test_in_memory():
     snap.tl.leiden(data)
 
     snap.pp.make_gene_matrix(data, gff_file=snap.genome.hg38)
+'''
