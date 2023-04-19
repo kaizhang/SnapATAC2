@@ -126,12 +126,12 @@ def import_data(
     gene_anno
         File name of the gene annotation file in GFF or GTF format.
         This is required if `genome` is not set.
-        Setting `gene_anno` will override the `genome` parameter.
+        Setting `gene_anno` will override the annotations from `genome` parameter.
     chrom_size
         A dictionary containing chromosome sizes, for example,
         `{"chr1": 2393, "chr2": 2344, ...}`.
         This is required if `genome` is not set.
-        Setting `chrom_size` will override the `genome` parameter.
+        Setting `chrom_size` will override the chrom_size from the `genome` parameter.
     min_num_fragments
         Number of unique fragments threshold used to filter cells
     min_tsse
