@@ -126,12 +126,12 @@ def import_data(
     gene_anno
         File name of the gene annotation file in GFF or GTF format.
         This is required if `genome` is not set.
-        Setting `gene_anno` will override the `genome` parameter.
+        Setting `gene_anno` will override the annotations from the `genome` parameter.
     chrom_size
         A dictionary containing chromosome sizes, for example,
         `{"chr1": 2393, "chr2": 2344, ...}`.
         This is required if `genome` is not set.
-        Setting `chrom_size` will override the `genome` parameter.
+        Setting `chrom_size` will override the chrom_size from the `genome` parameter.
     min_num_fragments
         Number of unique fragments threshold used to filter cells
     min_tsse
@@ -365,6 +365,8 @@ def make_gene_matrix(
         Rows correspond to cells and columns to regions.
     gene_anno
         Either a Genome object or the path of a gene annotation file in GFF or GTF format.
+    inplace
+        Whether to add the gene matrix to the AnnData object or return a new AnnData object.
     file
         File name of the h5ad file used to store the result.
     chunk_size
@@ -378,7 +380,9 @@ def make_gene_matrix(
     Returns
     -------
     AnnData
-        A new AnnData object, where rows correspond to cells and columns to genes.
+        An annotated data matrix of shape `n_obs` x `n_vars`. Rows correspond to
+        cells and columns to genes. If `file=None`, an in-memory AnnData will be
+        returned, otherwise a backed AnnData is returned.
     """
     if isinstance(gene_anno, Genome):
         gene_anno = gene_anno.fetch_annotations()
