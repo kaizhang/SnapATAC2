@@ -29,8 +29,10 @@ def anndata_par(adatas, func, n_jobs=4):
     with get_context("spawn").Pool(n_jobs) as p:
         result = p.map(_func, adatas_list)
     
-    for data in adatas:
-        data.open()
+    # Reopen the files if they were closed
+    for data in adatas_list:
+        if not isinstance(data, ad.AnnData):
+            data.open()
     
     return result
 
