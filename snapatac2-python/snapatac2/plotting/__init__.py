@@ -218,7 +218,8 @@ def regions(
     import plotly.graph_objects as go
 
     count = aggregate_X(data, groupby=groupby, normalize="RPKM")
-    count = pl.DataFrame(count.X.T, schema=list(count.obs_names))
+    count = pl.DataFrame(count.X.T)
+    count.columns = list(count.obs_names)
     idx = data.var_ix(np.concatenate(list(peaks.values())).tolist())
     mat = np.log2(1 + count.to_numpy()[idx, :])
 

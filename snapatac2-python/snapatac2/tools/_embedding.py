@@ -7,11 +7,59 @@ import gc
 import logging
 import math
 
-from snapatac2._utils import is_anndata 
+from snapatac2._utils import get_igraph_from_adjacency, is_anndata 
 from snapatac2._snapatac2 import (AnnData, AnnDataSet, jm_regress, jaccard_similarity,
     cosine_similarity, spectral_embedding, multi_spectral_embedding, spectral_embedding_nystrom)
 
-__all__ = ['umap', 'spectral', 'multi_spectral']
+__all__ = ['umap2', 'umap', 'spectral', 'multi_spectral']
+
+def umap2(
+    adata: AnnData | AnnDataSet | np.ndarray,
+    n_comps: int = 2,
+    key_added: str = 'umap',
+    random_state: int = 0,
+    inplace: bool = True,
+) -> np.ndarray | None:
+    """
+    Parameters
+    ----------
+    adata
+        The annotated data matrix.
+    n_comps
+        The number of dimensions of the embedding.
+    key_added
+        `adata.obs` key under which to add the cluster labels.
+    random_state
+        Random seed.
+    inplace
+        Whether to store the result in the anndata object.
+
+    Returns
+    -------
+    np.ndarray | None
+        if `inplace=True` it stores UMAP embedding in
+        `adata.obsm["X_`key_added`"]`.
+        Otherwise, it returns the result as a numpy array.
+    """
+    from igraph import set_random_number_generator
+    import random
+    random.seed(random_state)
+    set_random_number_generator(random)
+
+    if is_anndata(adata):
+        adjacency = adata.obsp["distances"]
+    else:
+        inplace = False
+        adjacency = adata
+    gr = get_igraph_from_adjacency(adjacency)
+    dist = np.array(gr.es["weight"])
+    umap = gr.layout_umap(dist=dist, dim=n_comps, min_dist=0.01, epochs=500)
+    umap = np.array(umap.coords)
+
+    if inplace:
+        adata.obsm["X_" + key_added] = umap
+    else:
+        return umap
 
 def umap(
     adata: AnnData | AnnDataSet | np.ndarray,

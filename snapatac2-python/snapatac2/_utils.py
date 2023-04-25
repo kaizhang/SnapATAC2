@@ -43,7 +43,7 @@ def get_igraph_from_adjacency(adj):
     sources, targets = adj.nonzero()
     edgelist = list(zip(list(sources), list(targets)))
     weights = np.ravel(adj[(sources, targets)])
-    gr = ig.Graph(n=vcount, edges=edgelist, edge_attrs={"weight": weights})
+    gr = ig.Graph(n=vcount, edges=edgelist, directed=False, edge_attrs={"weight": weights})
     return gr
 
 def chunks(mat, chunk_size: int):

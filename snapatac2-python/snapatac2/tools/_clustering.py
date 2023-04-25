@@ -16,6 +16,7 @@ def leiden(
     random_state: int = 0,
     key_added: str = 'leiden',
     use_leidenalg: bool = False,
+    weighted: bool = False,
     inplace: bool = True,
 ) -> np.ndarray | None:
     """
@@ -51,6 +52,8 @@ def leiden(
         `adata.obs` key under which to add the cluster labels.
     use_leidenalg
         If `True`, `leidenalg` package is used. Otherwise, `python-igraph` is used.
+    weighted
+        Whether to use the edge weights in the graph
     inplace
         Whether to store the result in the anndata object.
 
@@ -72,6 +75,12 @@ def leiden(
     
     gr = get_igraph_from_adjacency(adjacency)
 
+    if weighted:
+        weights = np.array(gr.es["weight"])
+        weights = np.exp(-weights)
+    else:
+        weights = None
+
     if use_leidenalg or objective_function == "RBConfiguration":
         import leidenalg
         from leidenalg.VertexPartition import MutableVertexPartition
@@ -89,7 +98,7 @@ def leiden(
 
         partition = leidenalg.find_partition(
             gr, partition_type, n_iterations=n_iterations,
-            seed=random_state, resolution_parameter=resolution, weights=None
+            seed=random_state, resolution_parameter=resolution, weights=weights
         )
     else:
         from igraph import set_random_number_generator
@@ -98,7 +107,7 @@ def leiden(
         set_random_number_generator(random)
         partition = gr.community_leiden(
             objective_function=objective_function,
-            weights=None,
+            weights=weights,
             resolution_parameter=resolution,
             beta=0.01,
             initial_membership=None,
