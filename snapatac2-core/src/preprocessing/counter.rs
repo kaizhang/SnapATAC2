@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, HashSet};
 use indexmap::map::IndexMap;
 use bed_utils::bed::{GenomicRange, BEDLike, tree::SparseCoverage};
+use itertools::Itertools;
 use num::traits::{ToPrimitive, NumCast};
 
 use super::Promoters;
@@ -81,8 +82,7 @@ impl<'a> GeneCount<'a> {
             .transcripts
             .iter()
             .map(|x| x.gene_name.as_str())
-            .collect::<HashSet<_>>()
-            .into_iter()
+            .unique()
             .enumerate()
             .map(|(a, b)| (b, a))
             .collect();
