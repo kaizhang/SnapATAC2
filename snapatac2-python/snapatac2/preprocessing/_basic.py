@@ -101,7 +101,7 @@ def import_data(
     shift_right: int = 0,
     chunk_size: int = 2000,
     tempdir: Path | None = None,
-    backend: str | None = None,
+    backend: Literal['hdf5'] = 'hdf5',
 ) -> AnnData:
     """Import dataset and compute QC metrics.
 
@@ -198,7 +198,7 @@ def add_tile_matrix(
     chunk_size: int = 500,
     exclude_chroms: list[str] | str | None = ["chrM", "chrY", "M", "Y"],
     file: Path | None = None,
-    backend: str | None = None,
+    backend: Literal['hdf5'] = 'hdf5',
     n_jobs: int = 8,
 ) -> AnnData | None:
     """Generate cell by bin count matrix.
@@ -226,6 +226,7 @@ def add_tile_matrix(
     file
         File name of the output file used to store the result. If provided, result will
         be saved to a backed AnnData, otherwise an in-memory AnnData is used.
+        This has no effect when `inplace=True`.
     backend
         The backend to use for storing the result. If `None`, the default backend will be used.
     n_jobs
@@ -261,7 +262,7 @@ def make_peak_matrix(
     use_rep: str | list[str] | None = None,
     inplace: bool = False,
     file: Path | None = None,
-    backend: str | None = None,
+    backend: Literal['hdf5'] = 'hdf5',
     peak_file: Path | None = None,
     chunk_size: int = 500,
     use_x: bool = False,
@@ -287,7 +288,7 @@ def make_peak_matrix(
     file
         File name of the output h5ad file used to store the result. If provided,
         result will be saved to a backed AnnData, otherwise an in-memory AnnData
-        is used.
+        is used. This has no effect when `inplace=True`.
     backend
         The backend to use for storing the result. If `None`, the default backend will be used.
     peak_file
@@ -347,7 +348,7 @@ def make_gene_matrix(
     *,
     inplace: bool = False,
     file: Path | None = None,
-    backend: str | None = None,
+    backend: Literal['hdf5'] | None = 'hdf5',
     chunk_size: int = 500,
     use_x: bool = False,
     id_type: Literal['gene', 'transcript'] = "gene",
@@ -368,7 +369,9 @@ def make_gene_matrix(
     inplace
         Whether to add the gene matrix to the AnnData object or return a new AnnData object.
     file
-        File name of the h5ad file used to store the result.
+        File name of the h5ad file used to store the result. This has no effect when `inplace=True`.
+    backend
+        The backend to use for storing the result. If `None`, the default backend will be used.
     chunk_size
         Chunk size
     use_x
