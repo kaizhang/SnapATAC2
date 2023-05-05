@@ -40,9 +40,9 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(preprocessing::make_fragment_file, m)?)?;
     m.add_function(wrap_pyfunction!(preprocessing::import_fragments, m)?)?;
     m.add_function(wrap_pyfunction!(preprocessing::mk_tile_matrix, m)?)?;
-    m.add_function(wrap_pyfunction!(preprocessing::mk_tile_matrix_par, m)?)?;
     m.add_function(wrap_pyfunction!(preprocessing::mk_gene_matrix, m)?)?;
     m.add_function(wrap_pyfunction!(preprocessing::mk_peak_matrix, m)?)?;
+    m.add_function(wrap_pyfunction!(preprocessing::add_frip, m)?)?;
 
     m.add_function(wrap_pyfunction!(export::export_bed, m)?)?;
     m.add_function(wrap_pyfunction!(export::export_bigwig, m)?)?;
@@ -56,6 +56,7 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(utils::spearman, m)?)?;
     m.add_function(wrap_pyfunction!(utils::simple_lin_reg, m)?)?;
     m.add_function(wrap_pyfunction!(utils::jm_regress, m)?)?;
+    m.add_function(wrap_pyfunction!(utils::read_regions, m)?)?;
     m.add_function(wrap_pyfunction!(utils::intersect_bed, m)?)?;
     m.add_function(wrap_pyfunction!(utils::kmeans, m)?)?;
     m.add_function(wrap_pyfunction!(utils::approximate_nearest_neighbors, m)?)?;

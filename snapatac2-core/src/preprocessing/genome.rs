@@ -1,7 +1,8 @@
 use anndata::{container::{ChunkedArrayElem, StackedChunkedArrayElem}, ArrayElemOp};
-use bed_utils::bed::{tree::GenomeRegions, GenomicRange, BedGraph, BEDLike};
+use bed_utils::bed::{tree::{GenomeRegions, BedTree}, GenomicRange, BedGraph, BEDLike};
 use anndata::{AnnDataOp, ElemCollectionOp, AxisArraysOp, AnnDataSet, Backend, AnnData};
 use indexmap::IndexSet;
+use ndarray::Array2;
 use polars::frame::DataFrame;
 use nalgebra_sparse::CsrMatrix;
 use noodles::{core::Position, gff, gff::record::Strand, gtf};
@@ -380,19 +381,26 @@ impl GenomeBaseIndex {
     }
 }
 
+/// `ChromValues` is a type alias for a vector of `BedGraph<N>` objects.
+/// Each `BedGraph` instance represents a genomic region along with a 
+/// numerical value (like coverage or score).
 pub type ChromValues<N> = Vec<BedGraph<N>>;
 
+/// `ChromValueIter` represents an iterator over the chromosome values.
+/// Each item in the iterator is a tuple of a vector of `ChromValues<N>` objects,
+/// a start index, and an end index.
 pub struct ChromValueIter<I> {
     iter: I,
     regions: Vec<GenomicRange>,
     length: usize,
 }
 
-impl<I, T> ChromValueIter<I>
+impl<'a, I, T> ChromValueIter<I>
 where
-    I: ExactSizeIterator<Item = (CsrMatrix<T>, usize, usize)>,
+    I: ExactSizeIterator<Item = (CsrMatrix<T>, usize, usize)> + 'a,
     T: Copy,
 {
+    /// Aggregate the values in the iterator by the given `FeatureCounter`.
     pub fn aggregate_by<C>(
         self,
         mut counter: C,
@@ -420,6 +428,30 @@ where
                 })
                 .collect();
             (from_csr_rows(vec, n_col), i, j)
+        })
+    }
+
+    /// Count the fraction of the records in the given regions.
+    pub fn fraction_in_regions<D>(
+        self, regions: &'a Vec<BedTree<D>>
+    ) -> impl ExactSizeIterator<Item = (Vec<Vec<f64>>, usize, usize)> + 'a
+    {
+        let k = regions.len();
+        self.map(move |(values, start, end)| {
+            let frac = values.into_iter().map(|xs| {
+                let n = xs.len() as f64;
+                let mut counts = vec![0.0; k];
+                xs.into_iter().for_each(|x|
+                    regions.iter().enumerate().for_each(|(i, r)| {
+                        if r.is_overlapped(&x) {
+                            counts[i] += 1.0;
+                        }
+                    })
+                );
+                counts.iter_mut().for_each(|x| *x /= n);
+                counts
+            }).collect::<Vec<_>>();
+            (frac, start, end)
         })
     }
 }
@@ -450,7 +482,10 @@ where
     fn len(&self) -> usize { self.length }
 }
 
-/// A struct to store the base-resolution coverage of a genome.
+/// `GenomeCoverage` represents a genome's base-resolution coverage.
+/// It stores the coverage as an iterator of tuples, each containing a 
+/// compressed sparse row matrix, a start index, and an end index.
+/// It also keeps track of the resolution and excluded chromosomes.
 pub struct GenomeCoverage<I> {
     index: GenomeBaseIndex,
     coverage: I,
@@ -618,6 +653,9 @@ where
     }
 }
 
+/// The `SnapData` trait represents an interface for reading and 
+/// manipulating single-cell assay data. It extends the `AnnDataOp` trait,
+/// adding methods for reading chromosome sizes and genome-wide base-resolution coverage.
 pub trait SnapData: AnnDataOp {
     type CountIter: ExactSizeIterator<Item = (CsrMatrix<u8>, usize, usize)>;
 
@@ -650,6 +688,13 @@ pub trait SnapData: AnnDataOp {
             iter: self.x().iter(chunk_size),
             length: div_ceil(self.n_obs(), chunk_size),
         })
+    }
+
+    /// Compute the fraction of reads in each region.
+    fn frip<D>(&self, regions: &Vec<BedTree<D>>) -> Result<Array2<f64>> {
+        let chrom_values = self.read_chrom_values(2000)?;
+        let vec = chrom_values.fraction_in_regions(regions).map(|x| x.0).flatten().flatten().collect::<Vec<_>>();
+        Array2::from_shape_vec((self.n_obs(), regions.len()), vec).map_err(Into::into)
     }
 }
 

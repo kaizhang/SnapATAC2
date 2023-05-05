@@ -14,7 +14,7 @@ use snapatac2_core::utils::similarity;
 use bed_utils::{bed, bed::GenomicRange, bed::BED};
 use std::io::BufReader;
 use std::{str::FromStr, fs::File};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use flate2::read::MultiGzDecoder;
 use linreg::lin_reg_imprecise;
 use linfa::{DatasetBase, traits::{Fit, Predict}};
@@ -224,6 +224,14 @@ pub(crate) fn jm_regress(
         .map(move |j| (1.0 / (1.0 / count[[i, 0]] + 1.0 / count[[j, 0]] - 1.0), jm[[i, j]]))
     );
     Ok(lin_reg_imprecise(iter).unwrap())
+}
+
+/// Read genomic regions from a bed file.
+/// Returns a list of strings
+#[pyfunction]
+pub(crate) fn read_regions(file: PathBuf) -> Vec<String> {
+    let mut reader = bed::io::Reader::new(open_file(file), None);
+    reader.records::<GenomicRange>().map(|x| x.unwrap().pretty_show()).collect()
 }
 
 #[pyfunction]

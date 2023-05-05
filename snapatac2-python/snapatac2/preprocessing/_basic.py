@@ -11,6 +11,11 @@ from snapatac2._snapatac2 import AnnData, AnnDataSet, PyFlagStat
 import snapatac2._snapatac2 as internal
 from snapatac2.genome import Genome
 
+__all__ = ['make_fragment_file', 'import_data', 'add_tile_matrix',
+           'make_peak_matrix', 'filter_cells', 'select_features',
+           'make_gene_matrix', 'add_frip'
+]
+
 def make_fragment_file(
     bam_file: Path,
     output_file: Path,
@@ -189,6 +194,54 @@ def import_data(
         chunk_size, whitelist, tempdir,
     )
     return adata
+
+def add_frip(
+    adata: AnnData | list[AnnData],
+    regions: dict[str, Path | list[str]],
+    *,
+    inplace: bool = True,
+    n_jobs: int = 8,
+) -> dict[str, list[float]] | list[dict[str, list[float]]] | None:
+    """ Add fraction of reads in peaks (FRiP) to the AnnData object.
+
+    Parameters
+    ----------
+    adata
+        The (annotated) data matrix of shape `n_obs` x `n_vars`.
+        Rows correspond to cells and columns to regions.
+        `adata` could also be a list of AnnData objects.
+        In this case, the function will be applied to each AnnData object in parallel.
+    regions
+        A dictionary containing the peak sets to compute FRiP.
+        The keys are peak set names and the values are either a bed file name or a list of
+        strings representing genomic regions. For example,
+        `{"promoter_frac": "promoter.bed", "enhancer_frac": ["chr1:100-200", "chr2:300-400"]}`.
+    inplace
+        Whether to add the results to `adata.obs` or return it as a dictionary.
+    n_jobs
+        Number of jobs to run in parallel when `adata` is a list.
+        If `n_jobs=-1`, all CPUs will be used.
+    """
+
+    for k in regions.keys():
+        if isinstance(regions[k], str) or isinstance(regions[k], Path):
+            regions[k] = internal.read_regions(Path(regions[k]))
+        elif not isinstance(regions[k], list):
+            regions[k] = list(iter(regions[k]))
+
+    if isinstance(adata, list):
+        return snapatac2._utils.anndata_par(
+            adata,
+            lambda x: add_frip(x, regions, inplace),
+            n_jobs=n_jobs,
+        )
+    else:
+        frip = internal.add_frip(adata, regions)
+        if inplace:
+            for k, v in frip.items():
+                adata.obs[k] = v
+        else:
+            return frip
 
 def add_tile_matrix(
     adata: AnnData | list[AnnData],

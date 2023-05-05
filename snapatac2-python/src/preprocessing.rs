@@ -2,7 +2,6 @@ use crate::utils::*;
 
 use anndata::Backend;
 use anndata_hdf5::H5;
-use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::path::PathBuf;
 use std::{str::FromStr, collections::BTreeMap, ops::Deref, collections::HashSet};
 use pyo3::prelude::*;
@@ -11,7 +10,7 @@ use pyanndata::PyAnnData;
 use anyhow::Result;
 
 use snapatac2_core::{
-    preprocessing::{Fragment, FlagStat},
+    preprocessing::{Fragment, FlagStat, SnapData},
     preprocessing,
 };
 
@@ -173,34 +172,6 @@ pub(crate) fn mk_tile_matrix(
     Ok(())
 }
 
-/// Create tile matrix in parallel. Due to the limitation of Python GIL,
-/// this function is only applicable to pure Rust AnnData objects.
-#[pyfunction]
-pub(crate) fn mk_tile_matrix_par(
-    adatas: Vec<RustAnnDataLike>, bin_size: usize, chunk_size: usize, 
-    n_jobs: usize, exclude_chroms: Option<Vec<&str>>,
-) -> Result<()>
-{
-    macro_rules! run {
-        ($data:expr) => {
-            preprocessing::create_tile_matrix(
-                $data,
-                bin_size,
-                chunk_size,
-                exclude_chroms.as_ref().map(|x| x.as_slice()),
-                None::<&PyAnnData>
-            ).unwrap()
-        };
-    }
-
-    rayon::ThreadPoolBuilder::new().num_threads(n_jobs).build().unwrap().install(|| {
-        adatas.into_par_iter().for_each(|adata| {
-            crate::with_rs_anndata!(&adata, run);
-        });
-    });
-    Ok(())
-}
-
 #[pyfunction]
 pub(crate) fn mk_peak_matrix(
     anndata: AnnDataLike,
@@ -258,4 +229,28 @@ pub(crate) fn mk_gene_matrix(
     }
     crate::with_anndata!(&anndata, run);
     Ok(())
+}
+
+#[pyfunction]
+pub(crate) fn add_frip(
+    anndata: AnnDataLike,
+    regions: BTreeMap<String, Vec<&str>>,
+) -> Result<BTreeMap<String, Vec<f64>>>
+{
+    let trees: Vec<_> = regions.values().map(|x|
+        x.into_iter().map(|y| (GenomicRange::from_str(y).unwrap(), ())).collect()
+    ).collect();
+
+    macro_rules! run {
+        ($data:expr) => {
+            $data.frip(&trees)
+        }
+    }
+
+    let frip = crate::with_anndata!(&anndata, run)?;
+    Ok(
+        regions.keys().zip(frip.columns())
+            .map(|(k, v)| (k.clone(), v.to_vec()))
+            .collect()
+    )
 }

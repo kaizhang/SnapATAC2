@@ -1,4 +1,24 @@
-use std::collections::{BTreeMap, HashSet};
+//! # Genomic Feature Counter Module
+//!
+//! This module provides the functionality to count genomic features (such as genes or transcripts) 
+//! in genomic data. The primary structures in this module are `TranscriptCount` and `GeneCount`, 
+//! both of which implement the `FeatureCounter` trait. The `FeatureCounter` trait provides a 
+//! common interface for handling feature counts, including methods for resetting counts, 
+//! updating counts, and retrieving feature IDs, names, and counts.
+//!
+//! `SparseCoverage`, from the bed_utils crate, is used for maintaining counts of genomic features, 
+//! and this structure also implements the `FeatureCounter` trait in this module.
+//!
+//! `TranscriptCount` and `GeneCount` structures also hold a reference to `Promoters`, which 
+//! provides additional information about the genomic features being counted.
+//!
+//! To handle the mapping of gene names to indices, an `IndexMap` is used in the `GeneCount` structure. 
+//! This allows for efficient look-up of gene indices by name, which is useful when summarizing counts 
+//! at the gene level.
+//!
+//! The module aims to provide a comprehensive, efficient, and flexible way to handle and manipulate 
+//! genomic feature counts in Rust.
+use std::collections::BTreeMap;
 use indexmap::map::IndexMap;
 use bed_utils::bed::{GenomicRange, BEDLike, tree::SparseCoverage};
 use itertools::Itertools;
@@ -6,28 +26,33 @@ use num::traits::{ToPrimitive, NumCast};
 
 use super::Promoters;
 
-/// A structure that stores the feature counts.
+/// `FeatureCounter` is a trait that provides an interface for counting genomic features.
+/// Types implementing `FeatureCounter` can store feature counts and provide several 
+/// methods for manipulating and retrieving those counts.
 pub trait FeatureCounter {
     type Value;
 
+    /// Returns the total number of distinct features counted.
     fn num_features(&self) -> usize { self.get_feature_ids().len() }
 
-    /// Reset the counter.
+    /// Resets the counter for all features.
     fn reset(&mut self);
 
-    /// Update counter according to the region and the assocated count.
+    /// Updates the counter according to the given region and count.
     fn insert<B: BEDLike, N: ToPrimitive + Copy>(&mut self, tag: &B, count: N);
 
-    /// Retrieve feature ids.
+    /// Returns a vector of feature ids.
     fn get_feature_ids(&self) -> Vec<String>;
 
-    /// Retrieve feature names.
+    /// Returns a vector of feature names if available.
     fn get_feature_names(&self) -> Option<Vec<String>> { None }
 
-    /// Retrieve stored counts.
+    /// Returns a vector of tuples, each containing a feature's index and its count.
     fn get_counts(&self) -> Vec<(usize, Self::Value)>;
 }
 
+/// Implementation of `FeatureCounter` trait for `SparseCoverage` struct.
+/// `SparseCoverage` represents a sparse coverage map for genomic data.
 impl<D: BEDLike> FeatureCounter for SparseCoverage<'_, D, u32> {
     type Value = u32;
 
@@ -46,6 +71,8 @@ impl<D: BEDLike> FeatureCounter for SparseCoverage<'_, D, u32> {
     }
 }
 
+/// `TranscriptCount` is a struct that represents the count of genomic features at the transcript level.
+/// It holds a `SparseCoverage` counter and a reference to `Promoters`.
 #[derive(Clone)]
 pub struct TranscriptCount<'a> {
     counter: SparseCoverage<'a, GenomicRange, u32>,
@@ -69,12 +96,15 @@ impl<'a> TranscriptCount<'a> {
     }
 }
 
+/// `GeneCount` is a struct that represents the count of genomic features at the gene level.
+/// It holds a `TranscriptCount` counter and a map from gene names to their indices.
 #[derive(Clone)]
 pub struct GeneCount<'a> {
     counter: TranscriptCount<'a>,
     gene_name_to_idx: IndexMap<&'a str, usize>,
 }
 
+/// Implementation of `GeneCount`
 impl<'a> GeneCount<'a> {
     pub fn new(counter: TranscriptCount<'a>) -> Self {
         let gene_name_to_idx: IndexMap<_, _> = counter
@@ -93,7 +123,7 @@ impl<'a> GeneCount<'a> {
     }
 }
 
-
+/// Implementations of `FeatureCounter` trait for `TranscriptCount` and `GeneCount` structs.
 impl FeatureCounter for TranscriptCount<'_> {
     type Value = u32;
 

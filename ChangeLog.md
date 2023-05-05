@@ -1,3 +1,9 @@
+Dev
+===================
+
+- Bug fixes: #119, #127, #131.
+- Add `pp.add_frip` to calculate the fraction of reads in peaks or other types of feature sets.
+
 v2.3.0 (2023-04-14)
 ===================
 
