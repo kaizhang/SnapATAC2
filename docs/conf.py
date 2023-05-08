@@ -11,7 +11,7 @@ import snapatac2
 # -- Project information -----------------------------------------------------
 
 project = 'SnapATAC2'
-copyright = '2022, Kai Zhang'
+copyright = '2022-2023, Kai Zhang'
 author = 'Kai Zhang'
 
 # The short X.Y version (including .devXXXX, rcX, b1 suffixes if present)
@@ -34,7 +34,6 @@ extensions = [
     "myst_parser",
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
-    "sphinx.ext.doctest",
     "sphinx.ext.coverage",
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",

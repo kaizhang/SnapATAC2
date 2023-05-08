@@ -132,21 +132,23 @@ def spectral(
     inplace: bool = True,
 ) -> tuple[np.ndarray, np.ndarray] | None:
     """
-    Compute Laplacian Eigenmaps of chromatin accessibility profiles.
+    Perform dimension reduction using Laplacian Eigenmaps.
 
-    Convert chromatin accessibility profiles of cells into lower dimensional representations
+    Convert the cell-by-feature count matrix into lower dimensional representations
     using the spectrum of the normalized graph Laplacian defined by pairwise similarity
     between cells.
 
     Note
     ----
-    The space complexity of this function is :math:`O(N^2)`, where $N$ is the minimum between
-    the total of cells and the `sample_size`.
+    When using the cosine similarity as the similarity metric, the matrix-free
+    spectral embedding algorithm is used, which scales linearly with the number of cells. 
+    The memory usage is roughly :math:`2 \times input_size`.
+    For other types of similarity metrics, the time and space complexity is :math:`O(N^2)`,
+    where $N$ is the minimum between the total of cells and the `sample_size`.
     The memory usage in bytes is given by $N^2 * 8 * 2$. For example,
     when $N = 10,000$ it will use roughly 745 MB memory.
     When `sample_size` is set, the Nystrom algorithm will be used to approximate
-    the embedding. For large datasets, try to set the `sample_size` appropriately to
-    reduce the memory usage.
+    the embedding. 
 
     Parameters
     ----------
