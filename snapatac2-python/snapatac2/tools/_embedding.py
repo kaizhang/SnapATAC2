@@ -216,6 +216,7 @@ def spectral(
             model.fit(X)
             evals, evecs = model.transform()
     else:
+        logging.info("Perform spectral embedding using the Nystrom algorithm...")
         if distance_metric == "cosine":
             if sample_method == "random":
                 weighted_by_degree = False
@@ -236,7 +237,6 @@ def spectral(
             model.fit(S)
 
             from tqdm import tqdm
-            logging.info("Perform Nystrom extension")
             for batch, _, _ in tqdm(adata.chunked_X(chunk_size), total=math.ceil(adata.n_obs/chunk_size)):
                 if distance_metric == "jaccard":
                     batch.data = np.ones(batch.indices.shape, dtype=np.float64)

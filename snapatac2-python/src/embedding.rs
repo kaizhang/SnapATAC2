@@ -7,8 +7,9 @@ use numpy::{PyArray1, PyArray2};
 use pyanndata::data::PyArrayData;
 use pyo3::prelude::*;
 use rand::SeedableRng;
+use indicatif::{ProgressIterator, ProgressStyle};
 use anndata::{ArrayData, AnnDataOp, ArrayOp, ArrayElemOp, data::{SelectInfoElem, BoundedSelectInfoElem, from_csr_rows}, Backend};
-use nalgebra::{DVector, DMatrix};
+use nalgebra::DVector;
 use nalgebra_sparse::CsrMatrix;
 use rayon::prelude::{ParallelBridge, ParallelIterator};
 use anyhow::Result;
@@ -81,19 +82,20 @@ pub(crate) fn spectral_embedding_nystrom<'py>(
             // feature weighting and L2 norm normalization.
             normalize(&mut seed_mat, &weights);
 
+            info!("Compute embeddings for {} landmarks...", sample_size);
             let (v, mut u, d) = spectral_mf(seed_mat.clone(), n_components)?;
-            anyhow::Ok(nystrom(seed_mat, &v, &mut u, &d,
+            info!("Apply Nystrom to the out-of-sample data...");
+            nystrom(py, seed_mat, &v, &mut u, &d,
                 $data.x().iter(chunk_size).map(|x: (CsrMatrix<f64>, _, _)| {
                     let mut mat = x.0.select_axis(1, &selected_features);
                     normalize(&mut mat, &weights);
                     mat
                 })
-            ))
+            )
         }}
     }
 
     let (evals, evecs) = crate::with_anndata!(&anndata, run)?;
-
     Ok((PyArray1::from_owned_array(py, evals), PyArray2::from_owned_array(py, evecs)))
 }
 
@@ -151,15 +153,17 @@ fn spectral_mf(
 }
 
 /// The input is assumed to be a csr matrix with rows normalized to unit L2 norm.
-fn nystrom<I>(
+fn nystrom<'py, I>(
+    py: Python<'py>,
     seed_matrix: CsrMatrix<f64>,
     evals: &Array1<f64>,
     evecs: &mut Array2<f64>,
     degrees: &Array1<f64>,
     inputs: I,
-) -> (Array1<f64>, Array2<f64>)
+) -> Result<(Array1<f64>, Array2<f64>)>
 where
     I: IntoIterator<Item = CsrMatrix<f64>>,
+    I::IntoIter: ExactSizeIterator,
 {
     // normalize the eigenvectors by degrees.
     evecs.axis_iter_mut(Axis(0)).zip(degrees.iter()).for_each(|(mut row, d)|
@@ -169,29 +173,41 @@ where
     evecs.axis_iter_mut(Axis(1)).zip(evals.iter()).for_each(|(mut col, v)|
         col *= v.recip()
     );
-    let evecs = DMatrix::from_row_iterator(evecs.shape()[0], evecs.shape()[1], evecs.iter().copied());
+    let evecs_py = PyArray2::from_array(py, evecs);
+    let evals_py = PyArray1::from_array(py, evals);
+    let seed_matrix_py = PyArrayData::from(ArrayData::from(seed_matrix)).into_py(py);
 
-    let seed_matrix_t = seed_matrix.transpose_as_csc();
+    let nystrom_py: Py<PyAny> = PyModule::from_code(
+        py,
+        "def nystrom(seed, sample, evecs, evals):
+            import numpy as np
+            q = sample @ (seed.T @ evecs)
+            t = q.sum(axis=0) * evals
+            d = q @ t.reshape((-1, 1))
+            np.divide(q, np.sqrt(d), out=q)
+            return q",
+        "",
+        "",
+    )?.getattr("nystrom")?.into();
 
-    let vec = inputs.into_iter().flat_map(|mat| {
-        let mut q = mat * (&seed_matrix_t * &evecs);
-        let t = q.column_iter().map(|col| col.sum())
-            .zip(evals.iter()).map(|(x, v)| x * v).collect::<Vec<_>>();
-        let mut d = &q * &DVector::from(t);
-        let mut d_min = f64::INFINITY;
-        d.iter().filter(|x| **x > 0.0).for_each(|x| if *x < d_min { d_min = *x });
-        d.iter_mut().for_each(|x| if *x <= 0.0 { *x = d_min });
-
-        q.row_iter_mut().zip(d.iter()).for_each(|(mut row, dd)|
-            row.iter_mut().for_each(|x| *x *= dd.sqrt().recip())
+    let style = ProgressStyle::with_template(
+        "[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})"
+    ).unwrap();
+    let output: Vec<f64> = inputs.into_iter().map(|sample| {
+        let args = (
+            &seed_matrix_py,
+            PyArrayData::from(ArrayData::from(sample)),
+            evecs_py,
+            evals_py,
         );
-        q.transpose().into_iter().copied().collect::<Vec<_>>()
-    }).collect::<Vec<_>>();
+        nystrom_py.call1(py, args).unwrap().extract::<&PyArray2<_>>(py).unwrap().to_vec().unwrap()
+    }).progress_with_style(style).flatten().collect();
 
     let ncol = evecs.ncols();
-    let nrows = vec.len() / ncol;
-    (evals.clone(), Array2::from_shape_vec((nrows, ncol), vec).unwrap())
+    let nrows = output.len() / ncol;
+    Ok((evals.clone(), Array2::from_shape_vec((nrows, ncol), output).unwrap()))
 }
+
 
 fn idf(input: &CsrMatrix<f64>) -> Vec<f64> {
     let mut idf = vec![0.0; input.ncols()];

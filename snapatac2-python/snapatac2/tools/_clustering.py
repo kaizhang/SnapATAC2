@@ -5,6 +5,7 @@ import scipy.sparse as ss
 import numpy as np
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
+import snapatac2._snapatac2 as _snapatac2
 from snapatac2._utils import get_igraph_from_adjacency, is_anndata 
 
 def leiden(
