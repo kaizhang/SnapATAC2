@@ -569,6 +569,7 @@ def select_features(
         A user provided bed file containing genome-wide whitelist regions.
         None-zero features listed here will be kept regardless of the other
         filtering criteria.
+        If a feature is present in both whitelist and blacklist, it will be kept.
     blacklist 
         A user provided bed file containing genome-wide blacklist regions.
         Features that are overlapped with these regions will be removed.
@@ -604,7 +605,7 @@ def select_features(
         count, filter_lower_quantile, filter_upper_quantile, n_features)
 
     if blacklist is not None:
-        blacklist = np.logical_not(internal.intersect_bed(adata.var_names, str(blacklist)))
+        blacklist = np.array(internal.intersect_bed(adata.var_names, str(blacklist)))
         selected_features = selected_features[np.logical_not(blacklist[selected_features])]
 
     # Iteratively select features
@@ -616,6 +617,7 @@ def select_features(
         var = np.var(np.log(rpm + 1), axis=0)
         selected_features = np.argsort(var)[::-1][:n_features]
 
+        # Apply blacklist to the result
         if blacklist is not None:
             selected_features = selected_features[np.logical_not(blacklist[selected_features])]
         iter += 1
@@ -623,6 +625,7 @@ def select_features(
     result = np.zeros(adata.shape[1], dtype=bool)
     result[selected_features] = True
 
+    # Finally, apply whitelist to the result
     if whitelist is not None:
         whitelist = np.array(internal.intersect_bed(adata.var_names, str(whitelist)))
         whitelist &= count != 0

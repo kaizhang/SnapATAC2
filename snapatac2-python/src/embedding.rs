@@ -84,7 +84,7 @@ pub(crate) fn spectral_embedding_nystrom<'py>(
 
             info!("Compute embeddings for {} landmarks...", sample_size);
             let (v, mut u, d) = spectral_mf(seed_mat.clone(), n_components)?;
-            info!("Apply Nystrom to the out-of-sample data...");
+            info!("Apply Nystrom to out-of-sample data...");
             nystrom(py, seed_mat, &v, &mut u, &d,
                 $data.x().iter(chunk_size).map(|x: (CsrMatrix<f64>, _, _)| {
                     let mut mat = x.0.select_axis(1, &selected_features);
@@ -184,6 +184,7 @@ where
             q = sample @ (seed.T @ evecs)
             t = q.sum(axis=0) * evals
             d = q @ t.reshape((-1, 1))
+            d[d<=0] = np.min(d[d>0])
             np.divide(q, np.sqrt(d), out=q)
             return q",
         "",

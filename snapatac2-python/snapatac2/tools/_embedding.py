@@ -356,8 +356,9 @@ class Spectral:
         return (self.evals, self.evecs)
 
 def orthogonalize(evals, evecs):
-    sigma, V = np.linalg.eig(evecs.T @ evecs)
-    sigma = np.sqrt(sigma)
+    _, sigma, Vt = np.linalg.svd(evecs)
+    V = Vt.T
+
     B = np.multiply(V.T, evals.reshape((1,-1))) @ V
     np.multiply(B, sigma.reshape((-1, 1)), out=B)
     np.multiply(B, sigma.reshape((1, -1)), out=B)
