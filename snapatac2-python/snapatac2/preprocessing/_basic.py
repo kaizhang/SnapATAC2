@@ -564,7 +564,9 @@ def select_features(
     filter_lower_quantile
         Lower quantile of the feature count distribution to filter out.
     filter_upper_quantile
-        Upper quantile of the feature count distribution to filter out.
+        Upper quantile of the feature count distribution to filter out. Note: if you
+        want to remove features showing in more than 95% of the cells, you should use
+        0.05 instead of 0.95 here.
     whitelist
         A user provided bed file containing genome-wide whitelist regions.
         None-zero features listed here will be kept regardless of the other
@@ -573,6 +575,10 @@ def select_features(
     blacklist 
         A user provided bed file containing genome-wide blacklist regions.
         Features that are overlapped with these regions will be removed.
+    max_iter
+        If it's larger than 1, the function will perform clustering and select features
+        based on the variations of the log level of rpms (reads per million)
+        across clusters. Default is 1, i.e., no such a procedure.
     inplace
         Perform computation inplace or return result.
     n_jobs
