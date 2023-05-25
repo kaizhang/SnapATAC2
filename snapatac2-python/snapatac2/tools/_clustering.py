@@ -146,7 +146,8 @@ def kmeans(
     inplace: bool = True,
 ) -> np.ndarray | None:
     """
-    Cluster cells into subgroups using the K-means algorithm.
+    Cluster cells into subgroups using the K-means algorithm, a classical algorithm in data mining.
+
 
     Parameters
     ----------

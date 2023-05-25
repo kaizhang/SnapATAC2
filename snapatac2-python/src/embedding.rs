@@ -335,8 +335,8 @@ pub(crate) fn multi_spectral_embedding<'py>(
     let mats = anndata.into_iter().zip(selected_features.into_iter()).map(|(a, s)| {
         macro_rules! get_mat {
             ($data:expr) => {{
-                let slice = pyanndata::data::to_select_elem(s, $data.n_vars()).unwrap();
-                let mut mat: CsrMatrix<f64> = $data.x().slice_axis(1, slice).unwrap().unwrap();
+                let slice = pyanndata::data::to_select_elem(s, $data.n_vars()).expect("Invalid feature selection");
+                let mut mat: CsrMatrix<f64> = $data.x().slice_axis(1, slice).unwrap().expect("X is None");
                 let feature_weights = idf(&mat);
 
                 // feature weighting and L2 norm normalization.

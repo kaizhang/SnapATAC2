@@ -51,6 +51,6 @@ setup(
         "scikit-learn>=0.22",
         "tqdm>=4.62",
         "typing_extensions",
-        "umap-learn>=0.3.10",
+        "umap-learn>=0.5.0",
     ],
 )
