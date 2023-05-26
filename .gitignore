@@ -25,5 +25,3 @@ _autosummary
 # h5ad
 *.h5ad
 *.h5ads
-/snapatac2-contrib/clustering_metric/
-/snapatac2-contrib/cemba_metric/test_data/

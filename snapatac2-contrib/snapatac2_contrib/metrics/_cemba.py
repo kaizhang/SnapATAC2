@@ -1,136 +1,87 @@
-"""
-Add CEMBA metrics for the selection of resolution of leiden algorithm.
+from __future__ import annotations
 
-Detailes in "Cell clustering" of "Methods" in
-https://www.nature.com/articles/s41586-021-03604-1
-
-The metrics are all based on the so-called connectivity matrix M.
-- it's shape is (n_cell, n_cell)
-- M_ij \in (0, 1) is the fraction of cell i and cell j are in the same cluster
-  during multiple round of repeats of leiden algorithms.
-
-In the original implementation, we use different random seeds for leiden
-algorithm as the multiple rounds of repeats. But we can also apply some random
-modifications of k-nearest neighbor (knn) graph, and then use leiden algorithm on the
-modified knn graph.
-
-Ideally, two cells are either in the same clusters or not. So most of M should be around
-zeros and ones. But if clustering is not that good, then M_{ij} may be around 0.5.
-
-Here we include three metrics:
-1. PAC, proportion of ambiguous clustering
-   - it's \in (0,1)
-   - the lower, the better
-   - (\sum (M_{ij} < 0.95) - \sum (M_{ij} < 0.05) ) / n_cell ^2
-2. Dispersion coefficient (disp)
-   - it's \in (0,1)
-   - the higher, the better
-   - \sum 4 * (M_{ij} - 0.5)^2 / n_cell ^2.
-
-3. Cumulative distribution function (cdf) curve 
-  - draw the cdf based on the cdf of M.
-  - since M_{ij} should be around 0 or 1 ideally. So the cdf curve would
-    be have a relative flat region in the middle,
-    and sharp increase around 0.0 and 1.0.
-
-During analysis, we use PAC and disp to choose the resolution, which
-will be the values of cemba_metrics.
-"""
-
-import os
-import scipy
 import random
 from typing import Tuple, Union
-from scipy.sparse import csr_matrix
 import numpy as np
 import itertools
 
-__all__ = ["cemba_metric", "cal_connectivity", "reorder", "plot_CDF"]
+from snapatac2 import AnnData
+import snapatac2 as snap
 
+__all__ = ["cemba"]
 
-def cal_connectivity(P):
-    """calculate connectivity matrix"""
-    connectivity_mat = np.zeros((len(P), len(P)), dtype = bool)
-    classN = max(P)
-    ## TODO: accelerate this
-    for cls in range(int(classN + 1)):
-        xidx = [i for i, x in enumerate(P) if x == cls]
-        iterables = [xidx, xidx]
-        for t in itertools.product(*iterables):
-            connectivity_mat[t[0], t[1]] = True
-    """connectivity_mat = csr_matrix(connectivity_mat)"""
-    return connectivity_mat
+def cemba(
+    adata: AnnData | np.ndarray,
+    resolution: float,
+    objective_function='modularity',
+    n_repeat: int = 5,
+    random_state: int = 0,
+) -> Tuple[float, float]:
+    """CEMBA metrics for the selection of resolution of leiden algorithm.
 
+    Detailes in "Cell clustering" of "Methods" in
+    https://www.nature.com/articles/s41586-021-03604-1
 
-def reorder(C):
+    The metrics are all based on the so-called connectivity matrix M.
+    - it's shape is (n_cell, n_cell)
+    - M_ij \in (0, 1) is the fraction of cell i and cell j are in the same cluster
+    during multiple round of repeats of leiden algorithms.
+
+    In the original implementation, we use different random seeds for leiden
+    algorithm as the multiple rounds of repeats. But we can also apply some random
+    modifications of k-nearest neighbor (knn) graph, and then use leiden algorithm on the
+    modified knn graph.
+
+    Ideally, two cells are either in the same clusters or not. So most of M should be around
+    zeros and ones. But if clustering is not that good, then M_{ij} may be around 0.5.
+
+    Here we include three metrics:
+    1. PAC, proportion of ambiguous clustering
+    - it's \in (0,1)
+    - the lower, the better
+    - (\sum (M_{ij} < 0.95) - \sum (M_{ij} < 0.05) ) / n_cell ^2
+    2. Dispersion coefficient (disp)
+    - it's \in (0,1)
+    - the higher, the better
+    - \sum 4 * (M_{ij} - 0.5)^2 / n_cell ^2.
+
+    3. Cumulative distribution function (cdf) curve 
+    - draw the cdf based on the cdf of M.
+    - since M_{ij} should be around 0 or 1 ideally. So the cdf curve would
+        be have a relative flat region in the middle,
+        and sharp increase around 0.0 and 1.0.
+
+    During analysis, we use PAC and disp to choose the resolution, which
+    will be the values of cemba_metrics.
     """
-    Reorder consensus matrix.
+    np.random.seed(random_state)
+    # FIXME: random numbers may not be unique.
+    random_states = np.random.randint(0, 1000000, size=n_repeat)
+    membership = []
+    for r in random_states:
+        membership.append(snap.tl.leiden(
+            adata, objective_function=objective_function, resolution=resolution,
+            random_state=r, inplace=False
+        ))
+    partitions = np.array(membership).T
+    return compute_metrics(partitions, nsample=None, u1=0.05, u2=0.95)
 
-    :param C: Consensus matrix.
-    :type C: `numpy.ndarray`
-    """
-    from scipy.spatial.distance import squareform
-    from scipy.cluster.hierarchy import linkage, leaves_list
-    Y = 1 - C
-    Z = linkage(squareform(Y), method="average")
-    ivl = leaves_list(Z)
-    ivl = ivl[::-1]
-    return C[:, ivl][ivl, :]
-
-def plot_CDF(prefix, C, u1, u2, num_bins=100):
-    import matplotlib.pyplot as plt
-    counts, bin_edges = np.histogram(C, bins=num_bins, density=True)
-    cdf = np.cumsum(counts)
-    fig = plt.figure(dpi=100)
-    plt.plot(bin_edges[1:], cdf)
-    plt.xlabel("Consensus index value")
-    plt.ylabel("CDF")
-    plt.axvline(x=u1, color="grey", linestyle="--")
-    plt.axvline(x=u2, color="grey", linestyle="--")
-    fileN = [prefix, "cdf", "png"]
-    fileN = ".".join(fileN)
-    fig.savefig(fileN)
-    outBinEdges = ".".join([prefix, "cdf.txt"])
-    with open(outBinEdges, "w") as fo:
-        fo.write("\t".join(str(i) for i in cdf) + "\n")
-
-
-def cal_dispersion(C):
-    """calculate dispersion coefficient"""
-    n = C.shape[1]
-    corr_disp = np.sum(
-        4 * np.square(C - 0.5), dtype = np.float64) / (np.square(n))
-    return corr_disp
-
-
-def cal_PAC(C, u1, u2):
-    """calculate PAC (proportion of ambiguous clustering)"""
-    n = C.shape[0] ** 2
-    PAC = ((C<u2).sum() - (C<u1).sum()) / n
-    return PAC
-
-def cal_stab(x) -> np.ndarray:
-    """calculate stability for every cell"""
-    s = np.sum(abs(x - 0.5)) / (0.5 * x.shape[0])
-    return s
-
-
-def cemba_metric(
-        partitions: np.ndarray,
-        nsample: Union[int, None] = None,
-        u1: float = 0.05,
-        u2: float = 0.95
-)->Tuple[float, float]:
+def compute_metrics(
+    partitions: np.ndarray,
+    nsample: Union[int, None] = None,
+    u1: float = 0.05,
+    u2: float = 0.95
+) -> Tuple[float, float]:
     """
     Parameters
     ----------
-    partitions:
+    partitions
         numpy.ndarray, dtype as np.unit, shape n_cell x n_times
-    nsample:
+    nsample
         int or None, used for downsampling cells, default is None.
-    u1:
+    u1
         float, lower-bound for PAC, default is 0.05.
-    u2:
+    u2
         float, upper-bound for PAC, default is 0.95.
     
     Returns
@@ -145,7 +96,7 @@ def cemba_metric(
         raise RuntimeError(
             f"partitions should have 2 instead of {ndim} dims.")
     # * to unsigned int64
-    p = partitions.astype(np.uint)
+    p = partitions.astype(np.int32)
     n_cell, n_times = p.shape
     # * downsample partitions if needed.
     if nsample and n_cell > nsample:
@@ -163,43 +114,44 @@ def cemba_metric(
     disp: float = cal_dispersion(consensus)
     pac: float = cal_PAC(
         consensus, u1 = u1, u2 = u2)
-    # stabs per cell
-    # stabs: np.ndarray = np.apply_along_axis(cal_stab, 0, consensus)
     return (disp, pac)
 
-if __name__ == '__main__':
-    # * test
-    # a temp data
-    knn = scipy.io.mmread(os.path.join(
-        "test_data", "GLUTL3", "GLUT_13",
-        "GLUT_13.k-50.km-RANN.mmtx"
-    ))
-    knn = knn.tocsr()
-    reso = 0.8
-    dimN = knn.shape[0]
-    vcount = max(knn.shape)
-    sources, targets = knn.nonzero()
-    edgelist = list(zip(sources.tolist(), targets.tolist()))
+def cal_connectivity(partition: list[int]) -> np.ndarray:
+    """calculate connectivity matrix"""
+    connectivity_mat = np.zeros((len(partition), len(partition)), dtype = bool)
+    classN = max(partition)
+    ## TODO: accelerate this
+    for cls in range(int(classN + 1)):
+        xidx = [i for i, x in enumerate(partition) if x == cls]
+        iterables = [xidx, xidx]
+        for t in itertools.product(*iterables):
+            connectivity_mat[t[0], t[1]] = True
+    """connectivity_mat = csr_matrix(connectivity_mat)"""
+    return connectivity_mat
 
-    import igraph as ig
-    g = ig.Graph(vcount, edgelist)
+def cal_dispersion(consensus) -> float:
+    """calculate dispersion coefficient
 
-    # generate consensus matrix
-    dims = knn.shape[0]
-    consensus = csr_matrix((dims, dims))
-    N = 2
-    
-    import leidenalg as la
-    def do_leiden(seed):
-        partition = la.find_partition(
-            g, la.RBConfigurationVertexPartition,
-            resolution_parameter = reso,
-            seed = seed)
-        part_membership = partition.membership
-        return(part_membership)
+    Parameters
+    ----------
+    consensus
+        Consensus matrix, shape (n_sample, n_sample). Each entry in the matrix is
+        the fraction of times that two cells are clustered together.
+    """
+    n = consensus.shape[1]
+    corr_disp = np.sum(
+        4 * np.square(consensus - 0.5), dtype = np.float64) / (np.square(n))
+    return corr_disp
 
-    partitions = list(map(do_leiden, range(N)))
-    partitions = np.transpose(np.array(partitions))
-    cemba_metric(partitions, nsample = 100, u1 = 0.05, u2 = 0.95)
+def cal_PAC(consensus, u1, u2) -> float:
+    """calculate PAC (proportion of ambiguous clustering)
 
-
+    Parameters
+    ----------
+    consensus
+        Consensus matrix, shape (n_sample, n_sample). Each entry in the matrix is
+        the fraction of times that two cells are clustered together.
+    """
+    n = consensus.shape[0] ** 2
+    PAC = ((consensus < u2).sum() - (consensus < u1).sum()) / n
+    return PAC

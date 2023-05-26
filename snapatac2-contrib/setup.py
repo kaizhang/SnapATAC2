@@ -30,5 +30,6 @@ setup(
         "pandas",
         "polars>=0.14.0, <=0.18.0",
         "scipy>=1.4",
+        "typing_extensions",
     ],
 )
