@@ -109,7 +109,8 @@ print("######################################################")
 logging.info("make gene matrix - begin")
 snap.pp.make_gene_matrix(
     data, 
-    gene_anno="/home/kaizhang/data/genome/GRCh38/gencode.v33.basic.annotation.gtf",
+    #gene_anno="/home/kaizhang/data/genome/GRCh38/gencode.v33.basic.annotation.gtf",
+    gene_anno="1.gtf",
     file = "gene_matrix.h5ad",
     use_x = True
 )
