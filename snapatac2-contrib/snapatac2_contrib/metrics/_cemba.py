@@ -45,6 +45,8 @@ from scipy.sparse import csr_matrix
 import numpy as np
 import itertools
 
+__all__ = ["cemba_metric", "cal_connectivity", "reorder", "plot_CDF"]
+
 
 def cal_connectivity(P):
     """calculate connectivity matrix"""
