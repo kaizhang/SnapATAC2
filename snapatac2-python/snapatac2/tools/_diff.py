@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing_extensions import Literal
 
 import numpy as np
-from scipy.stats import chi2
+from scipy.stats import chi2, norm
 import logging
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet
@@ -11,22 +11,49 @@ from snapatac2.tools._misc import aggregate_X
 def marker_regions(
     data: AnnData | AnnDataSet,
     groupby: str | list[str],
-    pvalue: float = 0.01,
+    fdr: float = 0.01,
 ) -> dict[str, list[str]]:
     """
     A quick-and-dirty way to get marker regions.
+
+    Parameters
+    ----------
+    data
+        AnnData or AnnDataSet object.
+    groupby
+        Grouping variable.
+    fdr
+        FDR threshold.
     """
-    import scipy.stats
+    from statsmodels.stats.multitest import fdrcorrection
 
     count = aggregate_X(data, groupby, normalize="RPKM")
-    z = scipy.stats.zscore(np.log2(1 + count.X), axis = 0)
+    z = modified_zscore(np.log2(1 + count.X), axis = 0)
     peaks = {}
     for i in range(z.shape[0]):
-        pvals = scipy.stats.norm.sf(z[i, :])
-        select = pvals < pvalue
+        pvals = norm.sf(z[i, :])
+        select = fdrcorrection(pvals, alpha=fdr)[0]
         if np.where(select)[0].size >= 1:
             peaks[count.obs_names[i]] = count.var_names[select]
     return peaks
+
+def mad(data, axis=None):
+    """ Compute Median Absolute Deviation """
+    return np.median(np.absolute(data - np.median(data, axis)), axis)
+
+def modified_zscore(matrix, axis=0):
+    """ Compute Modified Z-score for a matrix along specified axis """
+    median = np.median(matrix, axis=axis)
+    median_absolute_deviation = mad(matrix, axis=axis)
+
+    if axis == 0:
+        modified_z_scores = 0.6745 * (matrix - median) / median_absolute_deviation
+    elif axis == 1:
+        modified_z_scores = 0.6745 * (matrix.T - median).T / median_absolute_deviation
+    else:
+        raise ValueError("Invalid axis, it should be 0 or 1")
+
+    return modified_z_scores
 
 def diff_test(
     data: AnnData | AnnDataSet,
