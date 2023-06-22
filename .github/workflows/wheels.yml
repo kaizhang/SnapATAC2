@@ -10,7 +10,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-11]
-        python_version: ["cp37-*", "cp38-*", "cp39-*", "cp310-*"]
+        python_version: ["cp38-*", "cp39-*", "cp310-*", "cp311-*"]
     env:
        CIBW_BUILD_VERBOSITY: 1
        CIBW_BEFORE_ALL_LINUX: >
@@ -40,7 +40,7 @@ jobs:
           python-version: '3.10'
 
       - name: Install cibuildwheel
-        run: python -m pip install cibuildwheel==2.12.1
+        run: python -m pip install cibuildwheel==2.13.1
 
       - name: Build wheels
         run: python -m cibuildwheel --output-dir wheelhouse snapatac2-python
