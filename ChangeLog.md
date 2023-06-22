@@ -1,8 +1,9 @@
-Dev
+v2.3.1 (2023-06-20)
 ===================
 
 - Bug fixes: #119, #127, #131.
 - Add `pp.add_frip` to calculate the fraction of reads in peaks or other types of feature sets.
+- Make `pp.make_fragment_file`'s behavior more deterministic.
 
 v2.3.0 (2023-04-14)
 ===================

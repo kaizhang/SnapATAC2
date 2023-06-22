@@ -190,6 +190,7 @@ pub enum FingerPrint {
 }
 
 impl FingerPrint {
+    /// Extract the fingerprint from a single-end BAM record.
     pub fn from_single_read(read: &AlignmentInfo) -> FingerPrint {
         let orientation = if read.flags().is_reverse_complemented() {
             Orientation::RR
@@ -208,6 +209,7 @@ impl FingerPrint {
         }
     }
 
+    /// Extract the fingerprint from a paired-end BAM record.
     pub fn from_paired_reads(
         this: &AlignmentInfo,
         other: &AlignmentInfo,
@@ -374,7 +376,8 @@ where
     reads.filter(move |r| {
         flagstat.update(r);
         let flag = r.flags().unwrap();
-        let is_properly_aligned = if is_paired { flag.is_properly_aligned() } else { true };
+        let is_properly_aligned = !flag.is_supplementary() &&
+            (!is_paired || flag.is_properly_aligned());
         let flag_pass = !flag.intersects(flag_failed);
         let mapq_pass = mapq_filter.and_then(|x| {
             let q = MappingQuality::new(x).unwrap();
@@ -498,6 +501,7 @@ where
     }
 }
 
+/// Remove duplicate single-end reads.
 fn rm_dup_single<I>(reads: I) -> impl Iterator<Item = (AlignmentInfo, usize)>
 where
     I: Iterator<Item = AlignmentInfo>,
@@ -520,13 +524,16 @@ where
     result.into_values().map(|x| (x.0, x.2))
 }
 
+/// Remove duplicate paired-end reads.
 fn rm_dup_pair<I>(reads: I) -> impl Iterator<Item = (AlignmentInfo, AlignmentInfo, usize)>
 where
     I: Iterator<Item = AlignmentInfo>,
 {
-    let mut result = HashMap::new();
+    // Sort the reads by name, so that paired reads are next to each other.
     let mut sorted_reads: Vec<_> = reads.collect();
     sorted_reads.par_sort_unstable_by(|a, b| a.name.cmp(&b.name));
+
+    let mut result = HashMap::new();
     sorted_reads.into_iter().fold(None, |state: Option<AlignmentInfo>, cur_rec| match state {
         Some(prev_rec) => if prev_rec.name == cur_rec.name {
             let (read1, read2) = if prev_rec.flags().is_first_segment() {
