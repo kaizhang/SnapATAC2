@@ -17,7 +17,13 @@ SnapATAC2 is a flexible, versatile, and scalable single-cell omics analysis fram
 - Seamless integration with other single-cell analysis packages such as Scanpy.
 - Implementation of fully backed AnnData.
 
-**To find tutorials and the full APIs, please go to this [website](https://kzhang.org/SnapATAC2/).**
+Resources
+---------
+
+- **Full Documentation**: https://kzhang.org/SnapATAC2/
+- **Installation instructions**: https://kzhang.org/SnapATAC2/install.html
+- **Tutorial/Demo**: https://kzhang.org/SnapATAC2/tutorial.html
+- **Benchmarks**: https://github.com/kaizhang/single-cell-benchmark
 
 How to cite
 -----------
