@@ -9,7 +9,7 @@ use polars::prelude::DataFrame;
 use pyanndata::anndata::memory;
 use pyanndata::{AnnData, AnnDataSet};
 use pyo3::prelude::*;
-use snapatac2_core::preprocessing::{SnapData, genome::GenomeCoverage};
+use snapatac2_core::preprocessing::{SnapData, genome::{GenomeCoverage, ContactMap}};
 
 pub struct PyAnnData<'py>(memory::PyAnnData<'py>);
 
@@ -169,6 +169,16 @@ impl<'py> SnapData for PyAnnData<'py> {
         Ok(GenomeCoverage::new(
             self.read_chrom_sizes()?,
             self.obsm().get_item_iter("insertion", chunk_size).unwrap(),
+        ))
+    }
+
+    fn contact_count_iter(
+        &self, chunk_size: usize
+    ) -> Result<ContactMap<Self::CountIter>>
+    {
+        Ok(ContactMap::new(
+            self.read_chrom_sizes()?,
+            self.obsm().get_item_iter("contact", chunk_size).unwrap(),
         ))
     }
 }

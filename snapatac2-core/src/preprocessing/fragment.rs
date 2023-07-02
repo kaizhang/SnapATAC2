@@ -1,7 +1,8 @@
 use crate::{
     preprocessing::{
         mark_duplicates::{filter_bam, group_bam_by_barcode, BarcodeLocation, FlagStat},
-        qc::{compute_qc_count, Fragment, FragmentSummary, QualityControl},
+        qc::{compute_qc_count, Fragment, Contact, FragmentSummary, QualityControl},
+        genome::{ChromSizes, GenomeBaseIndex},
     },
     utils::from_csr_rows,
 };
@@ -14,6 +15,7 @@ use bed_utils::bed::{
 };
 use either::Either;
 use flate2::{write::GzEncoder, Compression};
+use indexmap::IndexSet;
 use indicatif::{style::ProgressStyle, ProgressBar, ProgressDrawTarget, ProgressIterator};
 use itertools::Itertools;
 use noodles::{
@@ -24,7 +26,7 @@ use polars::prelude::{DataFrame, NamedFrom, Series};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use regex::Regex;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, BTreeMap},
     fs::File,
     io::{BufWriter, Write},
     path::Path,
@@ -167,6 +169,7 @@ fn fix_header(header: String) -> String {
     }
 }
 
+/// Import fragments
 pub fn import_fragments<A, B, I>(
     anndata: &A,
     fragments: I,
@@ -210,12 +213,12 @@ where
                         chunk.map(|(barcode, x)| (barcode, x.collect())).collect();
                     let result: Vec<_> = data
                         .into_par_iter()
-                        .map(|(barcode, x)| {
+                        .map(|(barcode, x)|
                             (
                                 barcode,
                                 compute_qc_count(x, promoter, regions, min_num_fragment, min_tsse),
                             )
-                        })
+                        )
                         .collect();
                     let counts = result
                         .into_iter()
@@ -333,6 +336,91 @@ fn qc_to_df(qc: Vec<QualityControl>) -> DataFrame {
     ])
     .unwrap()
 }
+
+/// Import scHi-C contacts into AnnData
+pub fn import_contacts<A, B, I>(
+    anndata: &A,
+    contacts: I,
+    regions: &GenomeRegions<B>,
+    chunk_size: usize,
+) -> Result<()>
+where
+    A: AnnDataOp,
+    B: BEDLike + Clone + std::marker::Sync,
+    I: Iterator<Item = Contact>,
+{
+    let chrom_sizes: ChromSizes = regions
+        .regions
+        .iter()
+        .map(|x| x.chrom())
+        .zip(regions.regions.iter().map(|x| x.end())).collect();
+ 
+    let genome_index = GenomeBaseIndex::new(&chrom_sizes);
+    let genome_size = genome_index.len();
+
+    let spinner = ProgressBar::with_draw_target(None, ProgressDrawTarget::stderr_with_hz(1))
+        .with_style(
+            ProgressStyle::with_template(
+                "{spinner} Processed {human_pos} barcodes in {elapsed} ({per_sec}) ...",
+            )
+            .unwrap(),
+        );
+    let mut scanned_barcodes = IndexSet::new();
+    anndata.obsm().add_iter(
+        "contact",
+        contacts
+            .group_by(|x| x.barcode.clone())
+            .into_iter()
+            .progress_with(spinner)
+            .chunks(chunk_size)
+            .into_iter()
+            .map(|chunk| {
+                let data: Vec<Vec<Contact>> = chunk.map(|(barcode, x)| {
+                    if !scanned_barcodes.insert(barcode.clone()) {
+                        panic!("Please sort fragment file by barcodes");
+                    }
+                    x.collect()
+                }).collect();
+
+                let counts: Vec<_> = data
+                    .into_par_iter()
+                    .map(|x| {
+                        let mut count = BTreeMap::new();
+                        x.into_iter().for_each(|c| {
+                            let pos1 = genome_index.get_position(&c.chrom1, c.start1);
+                            let pos2 = genome_index.get_position(&c.chrom2, c.start2);
+                            let i = pos1 * genome_size + pos2; 
+                            count.entry(i).and_modify(|x| *x += c.count).or_insert(c.count);
+                        });
+                        count.into_iter().collect::<Vec<_>>()
+                    }).collect();
+
+                from_csr_rows(counts, genome_size*genome_size)
+            }),
+    )?;
+
+    anndata.uns().add(
+        "reference_sequences",
+        DataFrame::new(vec![
+            Series::new(
+                "reference_seq_name",
+                regions
+                    .regions
+                    .iter()
+                    .map(|x| x.chrom())
+                    .collect::<Series>(),
+            ),
+            Series::new(
+                "reference_seq_length",
+                regions.regions.iter().map(|x| x.end()).collect::<Series>(),
+            ),
+        ])?,
+    )?;
+    anndata.set_obs_names(scanned_barcodes.into_iter().collect())?;
+    Ok(())
+}
+
+
 
 #[cfg(test)]
 mod tests {

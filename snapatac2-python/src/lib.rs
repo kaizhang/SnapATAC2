@@ -39,6 +39,7 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<preprocessing::PyFlagStat>().unwrap();
     m.add_function(wrap_pyfunction!(preprocessing::make_fragment_file, m)?)?;
     m.add_function(wrap_pyfunction!(preprocessing::import_fragments, m)?)?;
+    m.add_function(wrap_pyfunction!(preprocessing::import_contacts, m)?)?;
     m.add_function(wrap_pyfunction!(preprocessing::mk_tile_matrix, m)?)?;
     m.add_function(wrap_pyfunction!(preprocessing::mk_gene_matrix, m)?)?;
     m.add_function(wrap_pyfunction!(preprocessing::mk_peak_matrix, m)?)?;

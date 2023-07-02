@@ -11,7 +11,7 @@ from snapatac2._snapatac2 import AnnData, AnnDataSet, PyFlagStat
 import snapatac2._snapatac2 as internal
 from snapatac2.genome import Genome
 
-__all__ = ['make_fragment_file', 'import_data', 'add_tile_matrix',
+__all__ = ['make_fragment_file', 'import_data', 'import_contacts', 'add_tile_matrix',
            'make_peak_matrix', 'filter_cells', 'select_features',
            'make_gene_matrix', 'add_frip'
 ]
@@ -200,6 +200,73 @@ def import_data(
         chunk_size, whitelist, tempdir,
     )
     return adata
+
+def import_contacts(
+    contact_file: Path,
+    *,
+    file: Path | None = None,
+    genome: Genome | None = None,
+    chrom_size: dict[str, int] | None = None,
+    sorted_by_barcode: bool = True,
+    chunk_size: int = 2000,
+    tempdir: Path | None = None,
+    backend: Literal['hdf5'] = 'hdf5',
+) -> AnnData:
+    """Import chromatin contacts.
+
+    Parameters
+    ----------
+    contact_file
+        File name of the fragment file.
+    file
+        File name of the output h5ad file used to store the result. If provided,
+        result will be saved to a backed AnnData, otherwise an in-memory AnnData
+        is used.
+    genome
+        A Genome object, providing gene annotation and chromosome sizes.
+        If not set, `gff_file` and `chrom_size` must be provided.
+        `genome` has lower priority than `gff_file` and `chrom_size`.
+    chrom_size
+        A dictionary containing chromosome sizes, for example,
+        `{"chr1": 2393, "chr2": 2344, ...}`.
+        This is required if `genome` is not set.
+        Setting `chrom_size` will override the chrom_size from the `genome` parameter.
+    sorted_by_barcode
+        Whether the fragment file has been sorted by cell barcodes.
+        If `sorted_by_barcode == True`, this function makes use of small fixed amout of 
+        memory. If `sorted_by_barcode == False` and `low_memory == False`,
+        all data will be kept in memory. See `low_memory` for more details.
+    chunk_size
+        Increasing the chunk_size speeds up I/O but uses more memory.
+    tempdir
+        Location to store temporary files. If `None`, system temporary directory
+        will be used.
+    backend
+        The backend.
+
+    Returns
+    -------
+    AnnData | ad.AnnData
+        An annotated data matrix of shape `n_obs` x `n_vars`. Rows correspond to
+        cells and columns to regions. If `file=None`, an in-memory AnnData will be
+        returned, otherwise a backed AnnData is returned.
+
+    Examples
+    --------
+    >>> import snapatac2 as snap
+    >>> data = snap.pp.import_data(snap.datasets.pbmc500(), genome=snap.genome.hg38, sorted_by_barcode=False)
+    >>> print(data)
+    """
+    if genome is not None:
+        if chrom_size is None:
+            chrom_size = genome.chrom_sizes
+
+    adata = ad.AnnData() if file is None else AnnData(filename=file, backend=backend)
+    internal.import_contacts(
+        adata, contact_file, chrom_size, sorted_by_barcode, chunk_size, tempdir
+    )
+    return adata
+
 
 def add_frip(
     adata: AnnData | list[AnnData],

@@ -2,6 +2,7 @@ use crate::utils::*;
 
 use anndata::Backend;
 use anndata_hdf5::H5;
+use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::{str::FromStr, collections::BTreeMap, ops::Deref, collections::HashSet};
 use pyo3::prelude::*;
@@ -10,7 +11,7 @@ use pyanndata::PyAnnData;
 use anyhow::Result;
 
 use snapatac2_core::{
-    preprocessing::{Fragment, FlagStat, SnapData},
+    preprocessing::{Fragment, Contact, FlagStat, SnapData},
     preprocessing,
 };
 
@@ -133,6 +134,48 @@ fn shift_fragment(fragment: &mut Fragment, shift_left: i64, shift_right: i64) {
         fragment.end = fragment.end.saturating_add_signed(shift_right);
     }
 }
+
+#[pyfunction]
+pub(crate) fn import_contacts(
+    anndata: AnnDataLike,
+    contact_file: PathBuf,
+    chrom_size: BTreeMap<&str, u64>,
+    fragment_is_sorted_by_name: bool,
+    chunk_size: usize,
+    tempdir: Option<PathBuf>,
+) -> Result<()>
+{
+    let chrom_sizes = chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect();
+
+    let contacts = BufReader::new(open_file(&contact_file)).lines()
+        .map(|x| Contact::from_str(&x.unwrap()).unwrap());
+    let sorted_contacts: Box<dyn Iterator<Item = Contact>> = if !fragment_is_sorted_by_name {
+        let tmp = if let Some(dir) = tempdir {
+            tempfile::Builder::new().tempdir_in(dir)
+        } else {
+            tempfile::tempdir()
+        }.expect("failed to create tmperorary directory");
+        Box::new(extsort::ExternalSorter::new()
+            .with_segment_size(50000000)
+            .with_sort_dir(tmp.path().to_path_buf())
+            .with_parallel_sort()
+            .sort_by_key(contacts, |x| x.barcode.clone()).unwrap()
+        )
+    } else {
+        Box::new(contacts)
+    };
+
+    macro_rules! run {
+        ($data:expr) => {
+            preprocessing::import_contacts($data, sorted_contacts, &chrom_sizes, chunk_size)?
+        };
+    }
+
+    crate::with_anndata!(&anndata, run);
+    Ok(())
+} 
+
+
 
 #[pyfunction]
 pub(crate) fn mk_tile_matrix(

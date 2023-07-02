@@ -1,7 +1,7 @@
 use crate::preprocessing::genome::{Promoters, Transcript, SnapData};
 use crate::preprocessing::counter::{FeatureCounter, TranscriptCount, GeneCount};
 
-use anndata::AnnDataOp;
+use anndata::{AnnDataOp, AxisArraysOp};
 use indicatif::{ProgressIterator, ProgressStyle};
 use polars::prelude::{NamedFrom, DataFrame, Series};
 use anyhow::Result;
@@ -27,19 +27,35 @@ where
     let style = ProgressStyle::with_template(
         "[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})"
     ).unwrap();
-    let mut counts = adata.raw_count_iter(chunk_size)?.with_resolution(bin_size);
-    if let Some(exclude_chroms) = exclude_chroms {
-        counts = counts.exclude(exclude_chroms);
-    }
-    let feature_names = counts.get_gindex().to_index().into();
-    let data_iter = counts.into_values::<u32>().map(|x| x.0).progress_with_style(style);
-    if let Some(adata_out) =  out {
-        adata_out.set_x_from_iter(data_iter)?;
-        adata_out.set_obs_names(adata.obs_names())?;
-        adata_out.set_var_names(feature_names)?;
+
+    if adata.obsm().keys().contains(&"insertion".into()) {
+        let mut counts = adata.raw_count_iter(chunk_size)?.with_resolution(bin_size);
+        if let Some(exclude_chroms) = exclude_chroms {
+            counts = counts.exclude(exclude_chroms);
+        }
+        let feature_names = counts.get_gindex().to_index().into();
+        let data_iter = counts.into_values::<u32>().map(|x| x.0).progress_with_style(style);
+        if let Some(adata_out) =  out {
+            adata_out.set_x_from_iter(data_iter)?;
+            adata_out.set_obs_names(adata.obs_names())?;
+            adata_out.set_var_names(feature_names)?;
+        } else {
+            adata.set_x_from_iter(data_iter)?;
+            adata.set_var_names(feature_names)?;
+        }
     } else {
-        adata.set_x_from_iter(data_iter)?;
-        adata.set_var_names(feature_names)?;
+        let data_iter = adata
+            .contact_count_iter(chunk_size)?
+            .with_resolution(bin_size)
+            .into_values::<u32>().map(|x| x.0).progress_with_style(style);
+        if let Some(adata_out) =  out {
+            adata_out.set_x_from_iter(data_iter)?;
+            adata_out.set_obs_names(adata.obs_names())?;
+            adata_out.set_var_names(adata_out.n_vars().into())?;
+        } else {
+            adata.set_x_from_iter(data_iter)?;
+            adata.set_var_names(adata.n_vars().into())?;
+        }
     }
     Ok(())
 }

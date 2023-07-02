@@ -97,6 +97,49 @@ impl std::str::FromStr for Fragment {
     }
 }
 
+/// Chromatin interactions from single-cell Hi-C experiment. 
+#[derive(Serialize, Deserialize, Debug)] 
+pub struct Contact {
+    pub chrom1: String,
+    pub start1: u64,
+    pub chrom2: String,
+    pub start2: u64,
+    pub barcode: CellBarcode,
+    pub count: u32,
+}
+
+impl Sortable for Contact {
+    fn encode<W: std::io::Write>(&self, writer: &mut W) {
+        bincode::serialize_into(writer, self)
+            .unwrap_or_else(|e| panic!("Failed to serialize fragment: {}", e));
+    }
+
+    fn decode<R: std::io::Read>(reader: &mut R) -> Option<Self> {
+        bincode::deserialize_from(reader).ok()
+    }
+}
+
+impl std::str::FromStr for Contact {
+    type Err = ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut fields = s.split('\t');
+        let barcode = fields.next().ok_or(ParseError::MissingName)
+            .map(|s| s.into())?;
+        let chrom1 = fields.next().ok_or(ParseError::MissingReferenceSequenceName)?.to_string();
+        let start1 = fields.next().ok_or(ParseError::MissingStartPosition)
+            .and_then(|s| lexical::parse(s).map_err(ParseError::InvalidStartPosition))?;
+        let chrom2 = fields.next().ok_or(ParseError::MissingReferenceSequenceName)?.to_string();
+        let start2 = fields.next().ok_or(ParseError::MissingStartPosition)
+            .and_then(|s| lexical::parse(s).map_err(ParseError::InvalidStartPosition))?;
+        let count = fields.next().map_or(Ok(1), |s| if s == "." {
+            Ok(1)
+        } else {
+            lexical::parse(s).map_err(ParseError::InvalidStartPosition)
+        })?;
+        Ok(Contact { barcode, chrom1, start1, chrom2, start2, count })
+    }
+}
 
 
 #[derive(Clone, Debug, PartialEq)]
