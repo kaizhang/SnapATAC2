@@ -1,3 +1,8 @@
+Dev
+===================
+
+- Add `pp.import_contacts` to import scHi-C data.
+
 v2.3.1 (2023-06-21)
 ===================
 

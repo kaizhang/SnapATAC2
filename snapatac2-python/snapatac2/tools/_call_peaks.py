@@ -9,6 +9,9 @@ def call_peaks(
     groupby: str | list[str],
     selections: set[str] | None = None,
     q_value: float = 0.05,
+    nolambda: bool = True,
+    shift: int = -100,
+    extsize: int = 200,
     out_dir: Path | None = None,
     key_added: str = 'peaks',
     inplace: bool = True,
@@ -17,7 +20,7 @@ def call_peaks(
     Call peaks using MACS2.
 
     Use the `callpeak` command in MACS2 to identify regions enriched with TN5
-    insertions. The parameters passed to MACS2 are:
+    insertions. The default parameters passed to MACS2 are:
     "-shift -100 -extsize 200 -nomodel -callsummits -nolambda -keep-dup all"
 
     Parameters
@@ -32,6 +35,12 @@ def call_peaks(
         Call peaks for the selected groups only.
     q_value
         q_value cutoff used in MACS2.
+    nolambda
+        Whether to use the `--nolambda` option in MACS2.
+    shift
+        The shift size in MACS2.
+    extsize
+        The extension size in MACS2.
     out_dir
         If provided, raw peak files from each group will be saved in the directory.
         Otherwise, they will be stored in a temporary directory which will be removed
@@ -50,7 +59,7 @@ def call_peaks(
     if isinstance(groupby, str):
         groupby = list(adata.obs[groupby])
     out_dir = out_dir if out_dir is None else str(out_dir)
-    res = _snapatac2.call_peaks(adata, groupby, selections, q_value, out_dir)
+    res = _snapatac2.call_peaks(adata, groupby, selections, q_value, nolambda, shift, extsize, out_dir)
     if inplace:
         if adata.isbacked:
             adata.uns[key_added] = res

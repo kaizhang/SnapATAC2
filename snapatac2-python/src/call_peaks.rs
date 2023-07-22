@@ -19,8 +19,11 @@ use anyhow::Result;
 pub fn call_peaks(
     anndata: AnnDataLike,
     group_by: Vec<&str>,
-    selections: Option<HashSet<&str>>,
     q_value: f64,
+    nolambda: bool,
+    shift: i64,
+    extension_size: i64,
+    selections: Option<HashSet<&str>>,
     out_dir: Option<&str>,
 ) -> Result<PyDataFrame> {
     let dir = Builder::new().tempdir_in("./").unwrap();
@@ -30,6 +33,7 @@ pub fn call_peaks(
         ($data:expr) => {
             $data.call_peaks(
                 q_value, &group_by, selections, temp_dir, "", ".NarrowPeak.gz",
+                nolambda, shift, extension_size,
             )?
         }
     }

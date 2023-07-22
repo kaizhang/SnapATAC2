@@ -90,6 +90,9 @@ pub trait Exporter: SnapData {
         dir: P,
         prefix: &str,
         suffix:&str,
+        nolambda: bool,
+        shift: i64,
+        extension_size: i64,
     ) -> Result<HashMap<String, PathBuf>>
     {
         // Check if the command is in the PATH
@@ -107,7 +110,7 @@ pub trait Exporter: SnapData {
             let out_file = dir.as_ref().join(
                 prefix.to_string() + key.as_str().replace("/", "+").as_str() + suffix
             );
-            macs2(fl, q_value, genome_size, &dir, &out_file)?;
+            macs2(fl, q_value, genome_size, nolambda, shift, extension_size, &dir, &out_file)?;
             Ok((key, out_file))
         }).collect()
     }
@@ -224,10 +227,14 @@ where
     }).collect()
 }
 
+/// Call peaks using macs2.
 fn macs2<P1, P2, P3>(
     bed_file: P1,
     q_value: f64,
     genome_size: u64,
+    nolambda: bool,
+    shift: i64,
+    extension_size: i64,
     tmp_dir: P2,
     out_file: P3,
 ) -> Result<()>
@@ -247,8 +254,10 @@ where
         "--qvalue", format!("{}", q_value).as_str(),
         "-g", format!("{}", (genome_size as f64 * 0.9).round()).as_str(),
         "--call-summits",
-        "--nomodel", "--shift", "-100", "--extsize", "200",
-        "--nolambda",
+        "--nomodel",
+        "--shift", format!("{}", shift).as_str(),
+        "--extsize", format!("{}", extension_size).as_str(),
+        if nolambda { "--nolambda" } else { "" },
         "--tempdir", format!("{}", dir.path().display()).as_str(),
     ]).output().context("failed to execute macs2 command")?;
 
