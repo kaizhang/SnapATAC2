@@ -1,7 +1,7 @@
-use crate::utils::AnnDataLike;
+use crate::utils::{AnnDataLike, open_file};
 use snapatac2_core::{export::Exporter, utils::merge_peaks};
 
-use std::ops::Deref;
+use std::{ops::Deref, path::PathBuf};
 use anndata::Backend;
 use anndata_hdf5::H5;
 use pyanndata::data::PyDataFrame;
@@ -24,6 +24,7 @@ pub fn call_peaks(
     shift: i64,
     extension_size: i64,
     selections: Option<HashSet<&str>>,
+    blacklist: Option<PathBuf>,
     out_dir: Option<&str>,
 ) -> Result<PyDataFrame> {
     let dir = Builder::new().tempdir_in("./").unwrap();
@@ -44,7 +45,14 @@ pub fn call_peaks(
     );
 
     info!("Merging peaks...");
-    let peaks: Vec<_> = merge_peaks(peak_iter, 250).flatten().collect();
+    let peaks:Vec<_> = if let Some(black) = blacklist {
+        let black: BedTree<_> = Reader::new(open_file(black), None).into_records::<GenomicRange>()
+            .map(|x| (x.unwrap(), ())).collect();
+        merge_peaks(peak_iter.filter(|x| !black.is_overlapped(x)), 250).flatten().collect()
+    } else {
+        merge_peaks(peak_iter, 250).flatten().collect()
+    };
+
     let n = peaks.len();
 
     let peaks_str = Series::new("Peaks",

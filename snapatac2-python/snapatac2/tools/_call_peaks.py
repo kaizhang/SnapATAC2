@@ -12,6 +12,7 @@ def call_peaks(
     nolambda: bool = True,
     shift: int = -100,
     extsize: int = 200,
+    blacklist: Path | None = None,
     out_dir: Path | None = None,
     key_added: str = 'peaks',
     inplace: bool = True,
@@ -41,6 +42,9 @@ def call_peaks(
         The shift size in MACS2.
     extsize
         The extension size in MACS2.
+    blacklist
+        Path to the blacklist file in BED format. If provided, regions in the blacklist will be
+        removed.
     out_dir
         If provided, raw peak files from each group will be saved in the directory.
         Otherwise, they will be stored in a temporary directory which will be removed
@@ -59,7 +63,8 @@ def call_peaks(
     if isinstance(groupby, str):
         groupby = list(adata.obs[groupby])
     out_dir = out_dir if out_dir is None else str(out_dir)
-    res = _snapatac2.call_peaks(adata, groupby, selections, q_value, nolambda, shift, extsize, out_dir)
+    res = _snapatac2.call_peaks(adata, groupby, selections, q_value, nolambda,
+        shift, extsize, blacklist, out_dir)
     if inplace:
         if adata.isbacked:
             adata.uns[key_added] = res
