@@ -100,7 +100,6 @@ def import_data(
     min_num_fragments: int = 200,
     min_tsse: float = 1,
     sorted_by_barcode: bool = True,
-    low_memory: bool = True,
     whitelist: Path | list[str] | None = None,
     shift_left: int = 0,
     shift_right: int = 0,
@@ -196,7 +195,7 @@ def import_data(
     adata = ad.AnnData() if file is None else AnnData(filename=file, backend=backend)
     internal.import_fragments(
         adata, fragment_file, gene_anno, chrom_size, min_num_fragments,
-        min_tsse, sorted_by_barcode, low_memory, shift_left, shift_right,
+        min_tsse, sorted_by_barcode, shift_left, shift_right,
         chunk_size, whitelist, tempdir,
     )
     return adata

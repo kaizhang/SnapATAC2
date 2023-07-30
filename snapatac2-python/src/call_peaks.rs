@@ -1,7 +1,8 @@
 use crate::utils::{AnnDataLike, open_file};
-use snapatac2_core::{export::Exporter, utils::merge_peaks};
+use itertools::Itertools;
+use snapatac2_core::{export::Exporter, utils::merge_peaks, preprocessing::SnapData};
 
-use std::{ops::Deref, path::PathBuf};
+use std::{ops::Deref, path::PathBuf, collections::HashMap};
 use anndata::Backend;
 use anndata_hdf5::H5;
 use pyanndata::data::PyDataFrame;
@@ -13,7 +14,7 @@ use log::info;
 use std::fs::File;
 use polars::{prelude::{DataFrame, NamedFrom}, series::Series};
 use std::collections::HashSet;
-use anyhow::Result;
+use anyhow::{Result, ensure};
 
 #[pyfunction]
 pub fn call_peaks(
@@ -72,3 +73,41 @@ pub fn call_peaks(
     dir.close()?;
     Ok(df.into())
 }
+
+/*
+fn create_fwtrack_obj<'py, D: SnapData>(
+    py: Python<'py>,
+    data: &D,
+    barcodes: Option<&Vec<&str>>,
+    group_by: &Vec<&str>,
+    selections: Option<HashSet<&str>>,
+) -> Result<HashMap<String, &'py PyAny>> {
+    let macs = py.import("MACS2.IO.FixWidthTrack")?;
+    ensure!(data.n_obs() == group_by.len(), "lengths differ");
+    let mut groups: HashSet<&str> = group_by.iter().map(|x| *x).unique().collect();
+    if let Some(select) = selections { groups.retain(|x| select.contains(x)); }
+    let mut fw_tracks = groups.into_iter().map(|x| {
+        let obj = macs.getattr("FWTrack")?.call1((1000000,))?;
+        Ok((x.to_owned(), obj))
+    }).collect::<Result<HashMap<_, _>>>()?;
+
+    let style = ProgressStyle::with_template("[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})")?;
+    self.raw_count_iter(500)?.into_chrom_values::<usize>().progress_with_style(style).try_for_each(|(vals, start, _)|
+        vals.into_iter().enumerate().try_for_each::<_, Result<_>>(|(i, ins)| {
+            if let Some((_, fwt)) = fw_tracks.get_mut(group_by[start + i]) {
+                ins.into_iter().try_for_each(|x| {
+                    let chr = x.chrom();
+                    let 
+                    let bed = match barcodes {
+                        None => format!("{}\t{}\t{}", x.chrom(), x.start(), x.end()),
+                        Some(barcodes_) => format!("{}\t{}\t{}\t{}", x.chrom(), x.start(), x.end(), barcodes_[start + i]),
+                    };
+                    (0..x.value).try_for_each(|_| writeln!(fl, "{}", bed))
+                })?;
+            }
+            Ok(())
+        })
+    )?;
+    Ok(fw_tracks)
+}
+*/

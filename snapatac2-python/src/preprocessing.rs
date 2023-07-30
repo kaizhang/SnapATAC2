@@ -71,7 +71,6 @@ pub(crate) fn import_fragments(
     min_num_fragment: u64,
     min_tsse: f64,
     fragment_is_sorted_by_name: bool,
-    low_memory: bool,
     shift_left: i64,
     shift_right: i64,
     chunk_size: usize,
@@ -80,7 +79,7 @@ pub(crate) fn import_fragments(
 ) -> Result<()>
 {
     let promoters = preprocessing::make_promoter_map(preprocessing::read_tss(open_file(gtf_file)));
-    let final_white_list = if fragment_is_sorted_by_name || low_memory || min_num_fragment <= 0 {
+    let final_white_list = if fragment_is_sorted_by_name || min_num_fragment <= 0 {
         white_list
     } else {
         let mut barcode_count = preprocessing::get_barcode_count(
@@ -96,25 +95,24 @@ pub(crate) fn import_fragments(
             Some(x) => Some(list.intersection(&x).map(Clone::clone).collect()),
         }
     };
-    let chrom_sizes = chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect();
+    let chrom_sizes = chrom_size.into_iter().collect();
     let fragments = bed::io::Reader::new(open_file(&fragment_file), Some("#".to_string()))
         .into_records::<Fragment>().map(|x| {
             let mut f = x.unwrap();
             shift_fragment(&mut f, shift_left, shift_right);
             f
     });
-    let sorted_fragments: Box<dyn Iterator<Item = Fragment>> = if !fragment_is_sorted_by_name && low_memory {
+    let sorted_fragments: Box<dyn Iterator<Item = Fragment>> = if !fragment_is_sorted_by_name {
         Box::new(bed::sort_bed_by_key(fragments, |x| x.barcode.clone(), tempdir))
     } else {
         Box::new(fragments)
     };
-    let is_sorted = if fragment_is_sorted_by_name || low_memory { true } else { false };
 
     macro_rules! run {
         ($data:expr) => {
             preprocessing::import_fragments(
                 $data, sorted_fragments, &promoters, &chrom_sizes,
-                final_white_list.as_ref(), min_num_fragment, min_tsse, is_sorted, chunk_size,
+                final_white_list.as_ref(), min_num_fragment, min_tsse, chunk_size,
             )?
         };
     }

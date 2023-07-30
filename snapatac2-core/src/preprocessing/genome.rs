@@ -1,19 +1,29 @@
-use anndata::{container::{ChunkedArrayElem, StackedChunkedArrayElem}, ArrayElemOp};
-use bed_utils::bed::{tree::{GenomeRegions, BedTree}, GenomicRange, BedGraph, BEDLike};
-use anndata::{AnnDataOp, ElemCollectionOp, AxisArraysOp, AnnDataSet, Backend, AnnData};
+use anndata::{
+    container::{ChunkedArrayElem, StackedChunkedArrayElem},
+    ArrayElemOp,
+};
+use anndata::{AnnData, AnnDataOp, AnnDataSet, AxisArraysOp, Backend, ElemCollectionOp};
+use anyhow::{Context, Result};
+use bed_utils::bed::{
+    tree::{BedTree, GenomeRegions},
+    BEDLike, BedGraph, GenomicRange,
+};
 use indexmap::IndexSet;
-use ndarray::Array2;
-use polars::frame::DataFrame;
 use nalgebra_sparse::CsrMatrix;
+use ndarray::Array2;
 use noodles::{core::Position, gff, gff::record::Strand, gtf};
-use num::{traits::{FromPrimitive, Zero}, integer::div_ceil};
+use num::{
+    integer::div_ceil,
+    traits::{FromPrimitive, Zero},
+};
+use polars::prelude::{DataFrame, NamedFrom, Series};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use anyhow::{Result, Context};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     fmt::Debug,
     io::BufRead,
-    ops::{AddAssign, Range}, str::FromStr,
+    ops::{AddAssign, Range},
+    str::FromStr,
 };
 
 use crate::utils::from_csr_rows;
@@ -225,6 +235,22 @@ impl IntoIterator for ChromSizes {
     }
 }
 
+impl ChromSizes {
+    pub fn to_dataframe(&self) -> DataFrame {
+        DataFrame::new(vec![
+            Series::new(
+                "reference_seq_name",
+                self.0.iter().map(|x| x.0.clone()).collect::<Series>(),
+            ),
+            Series::new(
+                "reference_seq_length",
+                self.0.iter().map(|x| x.1).collect::<Series>(),
+            ),
+        ])
+        .unwrap()
+    }
+}
+
 /// 0-based index that maps genomic loci to integers.
 #[derive(Debug, Clone)]
 pub struct GenomeBaseIndex {
@@ -243,7 +269,8 @@ impl GenomeBaseIndex {
             .map(|(_, length)| {
                 acc += length;
                 acc
-            }).collect::<Vec<_>>();
+            })
+            .collect::<Vec<_>>();
         Self {
             chroms: chrom_sizes.0.iter().map(|x| x.0.clone()).collect(),
             binned_accum_len: base_accum_len.clone(),
@@ -261,7 +288,7 @@ impl GenomeBaseIndex {
         } else {
             self.binned_accum_len[i - 1]
         };
-        Some(start as usize .. end as usize)
+        Some(start as usize..end as usize)
     }
 
     pub fn to_index(&self) -> anndata::data::index::Index {
@@ -274,32 +301,48 @@ impl GenomeBaseIndex {
                     step: self.step,
                 };
                 (chrom.to_owned(), i)
-            }).collect()
+            })
+            .collect()
     }
 
     /// Number of indices.
     pub fn len(&self) -> usize {
-        self.binned_accum_len.last().map(|x| *x as usize).unwrap_or(0)
+        self.binned_accum_len
+            .last()
+            .map(|x| *x as usize)
+            .unwrap_or(0)
     }
 
     pub fn chrom_sizes(&self) -> impl Iterator<Item = (&String, u64)> + '_ {
         let mut prev = 0;
-        self.chroms.iter().zip(self.base_accum_len.iter()).map(move |(chrom, acc)| {
-            let length = acc - prev;
-            prev = *acc;
-            (chrom, length)
-        })
+        self.chroms
+            .iter()
+            .zip(self.base_accum_len.iter())
+            .map(move |(chrom, acc)| {
+                let length = acc - prev;
+                prev = *acc;
+                (chrom, length)
+            })
+    }
+
+    /// Check if the index contains the given chromosome.
+    pub fn contain_chrom(&self, chrom: &str) -> bool {
+        self.chroms.contains(chrom)
     }
 
     pub fn with_step(&self, s: usize) -> Self {
         let mut prev = 0;
         let mut acc_low_res = 0;
-        let binned_accum_len = self.base_accum_len.iter().map(|acc| {
-            let length = acc - prev;
-            prev = *acc;
-            acc_low_res += length.div_ceil(s as u64);
-            acc_low_res
-        }).collect();
+        let binned_accum_len = self
+            .base_accum_len
+            .iter()
+            .map(|acc| {
+                let length = acc - prev;
+                prev = *acc;
+                acc_low_res += length.div_ceil(s as u64);
+                acc_low_res
+            })
+            .collect();
         Self {
             chroms: self.chroms.clone(),
             base_accum_len: self.base_accum_len.clone(),
@@ -308,9 +351,9 @@ impl GenomeBaseIndex {
         }
     }
 
-    /// Given a genomic position, return the corresponding index. 
+    /// Given a genomic position, return the corresponding index.
     pub fn get_position(&self, chrom: &str, pos: u64) -> usize {
-        let i = self.chroms.get_index_of(chrom).unwrap();
+        let i = self.chroms.get_index_of(chrom).expect(format!("Chromosome {} not found", chrom).as_str());
         let size = if i == 0 {
             self.base_accum_len[i]
         } else {
@@ -342,7 +385,7 @@ impl GenomeBaseIndex {
         let i = pos as u64;
         match self.binned_accum_len.binary_search(&i) {
             Ok(j) => {
-                let chr = self.chroms.get_index(j+1).unwrap();
+                let chr = self.chroms.get_index(j + 1).unwrap();
                 let acc = self.base_accum_len[j + 1];
                 let size = acc - self.base_accum_len[j];
                 let start = 0;
@@ -391,7 +434,7 @@ impl GenomeBaseIndex {
 }
 
 /// `ChromValues` is a type alias for a vector of `BedGraph<N>` objects.
-/// Each `BedGraph` instance represents a genomic region along with a 
+/// Each `BedGraph` instance represents a genomic region along with a
 /// numerical value (like coverage or score).
 pub type ChromValues<N> = Vec<BedGraph<N>>;
 
@@ -442,24 +485,27 @@ where
 
     /// Count the fraction of the records in the given regions.
     pub fn fraction_in_regions<D>(
-        self, regions: &'a Vec<BedTree<D>>
-    ) -> impl ExactSizeIterator<Item = (Vec<Vec<f64>>, usize, usize)> + 'a
-    {
+        self,
+        regions: &'a Vec<BedTree<D>>,
+    ) -> impl ExactSizeIterator<Item = (Vec<Vec<f64>>, usize, usize)> + 'a {
         let k = regions.len();
         self.map(move |(values, start, end)| {
-            let frac = values.into_iter().map(|xs| {
-                let n = xs.len() as f64;
-                let mut counts = vec![0.0; k];
-                xs.into_iter().for_each(|x|
-                    regions.iter().enumerate().for_each(|(i, r)| {
-                        if r.is_overlapped(&x) {
-                            counts[i] += 1.0;
-                        }
-                    })
-                );
-                counts.iter_mut().for_each(|x| *x /= n);
-                counts
-            }).collect::<Vec<_>>();
+            let frac = values
+                .into_iter()
+                .map(|xs| {
+                    let n = xs.len() as f64;
+                    let mut counts = vec![0.0; k];
+                    xs.into_iter().for_each(|x| {
+                        regions.iter().enumerate().for_each(|(i, r)| {
+                            if r.is_overlapped(&x) {
+                                counts[i] += 1.0;
+                            }
+                        })
+                    });
+                    counts.iter_mut().for_each(|x| *x /= n);
+                    counts
+                })
+                .collect::<Vec<_>>();
             (frac, start, end)
         })
     }
@@ -474,10 +520,16 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|(x, start, end)| {
-            let values = x.row_iter().map(|row|
-                row.col_indices().iter().zip(row.values()).map(|(i, v)|
-                    BedGraph::from_bed(&self.regions[*i], *v)).collect()
-            ).collect();
+            let values = x
+                .row_iter()
+                .map(|row| {
+                    row.col_indices()
+                        .iter()
+                        .zip(row.values())
+                        .map(|(i, v)| BedGraph::from_bed(&self.regions[*i], *v))
+                        .collect()
+                })
+                .collect();
             (values, start, end)
         })
     }
@@ -488,11 +540,13 @@ where
     I: Iterator<Item = (CsrMatrix<T>, usize, usize)>,
     T: Copy,
 {
-    fn len(&self) -> usize { self.length }
+    fn len(&self) -> usize {
+        self.length
+    }
 }
 
 /// `GenomeCoverage` represents a genome's base-resolution coverage.
-/// It stores the coverage as an iterator of tuples, each containing a 
+/// It stores the coverage as an iterator of tuples, each containing a
 /// compressed sparse row matrix, a start index, and an end index.
 /// It also keeps track of the resolution and excluded chromosomes.
 pub struct GenomeCoverage<I> {
@@ -518,13 +572,17 @@ where
     pub fn get_gindex(&self) -> GenomeBaseIndex {
         if !self.exclude_chroms.is_empty() {
             let chr_sizes = ChromSizes(
-                self.index.chrom_sizes().filter_map(|(chr, size)| {
-                    if self.exclude_chroms.contains(chr) {
-                        None
-                    } else {
-                        Some((chr.clone(), size))
-                    }
-            }).collect());
+                self.index
+                    .chrom_sizes()
+                    .filter_map(|(chr, size)| {
+                        if self.exclude_chroms.contains(chr) {
+                            None
+                        } else {
+                            Some((chr.clone(), size))
+                        }
+                    })
+                    .collect(),
+            );
             GenomeBaseIndex::new(&chr_sizes).with_step(self.resolution)
         } else {
             self.index.with_step(self.resolution)
@@ -538,8 +596,11 @@ where
     }
 
     pub fn exclude(mut self, chroms: &[&str]) -> Self {
-        self.exclude_chroms = chroms.iter().filter(|x| self.index.chroms.contains(**x))
-            .map(|x| x.to_string()).collect();
+        self.exclude_chroms = chroms
+            .iter()
+            .filter(|x| self.index.chroms.contains(**x))
+            .map(|x| x.to_string())
+            .collect();
         self
     }
 
@@ -580,7 +641,8 @@ where
                             })
                             .collect::<Vec<_>>()
                     }
-                }).collect();
+                })
+                .collect();
             (values, i, j)
         })
     }
@@ -611,7 +673,9 @@ where
                             .zip(row.values())
                             .for_each(|(idx, val)| {
                                 let locus = ori_index.get_locus(*idx);
-                                if self.exclude_chroms.is_empty() || !self.exclude_chroms.contains(locus.chrom()) {
+                                if self.exclude_chroms.is_empty()
+                                    || !self.exclude_chroms.contains(locus.chrom())
+                                {
                                     let i = index.get_position(locus.chrom(), locus.start());
                                     let val = T::from_u8(*val).unwrap();
                                     *count.entry(i).or_insert(Zero::zero()) += val;
@@ -730,15 +794,14 @@ where
                         count.into_iter().collect::<Vec<_>>()
                     })
                     .collect();
-                from_csr_rows(vec, new_size*new_size)
+                from_csr_rows(vec, new_size * new_size)
             };
             (new_mat, i, j)
         })
     }
 }
 
-
-/// The `SnapData` trait represents an interface for reading and 
+/// The `SnapData` trait represents an interface for reading and
 /// manipulating single-cell assay data. It extends the `AnnDataOp` trait,
 /// adding methods for reading chromosome sizes and genome-wide base-resolution coverage.
 pub trait SnapData: AnnDataOp {
@@ -746,32 +809,37 @@ pub trait SnapData: AnnDataOp {
 
     /// Return chromosome names and sizes.
     fn read_chrom_sizes(&self) -> Result<ChromSizes> {
-        let df = self.uns().get_item::<DataFrame>("reference_sequences")?
+        let df = self
+            .uns()
+            .get_item::<DataFrame>("reference_sequences")?
             .context("key 'reference_sequences' is not present in the '.uns'")?;
         let chrs = df.column("reference_seq_name").unwrap().utf8()?;
         let chr_sizes = df.column("reference_seq_length").unwrap().u64()?;
-        let res = chrs.into_iter().flatten().map(|x| x.to_string())
-            .zip(chr_sizes.into_iter().flatten()).collect();
+        let res = chrs
+            .into_iter()
+            .flatten()
+            .map(|x| x.to_string())
+            .zip(chr_sizes.into_iter().flatten())
+            .collect();
         Ok(ChromSizes(res))
     }
 
     /// Read genome-wide base-resolution coverage
-    fn raw_count_iter(
-        &self, chunk_size: usize
-    ) -> Result<GenomeCoverage<Self::CountIter>>;
+    fn raw_count_iter(&self, chunk_size: usize) -> Result<GenomeCoverage<Self::CountIter>>;
 
-    fn contact_count_iter(
-        &self, chunk_size: usize
-    ) -> Result<ContactMap<Self::CountIter>>;
+    fn contact_count_iter(&self, chunk_size: usize) -> Result<ContactMap<Self::CountIter>>;
 
     fn read_chrom_values(
-        &self, chunk_size: usize
-    ) -> Result<ChromValueIter<
-        <<Self as AnnDataOp>::X as ArrayElemOp>::ArrayIter<CsrMatrix<u32>>
-    >>
+        &self,
+        chunk_size: usize,
+    ) -> Result<ChromValueIter<<<Self as AnnDataOp>::X as ArrayElemOp>::ArrayIter<CsrMatrix<u32>>>>
     {
-        let regions = self.var_names().into_vec().into_iter()
-            .map(|x| GenomicRange::from_str(x.as_str()).unwrap()).collect();
+        let regions = self
+            .var_names()
+            .into_vec()
+            .into_iter()
+            .map(|x| GenomicRange::from_str(x.as_str()).unwrap())
+            .collect();
         Ok(ChromValueIter {
             regions,
             iter: self.x().iter(chunk_size),
@@ -782,7 +850,12 @@ pub trait SnapData: AnnDataOp {
     /// Compute the fraction of reads in each region.
     fn frip<D>(&self, regions: &Vec<BedTree<D>>) -> Result<Array2<f64>> {
         let chrom_values = self.read_chrom_values(2000)?;
-        let vec = chrom_values.fraction_in_regions(regions).map(|x| x.0).flatten().flatten().collect::<Vec<_>>();
+        let vec = chrom_values
+            .fraction_in_regions(regions)
+            .map(|x| x.0)
+            .flatten()
+            .flatten()
+            .collect::<Vec<_>>();
         Array2::from_shape_vec((self.n_obs(), regions.len()), vec).map_err(Into::into)
     }
 }
@@ -790,20 +863,14 @@ pub trait SnapData: AnnDataOp {
 impl<B: Backend> SnapData for AnnData<B> {
     type CountIter = ChunkedArrayElem<B, CsrMatrix<u8>>;
 
-    fn raw_count_iter(
-        &self, chunk_size: usize
-    ) -> Result<GenomeCoverage<Self::CountIter>>
-    {
+    fn raw_count_iter(&self, chunk_size: usize) -> Result<GenomeCoverage<Self::CountIter>> {
         Ok(GenomeCoverage::new(
             self.read_chrom_sizes()?,
             self.obsm().get_item_iter("insertion", chunk_size).unwrap(),
         ))
     }
 
-    fn contact_count_iter(
-        &self, chunk_size: usize
-    ) -> Result<ContactMap<Self::CountIter>>
-    {
+    fn contact_count_iter(&self, chunk_size: usize) -> Result<ContactMap<Self::CountIter>> {
         Ok(ContactMap::new(
             self.read_chrom_sizes()?,
             self.obsm().get_item_iter("contact", chunk_size).unwrap(),
@@ -814,23 +881,25 @@ impl<B: Backend> SnapData for AnnData<B> {
 impl<B: Backend> SnapData for AnnDataSet<B> {
     type CountIter = StackedChunkedArrayElem<B, CsrMatrix<u8>>;
 
-    fn raw_count_iter(
-        &self, chunk_size: usize
-    ) -> Result<GenomeCoverage<Self::CountIter>>
-    {
+    fn raw_count_iter(&self, chunk_size: usize) -> Result<GenomeCoverage<Self::CountIter>> {
         Ok(GenomeCoverage::new(
             self.read_chrom_sizes()?,
-            self.adatas().inner().get_obsm().get_item_iter("insertion", chunk_size).unwrap(),
+            self.adatas()
+                .inner()
+                .get_obsm()
+                .get_item_iter("insertion", chunk_size)
+                .unwrap(),
         ))
     }
 
-    fn contact_count_iter(
-        &self, chunk_size: usize
-    ) -> Result<ContactMap<Self::CountIter>>
-    {
+    fn contact_count_iter(&self, chunk_size: usize) -> Result<ContactMap<Self::CountIter>> {
         Ok(ContactMap::new(
             self.read_chrom_sizes()?,
-            self.adatas().inner().get_obsm().get_item_iter("contact", chunk_size).unwrap(),
+            self.adatas()
+                .inner()
+                .get_obsm()
+                .get_item_iter("contact", chunk_size)
+                .unwrap(),
         ))
     }
 }
@@ -855,7 +924,12 @@ mod tests {
 
         assert_eq!(
             chrom_sizes.clone(),
-            ChromSizes(index.chrom_sizes().map(|(a,b)| (a.to_owned(),b)).collect()),
+            ChromSizes(
+                index
+                    .chrom_sizes()
+                    .map(|(a, b)| (a.to_owned(), b))
+                    .collect()
+            ),
         );
 
         [
@@ -908,9 +982,7 @@ mod tests {
         let index = GenomeBaseIndex::new(&chrom_sizes);
         [(0, 0), (12, 12), (13, 13), (100, 100)]
             .into_iter()
-            .for_each(|(i, i_)| {
-                assert_eq!(index.get_coarsed_position(i), i_)
-            });
+            .for_each(|(i, i_)| assert_eq!(index.get_coarsed_position(i), i_));
 
         let index2 = index.with_step(2);
         [
@@ -946,7 +1018,7 @@ mod tests {
                      chr1\tHAVANA\texon\t11869\t12227\t.\t+\t.\tgene_id=ENSG00000223972.5;transcript_id=ENST00000456328.2;gene_type=transcribed_unprocessed_pseudogene;gene_name=DDX11L1;transcript_type=processed_transcript;transcript_name=DDX11L1-202;exon_number=1\n\
                      chr1\tHAVANA\texon\t12613\t12721\t.\t+\t.\tgene_id=ENSG00000223972.5;transcript_id=ENST00000456328.2;gene_type=transcribed_unprocessed_pseudogene;gene_name=DDX11L1;transcript_type=processed_transcript;transcript_name=DDX11L1-202;exon_number=2\n\
                      chr1\tHAVANA\texon\t13221\t14409\t.\t+\t.\tgene_id=ENSG00000223972.5;transcript_id=ENST00000456328.2;gene_type=transcribed_unprocessed_pseudogene;gene_name=DDX11L1;transcript_type=processed_transcript;transcript_name=DDX11L1-202;exon_number=3";
-        
+
         let gtf = "chr1\tHAVANA\tgene\t11869\t14409\t.\t+\t.\tgene_id \"ENSG00000223972.5\"; gene_type \"transcribed_unprocessed_pseudogene\"; gene_name \"DDX11L1\"; level 2; hgnc_id \"HGNC:37102\"; havana_gene \"OTTHUMG00000000961.2\";\n\
             chr1\tHAVANA\ttranscript\t11869\t14409\t.\t+\t.\tgene_id \"ENSG00000223972.5\"; transcript_id \"ENST00000456328.2\"; gene_type \"transcribed_unprocessed_pseudogene\"; gene_name \"DDX11L1\"; transcript_type \"processed_transcript\"; transcript_name \"DDX11L1-202\"; level 2; transcript_support_level \"1\"; hgnc_id \"HGNC:37102\"; tag \"basic\"; havana_gene \"OTTHUMG00000000961.2\"; havana_transcript \"OTTHUMT00000362751.1\";\n\
             chr1\tHAVANA\texon\t11869\t12227\t.\t+\t.\tgene_id \"ENSG00000223972.5\"; transcript_id \"ENST00000456328.2\"; gene_type \"transcribed_unprocessed_pseudogene\"; gene_name \"DDX11L1\"; transcript_type \"processed_transcript\"; transcript_name \"DDX11L1-202\"; exon_number 1; exon_id \"ENSE00002234944.1\"; level 2; transcript_support_level \"1\"; hgnc_id \"HGNC:37102\"; tag \"basic\"; havana_gene \"OTTHUMG00000000961.2\"; havana_transcript \"OTTHUMT00000362751.1\";\n\
@@ -964,7 +1036,13 @@ mod tests {
             right: Position::try_from(14409).unwrap(),
             strand: Strand::Forward,
         };
-        assert_eq!(read_transcripts_from_gff(gff.as_bytes()).unwrap()[0], expected);
-        assert_eq!(read_transcripts_from_gtf(gtf.as_bytes()).unwrap()[0], expected);
+        assert_eq!(
+            read_transcripts_from_gff(gff.as_bytes()).unwrap()[0],
+            expected
+        );
+        assert_eq!(
+            read_transcripts_from_gtf(gtf.as_bytes()).unwrap()[0],
+            expected
+        );
     }
 }
