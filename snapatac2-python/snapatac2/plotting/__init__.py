@@ -219,7 +219,7 @@ def regions(
 
     count = aggregate_X(data, groupby=groupby, normalize="RPKM")
     count = pl.DataFrame(count.X.T)
-    count.columns = list(count.obs_names)
+    count.columns = list(count.index)
     idx = data.var_ix(np.concatenate(list(peaks.values())).tolist())
     mat = np.log2(1 + count.to_numpy()[idx, :])
 
