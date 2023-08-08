@@ -168,7 +168,7 @@ impl<'py> SnapData for PyAnnData<'py> {
     {
         Ok(GenomeCoverage::new(
             self.read_chrom_sizes()?,
-            self.obsm().get_item_iter("insertion", chunk_size).unwrap(),
+            self.obsm().get_item_iter("insertion", chunk_size).expect("'insertion' not found in obsm"),
         ))
     }
 
@@ -178,7 +178,7 @@ impl<'py> SnapData for PyAnnData<'py> {
     {
         Ok(ContactMap::new(
             self.read_chrom_sizes()?,
-            self.obsm().get_item_iter("contact", chunk_size).unwrap(),
+            self.obsm().get_item_iter("contact", chunk_size).expect("'contact' not found in obsm"),
         ))
     }
 }
