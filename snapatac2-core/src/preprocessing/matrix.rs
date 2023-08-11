@@ -29,7 +29,7 @@ where
     ).unwrap();
 
     if adata.obsm().keys().contains(&"insertion".into()) {
-        let mut counts = adata.raw_count_iter(chunk_size)?.with_resolution(bin_size);
+        let mut counts = adata.insertion_count_iter(chunk_size)?.with_resolution(bin_size);
         if let Some(exclude_chroms) = exclude_chroms {
             counts = counts.exclude(exclude_chroms);
         }
@@ -83,7 +83,7 @@ where
         Box::new(adata.read_chrom_values(chunk_size)?
             .aggregate_by(counter).map(|x| x.0))
     } else {
-        Box::new(adata.raw_count_iter(chunk_size)?
+        Box::new(adata.insertion_count_iter(chunk_size)?
             .aggregate_by(counter).map(|x| x.0))
     };
     if let Some(adata_out) =  out {
@@ -119,7 +119,7 @@ where
                 Box::new(adata.read_chrom_values(chunk_size)?
                     .aggregate_by(transcript_counter).map(|x| x.0))
             } else {
-                Box::new(adata.raw_count_iter(chunk_size)?
+                Box::new(adata.insertion_count_iter(chunk_size)?
                     .aggregate_by(transcript_counter).map(|x| x.0))
             };
             if let Some(adata_out) = out {
@@ -140,7 +140,7 @@ where
                 Box::new(adata.read_chrom_values(chunk_size)?
                     .aggregate_by(gene_counter).map(|x| x.0))
             } else {
-                Box::new(adata.raw_count_iter(chunk_size)?
+                Box::new(adata.insertion_count_iter(chunk_size)?
                     .aggregate_by(gene_counter).map(|x| x.0))
             };
             if let Some(adata_out) = out {

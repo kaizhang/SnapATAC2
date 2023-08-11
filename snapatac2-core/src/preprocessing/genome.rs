@@ -1,8 +1,8 @@
 use anndata::{
+    AnnData, AnnDataOp, AnnDataSet, AxisArraysOp, Backend, ElemCollectionOp,
+    ArrayElemOp, data::array::utils::to_csr_data,
     container::{ChunkedArrayElem, StackedChunkedArrayElem},
-    ArrayElemOp,
 };
-use anndata::{AnnData, AnnDataOp, AnnDataSet, AxisArraysOp, Backend, ElemCollectionOp};
 use anyhow::{Context, Result};
 use bed_utils::bed::{
     tree::{BedTree, GenomeRegions},
@@ -25,8 +25,6 @@ use std::{
     ops::{AddAssign, Range},
     str::FromStr,
 };
-
-use crate::utils::from_csr_rows;
 
 use super::counter::FeatureCounter;
 
@@ -478,8 +476,9 @@ where
                         });
                     coverage.get_counts()
                 })
-                .collect();
-            (from_csr_rows(vec, n_col), i, j)
+                .collect::<Vec<_>>();
+            let (r, c, offset, ind, data) = to_csr_data(vec, n_col);
+            (CsrMatrix::try_from_csr_data(r,c,offset,ind, data).unwrap(), i, j)
         })
     }
 
@@ -683,8 +682,9 @@ where
                             });
                         count.into_iter().collect::<Vec<_>>()
                     })
-                    .collect();
-                from_csr_rows(vec, index.len())
+                    .collect::<Vec<_>>();
+                let (r, c, offset, ind, data) = to_csr_data(vec, index.len());
+                CsrMatrix::try_from_csr_data(r,c,offset,ind, data).unwrap()
             };
             (new_mat, i, j)
         })
@@ -720,8 +720,9 @@ where
                         });
                     coverage.get_counts()
                 })
-                .collect();
-            (from_csr_rows(vec, n_col), i, j)
+                .collect::<Vec<_>>();
+            let (r, c, offset, ind, data) = to_csr_data(vec, n_col);
+            (CsrMatrix::try_from_csr_data(r,c,offset,ind, data).unwrap(), i, j)
         })
     }
 }
@@ -793,8 +794,9 @@ where
                             });
                         count.into_iter().collect::<Vec<_>>()
                     })
-                    .collect();
-                from_csr_rows(vec, new_size * new_size)
+                    .collect::<Vec<_>>();
+                let (r, c, offset, ind, data) = to_csr_data(vec, new_size * new_size);
+                CsrMatrix::try_from_csr_data(r,c,offset,ind, data).unwrap()
             };
             (new_mat, i, j)
         })
@@ -824,11 +826,12 @@ pub trait SnapData: AnnDataOp {
         Ok(ChromSizes(res))
     }
 
-    /// Read genome-wide base-resolution coverage
-    fn raw_count_iter(&self, chunk_size: usize) -> Result<GenomeCoverage<Self::CountIter>>;
+    /// Read insertion counts stored in the `.obsm['insertion']` matrix.
+    fn insertion_count_iter(&self, chunk_size: usize) -> Result<GenomeCoverage<Self::CountIter>>;
 
     fn contact_count_iter(&self, chunk_size: usize) -> Result<ContactMap<Self::CountIter>>;
 
+    /// Read counts stored in the `X` matrix.
     fn read_chrom_values(
         &self,
         chunk_size: usize,
@@ -863,7 +866,7 @@ pub trait SnapData: AnnDataOp {
 impl<B: Backend> SnapData for AnnData<B> {
     type CountIter = ChunkedArrayElem<B, CsrMatrix<u8>>;
 
-    fn raw_count_iter(&self, chunk_size: usize) -> Result<GenomeCoverage<Self::CountIter>> {
+    fn insertion_count_iter(&self, chunk_size: usize) -> Result<GenomeCoverage<Self::CountIter>> {
         Ok(GenomeCoverage::new(
             self.read_chrom_sizes()?,
             self.obsm().get_item_iter("insertion", chunk_size).unwrap(),
@@ -881,7 +884,7 @@ impl<B: Backend> SnapData for AnnData<B> {
 impl<B: Backend> SnapData for AnnDataSet<B> {
     type CountIter = StackedChunkedArrayElem<B, CsrMatrix<u8>>;
 
-    fn raw_count_iter(&self, chunk_size: usize) -> Result<GenomeCoverage<Self::CountIter>> {
+    fn insertion_count_iter(&self, chunk_size: usize) -> Result<GenomeCoverage<Self::CountIter>> {
         Ok(GenomeCoverage::new(
             self.read_chrom_sizes()?,
             self.adatas()

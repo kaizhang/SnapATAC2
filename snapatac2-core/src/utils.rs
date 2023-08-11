@@ -1,25 +1,6 @@
 pub mod similarity;
 
 use bed_utils::bed::{BEDLike, NarrowPeak, merge_bed_with};
-use nalgebra_sparse::CsrMatrix;
-
-pub fn from_csr_rows<T>(rows: Vec<Vec<(usize, T)>>, num_cols: usize) -> CsrMatrix<T> {
-    let num_rows = rows.len();
-    let mut data = Vec::new();
-    let mut indices = Vec::new();
-    let mut indptr = Vec::with_capacity(num_rows + 1);
-    let mut nnz = 0;
-    for row in rows {
-        indptr.push(nnz);
-        for (col, val) in row {
-            data.push(val);
-            indices.push(col);
-            nnz += 1;
-        }
-    }
-    indptr.push(nnz);
-    CsrMatrix::try_from_csr_data(num_rows, num_cols, indptr, indices, data).unwrap()
-}
 
 pub fn merge_peaks<I>(peaks: I, half_window_size: u64) -> impl Iterator<Item = Vec<NarrowPeak>>
 where

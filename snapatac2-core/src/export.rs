@@ -51,7 +51,7 @@ pub trait Exporter: SnapData {
         }).collect::<Result<HashMap<_, _>>>()?;
 
         let style = ProgressStyle::with_template("[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})")?;
-        self.raw_count_iter(500)?.into_chrom_values::<usize>().progress_with_style(style).try_for_each(|(vals, start, _)|
+        self.insertion_count_iter(500)?.into_chrom_values::<usize>().progress_with_style(style).try_for_each(|(vals, start, _)|
             vals.into_iter().enumerate().try_for_each::<_, Result<_>>(|(i, ins)| {
                 if let Some((_, fl)) = files.get_mut(group_by[start + i]) {
                     ins.into_iter().try_for_each(|x| {
@@ -78,7 +78,7 @@ pub trait Exporter: SnapData {
         suffix:&str,
     ) -> Result<HashMap<String, PathBuf>> {
         export_insertions_as_bigwig(
-            self.raw_count_iter(500)?, group_by, selections, resolution, dir, prefix, suffix,
+            self.insertion_count_iter(500)?, group_by, selections, resolution, dir, prefix, suffix,
         )
     }
 

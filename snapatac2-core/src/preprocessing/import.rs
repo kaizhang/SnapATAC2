@@ -3,10 +3,12 @@ use crate::{
         qc::{compute_qc_count, Fragment, Contact, FragmentSummary, QualityControl},
         genome::{ChromSizes, GenomeBaseIndex},
     },
-    utils::from_csr_rows,
 };
 
-use anndata::{AnnDataOp, AxisArraysOp, ElemCollectionOp};
+use anndata::{
+    AnnDataOp, AxisArraysOp, ElemCollectionOp,
+    data::array::utils::{from_csr_data, to_csr_data},
+};
 use anyhow::Result;
 use bed_utils::bed::{
     tree::{BedTree, GenomeRegions, SparseBinnedCoverage},
@@ -15,9 +17,10 @@ use bed_utils::bed::{
 use indexmap::IndexSet;
 use indicatif::{style::ProgressStyle, ProgressBar, ProgressDrawTarget, ProgressIterator};
 use itertools::Itertools;
+use nalgebra_sparse::CsrMatrix;
 use polars::prelude::{DataFrame, NamedFrom, Series};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use std::collections::{HashMap, HashSet, BTreeMap};
+use std::collections::{HashSet, BTreeMap};
 
 /// FIXME: Import insertions
 pub fn import_insertions<A, B, I>(
@@ -28,7 +31,6 @@ pub fn import_insertions<A, B, I>(
     white_list: Option<&HashSet<String>>,
     min_num_fragment: u64,
     min_tsse: f64,
-    fragment_is_sorted_by_name: bool,
     chunk_size: usize,
 ) -> Result<()>
 where
@@ -40,110 +42,55 @@ where
     let mut saved_barcodes = Vec::new();
     let mut qc = Vec::new();
 
-    if fragment_is_sorted_by_name {
-        let spinner = ProgressBar::with_draw_target(None, ProgressDrawTarget::stderr_with_hz(1))
-            .with_style(
-                ProgressStyle::with_template(
-                    "{spinner} Processed {human_pos} barcodes in {elapsed} ({per_sec}) ...",
-                )
-                .unwrap(),
-            );
-        let mut scanned_barcodes = HashSet::new();
-        anndata.obsm().add_iter(
-            "insertion",
-            fragments
-                .group_by(|x| x.barcode.clone())
-                .into_iter()
-                .progress_with(spinner)
-                .filter(|(key, _)| white_list.map_or(true, |x| x.contains(key)))
-                .chunks(chunk_size)
-                .into_iter()
-                .map(|chunk| {
-                    let data: Vec<(String, Vec<Fragment>)> =
-                        chunk.map(|(barcode, x)| (barcode, x.collect())).collect();
-                    let result: Vec<_> = data
-                        .into_par_iter()
-                        .map(|(barcode, x)|
-                            (
-                                barcode,
-                                compute_qc_count(x, promoter, regions, min_num_fragment, min_tsse),
-                            )
-                        )
-                        .collect();
-                    let counts = result
-                        .into_iter()
-                        .filter_map(|(barcode, r)| {
-                            if !scanned_barcodes.insert(barcode.clone()) {
-                                panic!("Please sort fragment file by barcodes");
-                            }
-                            match r {
-                                None => None,
-                                Some((q, count)) => {
-                                    saved_barcodes.push(barcode);
-                                    qc.push(q);
-                                    Some(count)
-                                }
-                            }
-                        })
-                        .collect::<Vec<_>>();
-                    from_csr_rows(counts, num_features)
-                }),
-        )?;
-    } else {
-        let spinner = ProgressBar::with_draw_target(None, ProgressDrawTarget::stderr_with_hz(1))
-            .with_style(
-                ProgressStyle::with_template(
-                    "{spinner} Processed {human_pos} reads in {elapsed} ({per_sec}) ...",
-                )
-                .unwrap(),
-            );
-        let mut scanned_barcodes = HashMap::new();
-        fragments
-            .progress_with(spinner)
-            .filter(|frag| white_list.map_or(true, |x| x.contains(frag.barcode.as_str())))
-            .for_each(|frag| {
-                let key = frag.barcode.as_str();
-                match scanned_barcodes.get_mut(key) {
-                    None => {
-                        let mut summary = FragmentSummary::new(promoter);
-                        let mut counts = SparseBinnedCoverage::new(regions, 1);
-                        summary.update(&frag);
-                        frag.to_insertions()
-                            .into_iter()
-                            .for_each(|x| counts.insert(&x, 1));
-                        scanned_barcodes.insert(key.to_string(), (summary, counts));
-                    }
-                    Some((summary, counts)) => {
-                        summary.update(&frag);
-                        frag.to_insertions()
-                            .into_iter()
-                            .for_each(|x| counts.insert(&x, 1));
-                    }
-                }
-            });
-        let csr_matrix = from_csr_rows(
-            scanned_barcodes
-                .drain()
-                .filter_map(|(barcode, (summary, binned_coverage))| {
-                    let q = summary.get_qc();
-                    if q.num_unique_fragment < min_num_fragment || q.tss_enrichment < min_tsse {
-                        None
-                    } else {
-                        saved_barcodes.push(barcode);
-                        qc.push(q);
-                        let count: Vec<(usize, u8)> = binned_coverage
-                            .get_coverage()
-                            .iter()
-                            .map(|(k, v)| (*k, *v))
-                            .collect();
-                        Some(count)
-                    }
-                })
-                .collect::<Vec<_>>(),
-            num_features,
+    let spinner = ProgressBar::with_draw_target(None, ProgressDrawTarget::stderr_with_hz(1))
+        .with_style(
+            ProgressStyle::with_template(
+                "{spinner} Processed {human_pos} barcodes in {elapsed} ({per_sec}) ...",
+            )
+            .unwrap(),
         );
-        anndata.obsm().add("insertion", csr_matrix)?;
-    }
+    let mut scanned_barcodes = HashSet::new();
+    anndata.obsm().add_iter(
+        "insertion",
+        fragments
+            .group_by(|x| x.barcode.clone())
+            .into_iter()
+            .progress_with(spinner)
+            .filter(|(key, _)| white_list.map_or(true, |x| x.contains(key)))
+            .chunks(chunk_size)
+            .into_iter()
+            .map(|chunk| {
+                let data: Vec<(String, Vec<Fragment>)> =
+                    chunk.map(|(barcode, x)| (barcode, x.collect())).collect();
+                let result: Vec<_> = data
+                    .into_par_iter()
+                    .map(|(barcode, x)|
+                        (
+                            barcode,
+                            compute_qc_count(x, promoter, regions, min_num_fragment, min_tsse),
+                        )
+                    )
+                    .collect();
+                let counts = result
+                    .into_iter()
+                    .filter_map(|(barcode, r)| {
+                        if !scanned_barcodes.insert(barcode.clone()) {
+                            panic!("Please sort fragment file by barcodes");
+                        }
+                        match r {
+                            None => None,
+                            Some((q, count)) => {
+                                saved_barcodes.push(barcode);
+                                qc.push(q);
+                                Some(count)
+                            }
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                let (r, c, offset, ind, data) = to_csr_data(counts, num_features);
+                CsrMatrix::try_from_csr_data(r, c, offset, ind, data).unwrap()
+            }),
+    )?;
 
     let chrom_sizes = DataFrame::new(vec![
         Series::new(
@@ -168,6 +115,13 @@ where
 
 
 /// Import fragments
+/// Fragments are reprensented as a sparse matrix with rows as barcodes and columns as genomic coordinates.
+/// Each entry in the matrix encodes the size of the fragment.
+/// Positive values indicate the start of the fragment and negative values indicate the end of the fragment.
+/// For example:
+/// chr1 2 5
+/// will be encoded as
+/// X X 3 X X -3 X X X
 pub fn import_fragments<A, I>(
     anndata: &A,
     fragments: I,
@@ -227,7 +181,8 @@ where
                         }
                     })
                     .collect::<Vec<_>>();
-                from_csr_rows(counts, num_features)
+                let (r, c, offset, ind, data) = to_csr_data(counts, num_features);
+                from_csr_data(r, c, offset, ind, data).unwrap()
             }),
     )?;
 
@@ -341,7 +296,8 @@ where
                         count.into_iter().collect::<Vec<_>>()
                     }).collect();
 
-                from_csr_rows(counts, genome_size*genome_size)
+                let (r, c, offset, ind, data) = to_csr_data(counts, genome_size*genome_size);
+                CsrMatrix::try_from_csr_data(r, c, offset, ind, data).unwrap()
             }),
     )?;
 

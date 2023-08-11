@@ -11,8 +11,7 @@ homepage = "https://github.com/"
 keywords = ["single-cell", "biology"]
 
 [dependencies]
-#anndata = { path = "../../anndata-rs/anndata" }
-anndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "1aba156d6c2f63c16433c7385fd26a8960162283" }
+anndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "288a14d1df0fff82f119fc945ff02016465df0b3" }
 anyhow = "1.0"
 bigtools = "0.1"
 bincode = "1.3"
@@ -21,8 +20,8 @@ extsort = "0.4"
 either = "1.8"
 flate2 = "1.0"
 futures = "0.3"
-itertools = "0.8"
-indexmap = "1.9"
+itertools = "0.9"
+indexmap = "2.0"
 indicatif = "0.17"
 lexical = "6.1"
 log = "0.4"
@@ -30,8 +29,8 @@ ndarray = { version = "0.15", features = ["rayon"] }
 num = "0.4"
 noodles = { version = "0.34", features = ["core", "bam", "sam", "gff", "gtf"] }
 nalgebra-sparse = "0.9"
-polars = { version = "0.26", features = ["ndarray", "dtype-categorical"] }
-rayon = "1.5"
+polars = { version = "0.31", features = ["ndarray", "dtype-categorical"] }
+rayon = "1.7"
 regex = "1.6"
 serde = "1.0"
 statrs = "0.16"
