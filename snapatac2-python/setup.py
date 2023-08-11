@@ -48,7 +48,7 @@ setup(
         "pyfaidx",
         "rustworkx",
         "scipy>=1.4",
-        "scikit-learn>=0.22",
+        "scikit-learn>=1.0",
         "tqdm>=4.62",
         "typing_extensions",
         "umap-learn>=0.5.0",
