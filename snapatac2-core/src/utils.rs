@@ -50,6 +50,15 @@ where
     )
 }
 
+pub fn clip_peak(mut peak: NarrowPeak, chrom_sizes: &crate::preprocessing::genome::ChromSizes) -> NarrowPeak {
+    let new_start = peak.start().max(0);
+    let new_end = peak.end().min(chrom_sizes.get(peak.chrom()).unwrap());
+    peak.set_start(new_start);
+    peak.set_end(new_end);
+    peak.peak = (new_start + peak.peak).min(new_end) - new_start;
+    peak
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

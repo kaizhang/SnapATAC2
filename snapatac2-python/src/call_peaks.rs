@@ -1,5 +1,7 @@
 use crate::utils::{AnnDataLike, open_file};
+use snapatac2_core::utils::clip_peak;
 use snapatac2_core::{export::Exporter, utils::merge_peaks};
+use snapatac2_core::preprocessing::SnapData;
 
 use std::{ops::Deref, path::PathBuf};
 use anndata::Backend;
@@ -31,14 +33,15 @@ pub fn call_peaks(
     let temp_dir = out_dir.unwrap_or(dir.path().to_str().unwrap());
 
     macro_rules! run {
-        ($data:expr) => {
-            $data.call_peaks(
+        ($data:expr) => {{
+            let peaks = $data.call_peaks(
                 q_value, &group_by, selections, temp_dir, "", ".NarrowPeak.gz",
                 nolambda, shift, extension_size,
-            )?
-        }
+            )?;
+            (peaks, $data.read_chrom_sizes()?)
+        }}
     }
-    let peak_files = crate::with_anndata!(&anndata, run);
+    let (peak_files, chrom_sizes) = crate::with_anndata!(&anndata, run);
     let peak_iter = peak_files.values().flat_map(|fl|
         Reader::new(MultiGzDecoder::new(File::open(fl).unwrap()), None)
         .into_records().map(Result::unwrap)
@@ -48,9 +51,15 @@ pub fn call_peaks(
     let peaks:Vec<_> = if let Some(black) = blacklist {
         let black: BedTree<_> = Reader::new(open_file(black), None).into_records::<GenomicRange>()
             .map(|x| (x.unwrap(), ())).collect();
-        merge_peaks(peak_iter.filter(|x| !black.is_overlapped(x)), 250).flatten().collect()
+        merge_peaks(peak_iter.filter(|x| !black.is_overlapped(x)), 250)
+            .flatten()
+            .map(|x| clip_peak(x, &chrom_sizes))
+            .collect()
     } else {
-        merge_peaks(peak_iter, 250).flatten().collect()
+        merge_peaks(peak_iter, 250)
+            .flatten()
+            .map(|x| clip_peak(x, &chrom_sizes))
+            .collect()
     };
 
     let n = peaks.len();

@@ -1,7 +1,7 @@
 use anndata::{container::{ChunkedArrayElem, StackedChunkedArrayElem}, ArrayElemOp};
 use bed_utils::bed::{tree::{GenomeRegions, BedTree}, GenomicRange, BedGraph, BEDLike};
 use anndata::{AnnDataOp, ElemCollectionOp, AxisArraysOp, AnnDataSet, Backend, AnnData};
-use indexmap::IndexSet;
+use indexmap::{IndexSet, IndexMap};
 use ndarray::Array2;
 use polars::frame::DataFrame;
 use nalgebra_sparse::CsrMatrix;
@@ -205,7 +205,13 @@ impl Promoters {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct ChromSizes(Vec<(String, u64)>);
+pub struct ChromSizes(IndexMap<String, u64>);
+
+impl ChromSizes {
+    pub fn get(&self, chrom: &str) -> Option<u64> {
+        self.0.get(chrom).copied()
+    }
+}
 
 impl<S> FromIterator<(S, u64)> for ChromSizes
 where
@@ -218,7 +224,7 @@ where
 
 impl IntoIterator for ChromSizes {
     type Item = (String, u64);
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = indexmap::map::IntoIter<String, u64>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
@@ -728,7 +734,7 @@ pub trait SnapData: AnnDataOp {
         let chr_sizes = df.column("reference_seq_length").unwrap().u64()?;
         let res = chrs.into_iter().flatten().map(|x| x.to_string())
             .zip(chr_sizes.into_iter().flatten()).collect();
-        Ok(ChromSizes(res))
+        Ok(res)
     }
 
     /// Read genome-wide base-resolution coverage
@@ -844,11 +850,11 @@ mod tests {
 
     #[test]
     fn test_index1() {
-        let chrom_sizes = ChromSizes(vec![
+        let chrom_sizes = vec![
             ("1".to_owned(), 13),
             ("2".to_owned(), 71),
             ("3".to_owned(), 100),
-        ]);
+        ].into_iter().collect();
         let mut index = GenomeBaseIndex::new(&chrom_sizes);
 
         assert_eq!(index.get_range("1").unwrap(), 0..13);
@@ -901,11 +907,11 @@ mod tests {
 
     #[test]
     fn test_index2() {
-        let chrom_sizes = ChromSizes(vec![
+        let chrom_sizes = vec![
             ("1".to_owned(), 13),
             ("2".to_owned(), 71),
             ("3".to_owned(), 100),
-        ]);
+        ].into_iter().collect();
 
         let index = GenomeBaseIndex::new(&chrom_sizes);
         [(0, 0), (12, 12), (13, 13), (100, 100)]
