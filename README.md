@@ -22,7 +22,7 @@ Resources
 
 - **Full Documentation**: https://kzhang.org/SnapATAC2/
 - **Installation instructions**: https://kzhang.org/SnapATAC2/install.html
-- **Tutorial/Demo**: https://kzhang.org/SnapATAC2/tutorial.html
+- **Tutorial/Demo**: https://kzhang.org/SnapATAC2/tutorials/index.html
 - **Benchmarks**: https://github.com/kaizhang/single-cell-benchmark
 
 How to cite

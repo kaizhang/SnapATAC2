@@ -439,30 +439,6 @@ where
             (from_csr_rows(vec, n_col), i, j)
         })
     }
-
-    /// Count the fraction of the records in the given regions.
-    pub fn fraction_in_regions<D>(
-        self, regions: &'a Vec<BedTree<D>>
-    ) -> impl ExactSizeIterator<Item = (Vec<Vec<f64>>, usize, usize)> + 'a
-    {
-        let k = regions.len();
-        self.map(move |(values, start, end)| {
-            let frac = values.into_iter().map(|xs| {
-                let n = xs.len() as f64;
-                let mut counts = vec![0.0; k];
-                xs.into_iter().for_each(|x|
-                    regions.iter().enumerate().for_each(|(i, r)| {
-                        if r.is_overlapped(&x) {
-                            counts[i] += 1.0;
-                        }
-                    })
-                );
-                counts.iter_mut().for_each(|x| *x /= n);
-                counts
-            }).collect::<Vec<_>>();
-            (frac, start, end)
-        })
-    }
 }
 
 impl<I, T> Iterator for ChromValueIter<I>
@@ -781,10 +757,36 @@ pub trait SnapData: AnnDataOp {
 
     /// Compute the fraction of reads in each region.
     fn frip<D>(&self, regions: &Vec<BedTree<D>>) -> Result<Array2<f64>> {
-        let chrom_values = self.read_chrom_values(2000)?;
-        let vec = chrom_values.fraction_in_regions(regions).map(|x| x.0).flatten().flatten().collect::<Vec<_>>();
+        let vec = fraction_in_regions(self.raw_count_iter(2000)?.into_chrom_values(), regions)
+            .map(|x| x.0).flatten().flatten().collect::<Vec<_>>();
         Array2::from_shape_vec((self.n_obs(), regions.len()), vec).map_err(Into::into)
     }
+}
+
+/// Count the fraction of the records in the given regions.
+fn fraction_in_regions<'a, I, D>(
+    iter: I, regions: &'a Vec<BedTree<D>>,
+) -> impl Iterator<Item = (Vec<Vec<f64>>, usize, usize)> + 'a
+where
+    I: Iterator<Item = (Vec<ChromValues<f64>>, usize, usize)> + 'a,
+{
+    let k = regions.len();
+    iter.map(move |(values, start, end)| {
+        let frac = values.into_iter().map(|xs| {
+            let sum = xs.iter().map(|x| x.value).sum::<f64>();
+            let mut counts = vec![0.0; k];
+            xs.into_iter().for_each(|x|
+                regions.iter().enumerate().for_each(|(i, r)| {
+                    if r.is_overlapped(&x) {
+                        counts[i] += x.value;
+                    }
+                })
+            );
+            counts.iter_mut().for_each(|x| *x /= sum);
+            counts
+        }).collect::<Vec<_>>();
+        (frac, start, end)
+    })
 }
 
 impl<B: Backend> SnapData for AnnData<B> {

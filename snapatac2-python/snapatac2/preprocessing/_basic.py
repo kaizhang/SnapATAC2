@@ -179,6 +179,10 @@ def import_data(
     >>> import snapatac2 as snap
     >>> data = snap.pp.import_data(snap.datasets.pbmc500(), genome=snap.genome.hg38, sorted_by_barcode=False)
     >>> print(data)
+    AnnData object with n_obs × n_vars = 816 × 0
+        obs: 'tsse', 'n_fragment', 'frac_dup', 'frac_mito'
+        uns: 'reference_sequences'
+        obsm: 'insertion'
     """
     if genome is not None:
         if chrom_size is None:
@@ -250,12 +254,6 @@ def import_contacts(
         An annotated data matrix of shape `n_obs` x `n_vars`. Rows correspond to
         cells and columns to regions. If `file=None`, an in-memory AnnData will be
         returned, otherwise a backed AnnData is returned.
-
-    Examples
-    --------
-    >>> import snapatac2 as snap
-    >>> data = snap.pp.import_data(snap.datasets.pbmc500(), genome=snap.genome.hg38, sorted_by_barcode=False)
-    >>> print(data)
     """
     if genome is not None:
         if chrom_size is None:
@@ -294,6 +292,26 @@ def add_frip(
     n_jobs
         Number of jobs to run in parallel when `adata` is a list.
         If `n_jobs=-1`, all CPUs will be used.
+
+    Returns
+    -------
+    dict[str, list[float]] | list[dict[str, list[float]]] | None
+        If `inplace = True`, directly adds the results to `adata.obs`.
+        Otherwise return a dictionary containing the results.
+
+    Examples
+    --------
+    >>> import snapatac2 as snap
+    >>> data = snap.read(snap.datasets.pbmc5k(type='h5ad'), backed=None)
+    >>> snap.pp.add_frip(data, {"peaks_frac": snap.datasets.cre_HEA()})
+    >>> print(data.obs['peaks_frac'].head())
+    index
+    AAACGAAAGACGTCAG-1    0.708841
+    AAACGAAAGATTGACA-1    0.731711
+    AAACGAAAGGGTCCCT-1    0.692434
+    AAACGAACAATTGTGC-1    0.694849
+    AAACGAACACTCGTGG-1    0.687787
+    Name: peaks_frac, dtype: float64
     """
 
     for k in regions.keys():
@@ -630,8 +648,12 @@ def select_features(
         the filtering criteria.
     filter_lower_quantile
         Lower quantile of the feature count distribution to filter out.
+        For example, 0.005 means the bottom 0.5% features with the lowest counts will be removed.
     filter_upper_quantile
         Upper quantile of the feature count distribution to filter out.
+        For example, 0.005 means the top 0.5% features with the highest counts will be removed.
+        Be aware that when the number of feature is very large, the default value of 0.005 may
+        risk removing too many features.
     whitelist
         A user provided bed file containing genome-wide whitelist regions.
         None-zero features listed here will be kept regardless of the other
@@ -640,6 +662,12 @@ def select_features(
     blacklist 
         A user provided bed file containing genome-wide blacklist regions.
         Features that are overlapped with these regions will be removed.
+    max_iter
+        If greater than 1, this function will perform iterative clustering and feature selection
+        based on variable features found using previous clustering results.
+        This is similar to the procedure implemented in ArchR, but we do not recommend it,
+        see https://github.com/kaizhang/SnapATAC2/issues/111.
+        Default value is 1, which means no iterative clustering is performed.
     inplace
         Perform computation inplace or return result.
     n_jobs

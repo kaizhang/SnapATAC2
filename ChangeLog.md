@@ -2,6 +2,8 @@ Dev
 ===================
 
 - Add `pp.import_contacts` to import scHi-C data.
+- Add `pp.scanorama_integrate` to perform batch correction using Scanorama.
+- Bug fixes: #145.
 
 v2.3.1 (2023-06-21)
 ===================
