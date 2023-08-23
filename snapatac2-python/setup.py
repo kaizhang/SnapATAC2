@@ -36,6 +36,7 @@ setup(
         "anndata>=0.8.0",
         "kaleido",
         "multiprocess",
+        "MACS2>=2.2.7",
         "natsort",
         "numpy>=1.16.0",
         "pandas",
@@ -53,4 +54,9 @@ setup(
         "typing_extensions",
         "umap-learn>=0.5.0",
     ],
+    extras_require={
+        'extra': ['scanorama>=1.7.3', 'harmonypy>=0.0.9', 'xgboost>=1.4'],
+        'recommend': ['scanpy>=1.9', 'scvi-tools>=1.0'],
+        'all': ['snapatac2[extra]', 'snapatac2[recommend]']
+    }
 )

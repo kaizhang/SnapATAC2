@@ -69,11 +69,16 @@ pip install .
 Optional dependencies
 ---------------------
 
-Here is a list of optional dependencies used by SnapATAC2:
+`pip install snapatac2` installs the essential dependencies needed for SnapATAC2.
+For certain features, however, additional optional dependencies are necessary:
 
-- `macs2`: Peak calling.
-- `harmonypy`: Batch correction using the Harmony.
-- `xgboost`: Regulatory network analysis.
+- harmonypy: For the `snapatac2.pp.harmony` function.
+- scanorama: For the `snapatac2.pp.scanorama_integrate` function.
+- xgboot: For network structure inference.
 
-Optional dependencies are not installed by SnapATAC2. Please install them
-manually if necessary.
+To install these optional dependencies, use `pip install snapatac2[extra]`.
+
+For downstream analysis, some helpful but not mandatory packages, such as scanpy and scvi-tools, are available.
+They can be installed with `pip install snapatac2[recommend]`.
+
+To obtain all optional dependencies at once, use `pip install snapatac2[all]`.
