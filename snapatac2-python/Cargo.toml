@@ -16,9 +16,9 @@ snapatac2-core = { path = "../snapatac2-core" }
 #anndata = { path = "../../anndata-rs/anndata" }
 #anndata-hdf5 = { path = "../../anndata-rs/anndata-hdf5" }
 #pyanndata = { path = "../../anndata-rs/pyanndata" }
-anndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "13456a823c7abf734e85441e60a24cb39130dcff" }
-anndata-hdf5 = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "13456a823c7abf734e85441e60a24cb39130dcff" }
-pyanndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "13456a823c7abf734e85441e60a24cb39130dcff" }
+anndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "d54b20794ff187265547d82877759e8d3a1160f8" }
+anndata-hdf5 = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "d54b20794ff187265547d82877759e8d3a1160f8" }
+pyanndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "d54b20794ff187265547d82877759e8d3a1160f8" }
 extsort = "0.4"
 anyhow = "1.0"
 bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "19832eda2909dbe87289e09ba966af0797adb9f8" }
