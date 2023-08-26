@@ -1,5 +1,6 @@
 import numpy as np
 import anndata as ad
+import logging
 
 from snapatac2._snapatac2 import AnnData, AnnDataSet, read
 
@@ -7,34 +8,38 @@ def is_anndata(data) -> bool:
     return isinstance(data, ad.AnnData) or isinstance(data, AnnData) or isinstance(data, AnnDataSet)
 
 def anndata_par(adatas, func, n_jobs=4):
-    from multiprocess import get_context
+    exist_in_memory_adata = False
+    for adata in adatas:
+        if isinstance(adata, ad.AnnData):
+            exist_in_memory_adata = True
+            break
+    if exist_in_memory_adata:
+        logging.warn(("Input contains in-memory AnnData objects. "
+                      "Multiprocessing will not be used. "
+                      "To enable multiprocessing, use backed AnnData objects"))
+        return [func(adata) for adata in adatas]
+    else:
+        from multiprocess import get_context
 
-    def _func(input):
-        if isinstance(input, ad.AnnData):
-            result = func(input)
-        else:
-            adata = read(input)
+        def _func(fl):
+            adata = read(fl)
             result = func(adata)
             adata.close() 
-        return result
+            return result
 
-    adatas_list = []
-    for data in adatas:
-        if isinstance(data, ad.AnnData):
-            adatas_list.append(data)
-        else:
-            adatas_list.append(data.filename)
-            data.close()
+        files = []
+        for adata in adatas:
+            files.append(adata.filename)
+            adata.close()
 
-    with get_context("spawn").Pool(n_jobs) as p:
-        result = p.map(_func, adatas_list)
-    
-    # Reopen the files if they were closed
-    for data in adatas_list:
-        if not isinstance(data, ad.AnnData):
+        with get_context("spawn").Pool(n_jobs) as p:
+            result = p.map(_func, files)
+        
+        # Reopen the files if they were closed
+        for data in adatas:
             data.open()
-    
-    return result
+        
+        return result
 
 def get_igraph_from_adjacency(adj):
     """Get igraph graph from adjacency matrix."""
