@@ -8,7 +8,7 @@ use pyanndata::data::PyArrayData;
 use pyo3::prelude::*;
 use rand::SeedableRng;
 use indicatif::{ProgressIterator, ProgressStyle};
-use anndata::{ArrayData, AnnDataOp, ArrayOp, ArrayElemOp, data::{SelectInfoElem, BoundedSelectInfoElem, from_csr_rows}, Backend};
+use anndata::{ArrayData, AnnDataOp, ArrayOp, ArrayElemOp, data::{SelectInfoElem, BoundedSelectInfoElem, utils::to_csr_data}, Backend};
 use nalgebra::DVector;
 use nalgebra_sparse::CsrMatrix;
 use rayon::prelude::{ParallelBridge, ParallelIterator};
@@ -308,17 +308,24 @@ fn compute_probs(degrees: &[f64]) -> Vec<f64> {
     degrees.iter().map(|x| x.recip() / s).collect()
 }
 
-fn hstack(m1: CsrMatrix<f64>, m2: CsrMatrix<f64>) -> CsrMatrix<f64>
-{
+fn hstack(m1: CsrMatrix<f64>, m2: CsrMatrix<f64>) -> CsrMatrix<f64> {
     let c1 = m1.ncols();
-    let vec = m1.row_iter().zip(m2.row_iter()).map(|(r1, r2)| {
-        let mut indices = r1.col_indices().to_vec();
-        let mut data = r1.values().to_vec();
-        indices.extend(r2.col_indices().iter().map(|x| x + c1));
-        data.extend(r2.values().iter().map(|x| *x));
-        indices.into_iter().zip(data.into_iter()).collect::<Vec<_>>()
-    }).collect::<Vec<_>>();
-    from_csr_rows(vec, c1 + m2.ncols())
+    let vec = m1
+        .row_iter()
+        .zip(m2.row_iter())
+        .map(|(r1, r2)| {
+            let mut indices = r1.col_indices().to_vec();
+            let mut data = r1.values().to_vec();
+            indices.extend(r2.col_indices().iter().map(|x| x + c1));
+            data.extend(r2.values().iter().map(|x| *x));
+            indices
+                .into_iter()
+                .zip(data.into_iter())
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+    let (r, c, offset, ind, data) = to_csr_data(vec, c1 + m2.ncols());
+    CsrMatrix::try_from_csr_data(r, c, offset, ind, data).unwrap()
 }
 
 /// Multi-view spectral embedding.

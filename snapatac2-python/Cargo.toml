@@ -16,31 +16,31 @@ snapatac2-core = { path = "../snapatac2-core" }
 #anndata = { path = "../../anndata-rs/anndata" }
 #anndata-hdf5 = { path = "../../anndata-rs/anndata-hdf5" }
 #pyanndata = { path = "../../anndata-rs/pyanndata" }
-anndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "1aba156d6c2f63c16433c7385fd26a8960162283" }
-anndata-hdf5 = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "1aba156d6c2f63c16433c7385fd26a8960162283" }
+anndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "13456a823c7abf734e85441e60a24cb39130dcff" }
+anndata-hdf5 = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "13456a823c7abf734e85441e60a24cb39130dcff" }
+pyanndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "13456a823c7abf734e85441e60a24cb39130dcff" }
 extsort = "0.4"
-pyanndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "1aba156d6c2f63c16433c7385fd26a8960162283" }
 anyhow = "1.0"
 bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "19832eda2909dbe87289e09ba966af0797adb9f8" }
 flate2 = "1.0"
 hora = "0.1"
-itertools = "0.8"
+itertools = "0.11"
 indicatif = "0.17"
 linreg = "0.2"
 log = "0.4"
 linfa = "0.6"
 linfa-clustering = "0.6"
 noodles = { version = "0.34.0", features = ["bam", "sam"] }
-numpy = "0.18.0"
+numpy = "0.19.0"
 nalgebra-sparse = "0.9"
 nalgebra = "0.32"
 ndarray = "0.15"
-polars = { version = "0.26", features = ["ndarray", "dtype-categorical"] }
+polars = { version = "0.32", features = ["ndarray", "dtype-categorical"] }
 pyo3-log = "0.8"
 rand_isaac = "0.3"
 rand_core = "0.6"
 rand = "0.8"
-rayon = "1.5"
+rayon = "1.7"
 statrs = "0.16"
 tempfile = "3.3"
 
@@ -48,7 +48,7 @@ tempfile = "3.3"
 tikv-jemallocator = {version = "0.5", features = ["disable_initial_exec_tls"]}
 
 [dependencies.pyo3]
-version = "0.18.0"
+version = "0.19.2"
 features = ["extension-module", "anyhow"]
 
 [lib]
