@@ -303,7 +303,7 @@ impl GenomeBaseIndex {
         let binned_accum_len = self.base_accum_len.iter().map(|acc| {
             let length = acc - prev;
             prev = *acc;
-            acc_low_res += length.div_ceil(s as u64);
+            acc_low_res += num::Integer::div_ceil(&length, &(s as u64));
             acc_low_res
         }).collect();
         Self {
