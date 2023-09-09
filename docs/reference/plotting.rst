@@ -7,7 +7,6 @@ Plotting: `pl`
     :toctree: _autosummary
 
     pl.tsse
-    pl.spectral_eigenvalues
     pl.umap
     pl.motif_enrichment
     pl.regions

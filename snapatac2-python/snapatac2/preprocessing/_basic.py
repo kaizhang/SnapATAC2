@@ -91,9 +91,9 @@ def make_fragment_file(
     )
 
 def import_data(
-    fragment_file: Path,
+    fragment_file: Path | list[Path],
     *,
-    file: Path | None = None,
+    file: Path | list[Path] | None = None,
     genome: Genome | None = None,
     gene_anno: Path | None = None,
     chrom_size: dict[str, int] | None = None,
@@ -107,6 +107,7 @@ def import_data(
     chunk_size: int = 2000,
     tempdir: Path | None = None,
     backend: Literal['hdf5'] = 'hdf5',
+    n_jobs: int = 8,
 ) -> AnnData:
     """Import dataset and compute QC metrics.
 
@@ -115,15 +116,18 @@ def import_data(
     sizes (in `.uns['reference_sequences']`). Various QC metrics, including TSSe,
     number of unique fragments, duplication rate, fraction of mitochondrial DNA
     reads, will be computed.
+    The `.obsm['insertion']` matrix created in this step is essential for downstream
+    analysis, such as tile matrix generation and peak calling.
 
     Parameters
     ----------
     fragment_file
-        File name of the fragment file.
+        File name of the fragment file. This can be a single file or a list of files.
     file
         File name of the output h5ad file used to store the result. If provided,
         result will be saved to a backed AnnData, otherwise an in-memory AnnData
         is used.
+        If `fragment_file` is a list of files, `file` must also be a list of files if provided.
     genome
         A Genome object, providing gene annotation and chromosome sizes.
         If not set, `gff_file` and `chrom_size` must be provided.
@@ -155,17 +159,24 @@ def import_data(
         must contain a valid barcode. When provided, only barcodes in the whitelist
         will be retained.
     shift_left
-        Insertion site correction for the left end.
+        Insertion site correction for the left end. This is set to 0 by default,
+        as shift correction is usually done in the fragment file generation step.
     shift_right
         Insertion site correction for the right end. Note this has no effect on single-end reads.
         For single-end reads, `shift_right` will be set using the value of `shift_left`.
+        This is set to 0 by default, as shift correction is usually done in the fragment
+        file generation step.
     chunk_size
-        Increasing the chunk_size speeds up I/O but uses more memory.
+        Increasing the chunk_size may speed up I/O but will use more memory.
+        The speed gain is usually not significant.
     tempdir
         Location to store temporary files. If `None`, system temporary directory
         will be used.
     backend
         The backend.
+    n_jobs
+        Number of jobs to run in parallel when `fragment_file` is a list.
+        If `n_jobs=-1`, all CPUs will be used.
 
     Returns
     -------
@@ -196,14 +207,34 @@ def import_data(
                 whitelist = set([line.strip() for line in fl])
         else:
             whitelist = set(whitelist)
-        
-    adata = ad.AnnData() if file is None else AnnData(filename=file, backend=backend)
-    internal.import_fragments(
-        adata, fragment_file, gene_anno, chrom_size, min_num_fragments,
-        min_tsse, sorted_by_barcode, low_memory, shift_left, shift_right,
-        chunk_size, whitelist, tempdir,
-    )
-    return adata
+
+    if isinstance(fragment_file, list):
+        n = len(fragment_file)
+        if file is None:
+            adatas = [ad.AnnData() for _ in range(n)]
+        else:
+            if len(file) != n:
+                raise ValueError("The length of 'file' must be the same as the length of 'fragment_file'")
+            adatas = [AnnData(filename=f, backend=backend) for f in file]
+
+        snapatac2._utils.anndata_ipar(
+            list(enumerate(adatas)),
+            lambda x: internal.import_fragments(
+                x[1], fragment_file[x[0]], gene_anno, chrom_size, min_num_fragments,
+                min_tsse, sorted_by_barcode, low_memory, shift_left, shift_right,
+                chunk_size, whitelist, tempdir,
+            ),
+            n_jobs=n_jobs,
+        )
+        return adatas
+    else:
+        adata = ad.AnnData() if file is None else AnnData(filename=file, backend=backend)
+        internal.import_fragments(
+            adata, fragment_file, gene_anno, chrom_size, min_num_fragments,
+            min_tsse, sorted_by_barcode, low_memory, shift_left, shift_right,
+            chunk_size, whitelist, tempdir,
+        )
+        return adata
 
 def import_contacts(
     contact_file: Path,
@@ -274,6 +305,8 @@ def add_frip(
     n_jobs: int = 8,
 ) -> dict[str, list[float]] | list[dict[str, list[float]]] | None:
     """ Add fraction of reads in peaks (FRiP) to the AnnData object.
+
+    :func:`~snapatac2.pp.import_data` must be ran first in order to use this function.
 
     Parameters
     ----------
@@ -376,6 +409,25 @@ def add_tile_matrix(
     n_jobs
         Number of jobs to run in parallel when `adata` is a list.
         If `n_jobs=-1`, all CPUs will be used.
+    
+    Returns
+    -------
+    AnnData | ad.AnnData | None
+        An annotated data matrix of shape `n_obs` x `n_vars`. Rows correspond to
+        cells and columns to bins. If `file=None`, an in-memory AnnData will be
+        returned, otherwise a backed AnnData is returned.
+
+    Examples
+    --------
+    >>> import snapatac2 as snap
+    >>> data = snap.read(snap.datasets.pbmc500(type='h5ad'))
+    >>> print(data)
+    >>> snap.pp.add_tile_matrix(data, bin_size=500)
+    >>> print(data)
+    AnnData object with n_obs × n_vars = 816 × 0
+        obs: 'tsse', 'n_fragment', 'frac_dup', 'frac_mito'
+        uns: 'reference_sequences'
+        obsm: 'insertion'
     """
     if isinstance(exclude_chroms, str):
         exclude_chroms = [exclude_chroms]
@@ -450,6 +502,18 @@ def make_peak_matrix(
         An annotated data matrix of shape `n_obs` x `n_vars`. Rows correspond to
         cells and columns to peaks. If `file=None`, an in-memory AnnData will be
         returned, otherwise a backed AnnData is returned.
+
+    Examples
+    --------
+    >>> import snapatac2 as snap
+    >>> data = snap.read(snap.datasets.pbmc500(type='h5ad'))
+    >>> print(data)
+    >>> snap.pp.add_tile_matrix(data, bin_size=500)
+    >>> print(data)
+    AnnData object with n_obs × n_vars = 816 × 0
+        obs: 'tsse', 'n_fragment', 'frac_dup', 'frac_mito'
+        uns: 'reference_sequences'
+        obsm: 'insertion'
     """
     import gzip
 
@@ -502,6 +566,8 @@ def make_gene_matrix(
     Generate cell by gene activity matrix by counting the TN5 insertions in gene
     body regions. The result will be stored in a new file and a new AnnData object
     will be created.
+
+    :func:`~snapatac2.pp.import_data` must be ran first in order to use this function.
 
     Parameters
     ----------
@@ -626,6 +692,7 @@ def select_features(
     max_iter: int = 1,
     inplace: bool = True,
     n_jobs: int = 8,
+    verbose: bool = True,
 ) -> np.ndarray | list[np.ndarray] | None:
     """
     Perform feature selection.
@@ -634,6 +701,7 @@ def select_features(
     ----
     This function does not perform the actual subsetting. The feature mask is used by
     various functions to generate submatrices on the fly.
+    For more discussion about feature selection, see: https://github.com/kaizhang/SnapATAC2/discussions/116.
 
     Parameters
     ----------
@@ -672,6 +740,8 @@ def select_features(
         Perform computation inplace or return result.
     n_jobs
         Number of parallel jobs to use when `adata` is a list.
+    verbose
+        Whether to print progress messages.
     
     Returns
     -------
@@ -683,7 +753,9 @@ def select_features(
     if isinstance(adata, list):
         result = snapatac2._utils.anndata_par(
             adata,
-            lambda x: select_features(x, n_features, filter_lower_quantile, filter_upper_quantile, whitelist, blacklist, max_iter, inplace),
+            lambda x: select_features(x, n_features, filter_lower_quantile,
+                                      filter_upper_quantile, whitelist,
+                                      blacklist, max_iter, inplace, verbose=False),
             n_jobs=n_jobs,
         )
         if inplace:
@@ -726,7 +798,8 @@ def select_features(
         whitelist &= count != 0
         result |= whitelist
     
-    logging.info(f"Selected {result.sum()} features.")
+    if verbose:
+        logging.info(f"Selected {result.sum()} features.")
 
     if inplace:
         adata.var["selected"] = result

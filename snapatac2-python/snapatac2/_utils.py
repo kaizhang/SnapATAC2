@@ -8,8 +8,13 @@ def is_anndata(data) -> bool:
     return isinstance(data, ad.AnnData) or isinstance(data, AnnData) or isinstance(data, AnnDataSet)
 
 def anndata_par(adatas, func, n_jobs=4):
+    return anndata_ipar(list(enumerate(adatas)), lambda x: func(x[1]), n_jobs=n_jobs)
+
+def anndata_ipar(inputs, func, n_jobs=4):
+    from tqdm import tqdm
+    
     exist_in_memory_adata = False
-    for adata in adatas:
+    for _, adata in inputs:
         if isinstance(adata, ad.AnnData):
             exist_in_memory_adata = True
             break
@@ -17,27 +22,28 @@ def anndata_par(adatas, func, n_jobs=4):
         logging.warn(("Input contains in-memory AnnData objects. "
                       "Multiprocessing will not be used. "
                       "To enable multiprocessing, use backed AnnData objects"))
-        return [func(adata) for adata in adatas]
+        return [func((i, adata)) for i, adata in tqdm(inputs)]
     else:
         from multiprocess import get_context
 
-        def _func(fl):
-            adata = read(fl)
-            result = func(adata)
+        def _func(x):
+            adata = read(x[1])
+            result = func((x[0], adata))
             adata.close() 
             return result
 
+        # Close the AnnData objects and return the filenames
         files = []
-        for adata in adatas:
-            files.append(adata.filename)
+        for i, adata in inputs:
+            files.append((i, adata.filename))
             adata.close()
 
         with get_context("spawn").Pool(n_jobs) as p:
-            result = p.map(_func, files)
+            result = list(tqdm(p.imap(_func, files), total=len(files)))
         
         # Reopen the files if they were closed
-        for data in adatas:
-            data.open()
+        for _, adata in inputs:
+            adata.open()
         
         return result
 

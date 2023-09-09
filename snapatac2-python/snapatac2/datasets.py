@@ -143,18 +143,32 @@ def pbmc10k_multiome(
         raise NameError("modality '{}' is not available.".format(modality))
 
 def colon() -> list[tuple[str, Path]]:
-    """5 colon transverse samples from Zhang et al., 2021.
+    """five colon transverse samples from Zhang et al., 2021.
+
+    Returns
+    -------
+    list[tuple[str, Path]]
+        A list of tuples, each tuple contains the sample name and the path to the fragment file.
     """
     files = datasets().fetch("colon_transverse.tar", processor = pooch.Untar())
     return [(fl.split("/")[-1].split("_rep1_fragments")[0], Path(fl)) for fl in files]
 
 def cre_HEA() -> Path:
     """cis-regulatory elements from Zhang et al., 2021.
+
+    Returns
+    -------
+    Path
+        Path to the gzipped BED file containing the cis-regulatory elements.
     """
     return Path(datasets().fetch("HEA_cCRE.bed.gz"))
 
 def cis_bp(unique: bool = True) -> list[PyDNAMotif]:
     """Motifs from CIS-BP database.
+
+    This function returns motifs curated from the CIS-BP database.
+    The motifs can be used to scan the genome for potential binding sites and
+    to perform motif enrichment analysis.
 
     Parameters
     ----------
@@ -166,6 +180,10 @@ def cis_bp(unique: bool = True) -> list[PyDNAMotif]:
     -------
     list[PyDNAMotif]
         A list of motifs.
+
+    See Also
+    --------
+    tl.motif_enrichment
     """
     motifs = read_motifs(datasets().fetch("cisBP_human.meme"))
     for motif in motifs:
@@ -183,18 +201,20 @@ def cis_bp(unique: bool = True) -> list[PyDNAMotif]:
     return motifs
 
 def Meuleman_2020() -> list[PyDNAMotif]:
-    """Motifs from CIS-BP database.
+    """Motifs from Meuleman et al., 2020.
 
-    Parameters
-    ----------
-    unique
-        A transcription factor may have multiple motifs. If `unique=True`, 
-        only the motifs with the highest information content will be selected.
+    This function returns motifs curated from Meuleman et al., 2020.
+    The motifs can be used to scan the genome for potential binding sites and
+    to perform motif enrichment analysis.
 
     Returns
     -------
     list[PyDNAMotif]
         A list of motifs.
+
+    See Also
+    --------
+    tl.motif_enrichment
     """
     motifs = read_motifs(datasets().fetch("Meuleman_2020.meme"))
     for motif in motifs:

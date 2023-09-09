@@ -68,7 +68,10 @@ def scrublet(
     if isinstance(adata, list):
         result = anndata_par(
             adata,
-            lambda x: scrublet(x, features, n_comps, sim_doublet_ratio, expected_doublet_rate, n_neighbors, use_approx_neighbors, random_state, inplace, n_jobs, verbose),
+            lambda x: scrublet(x, features, n_comps, sim_doublet_ratio,
+                               expected_doublet_rate, n_neighbors,
+                               use_approx_neighbors, random_state,
+                               inplace, n_jobs, verbose=False),
             n_jobs=n_jobs,
         )
         if inplace:
@@ -148,7 +151,8 @@ def filter_doublets(
     if isinstance(adata, list):
         result = anndata_par(
             adata,
-            lambda x: filter_doublets(x, probability_threshold, score_threshold, inplace, n_jobs, verbose),
+            lambda x: filter_doublets(x, probability_threshold, score_threshold,
+                                      inplace, n_jobs, verbose=False),
             n_jobs=n_jobs,
         )
         if inplace:
@@ -165,9 +169,11 @@ def filter_doublets(
         scores = adata.obs["doublet_score"].to_numpy()
         is_doublet = scores > score_threshold
 
-    if verbose: logging.info(f"Detected doublet rate = {np.mean(is_doublet)*100:.3f}%")
+    doublet_rate = np.mean(is_doublet)
+    if verbose: logging.info(f"Detected doublet rate = {doublet_rate*100:.3f}%")
 
     if inplace:
+        adata.uns["doublet_rate"] = doublet_rate
         if adata.isbacked:
             adata.subset(~is_doublet)
         else:

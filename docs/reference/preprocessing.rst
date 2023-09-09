@@ -50,3 +50,4 @@ Data Integration
     
     pp.mnc_correct
     pp.harmony
+    pp.scanorama_integrate
