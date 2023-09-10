@@ -39,7 +39,7 @@ setup(
         "MACS2>=2.2.7",
         "natsort",
         "numpy>=1.16.0",
-        "pandas",
+        "pandas>=1.0",
         "plotly>=5.6.0",
         "polars>=0.14.0, <=0.18.0",
         "pooch>=1.6.0",

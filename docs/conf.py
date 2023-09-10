@@ -121,11 +121,20 @@ else:
     switcher_version = f"{version}"
 
 html_theme_options = {
+     "logo": {
+        "text": "SnapATAC2",
+        "image_dark": "_static/logo-dark.svg",
+        "alt_text": "SnapATAC2",
+    },
+
     "github_url": "https://github.com/kaizhang/SnapATAC2",
     "external_links": [
         {"name": "Learn", "url": "https://kzhang.org/epigenomics-analysis/"}
     ],
-    "navbar_end": ["version-switcher", "theme-switcher", "navbar-icon-links"],
+
+    "navbar_center": ["version-switcher", "navbar-nav"],
+    "navbar_end": ["theme-switcher", "navbar-icon-links"],
+    "show_version_warning_banner": True,
 
     "switcher": {
         "version_match": switcher_version,

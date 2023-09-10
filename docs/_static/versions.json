@@ -7,7 +7,8 @@
     {
         "name": "2.3.1 (stable)",
         "version": "2.3.1",
-        "url": "https://kzhang.org/SnapATAC2/version/2.3.1/"
+        "url": "https://kzhang.org/SnapATAC2/version/2.3.1/",
+        "preferred": true
     },
     {
         "name": "2.3.0",

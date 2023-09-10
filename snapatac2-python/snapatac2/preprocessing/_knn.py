@@ -21,6 +21,9 @@ def knn(
     """
     Compute a neighborhood graph of observations.
 
+    Computes a neighborhood graph of observations stored in `adata` using
+    the method specified by `method`. The distance metric used is Euclidean.
+
     Parameters
     ----------
     adata
@@ -32,7 +35,8 @@ def knn(
     use_rep
         The key for the matrix
     method
-        'hora', 'pynndescent', or 'exact'
+        'hora', 'pynndescent', or 'exact'. The default is 'hora', which uses the
+        HNSW algorithm to approximate the nearest neighbors.
     n_jobs
         number of CPUs to use
     inplace
