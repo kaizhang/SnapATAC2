@@ -200,6 +200,8 @@ def import_data(
             chrom_size = genome.chrom_sizes
         if gene_anno is None:
             gene_anno = genome.fetch_annotations()
+    if len(chrom_size) == 0:
+        raise ValueError("chrom_size cannot be empty")
 
     if whitelist is not None:
         if isinstance(whitelist, str) or isinstance(whitelist, Path):

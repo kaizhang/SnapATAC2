@@ -23,7 +23,7 @@ jobs:
 
     - name: Install dependency
       run: |
-        sudo apt-get install -y pandoc
+        sudo apt-get install -y pandoc jq
         sudo pip install --upgrade pip
         pip install --user sphinx==6.2.* pydata-sphinx-theme==0.13.* pandoc nbsphinx \
           Pygments==2.14.0 sphinx-autodoc-typehints myst-parser \
@@ -66,7 +66,7 @@ jobs:
         clean: true
         target-folder: /version/dev/
 
-    - name: Deploy (version)
+    - name: Deploy (version) 🚀
       uses: JamesIves/github-pages-deploy-action@v4
       if: ${{ env.DEPLOY_VERSION == 'true' }}
       with:
@@ -75,3 +75,27 @@ jobs:
         folder: _build/html
         clean: true
         target-folder: /version/${{ env.VERSION }}/
+
+    - name: Fetch JSON and Get Preferred Version
+      run: |
+        JSON=$(curl -s "https://raw.githubusercontent.com/kaizhang/SnapATAC2/main/docs/_static/versions.json")
+        VERSION=$(echo "$JSON" | jq -r '.[] | select(.preferred == true) | .version')
+        echo "PREFERRED_VERSION=$VERSION" >> $GITHUB_ENV
+        echo "Preferred version is $VERSION"
+
+    - name: Checkout code from gh-pages branch into folder
+      uses: actions/checkout@v2
+      with:
+        ref: 'gh-pages'
+        path: 'gh-pages-folder'
+
+    - name: Deploy (preferred version)
+      uses: JamesIves/github-pages-deploy-action@v4
+      with:
+        single-commit: true
+        branch: gh-pages
+        folder: gh-pages-folder/version/${{ env.PREFERRED_VERSION }}
+        clean: true
+        clean-exclude: version
+
+

@@ -12,7 +12,7 @@ def knn(
     adata: AnnData | AnnDataSet | np.ndarray,
     n_neighbors: int = 50,
     use_dims: int | list[int] | None = None,
-    use_rep: str | None = None,
+    use_rep: str = 'X_spectral',
     method: Literal['hora', 'pynndescent', 'exact'] = "hora",
     n_jobs: int = -1,
     inplace: bool = True,
@@ -51,7 +51,6 @@ def knn(
         Otherwise, return a sparse matrix.
     """
     if is_anndata(adata):
-        if use_rep is None: use_rep = "X_spectral"
         data = adata.obsm[use_rep]
     else:
         inplace = False
