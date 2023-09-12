@@ -47,13 +47,12 @@ jobs:
     - name: Get SnapATAC2 version
       id: get_version
       run: |
-        BRANCH_NAME=${{ github.event.workflow_run.head_branch }}
-        VERSION_NUMBER=$(python -c "import snapatac2;print(snapatac2.__version__)")
+        VERSION_NUMBER=$(python -c "import snapatac2;print('.'.join(snapatac2.__version__.split('.')[:2]))")
         echo $VERSION_NUMBER
         echo "VERSION=$VERSION_NUMBER" >> $GITHUB_ENV
+        BRANCH_NAME=${{ github.event.workflow_run.head_branch }}
         if [[ $BRANCH_NAME =~ ^v[0-9]+ ]]; then
           echo "DEPLOY_VERSION=true" >> $GITHUB_ENV
-          echo $DEPLOY_VERSION
         fi
 
     - name: Deploy 🚀
@@ -78,7 +77,8 @@ jobs:
 
     - name: Fetch JSON and Get Preferred Version
       run: |
-        JSON=$(curl -s "https://raw.githubusercontent.com/kaizhang/SnapATAC2/main/docs/_static/versions.json")
+        JSON=$(cat ${GITHUB_WORKSPACE}/docs/_static/versions.json)
+        #JSON=$(curl -s "https://raw.githubusercontent.com/kaizhang/SnapATAC2/main/docs/_static/versions.json")
         VERSION=$(echo "$JSON" | jq -r '.[] | select(.preferred == true) | .version')
         echo "PREFERRED_VERSION=$VERSION" >> $GITHUB_ENV
         echo "Preferred version is $VERSION"

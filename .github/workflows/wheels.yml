@@ -1,3 +1,6 @@
+# This workflow triggers when commit message contains "wheel" or when a tag is pushed.
+# It will build a Python project using CIBW, then upload the wheel and source
+# distribution to PyPI.
 name: Build wheels
 
 on: [push]

@@ -5,19 +5,19 @@
         "url": "https://kzhang.org/SnapATAC2/version/dev/"
     },
     {
-        "name": "2.3.1 (stable)",
-        "version": "2.3.1",
-        "url": "https://kzhang.org/SnapATAC2/version/2.3.1/",
+        "name": "2.4",
+        "version": "2.4",
+        "url": "https://kzhang.org/SnapATAC2/version/2.4/"
+    },
+    {
+        "name": "2.3 (stable)",
+        "version": "2.3",
+        "url": "https://kzhang.org/SnapATAC2/version/2.3/",
         "preferred": true
     },
     {
-        "name": "2.3.0",
-        "version": "2.3.0",
-        "url": "https://kzhang.org/SnapATAC2/version/2.3.0/"
-    },
-    {
-        "name": "2.2.0",
-        "version": "2.2.0",
-        "url": "https://kzhang.org/SnapATAC2/version/2.2.0/"
+        "name": "2.2",
+        "version": "2.2",
+        "url": "https://kzhang.org/SnapATAC2/version/2.2/"
     }
 ]

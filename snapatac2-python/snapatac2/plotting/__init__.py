@@ -177,7 +177,7 @@ def spectral_eigenvalues(
     return render_plot(fig, width, height, interactive, show, out_file)
 
 def regions(
-    data: AnnData | AnnDataSet,
+    adata: AnnData | AnnDataSet,
     groupby: str | list[str],
     peaks: dict[str, list[str]],
     width: float = 600,
@@ -189,7 +189,7 @@ def regions(
     """
     Parameters
     ----------
-    data
+    adata
         Annotated data matrix.
     groupby
         Group the cells into different groups. If a `str`, groups are obtained from
@@ -217,11 +217,12 @@ def regions(
     import polars as pl
     import plotly.graph_objects as go
 
-    count = aggregate_X(data, groupby=groupby, normalize="RPKM")
+    count = aggregate_X(adata, groupby=groupby, normalize="RPKM")
     names = count.obs_names
     count = pl.DataFrame(count.X.T)
     count.columns = list(names)
-    idx = data.var_ix(np.concatenate(list(peaks.values())).tolist())
+    idx_map = {x: i for i, x in enumerate(adata.var_names)}
+    idx = [idx_map[x] for x in np.concatenate(list(peaks.values()))]
     mat = np.log2(1 + count.to_numpy()[idx, :])
 
     trace = go.Heatmap(
