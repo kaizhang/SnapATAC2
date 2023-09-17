@@ -11,7 +11,7 @@ homepage = "https://github.com/"
 keywords = ["single-cell", "biology"]
 
 [dependencies]
-anndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "d54b20794ff187265547d82877759e8d3a1160f8" }
+anndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "f971f0ea33398d37665b1f9004845d6fb819747e" }
 anyhow = "1.0"
 bigtools = "0.1"
 bincode = "1.3"
@@ -36,10 +36,3 @@ serde = "1.0"
 statrs = "0.16"
 tempfile = "3.3"
 which = "4.2"
-
-[dev-dependencies]
-criterion = "0.3"
-
-[[bench]]
-name = "benchmark"
-harness = false

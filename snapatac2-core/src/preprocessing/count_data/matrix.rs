@@ -1,5 +1,8 @@
-use crate::preprocessing::genome::{Promoters, Transcript, SnapData};
-use crate::preprocessing::counter::{FeatureCounter, TranscriptCount, GeneCount};
+use crate::preprocessing::count_data::{
+    SnapData,
+    FeatureCounter, TranscriptCount, GeneCount,
+    Promoters, Transcript,
+};
 
 use anndata::{AnnDataOp, AxisArraysOp};
 use indicatif::{ProgressIterator, ProgressStyle};
@@ -28,8 +31,21 @@ where
         "[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})"
     ).unwrap();
 
-    if adata.obsm().keys().contains(&"insertion".into()) {
-        let mut counts = adata.insertion_count_iter(chunk_size)?.with_resolution(bin_size);
+    if adata.obsm().keys().contains(&"contact".into()) {
+        let data_iter = adata
+            .contact_count_iter(chunk_size)?
+            .with_resolution(bin_size)
+            .into_values::<u32>().map(|x| x.0).progress_with_style(style);
+        if let Some(adata_out) =  out {
+            adata_out.set_x_from_iter(data_iter)?;
+            adata_out.set_obs_names(adata.obs_names())?;
+            adata_out.set_var_names(adata_out.n_vars().into())?;
+        } else {
+            adata.set_x_from_iter(data_iter)?;
+            adata.set_var_names(adata.n_vars().into())?;
+        }
+    } else {
+        let mut counts = adata.get_count_iter(chunk_size)?.with_resolution(bin_size);
         if let Some(exclude_chroms) = exclude_chroms {
             counts = counts.exclude(exclude_chroms);
         }
@@ -42,19 +58,6 @@ where
         } else {
             adata.set_x_from_iter(data_iter)?;
             adata.set_var_names(feature_names)?;
-        }
-    } else {
-        let data_iter = adata
-            .contact_count_iter(chunk_size)?
-            .with_resolution(bin_size)
-            .into_values::<u32>().map(|x| x.0).progress_with_style(style);
-        if let Some(adata_out) =  out {
-            adata_out.set_x_from_iter(data_iter)?;
-            adata_out.set_obs_names(adata.obs_names())?;
-            adata_out.set_var_names(adata_out.n_vars().into())?;
-        } else {
-            adata.set_x_from_iter(data_iter)?;
-            adata.set_var_names(adata.n_vars().into())?;
         }
     }
     Ok(())
@@ -83,7 +86,7 @@ where
         Box::new(adata.read_chrom_values(chunk_size)?
             .aggregate_by(counter).map(|x| x.0))
     } else {
-        Box::new(adata.insertion_count_iter(chunk_size)?
+        Box::new(adata.get_count_iter(chunk_size)?
             .aggregate_by(counter).map(|x| x.0))
     };
     if let Some(adata_out) =  out {
@@ -119,7 +122,7 @@ where
                 Box::new(adata.read_chrom_values(chunk_size)?
                     .aggregate_by(transcript_counter).map(|x| x.0))
             } else {
-                Box::new(adata.insertion_count_iter(chunk_size)?
+                Box::new(adata.get_count_iter(chunk_size)?
                     .aggregate_by(transcript_counter).map(|x| x.0))
             };
             if let Some(adata_out) = out {
@@ -140,7 +143,7 @@ where
                 Box::new(adata.read_chrom_values(chunk_size)?
                     .aggregate_by(gene_counter).map(|x| x.0))
             } else {
-                Box::new(adata.insertion_count_iter(chunk_size)?
+                Box::new(adata.get_count_iter(chunk_size)?
                     .aggregate_by(gene_counter).map(|x| x.0))
             };
             if let Some(adata_out) = out {

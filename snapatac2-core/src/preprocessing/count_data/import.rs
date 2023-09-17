@@ -1,8 +1,6 @@
-use crate::{
-    preprocessing::{
-        qc::{compute_qc_count, Fragment, Contact, FragmentSummary, QualityControl},
-        genome::{ChromSizes, GenomeBaseIndex},
-    },
+use crate::preprocessing::{
+    count_data::{ChromSizes, GenomeBaseIndex},
+    qc::{compute_qc_count, Fragment, Contact, FragmentSummary, QualityControl},
 };
 
 use anndata::{
@@ -112,16 +110,15 @@ where
     Ok(())
 }
 
-
-
 /// Import fragments
 /// Fragments are reprensented as a sparse matrix with rows as barcodes and columns as genomic coordinates.
 /// Each entry in the matrix encodes the size of the fragment.
 /// Positive values indicate the start of the fragment and negative values indicate the end of the fragment.
 /// For example:
 /// chr1 2 5
-/// will be encoded as
-/// X X 3 X X -3 X X X
+/// will be encoded as:
+/// X X 3 X -3 X X X X
+/// Note the end coordinate is 5-1=4 as the end coordinate is exclusive.
 pub fn import_fragments<A, I>(
     anndata: &A,
     fragments: I,

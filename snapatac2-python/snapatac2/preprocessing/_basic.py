@@ -196,7 +196,7 @@ def import_data(
     AnnData object with n_obs × n_vars = 816 × 0
         obs: 'tsse', 'n_fragment', 'frac_dup', 'frac_mito'
         uns: 'reference_sequences'
-        obsm: 'insertion'
+        obsm: 'fragment'
     """
     if genome is not None:
         if chrom_size is None:
@@ -436,7 +436,7 @@ def add_tile_matrix(
     AnnData object with n_obs × n_vars = 816 × 6062095
         obs: 'tsse', 'n_fragment', 'frac_dup', 'frac_mito'
         uns: 'reference_sequences'
-        obsm: 'insertion'
+        obsm: 'fragment'
     """
     if isinstance(exclude_chroms, str):
         exclude_chroms = [exclude_chroms]

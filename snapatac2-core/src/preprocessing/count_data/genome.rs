@@ -1,27 +1,39 @@
-use anndata::{container::{ChunkedArrayElem, StackedChunkedArrayElem}, ArrayElemOp};
-use bed_utils::bed::{tree::{GenomeRegions, BedTree}, GenomicRange, BedGraph, BEDLike};
-use anndata::{AnnDataOp, ElemCollectionOp, AxisArraysOp, AnnDataSet, Backend, AnnData};
-use indexmap::{IndexSet, IndexMap};
-use ndarray::Array2;
+//! # Genomic Feature Counter Module
+//!
+//! This module provides the functionality to count genomic features (such as genes or transcripts) 
+//! in genomic data. The primary structures in this module are `TranscriptCount` and `GeneCount`, 
+//! both of which implement the `FeatureCounter` trait. The `FeatureCounter` trait provides a 
+//! common interface for handling feature counts, including methods for resetting counts, 
+//! updating counts, and retrieving feature IDs, names, and counts.
+//!
+//! `SparseCoverage`, from the bed_utils crate, is used for maintaining counts of genomic features, 
+//! and this structure also implements the `FeatureCounter` trait in this module.
+//!
+//! `TranscriptCount` and `GeneCount` structures also hold a reference to `Promoters`, which 
+//! provides additional information about the genomic features being counted.
+//!
+//! To handle the mapping of gene names to indices, an `IndexMap` is used in the `GeneCount` structure. 
+//! This allows for efficient look-up of gene indices by name, which is useful when summarizing counts 
+//! at the gene level.
+//!
+//! The module aims to provide a comprehensive, efficient, and flexible way to handle and manipulate 
+//! genomic feature counts in Rust.
+use noodles::{core::Position, gff, gff::record::Strand, gtf};
+use bed_utils::bed::tree::GenomeRegions;
+use anyhow::Result;
+use std::{collections::{BTreeMap, HashMap}, fmt::Debug, io::BufRead};
+use indexmap::map::IndexMap;
+use bed_utils::bed::{GenomicRange, BEDLike, tree::SparseCoverage};
+use itertools::Itertools;
+use num::traits::{ToPrimitive, NumCast};
+use anndata::data::utils::to_csr_data;
+use bed_utils::bed::BedGraph;
+use indexmap::IndexSet;
 use polars::frame::DataFrame;
 use nalgebra_sparse::CsrMatrix;
-use ndarray::Array2;
-use noodles::{core::Position, gff, gff::record::Strand, gtf};
-use num::{
-    integer::div_ceil,
-    traits::{FromPrimitive, Zero},
-};
-use polars::prelude::{DataFrame, NamedFrom, Series};
+use polars::prelude::{NamedFrom, Series};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use std::{
-    collections::{BTreeMap, HashMap, HashSet},
-    fmt::Debug,
-    io::BufRead,
-    ops::{AddAssign, Range},
-    str::FromStr,
-};
-
-use super::counter::FeatureCounter;
+use std::ops::Range;
 
 /// Position is 1-based.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -207,6 +219,149 @@ impl Promoters {
     }
 }
 
+
+/// `FeatureCounter` is a trait that provides an interface for counting genomic features.
+/// Types implementing `FeatureCounter` can store feature counts and provide several 
+/// methods for manipulating and retrieving those counts.
+pub trait FeatureCounter {
+    type Value;
+
+    /// Returns the total number of distinct features counted.
+    fn num_features(&self) -> usize { self.get_feature_ids().len() }
+
+    /// Resets the counter for all features.
+    fn reset(&mut self);
+
+    /// Updates the counter according to the given region and count.
+    fn insert<B: BEDLike, N: ToPrimitive + Copy>(&mut self, tag: &B, count: N);
+
+    /// Returns a vector of feature ids.
+    fn get_feature_ids(&self) -> Vec<String>;
+
+    /// Returns a vector of feature names if available.
+    fn get_feature_names(&self) -> Option<Vec<String>> { None }
+
+    /// Returns a vector of tuples, each containing a feature's index and its count.
+    fn get_counts(&self) -> Vec<(usize, Self::Value)>;
+}
+
+/// Implementation of `FeatureCounter` trait for `SparseCoverage` struct.
+/// `SparseCoverage` represents a sparse coverage map for genomic data.
+impl<D: BEDLike> FeatureCounter for SparseCoverage<'_, D, u32> {
+    type Value = u32;
+
+    fn reset(&mut self) { self.reset(); }
+
+    fn insert<B: BEDLike, N: ToPrimitive + Copy>(&mut self, tag: &B, count: N) {
+        self.insert(tag, <u32 as NumCast>::from(count).unwrap());
+    }
+
+    fn get_feature_ids(&self) -> Vec<String> {
+        self.get_regions().map(|x| x.to_genomic_range().pretty_show()).collect()
+    }
+
+    fn get_counts(&self) -> Vec<(usize, Self::Value)> {
+        self.get_coverage().iter().map(|(k, v)| (*k, *v)).collect()
+    }
+}
+
+/// `TranscriptCount` is a struct that represents the count of genomic features at the transcript level.
+/// It holds a `SparseCoverage` counter and a reference to `Promoters`.
+#[derive(Clone)]
+pub struct TranscriptCount<'a> {
+    counter: SparseCoverage<'a, GenomicRange, u32>,
+    promoters: &'a Promoters,
+}
+
+impl<'a> TranscriptCount<'a> {
+    pub fn new(promoters: &'a Promoters) -> Self {
+        Self {
+            counter: SparseCoverage::new(&promoters.regions),
+            promoters,
+        }
+    }
+
+    pub fn gene_names(&self) -> Vec<String> {
+        self.promoters
+            .transcripts
+            .iter()
+            .map(|x| x.gene_name.clone())
+            .collect()
+    }
+}
+
+/// `GeneCount` is a struct that represents the count of genomic features at the gene level.
+/// It holds a `TranscriptCount` counter and a map from gene names to their indices.
+#[derive(Clone)]
+pub struct GeneCount<'a> {
+    counter: TranscriptCount<'a>,
+    gene_name_to_idx: IndexMap<&'a str, usize>,
+}
+
+/// Implementation of `GeneCount`
+impl<'a> GeneCount<'a> {
+    pub fn new(counter: TranscriptCount<'a>) -> Self {
+        let gene_name_to_idx: IndexMap<_, _> = counter
+            .promoters
+            .transcripts
+            .iter()
+            .map(|x| x.gene_name.as_str())
+            .unique()
+            .enumerate()
+            .map(|(a, b)| (b, a))
+            .collect();
+        Self {
+            counter,
+            gene_name_to_idx,
+        }
+    }
+}
+
+/// Implementations of `FeatureCounter` trait for `TranscriptCount` and `GeneCount` structs.
+impl FeatureCounter for TranscriptCount<'_> {
+    type Value = u32;
+
+    fn reset(&mut self) { self.counter.reset(); }
+
+    fn insert<B: BEDLike, N: ToPrimitive + Copy>(&mut self, tag: &B, count: N) {
+        self.counter.insert(tag, <u32 as NumCast>::from(count).unwrap());
+    }
+
+    fn get_feature_ids(&self) -> Vec<String> {
+        self.promoters.transcripts.iter().map(|x| x.transcript_id.clone()).collect()
+    }
+
+    fn get_counts(&self) -> Vec<(usize, Self::Value)> {
+        self.counter.get_counts()
+    }
+}
+
+impl FeatureCounter for GeneCount<'_> {
+    type Value = u32;
+
+    fn reset(&mut self) { self.counter.reset(); }
+
+    fn insert<B: BEDLike, N: ToPrimitive + Copy>(&mut self, tag: &B, count: N) {
+        self.counter.insert(tag, <u32 as NumCast>::from(count).unwrap());
+    }
+
+    fn get_feature_ids(&self) -> Vec<String> {
+        self.gene_name_to_idx.keys().map(|x| x.to_string()).collect()
+    }
+
+    fn get_counts(&self) -> Vec<(usize, Self::Value)> {
+        let mut counts = BTreeMap::new();
+        self.counter.get_counts().into_iter().for_each(|(k, v)| {
+            let idx = *self.gene_name_to_idx.get(
+                self.counter.promoters.transcripts[k].gene_name.as_str()
+            ).unwrap();
+            let current_v = counts.entry(idx).or_insert(v);
+            if *current_v < v { *current_v = v }
+        });
+        counts.into_iter().collect()
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct ChromSizes(IndexMap<String, u64>);
 
@@ -253,10 +408,10 @@ impl ChromSizes {
 /// 0-based index that maps genomic loci to integers.
 #[derive(Debug, Clone)]
 pub struct GenomeBaseIndex {
-    chroms: IndexSet<String>,
-    base_accum_len: Vec<u64>,
-    binned_accum_len: Vec<u64>,
-    step: usize,
+    pub(crate) chroms: IndexSet<String>,
+    pub(crate) base_accum_len: Vec<u64>,
+    pub(crate) binned_accum_len: Vec<u64>,
+    pub(crate) step: usize,
 }
 
 impl GenomeBaseIndex {
@@ -408,7 +563,7 @@ impl GenomeBaseIndex {
     }
 
     // Given a base index, find the corresponding index in the downsampled matrix.
-    fn get_coarsed_position(&self, pos: usize) -> usize {
+    pub(crate) fn get_coarsed_position(&self, pos: usize) -> usize {
         if self.step <= 1 {
             pos
         } else {
@@ -437,9 +592,9 @@ pub type ChromValues<N> = Vec<BedGraph<N>>;
 /// Each item in the iterator is a tuple of a vector of `ChromValues<N>` objects,
 /// a start index, and an end index.
 pub struct ChromValueIter<I> {
-    iter: I,
-    regions: Vec<GenomicRange>,
-    length: usize,
+    pub(crate) iter: I,
+    pub(crate) regions: Vec<GenomicRange>,
+    pub(crate) length: usize,
 }
 
 impl<'a, I, T> ChromValueIter<I>
@@ -514,390 +669,11 @@ where
     }
 }
 
-/// `GenomeCoverage` represents a genome's base-resolution coverage.
-/// It stores the coverage as an iterator of tuples, each containing a
-/// compressed sparse row matrix, a start index, and an end index.
-/// It also keeps track of the resolution and excluded chromosomes.
-pub struct GenomeCoverage<I> {
-    index: GenomeBaseIndex,
-    coverage: I,
-    resolution: usize,
-    exclude_chroms: HashSet<String>,
-}
-
-impl<I> GenomeCoverage<I>
-where
-    I: ExactSizeIterator<Item = (CsrMatrix<u8>, usize, usize)>,
-{
-    pub fn new(chrom_sizes: ChromSizes, coverage: I) -> Self {
-        Self {
-            index: GenomeBaseIndex::new(&chrom_sizes),
-            coverage,
-            resolution: 1,
-            exclude_chroms: HashSet::new(),
-        }
-    }
-
-    pub fn get_gindex(&self) -> GenomeBaseIndex {
-        if !self.exclude_chroms.is_empty() {
-            let chr_sizes = ChromSizes(
-                self.index
-                    .chrom_sizes()
-                    .filter_map(|(chr, size)| {
-                        if self.exclude_chroms.contains(chr) {
-                            None
-                        } else {
-                            Some((chr.clone(), size))
-                        }
-                    })
-                    .collect(),
-            );
-            GenomeBaseIndex::new(&chr_sizes).with_step(self.resolution)
-        } else {
-            self.index.with_step(self.resolution)
-        }
-    }
-
-    /// Set the resolution of the coverage matrix.
-    pub fn with_resolution(mut self, s: usize) -> Self {
-        self.resolution = s;
-        self
-    }
-
-    pub fn exclude(mut self, chroms: &[&str]) -> Self {
-        self.exclude_chroms = chroms
-            .iter()
-            .filter(|x| self.index.chroms.contains(**x))
-            .map(|x| x.to_string())
-            .collect();
-        self
-    }
-
-    /// Convert the coverage matrix into a vector of `BedGraph` objects.
-    pub fn into_chrom_values<T: Zero + FromPrimitive + AddAssign + Send>(
-        self,
-    ) -> impl ExactSizeIterator<Item = (Vec<ChromValues<T>>, usize, usize)> {
-        if !self.exclude_chroms.is_empty() {
-            todo!("Implement exclude_chroms")
-        }
-        let index = self.get_gindex();
-        self.coverage.map(move |(mat, i, j)| {
-            let n = j - i;
-            let values = (0..n)
-                .into_par_iter()
-                .map(|k| {
-                    let row = mat.get_row(k).unwrap();
-                    let row_entry_iter = row.col_indices().into_iter().zip(row.values());
-                    if index.step <= 1 {
-                        row_entry_iter
-                            .map(|(idx, val)| {
-                                let region = index.get_locus(*idx);
-                                BedGraph::from_bed(&region, T::from_u8(*val).unwrap())
-                            })
-                            .collect::<Vec<_>>()
-                    } else {
-                        let mut count: BTreeMap<usize, T> = BTreeMap::new();
-                        row_entry_iter.for_each(|(idx, val)| {
-                            let i = index.get_coarsed_position(*idx);
-                            let val = T::from_u8(*val).unwrap();
-                            *count.entry(i).or_insert(Zero::zero()) += val;
-                        });
-                        count
-                            .into_iter()
-                            .map(|(i, val)| {
-                                let region = index.get_locus(i);
-                                BedGraph::from_bed(&region, val)
-                            })
-                            .collect::<Vec<_>>()
-                    }
-                })
-                .collect();
-            (values, i, j)
-        })
-    }
-
-    /// Output the raw coverage matrix.
-    pub fn into_values<T: Zero + FromPrimitive + AddAssign + Send>(
-        self,
-    ) -> impl ExactSizeIterator<Item = (CsrMatrix<T>, usize, usize)> {
-        let index = self.get_gindex();
-        let ori_index = self.index;
-        self.coverage.map(move |(mat, i, j)| {
-            let new_mat = if self.resolution <= 1 && self.exclude_chroms.is_empty() {
-                let (pattern, data) = mat.into_pattern_and_values();
-                let new_data = data
-                    .into_iter()
-                    .map(|x| T::from_u8(x).unwrap())
-                    .collect::<Vec<_>>();
-                CsrMatrix::try_from_pattern_and_values(pattern, new_data).unwrap()
-            } else {
-                let n = j - i;
-                let vec = (0..n)
-                    .into_par_iter()
-                    .map(|k| {
-                        let row = mat.get_row(k).unwrap();
-                        let mut count: BTreeMap<usize, T> = BTreeMap::new();
-                        row.col_indices()
-                            .into_iter()
-                            .zip(row.values())
-                            .for_each(|(idx, val)| {
-                                let locus = ori_index.get_locus(*idx);
-                                if self.exclude_chroms.is_empty()
-                                    || !self.exclude_chroms.contains(locus.chrom())
-                                {
-                                    let i = index.get_position(locus.chrom(), locus.start());
-                                    let val = T::from_u8(*val).unwrap();
-                                    *count.entry(i).or_insert(Zero::zero()) += val;
-                                }
-                            });
-                        count.into_iter().collect::<Vec<_>>()
-                    })
-                    .collect::<Vec<_>>();
-                let (r, c, offset, ind, data) = to_csr_data(vec, index.len());
-                CsrMatrix::try_from_csr_data(r,c,offset,ind, data).unwrap()
-            };
-            (new_mat, i, j)
-        })
-    }
-
-    /// Aggregate the coverage by a feature counter.
-    pub fn aggregate_by<C, T>(
-        self,
-        mut counter: C,
-    ) -> impl ExactSizeIterator<Item = (CsrMatrix<T>, usize, usize)>
-    where
-        C: FeatureCounter<Value = T> + Clone + Sync,
-        T: Send,
-    {
-        if !self.exclude_chroms.is_empty() {
-            todo!("Implement exclude_chroms")
-        }
-        let n_col = counter.num_features();
-        counter.reset();
-        let index = self.index;
-        self.coverage.map(move |(mat, i, j)| {
-            let n = j - i;
-            let vec = (0..n)
-                .into_par_iter()
-                .map(|k| {
-                    let row = mat.get_row(k).unwrap();
-                    let mut coverage = counter.clone();
-                    row.col_indices()
-                        .into_iter()
-                        .zip(row.values())
-                        .for_each(|(idx, val)| {
-                            coverage.insert(&index.get_locus(*idx), *val);
-                        });
-                    coverage.get_counts()
-                })
-                .collect::<Vec<_>>();
-            let (r, c, offset, ind, data) = to_csr_data(vec, n_col);
-            (CsrMatrix::try_from_csr_data(r,c,offset,ind, data).unwrap(), i, j)
-        })
-    }
-}
-
-pub struct ContactMap<I> {
-    index: GenomeBaseIndex,
-    coverage: I,
-    resolution: usize,
-}
-
-impl<I> ContactMap<I>
-where
-    I: ExactSizeIterator<Item = (CsrMatrix<u8>, usize, usize)>,
-{
-    pub fn new(chrom_sizes: ChromSizes, coverage: I) -> Self {
-        Self {
-            index: GenomeBaseIndex::new(&chrom_sizes),
-            coverage,
-            resolution: 1,
-        }
-    }
-
-    pub fn get_gindex(&self) -> GenomeBaseIndex {
-        self.index.with_step(self.resolution)
-    }
-
-    /// Set the resolution of the coverage matrix.
-    pub fn with_resolution(mut self, s: usize) -> Self {
-        self.resolution = s;
-        self
-    }
-
-    /// Output the raw coverage matrix.
-    pub fn into_values<T: Zero + FromPrimitive + AddAssign + Send>(
-        self,
-    ) -> impl ExactSizeIterator<Item = (CsrMatrix<T>, usize, usize)> {
-        let index = self.get_gindex();
-        let ori_index = self.index;
-        let genome_size = ori_index.len();
-        let new_size = index.len();
-        self.coverage.map(move |(mat, i, j)| {
-            let new_mat = if self.resolution <= 1 {
-                let (pattern, data) = mat.into_pattern_and_values();
-                let new_data = data
-                    .into_iter()
-                    .map(|x| T::from_u8(x).unwrap())
-                    .collect::<Vec<_>>();
-                CsrMatrix::try_from_pattern_and_values(pattern, new_data).unwrap()
-            } else {
-                let n = j - i;
-                let vec = (0..n)
-                    .into_par_iter()
-                    .map(|k| {
-                        let row = mat.get_row(k).unwrap();
-                        let mut count: BTreeMap<usize, T> = BTreeMap::new();
-                        row.col_indices()
-                            .into_iter()
-                            .zip(row.values())
-                            .for_each(|(idx, val)| {
-                                let ridx = idx / genome_size;
-                                let cidx = idx % genome_size;
-                                let locus1 = ori_index.get_locus(ridx);
-                                let locus2 = ori_index.get_locus(cidx);
-                                let i1 = index.get_position(locus1.chrom(), locus1.start());
-                                let i2 = index.get_position(locus2.chrom(), locus2.start());
-                                let i = i1 * new_size + i2;
-                                let val = T::from_u8(*val).unwrap();
-                                *count.entry(i).or_insert(Zero::zero()) += val;
-                            });
-                        count.into_iter().collect::<Vec<_>>()
-                    })
-                    .collect::<Vec<_>>();
-                let (r, c, offset, ind, data) = to_csr_data(vec, new_size * new_size);
-                CsrMatrix::try_from_csr_data(r,c,offset,ind, data).unwrap()
-            };
-            (new_mat, i, j)
-        })
-    }
-}
-
-/// The `SnapData` trait represents an interface for reading and
-/// manipulating single-cell assay data. It extends the `AnnDataOp` trait,
-/// adding methods for reading chromosome sizes and genome-wide base-resolution coverage.
-pub trait SnapData: AnnDataOp {
-    type CountIter: ExactSizeIterator<Item = (CsrMatrix<u8>, usize, usize)>;
-
-    /// Return chromosome names and sizes.
-    fn read_chrom_sizes(&self) -> Result<ChromSizes> {
-        let df = self
-            .uns()
-            .get_item::<DataFrame>("reference_sequences")?
-            .context("key 'reference_sequences' is not present in the '.uns'")?;
-        let chrs = df.column("reference_seq_name").unwrap().utf8()?;
-        let chr_sizes = df.column("reference_seq_length").unwrap().u64()?;
-        let res = chrs.into_iter().flatten().map(|x| x.to_string())
-            .zip(chr_sizes.into_iter().flatten()).collect();
-        Ok(res)
-    }
-
-    /// Read insertion counts stored in the `.obsm['insertion']` matrix.
-    fn insertion_count_iter(&self, chunk_size: usize) -> Result<GenomeCoverage<Self::CountIter>>;
-
-    fn contact_count_iter(&self, chunk_size: usize) -> Result<ContactMap<Self::CountIter>>;
-
-    /// Read counts stored in the `X` matrix.
-    fn read_chrom_values(
-        &self,
-        chunk_size: usize,
-    ) -> Result<ChromValueIter<<<Self as AnnDataOp>::X as ArrayElemOp>::ArrayIter<CsrMatrix<u32>>>>
-    {
-        let regions = self
-            .var_names()
-            .into_vec()
-            .into_iter()
-            .map(|x| GenomicRange::from_str(x.as_str()).unwrap())
-            .collect();
-        Ok(ChromValueIter {
-            regions,
-            iter: self.x().iter(chunk_size),
-            length: div_ceil(self.n_obs(), chunk_size),
-        })
-    }
-
-    /// Compute the fraction of reads in each region.
-    fn frip<D>(&self, regions: &Vec<BedTree<D>>) -> Result<Array2<f64>> {
-        let vec = fraction_in_regions(self.raw_count_iter(2000)?.into_chrom_values(), regions)
-            .map(|x| x.0).flatten().flatten().collect::<Vec<_>>();
-        Array2::from_shape_vec((self.n_obs(), regions.len()), vec).map_err(Into::into)
-    }
-}
-
-/// Count the fraction of the records in the given regions.
-fn fraction_in_regions<'a, I, D>(
-    iter: I, regions: &'a Vec<BedTree<D>>,
-) -> impl Iterator<Item = (Vec<Vec<f64>>, usize, usize)> + 'a
-where
-    I: Iterator<Item = (Vec<ChromValues<f64>>, usize, usize)> + 'a,
-{
-    let k = regions.len();
-    iter.map(move |(values, start, end)| {
-        let frac = values.into_iter().map(|xs| {
-            let sum = xs.iter().map(|x| x.value).sum::<f64>();
-            let mut counts = vec![0.0; k];
-            xs.into_iter().for_each(|x|
-                regions.iter().enumerate().for_each(|(i, r)| {
-                    if r.is_overlapped(&x) {
-                        counts[i] += x.value;
-                    }
-                })
-            );
-            counts.iter_mut().for_each(|x| *x /= sum);
-            counts
-        }).collect::<Vec<_>>();
-        (frac, start, end)
-    })
-}
-
-impl<B: Backend> SnapData for AnnData<B> {
-    type CountIter = ChunkedArrayElem<B, CsrMatrix<u8>>;
-
-    fn insertion_count_iter(&self, chunk_size: usize) -> Result<GenomeCoverage<Self::CountIter>> {
-        Ok(GenomeCoverage::new(
-            self.read_chrom_sizes()?,
-            self.obsm().get_item_iter("insertion", chunk_size).unwrap(),
-        ))
-    }
-
-    fn contact_count_iter(&self, chunk_size: usize) -> Result<ContactMap<Self::CountIter>> {
-        Ok(ContactMap::new(
-            self.read_chrom_sizes()?,
-            self.obsm().get_item_iter("contact", chunk_size).unwrap(),
-        ))
-    }
-}
-
-impl<B: Backend> SnapData for AnnDataSet<B> {
-    type CountIter = StackedChunkedArrayElem<B, CsrMatrix<u8>>;
-
-    fn insertion_count_iter(&self, chunk_size: usize) -> Result<GenomeCoverage<Self::CountIter>> {
-        Ok(GenomeCoverage::new(
-            self.read_chrom_sizes()?,
-            self.adatas()
-                .inner()
-                .get_obsm()
-                .get_item_iter("insertion", chunk_size)
-                .unwrap(),
-        ))
-    }
-
-    fn contact_count_iter(&self, chunk_size: usize) -> Result<ContactMap<Self::CountIter>> {
-        Ok(ContactMap::new(
-            self.read_chrom_sizes()?,
-            self.adatas()
-                .inner()
-                .get_obsm()
-                .get_item_iter("contact", chunk_size)
-                .unwrap(),
-        ))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use bed_utils::bed::BEDLike;
+    use std::str::FromStr;
 
     #[test]
     fn test_index1() {
@@ -914,12 +690,10 @@ mod tests {
 
         assert_eq!(
             chrom_sizes.clone(),
-            ChromSizes(
-                index
-                    .chrom_sizes()
-                    .map(|(a, b)| (a.to_owned(), b))
-                    .collect()
-            ),
+            index
+                .chrom_sizes()
+                .map(|(a, b)| (a.to_owned(), b))
+                .collect()
         );
 
         [
