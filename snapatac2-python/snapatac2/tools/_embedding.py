@@ -142,7 +142,7 @@ def spectral(
     ----
     When using the cosine similarity as the similarity metric, the matrix-free
     spectral embedding algorithm is used, which scales linearly with the number of cells. 
-    The memory usage is roughly :math:`2 \times input_size`.
+    The memory usage is roughly :math:`2 \\times \\text{input_size}`.
     For other types of similarity metrics, the time and space complexity is :math:`O(N^2)`,
     where $N$ is the minimum between the total of cells and the `sample_size`.
     The memory usage in bytes is given by $N^2 * 8 * 2$. For example,

@@ -185,7 +185,7 @@ def cre_HEA() -> Path:
 def cis_bp(unique: bool = True) -> list[PyDNAMotif]:
     """A list of transcription factor motifs curated by the CIS-BP database.
 
-    This function returns motifs curated from the CIS-BP database[Weirauch14]_.
+    This function returns motifs curated from the CIS-BP database [Weirauch14]_.
     The motifs can be used to scan the genome for potential binding sites and
     to perform motif enrichment analysis.
 
@@ -202,7 +202,7 @@ def cis_bp(unique: bool = True) -> list[PyDNAMotif]:
 
     See Also
     --------
-    tl.motif_enrichment
+    :func:`~snapatac2.tl.motif_enrichment`: compute motif enrichment.
     """
     motifs = read_motifs(datasets().fetch("cisBP_human.meme"))
     for motif in motifs:
@@ -234,7 +234,7 @@ def Meuleman_2020() -> list[PyDNAMotif]:
 
     See Also
     --------
-    tl.motif_enrichment
+    :func:`~snapatac2.tl.motif_enrichment`: compute motif enrichment.
     """
     motifs = read_motifs(datasets().fetch("Meuleman_2020.meme"))
     for motif in motifs:

@@ -60,6 +60,10 @@ def scanorama_integrate(
         if `inplace=True` it updates adata with the field
         ``adata.obsm[`use_rep`_scanorama]``, containing adjusted principal components.
         Otherwise, it returns the result as a numpy array.
+    
+    See Also
+    --------
+    :func:`~snapatac2.tl.spectral`: compute spectral embedding of the data matrix.
 
     Example
     -------
