@@ -16,6 +16,10 @@ use numpy::{PyArray1, PyArray2};
 use pyanndata::data::PyArrayData;
 use pyo3::prelude::*;
 use rand::SeedableRng;
+use indicatif::{ProgressIterator, ProgressStyle};
+use anndata::{ArrayData, AnnDataOp, ArrayOp, ArrayElemOp, data::{SelectInfoElem, BoundedSelectInfoElem, utils::to_csr_data}, Backend};
+use nalgebra::DVector;
+use nalgebra_sparse::CsrMatrix;
 use rayon::prelude::{ParallelBridge, ParallelIterator};
 use std::ops::Deref;
 

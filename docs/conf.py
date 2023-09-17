@@ -25,6 +25,7 @@ print("%s %s" % (version, release))
 
 suppress_warnings = ['ref.citation']
 default_role = 'code'
+add_function_parentheses = False
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
@@ -33,6 +34,7 @@ extensions = [
     "nbsphinx",
     "myst_parser",
     "sphinx.ext.autodoc",
+    "sphinx.ext.intersphinx",
     "sphinx.ext.autosummary",
     "sphinx.ext.coverage",
     "sphinx.ext.mathjax",
@@ -77,21 +79,15 @@ napoleon_custom_sections = [('Params', 'Parameters')]
 todo_include_todos = False
 
 intersphinx_mapping = {
-    "cycler": ("https://matplotlib.org/cycler/", None),
-    "h5py": ("http://docs.h5py.org/en/stable/", None),
+    "anndata": ("https://anndata.readthedocs.io/en/stable/", None),
     "ipython": ("https://ipython.readthedocs.io/en/stable/", None),
     "matplotlib": ("https://matplotlib.org/", None),
-    "networkx": (
-        "https://networkx.github.io/documentation/networkx-1.10/",
-        None,
-    ),
-    "numpy": ("https://docs.scipy.org/doc/numpy/", None),
-    "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
-    "pytest": ("https://docs.pytest.org/en/latest/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "pandas": ("https://pandas.pydata.org/docs/", None),
     "python": ("https://docs.python.org/3", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
-    "seaborn": ("https://seaborn.pydata.org/", None),
     "sklearn": ("https://scikit-learn.org/stable/", None),
+    "scanpy": ("https://scanpy.readthedocs.io/en/stable/", None),
 }
 
 smv_branch_whitelist = r'main'  # Include all branches
@@ -121,11 +117,20 @@ else:
     switcher_version = f"{version}"
 
 html_theme_options = {
+     "logo": {
+        "text": "SnapATAC2",
+        "image_dark": "_static/logo-dark.svg",
+        "alt_text": "SnapATAC2",
+    },
+
     "github_url": "https://github.com/kaizhang/SnapATAC2",
     "external_links": [
         {"name": "Learn", "url": "https://kzhang.org/epigenomics-analysis/"}
     ],
-    "navbar_end": ["version-switcher", "theme-switcher", "navbar-icon-links"],
+
+    "navbar_center": ["version-switcher", "navbar-nav"],
+    "navbar_end": ["theme-switcher", "navbar-icon-links"],
+    "show_version_warning_banner": True,
 
     "switcher": {
         "version_match": switcher_version,

@@ -12,7 +12,7 @@ def knn(
     adata: AnnData | AnnDataSet | np.ndarray,
     n_neighbors: int = 50,
     use_dims: int | list[int] | None = None,
-    use_rep: str | None = None,
+    use_rep: str = 'X_spectral',
     method: Literal['hora', 'pynndescent', 'exact'] = "hora",
     n_jobs: int = -1,
     inplace: bool = True,
@@ -20,6 +20,9 @@ def knn(
 ) -> csr_matrix | None:
     """
     Compute a neighborhood graph of observations.
+
+    Computes a neighborhood graph of observations stored in `adata` using
+    the method specified by `method`. The distance metric used is Euclidean.
 
     Parameters
     ----------
@@ -32,7 +35,8 @@ def knn(
     use_rep
         The key for the matrix
     method
-        'hora', 'pynndescent', or 'exact'
+        'hora', 'pynndescent', or 'exact'. The default is 'hora', which uses the
+        HNSW algorithm to approximate the nearest neighbors.
     n_jobs
         number of CPUs to use
     inplace
@@ -47,7 +51,6 @@ def knn(
         Otherwise, return a sparse matrix.
     """
     if is_anndata(adata):
-        if use_rep is None: use_rep = "X_spectral"
         data = adata.obsm[use_rep]
     else:
         inplace = False

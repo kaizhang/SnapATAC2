@@ -142,7 +142,7 @@ def spectral(
     ----
     When using the cosine similarity as the similarity metric, the matrix-free
     spectral embedding algorithm is used, which scales linearly with the number of cells. 
-    The memory usage is roughly :math:`2 \times input_size`.
+    The memory usage is roughly :math:`2 \\times \\text{input_size}`.
     For other types of similarity metrics, the time and space complexity is :math:`O(N^2)`,
     where $N$ is the minimum between the total of cells and the `sample_size`.
     The memory usage in bytes is given by $N^2 * 8 * 2$. For example,
@@ -155,7 +155,8 @@ def spectral(
     adata
         AnnData or AnnDataSet object.
     n_comps
-        Number of dimensions to keep.
+        Number of dimensions to keep. The result is insensitive to this parameter when
+        `weighted_by_sd` is set to True, as long as it is large enough, e.g. 30.
     features
         Boolean index mask. True means that the feature is kept.
         False means the feature is removed.
@@ -165,12 +166,17 @@ def spectral(
         Sample size used in the Nystrom method. It could be either an integer
         indicating the number of cells to sample or a real value from 0 to 1
         indicating the fraction of cells to sample.
+        Using this only when the number of cells is too large, e.g. > 10,000,000, or
+        the `distance_metric` is "jaccard".
     chunk_size
         Chunk size used in the Nystrom method
     distance_metric
         distance metric: "jaccard", "cosine".
+        When "cosine" is used, the matrix-free spectral embedding algorithm is used.
     weighted_by_sd
         Whether to weight the result eigenvectors by the square root of eigenvalues.
+        This parameter is turned on by default. When it is turned on, mannully selecting
+        the number of components is usually not necessary.
     inplace
         Whether to store the result in the anndata object.
 
@@ -180,6 +186,10 @@ def spectral(
         if `inplace=True` it stores Spectral embedding of data in
         `adata.obsm["X_spectral"]` and `adata.uns["spectral_eigenvalue"]`.
         Otherwise, it returns the result as numpy arrays.
+
+    See Also
+    --------
+    multi_spectral
     """
     np.random.seed(random_state)
 
@@ -461,6 +471,7 @@ def multi_spectral(
         A list of AnnData objects, representing single-cell data from different modalities.
     n_comps
         Number of dimensions to keep.
+        See :func:`~snapatac2.tl.spectral` for details.
     features
         Boolean index mask. True means that the feature is kept. False means the feature is removed.
     weights
@@ -469,11 +480,16 @@ def multi_spectral(
         Seed of the random state generator
     weighted_by_sd
         Whether to weight the result eigenvectors by the square root of eigenvalues.
+        See :func:`~snapatac2.tl.spectral` for details.
 
     Returns
     -------
     tuple[np.ndarray, np.ndarray]
         Return the eigenvalues and eigenvectors of the Laplacian matrix.
+
+    See Also
+    --------
+    spectral
     """
     np.random.seed(random_state)
 

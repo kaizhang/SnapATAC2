@@ -234,6 +234,37 @@ def render_plot(
     out_file: str | None = None,
     scale: float | None = None,
 ) -> 'plotly.graph_objects.Figure' | None:
+    """ Render a plotly figure.
+
+    Note that this function is not intended to be called directly. Instead, it is
+    called by other plotting functions in this package.
+
+    Parameters
+    ----------
+    fig
+        The plotly figure to render.
+    width
+        The width of the plot.
+    height
+        The height of the plot.
+    interactive
+        Whether to make interactive plot.
+    show
+        Show the figure.
+    out_file
+        Path of the output file for saving the output image, end with
+        '.svg' or '.pdf' or '.png' or '.html'.
+    scale
+        Scale factor for the image. Only used when `out_file` is not None.
+        Use scale > 1 to increase resolution and scale < 1 to decrease.
+
+    Returns
+    -------
+    'plotly.graph_objects.Figure' | None
+        If `show=False` and `out_file=None`, an `plotly.graph_objects.Figure` will be
+        returned, which can then be further customized using the plotly API.
+    """
+
     fig.update_layout({
         "width": width,
         "height": height,

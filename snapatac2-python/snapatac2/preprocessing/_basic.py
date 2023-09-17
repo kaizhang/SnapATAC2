@@ -79,6 +79,10 @@ def make_fragment_file(
     -------
     PyFlagStat
         Various statistics.
+
+    See Also
+    --------
+    import_data
     """
     if barcode_tag is None and barcode_regex is None:
         raise ValueError("Either barcode_tag or barcode_regex must be set.")
@@ -91,9 +95,9 @@ def make_fragment_file(
     )
 
 def import_data(
-    fragment_file: Path,
+    fragment_file: Path | list[Path],
     *,
-    file: Path | None = None,
+    file: Path | list[Path] | None = None,
     genome: Genome | None = None,
     gene_anno: Path | None = None,
     chrom_size: dict[str, int] | None = None,
@@ -106,6 +110,7 @@ def import_data(
     chunk_size: int = 2000,
     tempdir: Path | None = None,
     backend: Literal['hdf5'] = 'hdf5',
+    n_jobs: int = 8,
 ) -> AnnData:
     """Import dataset and compute QC metrics.
 
@@ -114,15 +119,18 @@ def import_data(
     sizes (in `.uns['reference_sequences']`). Various QC metrics, including TSSe,
     number of unique fragments, duplication rate, fraction of mitochondrial DNA
     reads, will be computed.
+    The `.obsm['insertion']` matrix created in this step is essential for downstream
+    analysis, such as tile matrix generation and peak calling.
 
     Parameters
     ----------
     fragment_file
-        File name of the fragment file.
+        File name of the fragment file. This can be a single file or a list of files.
     file
         File name of the output h5ad file used to store the result. If provided,
         result will be saved to a backed AnnData, otherwise an in-memory AnnData
         is used.
+        If `fragment_file` is a list of files, `file` must also be a list of files if provided.
     genome
         A Genome object, providing gene annotation and chromosome sizes.
         If not set, `gff_file` and `chrom_size` must be provided.
@@ -145,26 +153,29 @@ def import_data(
         If `sorted_by_barcode == True`, this function makes use of small fixed amout of 
         memory. If `sorted_by_barcode == False` and `low_memory == False`,
         all data will be kept in memory. See `low_memory` for more details.
-    low_memory
-        Whether to use the low memory mode when `sorted_by_barcode == False`.
-        It does this by first sort the records by barcodes and then process them
-        in batch. The parameter has no effect when `sorted_by_barcode == True`.
     whitelist
         File name or a list of barcodes. If it is a file name, each line
         must contain a valid barcode. When provided, only barcodes in the whitelist
         will be retained.
     shift_left
-        Insertion site correction for the left end.
+        Insertion site correction for the left end. This is set to 0 by default,
+        as shift correction is usually done in the fragment file generation step.
     shift_right
         Insertion site correction for the right end. Note this has no effect on single-end reads.
         For single-end reads, `shift_right` will be set using the value of `shift_left`.
+        This is set to 0 by default, as shift correction is usually done in the fragment
+        file generation step.
     chunk_size
-        Increasing the chunk_size speeds up I/O but uses more memory.
+        Increasing the chunk_size may speed up I/O but will use more memory.
+        The speed gain is usually not significant.
     tempdir
         Location to store temporary files. If `None`, system temporary directory
         will be used.
     backend
         The backend.
+    n_jobs
+        Number of jobs to run in parallel when `fragment_file` is a list.
+        If `n_jobs=-1`, all CPUs will be used.
 
     Returns
     -------
@@ -173,17 +184,27 @@ def import_data(
         cells and columns to regions. If `file=None`, an in-memory AnnData will be
         returned, otherwise a backed AnnData is returned.
 
+    See Also
+    --------
+    make_fragment_file
+
     Examples
     --------
     >>> import snapatac2 as snap
     >>> data = snap.pp.import_data(snap.datasets.pbmc500(), genome=snap.genome.hg38, sorted_by_barcode=False)
     >>> print(data)
+    AnnData object with n_obs × n_vars = 816 × 0
+        obs: 'tsse', 'n_fragment', 'frac_dup', 'frac_mito'
+        uns: 'reference_sequences'
+        obsm: 'insertion'
     """
     if genome is not None:
         if chrom_size is None:
             chrom_size = genome.chrom_sizes
         if gene_anno is None:
             gene_anno = genome.fetch_annotations()
+    if len(chrom_size) == 0:
+        raise ValueError("chrom_size cannot be empty")
 
     if whitelist is not None:
         if isinstance(whitelist, str) or isinstance(whitelist, Path):
@@ -191,14 +212,34 @@ def import_data(
                 whitelist = set([line.strip() for line in fl])
         else:
             whitelist = set(whitelist)
-        
-    adata = ad.AnnData() if file is None else AnnData(filename=file, backend=backend)
-    internal.import_fragments(
-        adata, fragment_file, gene_anno, chrom_size, min_num_fragments,
-        min_tsse, sorted_by_barcode, shift_left, shift_right,
-        chunk_size, whitelist, tempdir,
-    )
-    return adata
+
+    if isinstance(fragment_file, list):
+        n = len(fragment_file)
+        if file is None:
+            adatas = [ad.AnnData() for _ in range(n)]
+        else:
+            if len(file) != n:
+                raise ValueError("The length of 'file' must be the same as the length of 'fragment_file'")
+            adatas = [AnnData(filename=f, backend=backend) for f in file]
+
+        snapatac2._utils.anndata_ipar(
+            list(enumerate(adatas)),
+            lambda x: internal.import_fragments(
+                x[1], fragment_file[x[0]], gene_anno, chrom_size, min_num_fragments,
+                min_tsse, sorted_by_barcode, shift_left, shift_right,
+                chunk_size, whitelist, tempdir,
+            ),
+            n_jobs=n_jobs,
+        )
+        return adatas
+    else:
+        adata = ad.AnnData() if file is None else AnnData(filename=file, backend=backend)
+        internal.import_fragments(
+            adata, fragment_file, gene_anno, chrom_size, min_num_fragments,
+            min_tsse, sorted_by_barcode, shift_left, shift_right,
+            chunk_size, whitelist, tempdir,
+        )
+        return adata
 
 def import_contacts(
     contact_file: Path,
@@ -249,12 +290,6 @@ def import_contacts(
         An annotated data matrix of shape `n_obs` x `n_vars`. Rows correspond to
         cells and columns to regions. If `file=None`, an in-memory AnnData will be
         returned, otherwise a backed AnnData is returned.
-
-    Examples
-    --------
-    >>> import snapatac2 as snap
-    >>> data = snap.pp.import_data(snap.datasets.pbmc500(), genome=snap.genome.hg38, sorted_by_barcode=False)
-    >>> print(data)
     """
     if genome is not None:
         if chrom_size is None:
@@ -276,6 +311,8 @@ def add_frip(
 ) -> dict[str, list[float]] | list[dict[str, list[float]]] | None:
     """ Add fraction of reads in peaks (FRiP) to the AnnData object.
 
+    :func:`~snapatac2.pp.import_data` must be ran first in order to use this function.
+
     Parameters
     ----------
     adata
@@ -293,6 +330,26 @@ def add_frip(
     n_jobs
         Number of jobs to run in parallel when `adata` is a list.
         If `n_jobs=-1`, all CPUs will be used.
+
+    Returns
+    -------
+    dict[str, list[float]] | list[dict[str, list[float]]] | None
+        If `inplace = True`, directly adds the results to `adata.obs`.
+        Otherwise return a dictionary containing the results.
+
+    Examples
+    --------
+    >>> import snapatac2 as snap
+    >>> data = snap.read(snap.datasets.pbmc5k(type='h5ad'), backed=None)
+    >>> snap.pp.add_frip(data, {"peaks_frac": snap.datasets.cre_HEA()})
+    >>> print(data.obs['peaks_frac'].head())
+    index
+    AAACGAAAGACGTCAG-1    0.708841
+    AAACGAAAGATTGACA-1    0.731711
+    AAACGAAAGGGTCCCT-1    0.692434
+    AAACGAACAATTGTGC-1    0.694849
+    AAACGAACACTCGTGG-1    0.687787
+    Name: peaks_frac, dtype: float64
     """
 
     for k in regions.keys():
@@ -357,6 +414,29 @@ def add_tile_matrix(
     n_jobs
         Number of jobs to run in parallel when `adata` is a list.
         If `n_jobs=-1`, all CPUs will be used.
+    
+    Returns
+    -------
+    AnnData | ad.AnnData | None
+        An annotated data matrix of shape `n_obs` x `n_vars`. Rows correspond to
+        cells and columns to bins. If `file=None`, an in-memory AnnData will be
+        returned, otherwise a backed AnnData is returned.
+
+    See Also
+    --------
+    make_peak_matrix
+    make_gene_matrix
+
+    Examples
+    --------
+    >>> import snapatac2 as snap
+    >>> data = snap.pp.import_data(snap.datasets.pbmc500(), genome=snap.genome.hg38, sorted_by_barcode=False)
+    >>> snap.pp.add_tile_matrix(data, bin_size=500)
+    >>> print(data)
+    AnnData object with n_obs × n_vars = 816 × 6062095
+        obs: 'tsse', 'n_fragment', 'frac_dup', 'frac_mito'
+        uns: 'reference_sequences'
+        obsm: 'insertion'
     """
     if isinstance(exclude_chroms, str):
         exclude_chroms = [exclude_chroms]
@@ -431,6 +511,20 @@ def make_peak_matrix(
         An annotated data matrix of shape `n_obs` x `n_vars`. Rows correspond to
         cells and columns to peaks. If `file=None`, an in-memory AnnData will be
         returned, otherwise a backed AnnData is returned.
+
+    See Also
+    --------
+    add_tile_matrix
+    make_gene_matrix
+
+    Examples
+    --------
+    >>> import snapatac2 as snap
+    >>> data = snap.pp.import_data(snap.datasets.pbmc500(), genome=snap.genome.hg38, sorted_by_barcode=False)
+    >>> peak_mat = snap.pp.make_peak_matrix(data, peak_file=snap.datasets.cre_HEA())
+    >>> print(peak_mat)
+    AnnData object with n_obs × n_vars = 816 × 1154611
+        obs: 'tsse', 'n_fragment', 'frac_dup', 'frac_mito'
     """
     import gzip
 
@@ -484,6 +578,8 @@ def make_gene_matrix(
     body regions. The result will be stored in a new file and a new AnnData object
     will be created.
 
+    :func:`~snapatac2.pp.import_data` must be ran first in order to use this function.
+
     Parameters
     ----------
     adata
@@ -511,6 +607,20 @@ def make_gene_matrix(
         An annotated data matrix of shape `n_obs` x `n_vars`. Rows correspond to
         cells and columns to genes. If `file=None`, an in-memory AnnData will be
         returned, otherwise a backed AnnData is returned.
+
+    See Also
+    --------
+    add_tile_matrix
+    make_peak_matrix
+
+    Examples
+    --------
+    >>> import snapatac2 as snap
+    >>> data = snap.pp.import_data(snap.datasets.pbmc500(), genome=snap.genome.hg38, sorted_by_barcode=False)
+    >>> gene_mat = snap.pp.make_gene_matrix(data, gene_anno=snap.genome.hg38)
+    >>> print(gene_mat)
+    AnnData object with n_obs × n_vars = 816 × 60606
+        obs: 'tsse', 'n_fragment', 'frac_dup', 'frac_mito'
     """
     if isinstance(gene_anno, Genome):
         gene_anno = gene_anno.fetch_annotations()
@@ -607,6 +717,7 @@ def select_features(
     max_iter: int = 1,
     inplace: bool = True,
     n_jobs: int = 8,
+    verbose: bool = True,
 ) -> np.ndarray | list[np.ndarray] | None:
     """
     Perform feature selection.
@@ -615,6 +726,7 @@ def select_features(
     ----
     This function does not perform the actual subsetting. The feature mask is used by
     various functions to generate submatrices on the fly.
+    For more discussion about feature selection, see: https://github.com/kaizhang/SnapATAC2/discussions/116.
 
     Parameters
     ----------
@@ -629,8 +741,12 @@ def select_features(
         the filtering criteria.
     filter_lower_quantile
         Lower quantile of the feature count distribution to filter out.
+        For example, 0.005 means the bottom 0.5% features with the lowest counts will be removed.
     filter_upper_quantile
         Upper quantile of the feature count distribution to filter out.
+        For example, 0.005 means the top 0.5% features with the highest counts will be removed.
+        Be aware that when the number of feature is very large, the default value of 0.005 may
+        risk removing too many features.
     whitelist
         A user provided bed file containing genome-wide whitelist regions.
         None-zero features listed here will be kept regardless of the other
@@ -639,10 +755,18 @@ def select_features(
     blacklist 
         A user provided bed file containing genome-wide blacklist regions.
         Features that are overlapped with these regions will be removed.
+    max_iter
+        If greater than 1, this function will perform iterative clustering and feature selection
+        based on variable features found using previous clustering results.
+        This is similar to the procedure implemented in ArchR, but we do not recommend it,
+        see https://github.com/kaizhang/SnapATAC2/issues/111.
+        Default value is 1, which means no iterative clustering is performed.
     inplace
         Perform computation inplace or return result.
     n_jobs
         Number of parallel jobs to use when `adata` is a list.
+    verbose
+        Whether to print progress messages.
     
     Returns
     -------
@@ -654,7 +778,9 @@ def select_features(
     if isinstance(adata, list):
         result = snapatac2._utils.anndata_par(
             adata,
-            lambda x: select_features(x, n_features, filter_lower_quantile, filter_upper_quantile, whitelist, blacklist, max_iter, inplace),
+            lambda x: select_features(x, n_features, filter_lower_quantile,
+                                      filter_upper_quantile, whitelist,
+                                      blacklist, max_iter, inplace, verbose=False),
             n_jobs=n_jobs,
         )
         if inplace:
@@ -697,7 +823,8 @@ def select_features(
         whitelist &= count != 0
         result |= whitelist
     
-    logging.info(f"Selected {result.sum()} features.")
+    if verbose:
+        logging.info(f"Selected {result.sum()} features.")
 
     if inplace:
         adata.var["selected"] = result

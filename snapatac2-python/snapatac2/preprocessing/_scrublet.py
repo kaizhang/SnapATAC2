@@ -27,6 +27,15 @@ def scrublet(
     """
     Compute probability of being a doublet using the scrublet algorithm.
 
+    This function identifies doublets by generating simulated doublets using
+    randomly pairing chromatin accessibility profiles of individual cells.
+    The simulated doublets are then embedded alongside the original cells using
+    the spectral embedding algorithm in this package.
+    A k-nearest-neighbor classifier is trained to distinguish between the simulated
+    doublets and the authentic cells.
+    This trained classifier produces a "doublet score" for each cell.
+    The doublet scores are then converted into probabilities using a Gaussian mixture model.
+
     Parameters
     ----------
     adata
@@ -38,7 +47,8 @@ def scrublet(
         Boolean index mask, where `True` means that the feature is kept, and
         `False` means the feature is removed.
     n_comps
-        Number of PCs
+        Number of components. 15 is usually sufficient. The algorithm is not sensitive
+        to this parameter.
     sim_doublet_ratio
         Number of doublets to simulate relative to the number of observed cells.
     expected_doublet_rate
@@ -68,7 +78,10 @@ def scrublet(
     if isinstance(adata, list):
         result = anndata_par(
             adata,
-            lambda x: scrublet(x, features, n_comps, sim_doublet_ratio, expected_doublet_rate, n_neighbors, use_approx_neighbors, random_state, inplace, n_jobs, verbose),
+            lambda x: scrublet(x, features, n_comps, sim_doublet_ratio,
+                               expected_doublet_rate, n_neighbors,
+                               use_approx_neighbors, random_state,
+                               inplace, n_jobs, verbose=False),
             n_jobs=n_jobs,
         )
         if inplace:
@@ -97,7 +110,7 @@ def scrublet(
         n_comps=n_comps,
         use_approx_neighbors = use_approx_neighbors,
         random_state=random_state,
-        verbose=False,
+        verbose=verbose,
     )
     probs = get_doublet_probability(
         doublet_scores_sim, doublet_scores_obs, random_state,
@@ -118,8 +131,9 @@ def filter_doublets(
     n_jobs: int = 8,
     verbose: bool = True,
 ) -> np.ndarray | None:
-    """
-    Remove doublets.
+    """Remove doublets according to the doublet probability or doublet score.
+
+    The user can choose to remove doublets by either the doublet probability or the doublet score.
     :func:`~snapatac2.pp.scrublet` must be ran first in order to use this function.
 
     Parameters
@@ -128,9 +142,13 @@ def filter_doublets(
         The (annotated) data matrix of shape `n_obs` x `n_vars`.
         Rows correspond to cells and columns to regions.
     probability_threshold
-        Threshold for doublet probability.
+        Threshold for doublet probability. Doublet probability greater than
+        this threshold will be removed. The default value is 0.5. Using a lower
+        threshold will remove more cells.
     score_threshold
-        Threshold for doublet score.
+        Threshold for doublet score. Doublet score greater than this threshold
+        will be removed. Only one of `probability_threshold` and `score_threshold`
+        can be set. Using `score_threshold` is not recommended for most cases.
     inplace
         Perform computation inplace or return result.
     n_jobs
@@ -144,11 +162,16 @@ def filter_doublets(
         If `inplace = True`, directly subsets the data matrix. Otherwise return 
         a boolean index mask that does filtering, where `True` means that the
         cell is kept, `False` means the cell is removed.
+
+    See Also
+    --------
+    scrublet
     """
     if isinstance(adata, list):
         result = anndata_par(
             adata,
-            lambda x: filter_doublets(x, probability_threshold, score_threshold, inplace, n_jobs, verbose),
+            lambda x: filter_doublets(x, probability_threshold, score_threshold,
+                                      inplace, n_jobs, verbose=False),
             n_jobs=n_jobs,
         )
         if inplace:
@@ -165,9 +188,11 @@ def filter_doublets(
         scores = adata.obs["doublet_score"].to_numpy()
         is_doublet = scores > score_threshold
 
-    if verbose: logging.info(f"Detected doublet rate = {np.mean(is_doublet)*100:.3f}%")
+    doublet_rate = np.mean(is_doublet)
+    if verbose: logging.info(f"Detected doublet rate = {doublet_rate*100:.3f}%")
 
     if inplace:
+        adata.uns["doublet_rate"] = doublet_rate
         if adata.isbacked:
             adata.subset(~is_doublet)
         else:

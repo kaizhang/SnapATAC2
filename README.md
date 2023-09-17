@@ -22,10 +22,12 @@ Resources
 
 - **Full Documentation**: https://kzhang.org/SnapATAC2/
 - **Installation instructions**: https://kzhang.org/SnapATAC2/install.html
-- **Tutorial/Demo**: https://kzhang.org/SnapATAC2/tutorial.html
+- **Tutorial/Demo**: https://kzhang.org/SnapATAC2/tutorials/index.html
 - **Benchmarks**: https://github.com/kaizhang/single-cell-benchmark
 
 How to cite
 -----------
 
-We are working on the SnapATAC2 manuscript... 
+Kai Zhang, Nathan Zemke, Ethan Armand, Bing Ren.
+SnapATAC2: a fast, scalable and versatile tool for single-cell omics analysis.
+bioRxiv 2023.09.11.557221; doi: https://doi.org/10.1101/2023.09.11.557221

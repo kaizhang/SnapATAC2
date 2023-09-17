@@ -1,14 +1,9 @@
-use anndata::{
-    AnnData, AnnDataOp, AnnDataSet, AxisArraysOp, Backend, ElemCollectionOp,
-    ArrayElemOp, data::array::utils::to_csr_data,
-    container::{ChunkedArrayElem, StackedChunkedArrayElem},
-};
-use anyhow::{Context, Result};
-use bed_utils::bed::{
-    tree::{BedTree, GenomeRegions},
-    BEDLike, BedGraph, GenomicRange,
-};
-use indexmap::IndexSet;
+use anndata::{container::{ChunkedArrayElem, StackedChunkedArrayElem}, ArrayElemOp};
+use bed_utils::bed::{tree::{GenomeRegions, BedTree}, GenomicRange, BedGraph, BEDLike};
+use anndata::{AnnDataOp, ElemCollectionOp, AxisArraysOp, AnnDataSet, Backend, AnnData};
+use indexmap::{IndexSet, IndexMap};
+use ndarray::Array2;
+use polars::frame::DataFrame;
 use nalgebra_sparse::CsrMatrix;
 use ndarray::Array2;
 use noodles::{core::Position, gff, gff::record::Strand, gtf};
@@ -213,7 +208,13 @@ impl Promoters {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct ChromSizes(Vec<(String, u64)>);
+pub struct ChromSizes(IndexMap<String, u64>);
+
+impl ChromSizes {
+    pub fn get(&self, chrom: &str) -> Option<u64> {
+        self.0.get(chrom).copied()
+    }
+}
 
 impl<S> FromIterator<(S, u64)> for ChromSizes
 where
@@ -226,7 +227,7 @@ where
 
 impl IntoIterator for ChromSizes {
     type Item = (String, u64);
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = indexmap::map::IntoIter<String, u64>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
@@ -331,16 +332,12 @@ impl GenomeBaseIndex {
     pub fn with_step(&self, s: usize) -> Self {
         let mut prev = 0;
         let mut acc_low_res = 0;
-        let binned_accum_len = self
-            .base_accum_len
-            .iter()
-            .map(|acc| {
-                let length = acc - prev;
-                prev = *acc;
-                acc_low_res += length.div_ceil(s as u64);
-                acc_low_res
-            })
-            .collect();
+        let binned_accum_len = self.base_accum_len.iter().map(|acc| {
+            let length = acc - prev;
+            prev = *acc;
+            acc_low_res += num::Integer::div_ceil(&length, &(s as u64));
+            acc_low_res
+        }).collect();
         Self {
             chroms: self.chroms.clone(),
             base_accum_len: self.base_accum_len.clone(),
@@ -479,33 +476,6 @@ where
                 .collect::<Vec<_>>();
             let (r, c, offset, ind, data) = to_csr_data(vec, n_col);
             (CsrMatrix::try_from_csr_data(r,c,offset,ind, data).unwrap(), i, j)
-        })
-    }
-
-    /// Count the fraction of the records in the given regions.
-    pub fn fraction_in_regions<D>(
-        self,
-        regions: &'a Vec<BedTree<D>>,
-    ) -> impl ExactSizeIterator<Item = (Vec<Vec<f64>>, usize, usize)> + 'a {
-        let k = regions.len();
-        self.map(move |(values, start, end)| {
-            let frac = values
-                .into_iter()
-                .map(|xs| {
-                    let n = xs.len() as f64;
-                    let mut counts = vec![0.0; k];
-                    xs.into_iter().for_each(|x| {
-                        regions.iter().enumerate().for_each(|(i, r)| {
-                            if r.is_overlapped(&x) {
-                                counts[i] += 1.0;
-                            }
-                        })
-                    });
-                    counts.iter_mut().for_each(|x| *x /= n);
-                    counts
-                })
-                .collect::<Vec<_>>();
-            (frac, start, end)
         })
     }
 }
@@ -817,13 +787,9 @@ pub trait SnapData: AnnDataOp {
             .context("key 'reference_sequences' is not present in the '.uns'")?;
         let chrs = df.column("reference_seq_name").unwrap().utf8()?;
         let chr_sizes = df.column("reference_seq_length").unwrap().u64()?;
-        let res = chrs
-            .into_iter()
-            .flatten()
-            .map(|x| x.to_string())
-            .zip(chr_sizes.into_iter().flatten())
-            .collect();
-        Ok(ChromSizes(res))
+        let res = chrs.into_iter().flatten().map(|x| x.to_string())
+            .zip(chr_sizes.into_iter().flatten()).collect();
+        Ok(res)
     }
 
     /// Read insertion counts stored in the `.obsm['insertion']` matrix.
@@ -852,15 +818,36 @@ pub trait SnapData: AnnDataOp {
 
     /// Compute the fraction of reads in each region.
     fn frip<D>(&self, regions: &Vec<BedTree<D>>) -> Result<Array2<f64>> {
-        let chrom_values = self.read_chrom_values(2000)?;
-        let vec = chrom_values
-            .fraction_in_regions(regions)
-            .map(|x| x.0)
-            .flatten()
-            .flatten()
-            .collect::<Vec<_>>();
+        let vec = fraction_in_regions(self.raw_count_iter(2000)?.into_chrom_values(), regions)
+            .map(|x| x.0).flatten().flatten().collect::<Vec<_>>();
         Array2::from_shape_vec((self.n_obs(), regions.len()), vec).map_err(Into::into)
     }
+}
+
+/// Count the fraction of the records in the given regions.
+fn fraction_in_regions<'a, I, D>(
+    iter: I, regions: &'a Vec<BedTree<D>>,
+) -> impl Iterator<Item = (Vec<Vec<f64>>, usize, usize)> + 'a
+where
+    I: Iterator<Item = (Vec<ChromValues<f64>>, usize, usize)> + 'a,
+{
+    let k = regions.len();
+    iter.map(move |(values, start, end)| {
+        let frac = values.into_iter().map(|xs| {
+            let sum = xs.iter().map(|x| x.value).sum::<f64>();
+            let mut counts = vec![0.0; k];
+            xs.into_iter().for_each(|x|
+                regions.iter().enumerate().for_each(|(i, r)| {
+                    if r.is_overlapped(&x) {
+                        counts[i] += x.value;
+                    }
+                })
+            );
+            counts.iter_mut().for_each(|x| *x /= sum);
+            counts
+        }).collect::<Vec<_>>();
+        (frac, start, end)
+    })
 }
 
 impl<B: Backend> SnapData for AnnData<B> {
@@ -914,11 +901,11 @@ mod tests {
 
     #[test]
     fn test_index1() {
-        let chrom_sizes = ChromSizes(vec![
+        let chrom_sizes = vec![
             ("1".to_owned(), 13),
             ("2".to_owned(), 71),
             ("3".to_owned(), 100),
-        ]);
+        ].into_iter().collect();
         let mut index = GenomeBaseIndex::new(&chrom_sizes);
 
         assert_eq!(index.get_range("1").unwrap(), 0..13);
@@ -976,11 +963,11 @@ mod tests {
 
     #[test]
     fn test_index2() {
-        let chrom_sizes = ChromSizes(vec![
+        let chrom_sizes = vec![
             ("1".to_owned(), 13),
             ("2".to_owned(), 71),
             ("3".to_owned(), 100),
-        ]);
+        ].into_iter().collect();
 
         let index = GenomeBaseIndex::new(&chrom_sizes);
         [(0, 0), (12, 12), (13, 13), (100, 100)]

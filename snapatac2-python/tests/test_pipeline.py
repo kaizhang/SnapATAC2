@@ -7,7 +7,6 @@ def h5ad(dir=Path("./")):
     dir.mkdir(exist_ok=True)
     return str(dir / Path(str(uuid.uuid4()) + ".h5ad"))
 
-'''
 def test_exclude():
     fragment_file = snap.datasets.pbmc500(True)
 
@@ -49,7 +48,7 @@ def test_backed(tmp_path):
     snap.pp.knn(data)
     snap.tl.leiden(data)
 
-    snap.pp.make_gene_matrix(data, gene_anno=snap.genome.hg38, file = h5ad(tmp_path))
+    snap.pp.make_gene_matrix(data, gene_anno=snap.genome.hg38, file=h5ad(tmp_path))
 
 def test_in_memory():
     fragment_file = snap.datasets.pbmc500(True)
@@ -62,6 +61,8 @@ def test_in_memory():
     snap.pp.add_tile_matrix(data)
 
     snap.pp.filter_cells(data)
+    snap.pp.select_features(data, whitelist=snap.datasets.cre_HEA())
+    snap.pp.select_features(data, blacklist=snap.datasets.cre_HEA())
     snap.pp.select_features(data)
 
     snap.tl.spectral(data, sample_size=100)
@@ -70,4 +71,3 @@ def test_in_memory():
     snap.tl.leiden(data)
 
     snap.pp.make_gene_matrix(data, gene_anno=snap.genome.hg38)
-'''

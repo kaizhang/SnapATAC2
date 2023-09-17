@@ -68,10 +68,11 @@ def mnc_correct(
     mat = mat if use_dims is None else mat[:, use_dims]
     mat = np.asarray(mat)
 
-    if isinstance(batch, str): labels = adata.obs[batch]
+    if isinstance(batch, str):
+        batch = adata.obs[batch]
 
     if groupby is None:
-        mat = _mnc_correct_main(mat, labels, n_iter, n_neighbors, n_clusters)
+        mat = _mnc_correct_main(mat, batch, n_iter, n_neighbors, n_clusters)
     else:
         from multiprocess import Pool
 
@@ -85,7 +86,7 @@ def mnc_correct(
                 group_indices[group] = [i]
         group_indices = [x for x in group_indices.values()]
 
-        inputs = [(mat[group_idx, :], labels[group_idx]) for group_idx in group_indices]
+        inputs = [(mat[group_idx, :], batch[group_idx]) for group_idx in group_indices]
         with Pool(n_jobs) as p:
             results = p.map(lambda x: _mnc_correct_main(x[0], x[1], n_iter, n_neighbors, n_clusters), inputs)
         for idx, result in zip(group_indices, results):

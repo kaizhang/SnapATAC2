@@ -63,8 +63,8 @@ def call_peaks(
     if isinstance(groupby, str):
         groupby = list(adata.obs[groupby])
     out_dir = out_dir if out_dir is None else str(out_dir)
-    res = _snapatac2.call_peaks(adata, groupby, selections, q_value, nolambda,
-        shift, extsize, blacklist, out_dir)
+    res = _snapatac2.call_peaks(adata, groupby, q_value, nolambda,
+        shift, extsize, selections, blacklist, out_dir)
     if inplace:
         if adata.isbacked:
             adata.uns[key_added] = res
