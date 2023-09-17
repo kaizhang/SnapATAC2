@@ -80,7 +80,10 @@ def datasets():
     return _datasets
 
 def pbmc500(downsampled: bool = False) -> Path:
-    """500 PBMCs from 10x Genomics.
+    """scATAC-seq dataset of 500 PBMCs from 10x Genomics.
+
+    This function returns the path to the fragment file of the 10X scATAC-seq dataset
+    containing ~500 PBMCs.
 
     Parameters
     ----------
@@ -98,7 +101,7 @@ def pbmc500(downsampled: bool = False) -> Path:
         return Path(datasets().fetch("atac_pbmc_500.tsv.gz"))
 
 def pbmc5k(type: Literal["fragment, h5ad, gene, annotated_h5ad"] = "fragment") -> Path:
-    """5k PBMCs from 10x Genomics.
+    """scATAC-seq dataset of 5k PBMCs from 10x Genomics.
 
     Parameters
     ----------
@@ -130,7 +133,23 @@ def pbmc10k_multiome(
     modality: Literal['ATAC', 'RNA'] = 'RNA',
     type: Literal['fragment', 'h5ad'] = 'h5ad',
 ) -> Path:
-    """10k PBMCs from 10x Genomics.
+    """Single-cell multiome dataset of 10k PBMCs from 10x Genomics.
+
+    Parameters
+    ----------
+    modality
+        One of the following:
+            - "ATAC": ATAC-seq data.
+            - "RNA": RNA-seq data.
+    type
+        One of the following:
+            - "fragment": the fragment file.
+            - "h5ad": preprocessed h5ad file.
+
+    Returns
+    -------
+    Path
+        path to the file.
     """
     if modality == 'RNA':
         return Path(datasets().fetch("10x-Multiome-Pbmc10k-RNA.h5ad"))
@@ -143,7 +162,7 @@ def pbmc10k_multiome(
         raise NameError("modality '{}' is not available.".format(modality))
 
 def colon() -> list[tuple[str, Path]]:
-    """five colon transverse samples from Zhang et al., 2021.
+    """scATAC-seq datasets of five colon transverse samples from [Zhang21]_.
 
     Returns
     -------
@@ -154,7 +173,7 @@ def colon() -> list[tuple[str, Path]]:
     return [(fl.split("/")[-1].split("_rep1_fragments")[0], Path(fl)) for fl in files]
 
 def cre_HEA() -> Path:
-    """cis-regulatory elements from Zhang et al., 2021.
+    """Curated cis-regulatory elements from [Zhang21]_.
 
     Returns
     -------
@@ -164,9 +183,9 @@ def cre_HEA() -> Path:
     return Path(datasets().fetch("HEA_cCRE.bed.gz"))
 
 def cis_bp(unique: bool = True) -> list[PyDNAMotif]:
-    """Motifs from CIS-BP database.
+    """A list of transcription factor motifs curated by the CIS-BP database.
 
-    This function returns motifs curated from the CIS-BP database.
+    This function returns motifs curated from the CIS-BP database[Weirauch14]_.
     The motifs can be used to scan the genome for potential binding sites and
     to perform motif enrichment analysis.
 
@@ -201,9 +220,10 @@ def cis_bp(unique: bool = True) -> list[PyDNAMotif]:
     return motifs
 
 def Meuleman_2020() -> list[PyDNAMotif]:
-    """Motifs from Meuleman et al., 2020.
+    """A list of transcription factor motifs curated from [Meuleman20]_.
 
-    This function returns motifs curated from Meuleman et al., 2020.
+    This function returns motifs curated from [Meuleman20]_.
+    The motifs in this list have been grouped into families.
     The motifs can be used to scan the genome for potential binding sites and
     to perform motif enrichment analysis.
 

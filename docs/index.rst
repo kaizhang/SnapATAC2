@@ -14,11 +14,9 @@ SnapATAC2 is a flexible, versatile, and scalable single-cell omics analysis fram
 How to cite
 -----------
 
-The SnapATAC2 manuscript has not been published yet. The key algorithms used in
-SnapATAC2 have been described in the following papers:
-
-- Zhang, K. et al. A single-cell atlas of chromatin accessibility in the human genome. Cell 184, 5985-6001.e19 (2021).
-- Fang, R. et al. Comprehensive analysis of single cell ATAC-seq data with SnapATAC. Nat Commun 12, 1337 (2021).
+Kai Zhang, Nathan Zemke, Ethan Armand, Bing Ren.
+SnapATAC2: a fast, scalable and versatile tool for single-cell omics analysis.
+bioRxiv 2023.09.11.557221; doi: https://doi.org/10.1101/2023.09.11.557221
 
 .. toctree::
    :maxdepth: 3

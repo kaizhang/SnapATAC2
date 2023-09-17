@@ -43,6 +43,10 @@ def tsse(
         If `show=False` and `out_file=None`, an `plotly.graph_objects.Figure` will be 
         returned, which can then be further customized using the plotly API.
 
+    See Also
+    --------
+    render_plot
+
     Examples
     --------
     .. plotly::
@@ -63,72 +67,6 @@ def tsse(
     )
 
     return render_plot(fig, width, height, **kwargs)
-
-'''
-def scrublet(
-    adata: AnnData,
-    width: int = 800,
-    height: int = 400,
-    show: bool = True,
-    interactive: bool = True,
-    out_file: str | None = None,
-) -> 'plotly.graph_objects.Figure' | None:
-    """Plot the doublet score distribution.
-
-    Parameters
-    ----------
-    adata
-        Annotated data matrix.
-    width
-        The width of the plot
-    height
-        The height of the plot
-    show
-        Show the figure.
-    interactive
-        Whether to make interactive plot
-    out_file
-        Path of the output file for saving the output image, end with
-        '.svg' or '.pdf' or '.png' or '.html'.
-
-    Returns
-    -------
-    'plotly.graph_objects.Figure' | None
-        If `show=False` and `out_file=None`, an `plotly.graph_objects.Figure` will be 
-        returned, which can then be further customized using the plotly API.
-    """
-    from plotly.subplots import make_subplots
-    import plotly.graph_objects as go
-
-    doublet_scores = adata.obs["doublet_score"].to_numpy()
-    sim_scores = adata.uns["scrublet_sim_doublet_score"]
-
-    thres = adata.uns["scrublet_threshold"] if "scrublet_threshold" in adata.uns else None
-
-    if thres is None:
-        title1 = "Observed cells"
-        title2 = "Simulated doublets"
-    else:
-        p1 = (doublet_scores >= thres).sum() / doublet_scores.size
-        p2 = (sim_scores >= thres).sum() / sim_scores.size
-        title1 = "Observed cells ({:.2%} doublets)".format(p1)
-        title2 = "Simulated doublets ({:.2%} doublets)".format(p2)
-
-    fig = make_subplots(rows=1, cols=2, subplot_titles=[title1, title2])
-
-    fig.add_trace(go.Histogram(x=doublet_scores),row=1, col=1)
-    if thres is not None:
-        fig.add_vline(x=thres, line_width=3, line_dash="dash", line_color="green")
-        fig.add_vrect(x0=thres, x1 = doublet_scores.max(), line_width=0, fillcolor="red", opacity=0.2)
-
-    fig.add_trace(go.Histogram(x=sim_scores), row=1, col=2)
-    if thres is not None:
-        fig.add_vline(x=thres, line_width=3, line_dash="dash", line_color="green")
-        fig.add_vrect(x0=thres, x1 = sim_scores.max(), line_width=0, fillcolor="red", opacity=0.2)
-
-    fig.update(layout_showlegend=False)
-    return render_plot(fig, width, height, interactive, show, out_file)
-'''
 
 def spectral_eigenvalues(
     adata: AnnData,

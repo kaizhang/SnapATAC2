@@ -28,4 +28,6 @@ Resources
 How to cite
 -----------
 
-We are working on the SnapATAC2 manuscript... 
+Kai Zhang, Nathan Zemke, Ethan Armand, Bing Ren.
+SnapATAC2: a fast, scalable and versatile tool for single-cell omics analysis.
+bioRxiv 2023.09.11.557221; doi: https://doi.org/10.1101/2023.09.11.557221

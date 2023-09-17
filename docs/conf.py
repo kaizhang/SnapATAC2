@@ -33,6 +33,7 @@ extensions = [
     "nbsphinx",
     "myst_parser",
     "sphinx.ext.autodoc",
+    "sphinx.ext.intersphinx",
     "sphinx.ext.autosummary",
     "sphinx.ext.coverage",
     "sphinx.ext.mathjax",
@@ -77,21 +78,15 @@ napoleon_custom_sections = [('Params', 'Parameters')]
 todo_include_todos = False
 
 intersphinx_mapping = {
-    "cycler": ("https://matplotlib.org/cycler/", None),
-    "h5py": ("http://docs.h5py.org/en/stable/", None),
+    "anndata": ("https://anndata.readthedocs.io/en/stable/", None),
     "ipython": ("https://ipython.readthedocs.io/en/stable/", None),
     "matplotlib": ("https://matplotlib.org/", None),
-    "networkx": (
-        "https://networkx.github.io/documentation/networkx-1.10/",
-        None,
-    ),
-    "numpy": ("https://docs.scipy.org/doc/numpy/", None),
-    "pandas": ("https://pandas.pydata.org/pandas-docs/stable/", None),
-    "pytest": ("https://docs.pytest.org/en/latest/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "pandas": ("https://pandas.pydata.org/docs/", None),
     "python": ("https://docs.python.org/3", None),
     "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
-    "seaborn": ("https://seaborn.pydata.org/", None),
     "sklearn": ("https://scikit-learn.org/stable/", None),
+    "scanpy": ("https://scanpy.readthedocs.io/en/stable/", None),
 }
 
 smv_branch_whitelist = r'main'  # Include all branches

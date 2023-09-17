@@ -79,6 +79,10 @@ def make_fragment_file(
     -------
     PyFlagStat
         Various statistics.
+
+    See Also
+    --------
+    import_data
     """
     if barcode_tag is None and barcode_regex is None:
         raise ValueError("Either barcode_tag or barcode_regex must be set.")
@@ -184,6 +188,10 @@ def import_data(
         An annotated data matrix of shape `n_obs` x `n_vars`. Rows correspond to
         cells and columns to regions. If `file=None`, an in-memory AnnData will be
         returned, otherwise a backed AnnData is returned.
+
+    See Also
+    --------
+    make_fragment_file
 
     Examples
     --------
@@ -419,14 +427,18 @@ def add_tile_matrix(
         cells and columns to bins. If `file=None`, an in-memory AnnData will be
         returned, otherwise a backed AnnData is returned.
 
+    See Also
+    --------
+    make_peak_matrix
+    make_gene_matrix
+
     Examples
     --------
     >>> import snapatac2 as snap
-    >>> data = snap.read(snap.datasets.pbmc500(type='h5ad'))
-    >>> print(data)
+    >>> data = snap.pp.import_data(snap.datasets.pbmc500(), genome=snap.genome.hg38, sorted_by_barcode=False)
     >>> snap.pp.add_tile_matrix(data, bin_size=500)
     >>> print(data)
-    AnnData object with n_obs × n_vars = 816 × 0
+    AnnData object with n_obs × n_vars = 816 × 6062095
         obs: 'tsse', 'n_fragment', 'frac_dup', 'frac_mito'
         uns: 'reference_sequences'
         obsm: 'insertion'
@@ -505,17 +517,19 @@ def make_peak_matrix(
         cells and columns to peaks. If `file=None`, an in-memory AnnData will be
         returned, otherwise a backed AnnData is returned.
 
+    See Also
+    --------
+    add_tile_matrix
+    make_gene_matrix
+
     Examples
     --------
     >>> import snapatac2 as snap
-    >>> data = snap.read(snap.datasets.pbmc500(type='h5ad'))
-    >>> print(data)
-    >>> snap.pp.add_tile_matrix(data, bin_size=500)
-    >>> print(data)
-    AnnData object with n_obs × n_vars = 816 × 0
+    >>> data = snap.pp.import_data(snap.datasets.pbmc500(), genome=snap.genome.hg38, sorted_by_barcode=False)
+    >>> peak_mat = snap.pp.make_peak_matrix(data, peak_file=snap.datasets.cre_HEA())
+    >>> print(peak_mat)
+    AnnData object with n_obs × n_vars = 816 × 1154611
         obs: 'tsse', 'n_fragment', 'frac_dup', 'frac_mito'
-        uns: 'reference_sequences'
-        obsm: 'insertion'
     """
     import gzip
 
@@ -598,6 +612,20 @@ def make_gene_matrix(
         An annotated data matrix of shape `n_obs` x `n_vars`. Rows correspond to
         cells and columns to genes. If `file=None`, an in-memory AnnData will be
         returned, otherwise a backed AnnData is returned.
+
+    See Also
+    --------
+    add_tile_matrix
+    make_peak_matrix
+
+    Examples
+    --------
+    >>> import snapatac2 as snap
+    >>> data = snap.pp.import_data(snap.datasets.pbmc500(), genome=snap.genome.hg38, sorted_by_barcode=False)
+    >>> gene_mat = snap.pp.make_gene_matrix(data, gene_anno=snap.genome.hg38)
+    >>> print(gene_mat)
+    AnnData object with n_obs × n_vars = 816 × 60606
+        obs: 'tsse', 'n_fragment', 'frac_dup', 'frac_mito'
     """
     if isinstance(gene_anno, Genome):
         gene_anno = gene_anno.fetch_annotations()
