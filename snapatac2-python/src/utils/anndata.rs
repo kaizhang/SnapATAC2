@@ -10,7 +10,7 @@ use pyanndata::anndata::memory;
 use pyanndata::{AnnData, AnnDataSet};
 use pyo3::prelude::*;
 
-use snapatac2_core::preprocessing::{SnapData, GenomeCoverage, ContactMap};
+use snapatac2_core::preprocessing::{SnapData, GenomeCoverage, ContactMap, count_data::CoverageType};
 use snapatac2_core::preprocessing::count_data::fragments_to_insertions;
 
 pub struct PyAnnData<'py>(memory::PyAnnData<'py>);
@@ -165,14 +165,14 @@ impl<'py> SnapData for PyAnnData<'py> {
     type CountIter = memory::PyArrayIterator<CsrMatrix<u8>>;
 
     fn get_count_iter(&self, chunk_size: usize) ->
-        Result<GenomeCoverage<Box<dyn ExactSizeIterator<Item = (CsrMatrix<u8>, usize, usize)>>>>
+        Result<GenomeCoverage<Box<dyn ExactSizeIterator<Item = (CoverageType, usize, usize)>>>>
     {
         let obsm = self.obsm();
-        let matrices: Box<dyn ExactSizeIterator<Item = (CsrMatrix<u8>, usize, usize)>> =
-            if let Some(insertion) = obsm.get_item_iter("insertion", chunk_size) {
-                Box::new(insertion)
-            } else if let Some(fragment) = obsm.get_item_iter("fragment", chunk_size) {
-                Box::new(fragment.map(|(x, a, b)| (fragments_to_insertions(x), a, b)))
+        let matrices: Box<dyn ExactSizeIterator<Item = (CoverageType, usize, usize)>> =
+            if let Some(insertion) = obsm.get_item_iter("fragment_single", chunk_size) {
+                Box::new(insertion.map(|(x, a, b)| (CoverageType::FragmentSingle(x), a, b)))
+            } else if let Some(fragment) = obsm.get_item_iter("fragment_paired", chunk_size) {
+                Box::new(fragment.map(|(x, a, b)| (CoverageType::FragmentPaired(x), a, b)))
             } else {
                 anyhow::bail!("neither 'insertion' nor 'fragment' is present in the '.obsm'")
             };

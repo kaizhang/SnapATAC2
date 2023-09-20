@@ -1,6 +1,13 @@
+dev
+===================
+
+- Storing full fragment information in `.obms['fragment']`. Single-end reads are
+  stored in `.obsm['insertion']` as before.
+
 v2.4.0 (2023-09-12)
 ===================
 
+- Add multiprocessing support to various preprocessing functions like `pp.import_data`.
 - Add experimental `pp.import_contacts` to import scHi-C data.
 - Add `pp.scanorama_integrate` to perform batch correction using Scanorama.
 - Bug fixes: #145, #148, and others.

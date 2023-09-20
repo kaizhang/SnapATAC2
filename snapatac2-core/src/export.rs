@@ -1,6 +1,5 @@
-use crate::preprocessing::count_data::{SnapData, GenomeCoverage};
+use crate::preprocessing::count_data::{SnapData, GenomeCoverage, CoverageType};
 
-use nalgebra_sparse::CsrMatrix;
 use anyhow::{Context, Result, ensure};
 use flate2::{Compression, write::GzEncoder};
 use itertools::Itertools;
@@ -51,15 +50,14 @@ pub trait Exporter: SnapData {
         }).collect::<Result<HashMap<_, _>>>()?;
 
         let style = ProgressStyle::with_template("[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})")?;
-        self.get_count_iter(500)?.into_chrom_values::<usize>().progress_with_style(style).try_for_each(|(vals, start, _)|
-            vals.into_iter().enumerate().try_for_each::<_, Result<_>>(|(i, ins)| {
+        self.get_count_iter(500)?.into_raw().progress_with_style(style).try_for_each(|(beds, start, _)|
+            beds.into_iter().enumerate().try_for_each::<_, Result<_>>(|(i, xs)| {
                 if let Some((_, fl)) = files.get_mut(group_by[start + i]) {
-                    ins.into_iter().try_for_each(|x| {
-                        let bed = match barcodes {
-                            None => format!("{}\t{}\t{}", x.chrom(), x.start(), x.end()),
-                            Some(barcodes_) => format!("{}\t{}\t{}\t{}", x.chrom(), x.start(), x.end(), barcodes_[start + i]),
-                        };
-                        (0..x.value).try_for_each(|_| writeln!(fl, "{}", bed))
+                    xs.into_iter().try_for_each(|mut bed| {
+                        if let Some(barcodes_) = barcodes {
+                            bed.name = Some(barcodes_[start + i].to_string());
+                        }
+                        writeln!(fl, "{}", bed)
                     })?;
                 }
                 Ok(())
@@ -133,7 +131,7 @@ fn export_insertions_as_bigwig<P, I>(
     suffix:&str,
 ) -> Result<HashMap<String, PathBuf>>
 where
-    I: ExactSizeIterator<Item = (CsrMatrix<u8>, usize, usize)>,
+    I: ExactSizeIterator<Item = (CoverageType, usize, usize)>,
     P: AsRef<Path>,
 {
     // Create directory
@@ -179,7 +177,7 @@ where
 
         // Make BedGraph
         let mut bedgraph: Vec<BedGraph<f32>> = count.into_iter().map(|(k, v)| {
-            let mut region = index.get_locus(k);
+            let mut region = index.get_region(k);
             region.set_end(region.start() + resolution as u64);
             BedGraph::from_bed(&region, (v as f64 / norm_factor) as f32)
         }).group_by(|x| x.value).into_iter().flat_map(|(_, groups)|

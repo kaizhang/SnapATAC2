@@ -36,7 +36,7 @@ setup(
         "anndata>=0.8.0",
         "kaleido",
         "multiprocess",
-        "MACS2>=2.2.7",
+        "MACS3==3.0.0b3",
         "natsort",
         "numpy>=1.16.0",
         "pandas>=1.0",

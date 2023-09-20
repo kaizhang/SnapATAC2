@@ -1,16 +1,16 @@
 use crate::preprocessing::{
     count_data::{ChromSizes, GenomeBaseIndex},
-    qc::{compute_qc_count, Fragment, Contact, FragmentSummary, QualityControl},
+    qc::{Fragment, Contact, FragmentSummary, QualityControl},
 };
 
 use anndata::{
     AnnDataOp, AxisArraysOp, ElemCollectionOp,
-    data::array::utils::{from_csr_data, to_csr_data},
+    data::array::utils::{from_csr_data, to_csr_data}, ArrayData,
 };
 use anyhow::Result;
 use bed_utils::bed::{
-    tree::{BedTree, GenomeRegions, SparseBinnedCoverage},
-    BEDLike,
+    tree::{BedTree, GenomeRegions},
+    BEDLike, Strand,
 };
 use indexmap::IndexSet;
 use indicatif::{style::ProgressStyle, ProgressBar, ProgressDrawTarget, ProgressIterator};
@@ -19,96 +19,6 @@ use nalgebra_sparse::CsrMatrix;
 use polars::prelude::{DataFrame, NamedFrom, Series};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::{HashSet, BTreeMap};
-
-/// FIXME: Import insertions
-pub fn import_insertions<A, B, I>(
-    anndata: &A,
-    fragments: I,
-    promoter: &BedTree<bool>,
-    regions: &GenomeRegions<B>,
-    white_list: Option<&HashSet<String>>,
-    min_num_fragment: u64,
-    min_tsse: f64,
-    chunk_size: usize,
-) -> Result<()>
-where
-    A: AnnDataOp,
-    B: BEDLike + Clone + std::marker::Sync,
-    I: Iterator<Item = Fragment>,
-{
-    let num_features = SparseBinnedCoverage::<_, u8>::new(regions, 1).len;
-    let mut saved_barcodes = Vec::new();
-    let mut qc = Vec::new();
-
-    let spinner = ProgressBar::with_draw_target(None, ProgressDrawTarget::stderr_with_hz(1))
-        .with_style(
-            ProgressStyle::with_template(
-                "{spinner} Processed {human_pos} barcodes in {elapsed} ({per_sec}) ...",
-            )
-            .unwrap(),
-        );
-    let mut scanned_barcodes = HashSet::new();
-    anndata.obsm().add_iter(
-        "insertion",
-        fragments
-            .group_by(|x| x.barcode.clone())
-            .into_iter()
-            .progress_with(spinner)
-            .filter(|(key, _)| white_list.map_or(true, |x| x.contains(key)))
-            .chunks(chunk_size)
-            .into_iter()
-            .map(|chunk| {
-                let data: Vec<(String, Vec<Fragment>)> =
-                    chunk.map(|(barcode, x)| (barcode, x.collect())).collect();
-                let result: Vec<_> = data
-                    .into_par_iter()
-                    .map(|(barcode, x)|
-                        (
-                            barcode,
-                            compute_qc_count(x, promoter, regions, min_num_fragment, min_tsse),
-                        )
-                    )
-                    .collect();
-                let counts = result
-                    .into_iter()
-                    .filter_map(|(barcode, r)| {
-                        if !scanned_barcodes.insert(barcode.clone()) {
-                            panic!("Please sort fragment file by barcodes");
-                        }
-                        match r {
-                            None => None,
-                            Some((q, count)) => {
-                                saved_barcodes.push(barcode);
-                                qc.push(q);
-                                Some(count)
-                            }
-                        }
-                    })
-                    .collect::<Vec<_>>();
-                let (r, c, offset, ind, data) = to_csr_data(counts, num_features);
-                CsrMatrix::try_from_csr_data(r, c, offset, ind, data).unwrap()
-            }),
-    )?;
-
-    let chrom_sizes = DataFrame::new(vec![
-        Series::new(
-            "reference_seq_name",
-            regions
-                .regions
-                .iter()
-                .map(|x| x.chrom())
-                .collect::<Series>(),
-        ),
-        Series::new(
-            "reference_seq_length",
-            regions.regions.iter().map(|x| x.end()).collect::<Series>(),
-        ),
-    ])?;
-    anndata.uns().add("reference_sequences", chrom_sizes)?;
-    anndata.set_obs_names(saved_barcodes.into())?;
-    anndata.set_obs(qc_to_df(qc))?;
-    Ok(())
-}
 
 /// Import fragments
 /// Fragments are reprensented as a sparse matrix with rows as barcodes and columns as genomic coordinates.
@@ -140,15 +50,21 @@ where
             )
             .unwrap(),
         );
+    let mut fragments = fragments.peekable();
+    let is_paired = if let Some(f) = fragments.peek() {
+        f.strand.is_none()
+    } else {
+        false
+    };
+    let obsm_key = if is_paired { "fragment_paired" } else { "fragment_single" };
 
     let genome_index = GenomeBaseIndex::new(chrom_sizes);
-    let num_features = genome_index.len();
     let mut saved_barcodes = Vec::new();
     let mut qc = Vec::new();
 
     let mut scanned_barcodes = HashSet::new();
     anndata.obsm().add_iter(
-        "fragment",
+        obsm_key,
         fragments
             .group_by(|x| x.barcode.clone())
             .into_iter()
@@ -159,27 +75,11 @@ where
             .map(|chunk| {
                 let data: Vec<(String, Vec<Fragment>)> =
                     chunk.map(|(barcode, x)| (barcode, x.collect())).collect();
-                let result: Vec<_> = data
-                    .into_par_iter()
-                    .map(|(barcode, x)| (barcode, fragment_to_indices(promoter, &genome_index, x)))
-                    .collect();
-                let counts = result
-                    .into_iter()
-                    .filter_map(|(barcode, (q, values))| {
-                        if !scanned_barcodes.insert(barcode.clone()) {
-                            panic!("Please sort fragment file by barcodes");
-                        }
-                        if q.num_unique_fragment < min_num_fragment || q.tss_enrichment < min_tsse {
-                            return None;
-                        } else {
-                            saved_barcodes.push(barcode);
-                            qc.push(q);
-                            Some(values)
-                        }
-                    })
-                    .collect::<Vec<_>>();
-                let (r, c, offset, ind, data) = to_csr_data(counts, num_features);
-                from_csr_data(r, c, offset, ind, data).unwrap()
+                if is_paired {
+                    make_arraydata::<u32>(data, promoter, &genome_index, min_num_fragment, min_tsse, &mut scanned_barcodes, &mut saved_barcodes, &mut qc)
+                } else {
+                    make_arraydata::<i32>(data, promoter, &genome_index, min_num_fragment, min_tsse, &mut scanned_barcodes, &mut saved_barcodes, &mut qc)
+                }
             }),
     )?;
 
@@ -189,24 +89,73 @@ where
     Ok(())
 }
 
-fn fragment_to_indices(
+fn make_arraydata<V>(
+    data: Vec<(String, Vec<Fragment>)>,
+    promoter: &BedTree<bool>,
+    genome_index: &GenomeBaseIndex,
+    min_num_fragment: u64,
+    min_tsse: f64,
+    scanned_barcodes: &mut HashSet<String>,
+    saved_barcodes: &mut Vec<String>,
+    qc: &mut Vec<QualityControl>,
+) -> ArrayData
+where
+    V: TryFrom<i64> + Ord,
+    <V as TryFrom<i64>>::Error: std::fmt::Debug,
+{
+    let num_features = genome_index.len();
+    let result: Vec<_> = data
+        .into_par_iter()
+        .map(|(barcode, x)| (barcode, count_fragments::<u32>(promoter, &genome_index, x)))
+        .collect();
+    let counts = result
+        .into_iter()
+        .filter_map(|(barcode, (q, values))| {
+            if !scanned_barcodes.insert(barcode.clone()) {
+                panic!("Please sort fragment file by barcodes");
+            }
+            if q.num_unique_fragment < min_num_fragment || q.tss_enrichment < min_tsse {
+                return None;
+            } else {
+                saved_barcodes.push(barcode);
+                qc.push(q);
+                Some(values)
+            }
+        })
+        .collect::<Vec<_>>();
+    let (r, c, offset, ind, data) = to_csr_data(counts, num_features);
+    from_csr_data(r, c, offset, ind, data).unwrap()
+}
+
+fn count_fragments<V>(
     promoter: &BedTree<bool>,
     genome_index: &GenomeBaseIndex,
     fragments: Vec<Fragment>,
-) -> (QualityControl, Vec<(usize, i32)>) {
+) -> (QualityControl, Vec<(usize, V)>)
+where
+    V: TryFrom<i64> + Ord,
+    <V as TryFrom<i64>>::Error: std::fmt::Debug,
+{
     let mut qc = FragmentSummary::new(promoter);
     let mut values = Vec::new();
     fragments.into_iter().for_each(|f| {
         qc.update(&f);
         let chrom = &f.chrom;
         if genome_index.contain_chrom(chrom) {
-            let start = f.start;
-            let end = f.end;
-            let size: i32 = (end - start).try_into().unwrap();
-            let pos1 = genome_index.get_position(chrom, start);
-            let pos2 = genome_index.get_position(chrom, end-1);
-            values.push((pos1, size-1));
-            values.push((pos2, -size+1));
+            let start = f.start as i64;
+            let end = f.end as i64;
+            match f.strand {
+                Some(Strand::Reverse) => {
+                    let pos = genome_index.get_position_rev(chrom, (end-1) as u64);
+                    let size: V = (start - end).try_into().unwrap();
+                    values.push((pos, size));
+                },
+                _ => {
+                    let pos = genome_index.get_position_rev(chrom, start as u64);
+                    let size: V = (end - start).try_into().unwrap();
+                    values.push((pos, size));
+                },
+            }
         }
     });
     values.sort();
@@ -285,8 +234,8 @@ where
                     .map(|x| {
                         let mut count = BTreeMap::new();
                         x.into_iter().for_each(|c| {
-                            let pos1 = genome_index.get_position(&c.chrom1, c.start1);
-                            let pos2 = genome_index.get_position(&c.chrom2, c.start2);
+                            let pos1 = genome_index.get_position_rev(&c.chrom1, c.start1);
+                            let pos2 = genome_index.get_position_rev(&c.chrom2, c.start2);
                             let i = pos1 * genome_size + pos2; 
                             count.entry(i).and_modify(|x| *x += c.count).or_insert(c.count);
                         });

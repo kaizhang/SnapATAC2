@@ -502,7 +502,7 @@ impl GenomeBaseIndex {
     }
 
     /// Given a genomic position, return the corresponding index.
-    pub fn get_position(&self, chrom: &str, pos: u64) -> usize {
+    pub fn get_position_rev(&self, chrom: &str, pos: u64) -> usize {
         let i = self.chroms.get_index_of(chrom).expect(format!("Chromosome {} not found", chrom).as_str());
         let size = if i == 0 {
             self.base_accum_len[i]
@@ -531,7 +531,25 @@ impl GenomeBaseIndex {
     }
 
     /// O(log(N)). Given a index, find the corresponding chromosome and position.
-    pub fn get_locus(&self, pos: usize) -> GenomicRange {
+    pub fn get_position(&self, pos: usize) -> (&String, u64) {
+        let i = pos as u64;
+        match self.binned_accum_len.binary_search(&i) {
+            Ok(j) => (self.chroms.get_index(j + 1).unwrap(), 0),
+            Err(j) => {
+                let chr = self.chroms.get_index(j).unwrap();
+                let prev = if j == 0 {
+                    0
+                } else {
+                    self.binned_accum_len[j - 1]
+                };
+                let start = (i - prev) * self.step as u64;
+                (chr, start)
+            }
+        }
+    }
+
+    /// O(log(N)). Given a index, find the corresponding chromosome and position.
+    pub fn get_region(&self, pos: usize) -> GenomicRange {
         let i = pos as u64;
         match self.binned_accum_len.binary_search(&i) {
             Ok(j) => {
@@ -705,8 +723,8 @@ mod tests {
         .into_iter()
         .for_each(|(i, txt)| {
             let locus = GenomicRange::from_str(txt).unwrap();
-            assert_eq!(index.get_locus(i), locus);
-            assert_eq!(index.get_position(locus.chrom(), locus.start()), i);
+            assert_eq!(index.get_region(i), locus);
+            assert_eq!(index.get_position_rev(locus.chrom(), locus.start()), i);
         });
 
         index = index.with_step(2);
@@ -714,8 +732,8 @@ mod tests {
             .into_iter()
             .for_each(|(i, txt)| {
                 let locus = GenomicRange::from_str(txt).unwrap();
-                assert_eq!(index.get_locus(i), locus);
-                assert_eq!(index.get_position(locus.chrom(), locus.start()), i);
+                assert_eq!(index.get_region(i), locus);
+                assert_eq!(index.get_position_rev(locus.chrom(), locus.start()), i);
             });
 
         index = index.with_step(3);
@@ -730,8 +748,8 @@ mod tests {
         .into_iter()
         .for_each(|(i, txt)| {
             let locus = GenomicRange::from_str(txt).unwrap();
-            assert_eq!(index.get_locus(i), locus);
-            assert_eq!(index.get_position(locus.chrom(), locus.start()), i);
+            assert_eq!(index.get_region(i), locus);
+            assert_eq!(index.get_position_rev(locus.chrom(), locus.start()), i);
         });
     }
 
@@ -770,8 +788,8 @@ mod tests {
         .into_iter()
         .for_each(|(i1, i2)| {
             assert_eq!(index2.get_coarsed_position(i1), i2);
-            let locus = index.get_locus(i1);
-            assert_eq!(index2.get_position(locus.chrom(), locus.start()), i2);
+            let locus = index.get_region(i1);
+            assert_eq!(index2.get_position_rev(locus.chrom(), locus.start()), i2);
         });
     }
 
