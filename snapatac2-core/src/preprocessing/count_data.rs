@@ -113,7 +113,7 @@ impl<B: Backend> SnapData for AnnData<B> {
             } else if let Some(fragment) = obsm.get_item_iter("fragment_paired", chunk_size) {
                 Box::new(fragment.map(|(x, a, b)| (CoverageType::FragmentPaired(x), a, b)))
             } else {
-                anyhow::bail!("neither 'insertion' nor 'fragment' is present in the '.obsm'")
+                anyhow::bail!("neither 'fragment_single' nor 'fragment_paired' is present in the '.obsm'")
             };
         Ok(GenomeCoverage::new(self.read_chrom_sizes()?, matrices))
     }
@@ -140,7 +140,7 @@ impl<B: Backend> SnapData for AnnDataSet<B> {
             } else if let Some(fragment) = obsm.get_item_iter("fragment_paired", chunk_size) {
                 Box::new(fragment.map(|(x, a, b)| (CoverageType::FragmentPaired(x), a, b)))
             } else {
-                anyhow::bail!("neither 'insertion' nor 'fragment' is present in the '.obsm'")
+                anyhow::bail!("neither 'fragment_single' nor 'fragment_paired' is present in the '.obsm'")
             };
         Ok(GenomeCoverage::new(self.read_chrom_sizes()?, matrices))
     }

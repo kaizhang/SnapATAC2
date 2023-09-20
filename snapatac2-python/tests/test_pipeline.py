@@ -28,36 +28,7 @@ def test_exclude():
     np.testing.assert_array_equal(data1.obs_names, data2.obs_names)
     np.testing.assert_array_equal(data1.var_names, data2.var_names)
 
-
-def test_backed(tmp_path):
-    fragment_file = snap.datasets.pbmc500(True)
-
-    data = snap.pp.import_data(
-        fragment_file,
-        genome=snap.genome.hg38,
-        file=h5ad(tmp_path),
-        sorted_by_barcode=False,
-    )
-    snap.pp.add_tile_matrix(data)
-
-    snap.pp.filter_cells(data)
-    snap.pp.select_features(data)
-
-    snap.tl.spectral(data, sample_size=100)
-    snap.tl.spectral(data)
-    snap.pp.knn(data)
-    snap.tl.leiden(data)
-
-    snap.pp.make_gene_matrix(data, gene_anno=snap.genome.hg38, file=h5ad(tmp_path))
-
-def test_in_memory():
-    fragment_file = snap.datasets.pbmc500(True)
-
-    data = snap.pp.import_data(
-        fragment_file,
-        genome=snap.genome.hg38,
-        sorted_by_barcode=False,
-    )
+def pipeline(data):
     snap.pp.add_tile_matrix(data)
 
     snap.pp.filter_cells(data)
@@ -70,4 +41,27 @@ def test_in_memory():
     snap.pp.knn(data)
     snap.tl.leiden(data)
 
-    snap.pp.make_gene_matrix(data, gene_anno=snap.genome.hg38)
+    snap.tl.call_peaks(data, groupby="leiden")
+
+    snap.pp.make_gene_matrix(data, gene_anno=snap.genome.hg38, file=h5ad(tmp_path))
+
+def test_backed(tmp_path):
+    fragment_file = snap.datasets.pbmc500(True)
+
+    data = snap.pp.import_data(
+        fragment_file,
+        genome=snap.genome.hg38,
+        file=h5ad(tmp_path),
+        sorted_by_barcode=False,
+    )
+    pipeline(data)
+
+def test_in_memory():
+    fragment_file = snap.datasets.pbmc500(True)
+
+    data = snap.pp.import_data(
+        fragment_file,
+        genome=snap.genome.hg38,
+        sorted_by_barcode=False,
+    )
+    pipeline(data)

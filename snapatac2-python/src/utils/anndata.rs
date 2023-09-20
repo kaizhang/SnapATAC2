@@ -11,7 +11,6 @@ use pyanndata::{AnnData, AnnDataSet};
 use pyo3::prelude::*;
 
 use snapatac2_core::preprocessing::{SnapData, GenomeCoverage, ContactMap, count_data::CoverageType};
-use snapatac2_core::preprocessing::count_data::fragments_to_insertions;
 
 pub struct PyAnnData<'py>(memory::PyAnnData<'py>);
 
@@ -174,7 +173,7 @@ impl<'py> SnapData for PyAnnData<'py> {
             } else if let Some(fragment) = obsm.get_item_iter("fragment_paired", chunk_size) {
                 Box::new(fragment.map(|(x, a, b)| (CoverageType::FragmentPaired(x), a, b)))
             } else {
-                anyhow::bail!("neither 'insertion' nor 'fragment' is present in the '.obsm'")
+                anyhow::bail!("neither 'fragment_single' nor 'fragment_paired' is present in the '.obsm'")
             };
         Ok(GenomeCoverage::new(self.read_chrom_sizes()?, matrices))
     }
