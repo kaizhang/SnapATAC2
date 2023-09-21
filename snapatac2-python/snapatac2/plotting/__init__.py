@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import numpy as np
+import logging
 
+import snapatac2
 from snapatac2._snapatac2 import AnnData, AnnDataSet
 from snapatac2.tools._misc import aggregate_X
-from snapatac2._utils import find_elbow
+from snapatac2._utils import find_elbow, is_anndata
 from ._base import render_plot, heatmap, kde2d, scatter, scatter3d
 from ._network import network_scores, network_edge_stat
 
 __all__ = [
-    'tsse', 'scrublet', 'umap', 'network_scores', 'spectral_eigenvalues',
+    'tsse', 'frag_size_distr', 'umap', 'network_scores', 'spectral_eigenvalues',
     'regions', 'motif_enrichment',
 ]
 
@@ -67,6 +69,35 @@ def tsse(
     )
 
     return render_plot(fig, width, height, **kwargs)
+
+def frag_size_distr(
+    adata: AnnData | np.ndarray,
+    use_rep: str = "frag_size_distr",
+    max_recorded_size: int = 1000,
+    **kwargs,
+) -> 'plotly.graph_objects.Figure' | None:
+    """ Plot the fragment size distribution.
+    """
+    import plotly.graph_objects as go
+
+    if is_anndata(adata):
+        if use_rep not in adata.uns or len(adata.uns[use_rep]) <= max_recorded_size:
+            logging.info("Computing fragment size distribution...")
+            snapatac2.metrics.frag_size_distr(adata, add_key=use_rep, max_recorded_size=max_recorded_size)
+        data = adata.uns[use_rep]
+    else:
+        data = adata
+    data = data[:max_recorded_size+1]
+
+    x, y = zip(*enumerate(data))
+    # Make a line plot
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=x[1:], y=y[1:], mode='lines'))
+    fig.update_layout(
+        xaxis_title="Fragment size",
+        yaxis_title="Count",
+    )
+    return render_plot(fig, **kwargs)
 
 def spectral_eigenvalues(
     adata: AnnData,

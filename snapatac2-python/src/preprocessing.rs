@@ -295,3 +295,18 @@ pub(crate) fn add_frip(
             .collect()
     )
 }
+
+#[pyfunction]
+pub(crate) fn fragment_size_distribution(
+    anndata: AnnDataLike,
+    max_recorded_size: usize,
+) -> Result<Vec<usize>>
+{
+    macro_rules! run {
+        ($data:expr) => {
+            $data.fragment_size_distribution(max_recorded_size)
+        }
+    }
+
+    crate::with_anndata!(&anndata, run)
+}

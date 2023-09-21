@@ -11,6 +11,7 @@ methods.
    io
    preprocessing
    tools
+   metrics
    plotting
    export
    datasets

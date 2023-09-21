@@ -1,0 +1,45 @@
+name: Nightly Run
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Runs every day at midnight
+
+jobs:
+  check-for-new-commits:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Get latest commit SHA
+        id: get-latest-commit-sha
+        run: echo "::set-output name=sha::$(git rev-parse HEAD)"
+
+      - name: Check if there are new commits since the last run
+        id: check-commits
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          latest_run_commit_sha=$(curl --silent --header "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs" \
+              | jq -r '.workflow_runs[] | select(.name=="Nightly Run") | .head_sha | select(. != null)' | head -1)
+
+          echo "Latest run was on commit: $latest_run_commit_sha"
+          echo "Current commit is: ${{ steps.get-latest-commit-sha.outputs.sha }}"
+
+          if [ "$latest_run_commit_sha" != "${{ steps.get-latest-commit-sha.outputs.sha }}" ]; then
+            echo "::set-output name=new_commits::true"
+          else
+            echo "::set-output name=new_commits::false"
+          fi
+        shell: bash
+
+  conditional-job:
+    runs-on: ubuntu-latest
+    needs: check-for-new-commits
+    if: needs.check-for-new-commits.outputs.new_commits == 'true'
+    steps:
+      - name: Conditional Job
+        run: |
+          echo "This job runs only if there are new commits since the last run."
+          # Add your commands for the conditional job here.

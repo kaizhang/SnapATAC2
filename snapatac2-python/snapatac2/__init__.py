@@ -2,6 +2,7 @@ from ._version import __version__
 #from ._io import read_10x_mtx
 from . import preprocessing as pp
 from . import tools as tl
+from . import metrics
 from . import plotting as pl
 from . import export as ex
 

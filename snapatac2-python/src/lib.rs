@@ -43,7 +43,9 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(preprocessing::mk_tile_matrix, m)?)?;
     m.add_function(wrap_pyfunction!(preprocessing::mk_gene_matrix, m)?)?;
     m.add_function(wrap_pyfunction!(preprocessing::mk_peak_matrix, m)?)?;
+
     m.add_function(wrap_pyfunction!(preprocessing::add_frip, m)?)?;
+    m.add_function(wrap_pyfunction!(preprocessing::fragment_size_distribution, m)?)?;
 
     m.add_function(wrap_pyfunction!(export::export_bed, m)?)?;
     m.add_function(wrap_pyfunction!(export::export_bigwig, m)?)?;

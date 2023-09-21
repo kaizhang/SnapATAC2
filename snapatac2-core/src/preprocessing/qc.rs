@@ -1,7 +1,8 @@
 use std::{io::{Read, BufRead, BufReader}, ops::Div, collections::HashMap};
+use anndata::data::CsrNonCanonical;
 use bed_utils::bed::{
     GenomicRange, BEDLike, tree::{GenomeRegions, BedTree, SparseBinnedCoverage},
-    ParseError, Strand,
+    ParseError, Strand, BED,
 };
 use anyhow::Result;
 use serde::{Serialize, Deserialize};
@@ -297,4 +298,53 @@ where
         *barcodes.entry(key).or_insert(0) += 1;
     });
     barcodes
+}
+
+/// Compute the fragment size distribution.
+/// The result is stored in a vector where each element represents the number of fragments
+/// and the index represents the fragment length. The first posision of the vector is
+/// reserved for fragments with length larger than the maximum length.
+pub fn fragment_size_distribution<I>(data: I, max_size: usize) -> Vec<usize>
+  where
+    I: Iterator<Item = CsrNonCanonical<u32>>,
+{
+    let mut size_dist = vec![0; max_size+1];
+    data.for_each(|csr| {
+        let values = csr.values();
+        values.iter().for_each(|&v| {
+            let v = v as usize;
+            if v <= max_size {
+                size_dist[v] += 1;
+            } else {
+                size_dist[0] += 1;
+            }
+        });
+    });
+    size_dist
+}
+
+/// Count the fraction of the records in the given regions.
+pub fn fraction_in_region<'a, I, D>(
+    iter: I, regions: &'a Vec<BedTree<D>>,
+) -> impl Iterator<Item = (Vec<Vec<f64>>, usize, usize)> + 'a
+where
+    I: Iterator<Item = (Vec<Vec<BED<6>>>, usize, usize)> + 'a,
+{
+    let k = regions.len();
+    iter.map(move |(beds, start, end)| {
+        let frac = beds.into_iter().map(|xs| {
+            let sum = xs.len() as f64;
+            let mut counts = vec![0.0; k];
+            xs.into_iter().for_each(|x|
+                regions.iter().enumerate().for_each(|(i, r)| {
+                    if r.is_overlapped(&x) {
+                        counts[i] += 1.0;
+                    }
+                })
+            );
+            counts.iter_mut().for_each(|x| *x /= sum);
+            counts
+        }).collect::<Vec<_>>();
+        (frac, start, end)
+    })
 }

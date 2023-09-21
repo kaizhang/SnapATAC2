@@ -27,6 +27,7 @@ setup(
         "snapatac2",
         "snapatac2.preprocessing",
         "snapatac2.tools",
+        "snapatac2.metrics",
         "snapatac2.plotting",
         "snapatac2.export",
     ],

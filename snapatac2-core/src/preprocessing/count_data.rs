@@ -3,6 +3,7 @@ mod coverage;
 mod genome;
 mod matrix;
 
+pub use crate::preprocessing::qc;
 pub use import::{import_fragments, import_contacts};
 pub use coverage::{GenomeCoverage, ContactMap, CoverageType, fragments_to_insertions};
 pub use genome::{
@@ -13,12 +14,12 @@ pub use genome::{
 pub use matrix::{create_gene_matrix, create_tile_matrix, create_peak_matrix};
 
 use anndata::{container::{ChunkedArrayElem, StackedChunkedArrayElem}, ArrayElemOp};
-use bed_utils::bed::{tree::BedTree, GenomicRange, BED};
+use bed_utils::bed::{tree::BedTree, GenomicRange};
 use anndata::{AnnDataOp, ElemCollectionOp, AxisArraysOp, AnnDataSet, Backend, AnnData};
 use ndarray::Array2;
 use polars::frame::DataFrame;
 use nalgebra_sparse::CsrMatrix;
-use anyhow::{Result, Context};
+use anyhow::{Result, Context, bail};
 use num::integer::div_ceil;
 use std::str::FromStr;
 
@@ -66,38 +67,17 @@ pub trait SnapData: AnnDataOp {
         })
     }
 
+    /// QC metrics for the data.
+
+    /// Compute the fragment size distribution.
+    fn fragment_size_distribution(&self, max_size: usize) -> Result<Vec<usize>>;
+
     /// Compute the fraction of reads in each region.
     fn frip<D>(&self, regions: &Vec<BedTree<D>>) -> Result<Array2<f64>> {
-        let vec = fraction_in_regions(self.get_count_iter(2000)?.into_raw(), regions)
+        let vec = qc::fraction_in_region(self.get_count_iter(2000)?.into_raw(), regions)
             .map(|x| x.0).flatten().flatten().collect::<Vec<_>>();
         Array2::from_shape_vec((self.n_obs(), regions.len()), vec).map_err(Into::into)
     }
-}
-
-/// Count the fraction of the records in the given regions.
-fn fraction_in_regions<'a, I, D>(
-    iter: I, regions: &'a Vec<BedTree<D>>,
-) -> impl Iterator<Item = (Vec<Vec<f64>>, usize, usize)> + 'a
-where
-    I: Iterator<Item = (Vec<Vec<BED<6>>>, usize, usize)> + 'a,
-{
-    let k = regions.len();
-    iter.map(move |(beds, start, end)| {
-        let frac = beds.into_iter().map(|xs| {
-            let sum = xs.len() as f64;
-            let mut counts = vec![0.0; k];
-            xs.into_iter().for_each(|x|
-                regions.iter().enumerate().for_each(|(i, r)| {
-                    if r.is_overlapped(&x) {
-                        counts[i] += 1.0;
-                    }
-                })
-            );
-            counts.iter_mut().for_each(|x| *x /= sum);
-            counts
-        }).collect::<Vec<_>>();
-        (frac, start, end)
-    })
 }
 
 impl<B: Backend> SnapData for AnnData<B> {
@@ -123,6 +103,14 @@ impl<B: Backend> SnapData for AnnData<B> {
             self.read_chrom_sizes()?,
             self.obsm().get_item_iter("contact", chunk_size).unwrap(),
         ))
+    }
+
+    fn fragment_size_distribution(&self, max_size: usize) -> Result<Vec<usize>> {
+        if let Some(fragment) = self.obsm().get_item_iter("fragment_paired", 500) {
+            Ok(qc::fragment_size_distribution(fragment.map(|x| x.0), max_size))
+        } else {
+            bail!("key 'fragment_paired' is not present in the '.obsm'")
+        }
     }
 }
 
@@ -154,5 +142,13 @@ impl<B: Backend> SnapData for AnnDataSet<B> {
                 .get_item_iter("contact", chunk_size)
                 .unwrap(),
         ))
+    }
+
+    fn fragment_size_distribution(&self, max_size: usize) -> Result<Vec<usize>> {
+        if let Some(fragment) = self.adatas().inner().get_obsm().get_item_iter("fragment_paired", 500) {
+            Ok(qc::fragment_size_distribution(fragment.map(|x| x.0), max_size))
+        } else {
+            bail!("key 'fragment_paired' is not present in the '.obsm'")
+        }
     }
 }

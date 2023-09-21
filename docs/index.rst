@@ -24,5 +24,5 @@ bioRxiv 2023.09.11.557221; doi: https://doi.org/10.1101/2023.09.11.557221
 
    install
    tutorials/index
-   reference/index
+   api/index
    Development<develop>

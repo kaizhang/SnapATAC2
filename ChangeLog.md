@@ -1,4 +1,4 @@
-dev
+v2.5.0dev
 ===================
 
 ## Breaking changes:

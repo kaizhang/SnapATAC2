@@ -4,13 +4,13 @@ use anndata::{
     WriteArrayData, AxisArraysOp,
 };
 use nalgebra_sparse::CsrMatrix;
-use anyhow::Result;
+use anyhow::{Result, bail};
 use polars::prelude::DataFrame;
 use pyanndata::anndata::memory;
 use pyanndata::{AnnData, AnnDataSet};
 use pyo3::prelude::*;
 
-use snapatac2_core::preprocessing::{SnapData, GenomeCoverage, ContactMap, count_data::CoverageType};
+use snapatac2_core::preprocessing::{qc, SnapData, GenomeCoverage, ContactMap, count_data::CoverageType};
 
 pub struct PyAnnData<'py>(memory::PyAnnData<'py>);
 
@@ -187,8 +187,15 @@ impl<'py> SnapData for PyAnnData<'py> {
             self.obsm().get_item_iter("contact", chunk_size).expect("'contact' not found in obsm"),
         ))
     }
-}
 
+    fn fragment_size_distribution(&self, max_size: usize) -> Result<Vec<usize>> {
+        if let Some(fragment) = self.obsm().get_item_iter("fragment_paired", 500) {
+            Ok(qc::fragment_size_distribution(fragment.map(|x| x.0), max_size))
+        } else {
+            bail!("key 'fragment_paired' is not present in the '.obsm'")
+        }
+    }
+}
 
 
 #[derive(FromPyObject)]
