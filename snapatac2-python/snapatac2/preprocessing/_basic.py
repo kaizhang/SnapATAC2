@@ -112,20 +112,32 @@ def import_data(
     backend: Literal['hdf5'] = 'hdf5',
     n_jobs: int = 8,
 ) -> AnnData:
-    """Import dataset and compute QC metrics.
+    """Import data fragment files and compute basic QC metrics.
 
-    This function will store fragments as base-resolution TN5 insertions in the
-    resulting h5ad file (in `.obsm['insertion']`), along with the chromosome
-    sizes (in `.uns['reference_sequences']`). Various QC metrics, including TSSe,
-    number of unique fragments, duplication rate, fraction of mitochondrial DNA
-    reads, will be computed.
-    The `.obsm['insertion']` matrix created in this step is essential for downstream
-    analysis, such as tile matrix generation and peak calling.
+    A fragment is defined as the sequencing output corresponding to one location in the genome.
+    If single-ended sequencing is performed, one read is considered a fragment.
+    If paired-ended sequencing is performed, one pair of reads is considered a fragment.
+    This function takes input fragment files and computes basic QC metrics, including
+    TSSe, number of unique fragments, duplication rate, fraction of mitochondrial DNA.
+    The fragments will be stored in `.obsm['fragment_single']` if they are single-ended.
+    Otherwise, they will be stored in `.obsm['fragment_paired']`.
+
+    Note
+    ----
+    This function accepts both single-end and paired-end reads. 
+    If the records in the fragment file contain 6 columns with the last column
+    representing the strand of the fragment, the fragments are considered single-ended.
+    Otherwise, the fragments are considered paired-ended.
 
     Parameters
     ----------
     fragment_file
         File name of the fragment file. This can be a single file or a list of files.
+        If it is a list of files, a separate AnnData object will be created for each file.
+        A fragment file must contain at least 5 columns:
+        chromosome, start, end, barcode, count.
+        Optionally it can contain one more column indicating the strand of the fragment.
+        When strand is provided, the fragments are considered single-ended.
     file
         File name of the output h5ad file used to store the result. If provided,
         result will be saved to a backed AnnData, otherwise an in-memory AnnData

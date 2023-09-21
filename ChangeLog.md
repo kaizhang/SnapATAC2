@@ -1,8 +1,15 @@
 dev
 ===================
 
-- Storing full fragment information in `.obms['fragment']`. Single-end reads are
-  stored in `.obsm['insertion']` as before.
+## Breaking changes:
+
+- Fragments are now stored in `.obms['fragment_single']` or `.obsm['fragment_paired']`.
+  The h5ad files generated prior to this version are no longer compatible.
+  We provide a script `scripts/XXX.py` to convert the old h5ad files to the new format.
+
+## Major changes:
+
+- Improvements of the `tl.call_peaks`, see #142.
 
 v2.4.0 (2023-09-12)
 ===================
