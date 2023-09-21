@@ -21,75 +21,6 @@ use std::collections::HashSet;
 use anyhow::{Result, ensure};
 
 #[pyfunction]
-pub fn call_peaks<'py>(
-    py: Python<'py>,
-    anndata: AnnDataLike,
-    group_by: Vec<&str>,
-    q_value: f64,
-    nolambda: bool,
-    shift: i64,
-    extension_size: i64,
-    selections: Option<HashSet<&str>>,
-    blacklist: Option<PathBuf>,
-    out_dir: Option<&str>,
-) -> Result<PyDataFrame> {
-    let dir = Builder::new().tempdir_in("./").unwrap();
-    let temp_dir = out_dir.unwrap_or(dir.path().to_str().unwrap());
-
-    macro_rules! run {
-        ($data:expr) => {{
-            _create_fwtrack_obj(py, $data, &group_by, selections.clone())?;
-
-            let peaks = $data.call_peaks(
-                q_value, &group_by, selections, temp_dir, "", ".NarrowPeak.gz",
-                nolambda, shift, extension_size,
-            )?;
-            (peaks, $data.read_chrom_sizes()?)
-        }}
-    }
-    let (peak_files, chrom_sizes) = crate::with_anndata!(&anndata, run);
-    let peak_iter = peak_files.values().flat_map(|fl|
-        Reader::new(MultiGzDecoder::new(File::open(fl).unwrap()), None)
-        .into_records().map(Result::unwrap)
-    );
-
-    info!("Merging peaks...");
-    let peaks:Vec<_> = if let Some(black) = blacklist {
-        let black: BedTree<_> = Reader::new(open_file(black), None).into_records::<GenomicRange>()
-            .map(|x| (x.unwrap(), ())).collect();
-        merge_peaks(peak_iter.filter(|x| !black.is_overlapped(x)), 250)
-            .flatten()
-            .map(|x| clip_peak(x, &chrom_sizes))
-            .collect()
-    } else {
-        merge_peaks(peak_iter, 250)
-            .flatten()
-            .map(|x| clip_peak(x, &chrom_sizes))
-            .collect()
-    };
-
-    let n = peaks.len();
-
-    let peaks_str = Series::new("Peaks",
-        peaks.iter().map(|x| x.to_genomic_range().pretty_show()).collect::<Vec<_>>());
-    let peaks_index: BedTree<usize> = peaks.into_iter().enumerate().map(|(i, x)| (x, i)).collect();
-    let iter = peak_files.into_iter().map(|(key, fl)| {
-        let mut values = vec![false; n];
-        Reader::new(MultiGzDecoder::new(File::open(fl).unwrap()), None)
-        .into_records().for_each(|x| {
-            let bed: GenomicRange = x.unwrap();
-            peaks_index.find(&bed).for_each(|(_, i)| values[*i] = true);
-        });
-        Series::new(key.as_str(), values)
-    });
-
-    let df = DataFrame::new(std::iter::once(peaks_str).chain(iter).collect())?;
-    dir.close()?;
-    Ok(df.into())
-}
-
-
-#[pyfunction]
 pub fn py_merge_peaks<'py>(
     peaks: HashMap<String, &'py PyAny>,
     chrom_sizes: HashMap<String, u64>,
@@ -204,11 +135,12 @@ pub fn create_fwtrack_obj<'py>(
     py: Python<'py>,
     anndata: AnnDataLike,
     group_by: Vec<&str>,
+    max_frag_size: Option<u64>,
     selections: Option<HashSet<&str>>,
 ) -> Result<HashMap<String, &'py PyAny>> {
     macro_rules! run {
         ($data:expr) => {{
-            _create_fwtrack_obj(py, $data, &group_by, selections)
+            _create_fwtrack_obj(py, $data, &group_by, max_frag_size, selections)
         }}
     }
     crate::with_anndata!(&anndata, run)
@@ -218,6 +150,7 @@ fn _create_fwtrack_obj<'py, D: SnapData>(
     py: Python<'py>,
     data: &D,
     group_by: &Vec<&str>,
+    max_frag_size: Option<u64>,
     selections: Option<HashSet<&str>>,
 ) -> Result<HashMap<String, &'py PyAny>> {
     let macs = py.import("MACS3.Signal.FixWidthTrack")?;
@@ -236,7 +169,7 @@ fn _create_fwtrack_obj<'py, D: SnapData>(
                 beds.into_iter().for_each(|x| {
                     let chr = x.chrom().as_bytes();
                     match x.strand() {
-                        None => {
+                        None => if max_frag_size.map_or(true, |s| s >= x.len()) {
                             fwt.call_method1("add_loc", (chr, x.start(), 0)).unwrap();
                             fwt.call_method1("add_loc", (chr, x.end() - 1, 1)).unwrap();
                         },

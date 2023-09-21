@@ -10,21 +10,21 @@ def call_peaks(
     groupby: str | list[str],
     selections: set[str] | None = None,
     q_value: float = 0.05,
+    max_frag_size: int | None = None,
     nolambda: bool = False,
     shift: int = -100,
     extsize: int = 200,
     blacklist: Path | None = None,
-    out_dir: Path | None = None,
     key_added: str = 'peaks',
     keep_unmerged: bool = False,
     inplace: bool = True,
     n_jobs: int = 8,
 ) -> 'polars.DataFrame' | None:
     """
-    Call peaks using MACS2.
+    Call peaks using MACS3.
 
-    Use the `callpeak` command in MACS2 to identify regions enriched with TN5
-    insertions. The default parameters passed to MACS2 are:
+    Use the `callpeak` command in MACS3 to identify regions enriched with TN5
+    insertions. The default parameters passed to MACS are:
     "-shift -100 -extsize 200 -nomodel -callsummits -nolambda -keep-dup all"
 
     Parameters
@@ -38,13 +38,20 @@ def call_peaks(
     selections
         Call peaks for the selected groups only.
     q_value
-        q_value cutoff used in MACS2.
+        q_value cutoff used in MACS3.
+    max_frag_size
+        Maximum fragment size. If provided, fragments with sizes larger than
+        `max_frag_size` will be not be used in peak calling.
+        This is used in ATAC-seq data to remove fragments that are not 
+        from nucleosome-free regions.
+        You can use :func:`~snapatac2.pl.frag_size_distr` to choose a proper value for
+        this parameter.
     nolambda
-        Whether to use the `--nolambda` option in MACS2.
+        Whether to use the `--nolambda` option in MACS.
     shift
-        The shift size in MACS2.
+        The shift size in MACS.
     extsize
-        The extension size in MACS2.
+        The extension size in MACS.
     blacklist
         Path to the blacklist file in BED format. If provided, regions in the blacklist will be
         removed.
@@ -68,15 +75,16 @@ def call_peaks(
         Otherwise, it returns the result as a dataframe.
     """
     from MACS3.Signal.PeakDetect import PeakDetect
-    from collections import namedtuple
     from math import log
     from multiprocess import Pool
     from tqdm import tqdm
 
     if isinstance(groupby, str):
         groupby = list(adata.obs[groupby])
-    out_dir = out_dir if out_dir is None else str(out_dir)
-    fw_tracks = _snapatac2.create_fwtrack_obj(adata, groupby, selections)
+
+    
+    logging.info("Counting fragments...")
+    fw_tracks = _snapatac2.create_fwtrack_obj(adata, groupby, max_frag_size, selections)
 
     chroms = adata.uns['reference_sequences']['reference_seq_name']
     sizes = adata.uns['reference_sequences']['reference_seq_length']
@@ -106,12 +114,16 @@ def call_peaks(
     options.call_summits = True
     options.broad = False
     options.fecutoff = 1.0
+    options.d = extsize
+    options.scanwindow = 2 * options.d
 
     def _call_peaks(fwt):
-        peakdetect = PeakDetect(treat=fwt, opt=options, d=1.0)
+        peakdetect = PeakDetect(treat=fwt, opt=options)
         peakdetect.call_peaks()
         peakdetect.peaks.filter_fc(fc_low = options.fecutoff)
         return peakdetect.peaks
+
+    logging.info("Calling peaks...")
     with Pool(n_jobs) as p:
         result = list(tqdm(p.imap(_call_peaks, list(fw_tracks.values())), total=len(fw_tracks)))
         fw_tracks = {k: v for k, v in zip(fw_tracks.keys(), result)}
@@ -131,72 +143,3 @@ def call_peaks(
             return (merged, unmerged)
         else:
             return merged
-
-def call_peaks2(
-    adata: AnnData | AnnDataSet,
-    groupby: str | list[str],
-    selections: set[str] | None = None,
-    q_value: float = 0.05,
-    nolambda: bool = True,
-    shift: int = -100,
-    extsize: int = 200,
-    blacklist: Path | None = None,
-    out_dir: Path | None = None,
-    key_added: str = 'peaks',
-    inplace: bool = True,
-) -> 'polars.DataFrame' | None:
-    """
-    Call peaks using MACS2.
-
-    Use the `callpeak` command in MACS2 to identify regions enriched with TN5
-    insertions. The default parameters passed to MACS2 are:
-    "-shift -100 -extsize 200 -nomodel -callsummits -nolambda -keep-dup all"
-
-    Parameters
-    ----------
-    adata
-        The (annotated) data matrix of shape `n_obs` x `n_vars`.
-        Rows correspond to cells and columns to regions.
-    groupby
-        Group the cells before peak calling. If a `str`, groups are obtained from
-        `.obs[groupby]`.
-    selections
-        Call peaks for the selected groups only.
-    q_value
-        q_value cutoff used in MACS2.
-    nolambda
-        Whether to use the `--nolambda` option in MACS2.
-    shift
-        The shift size in MACS2.
-    extsize
-        The extension size in MACS2.
-    blacklist
-        Path to the blacklist file in BED format. If provided, regions in the blacklist will be
-        removed.
-    out_dir
-        If provided, raw peak files from each group will be saved in the directory.
-        Otherwise, they will be stored in a temporary directory which will be removed
-        afterwards.
-    key_added
-        `.uns` key under which to add the peak information.
-    inplace
-        Whether to store the result inplace.
-
-    Returns
-    -------
-    'polars.DataFrame' | None
-        If `inplace=True` it stores the result in `adata.uns[`key_added`]`.
-        Otherwise, it returns the result as a dataframe.
-    """
-    if isinstance(groupby, str):
-        groupby = list(adata.obs[groupby])
-    out_dir = out_dir if out_dir is None else str(out_dir)
-    res = _snapatac2.call_peaks(adata, groupby, q_value, nolambda,
-        shift, extsize, selections, blacklist, out_dir)
-    if inplace:
-        if adata.isbacked:
-            adata.uns[key_added] = res
-        else:
-            adata.uns[key_added] = res.to_pandas()
-    else:
-        return res

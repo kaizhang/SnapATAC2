@@ -1,8 +1,10 @@
 name: Nightly Run
 
-on:
-  schedule:
-    - cron: '0 0 * * *' # Runs every day at midnight
+on: [push]
+
+#on:
+#  schedule:
+#    - cron: '0 0 * * *' # Runs every day at midnight
 
 jobs:
   check-for-new-commits:
