@@ -2,8 +2,9 @@ use crate::utils::{AnnDataLike, open_file};
 use bed_utils::bed::{Strand, NarrowPeak};
 use indicatif::{ProgressStyle, ProgressIterator};
 use itertools::Itertools;
+use polars::prelude::TakeRandom;
 use snapatac2_core::utils::clip_peak;
-use snapatac2_core::{export::Exporter, utils::merge_peaks};
+use snapatac2_core::utils::merge_peaks;
 use snapatac2_core::preprocessing::SnapData;
 
 use std::{ops::Deref, path::PathBuf, collections::HashMap};
@@ -12,29 +13,17 @@ use anndata_hdf5::H5;
 use pyanndata::data::PyDataFrame;
 use pyo3::prelude::*;
 use bed_utils::bed::{BEDLike, GenomicRange, io::Reader, tree::BedTree};
-use flate2::read::MultiGzDecoder;
-use tempfile::Builder;
-use log::info;
-use std::fs::File;
 use polars::{prelude::{DataFrame, NamedFrom}, series::Series};
 use std::collections::HashSet;
 use anyhow::{Result, ensure};
 
 #[pyfunction]
 pub fn py_merge_peaks<'py>(
-    peaks: HashMap<String, &'py PyAny>,
+    peaks: HashMap<String, PyDataFrame>,
     chrom_sizes: HashMap<String, u64>,
-    blacklist: Option<PathBuf>,
-) -> Result<(PyDataFrame, HashMap<String, PyDataFrame>)> {
-    let black: BedTree<_> = if let Some(black) = blacklist {
-        Reader::new(open_file(black), None)
-            .into_records::<GenomicRange>()
-            .map(|x| (x.unwrap(), ())).collect()
-    } else {
-        Default::default()
-    };
+) -> Result<PyDataFrame> {
     let peak_list: Vec<_> = peaks.into_iter().map(|(key, peaks)| {
-        let ps = get_peaks(peaks)?.into_iter().filter(|x| !black.is_overlapped(x)).collect::<Vec<_>>();
+        let ps = dataframe_to_narrow_peaks(&peaks.into())?;
         Ok((key, ps))
     }).collect::<Result<_>>()?;
 
@@ -55,10 +44,57 @@ pub fn py_merge_peaks<'py>(
         });
         Series::new(key.as_str(), values)
     });
-    let merged = DataFrame::new(std::iter::once(peaks_str).chain(iter).collect())?;
-    let unmerged = peak_list.into_iter().map(|(a, b)|
-        (a, narrow_peak_to_dataframe(b).unwrap().into())).collect();
-    Ok((merged.into(), unmerged))
+    Ok(DataFrame::new(std::iter::once(peaks_str).chain(iter).collect())?.into())
+}
+
+#[pyfunction]
+pub fn fetch_peaks<'py>(
+    peaks: HashMap<String, &'py PyAny>,
+    blacklist: Option<PathBuf>,
+) -> Result<HashMap<String, PyDataFrame>> {
+    let black: BedTree<_> = if let Some(black) = blacklist {
+        Reader::new(open_file(black), None)
+            .into_records::<GenomicRange>()
+            .map(|x| (x.unwrap(), ())).collect()
+    } else {
+        Default::default()
+    };
+    peaks.into_iter().map(|(key, peaks)| {
+        let ps = get_peaks(peaks)?.into_iter().filter(|x| !black.is_overlapped(x)).collect::<Vec<_>>();
+        Ok((key, narrow_peak_to_dataframe(ps).unwrap().into()))
+    }).collect::<Result<_>>()
+}
+
+/// Convert dataframe to narrowpeak
+fn dataframe_to_narrow_peaks(df: &DataFrame) -> Result<Vec<NarrowPeak>> {
+    let chroms = df.column("chrom").unwrap().utf8()?;
+    let starts = df.column("start").unwrap().u64()?;
+    let ends = df.column("end").unwrap().u64()?;
+    let names = df.column("name").unwrap().utf8()?;
+    let scores = df.column("score").unwrap().u16()?;
+    let strands = df.column("strand").unwrap().utf8()?;
+    let signal_values = df.column("signal_value").unwrap().f64()?;
+    let p_values = df.column("p_value").unwrap().f64()?;
+    let q_values = df.column("q_value").unwrap().f64()?;
+    let peaks = df.column("peak").unwrap().u64()?;
+
+    let mut narrow_peaks = Vec::with_capacity(df.height());
+    for i in 0..df.height() {
+        narrow_peaks.push(NarrowPeak {
+            chrom: chroms.get(i).map(|x| x.to_string()).unwrap(),
+            start: starts.get(i).unwrap(),
+            end: ends.get(i).unwrap(),
+            name: names.get(i).map(|x| x.to_string()),
+            score: scores.get(i).map(|x| x.try_into().unwrap()),
+            strand: strands.get(i).map(|x| x.to_string().parse().unwrap()),
+            signal_value: signal_values.get(i).unwrap(),
+            p_value: p_values.get(i).unwrap(),
+            q_value: q_values.get(i).unwrap(),
+            peak: peaks.get(i).unwrap(),
+        });
+    }
+
+    Ok(narrow_peaks)
 }
 
 fn narrow_peak_to_dataframe<I: IntoIterator<Item = NarrowPeak>>(narrow_peaks: I) -> Result<DataFrame> {
@@ -111,6 +147,7 @@ fn get_peaks<'py>(peak_io_obj: &'py PyAny) -> Result<Vec<NarrowPeak>> {
             let start = peak.get_item("start")?.extract::<u64>()?;
             let end = peak.get_item("end")?.extract::<u64>()?;
             let fc = peak.get_item("fc")?.extract::<f64>()?;
+            let score = peak.get_item("score")?.extract::<f64>()? * 10.0;
             let p_value= peak.get_item("pscore")?.extract::<f64>()?;
             let q_value= peak.get_item("qscore")?.extract::<f64>()?;
             let peak = peak.get_item("summit")?.extract::<u64>()? - start;
@@ -119,7 +156,7 @@ fn get_peaks<'py>(peak_io_obj: &'py PyAny) -> Result<Vec<NarrowPeak>> {
                 start,
                 end,
                 name: None,
-                score: None,
+                score: Some((score as u16).min(1000).try_into().unwrap()),
                 strand: None,
                 signal_value: fc,
                 p_value,

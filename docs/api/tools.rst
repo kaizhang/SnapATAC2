@@ -29,6 +29,15 @@ Clustering
    tl.dbscan
    tl.hdbscan
 
+Peak calling
+~~~~~~~~~~~~
+
+.. autosummary::
+   :toctree: _autosummary
+
+   tl.macs3
+   tl.merge_peaks
+
 Differential analysis
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -65,6 +74,5 @@ Utilities
 .. autosummary::
    :toctree: _autosummary
 
-   tl.call_peaks
    tl.aggregate_X
    tl.aggregate_cells

@@ -4,8 +4,9 @@ from pathlib import Path
 from snapatac2._snapatac2 import AnnData, AnnDataSet
 import snapatac2._snapatac2 as _snapatac2
 import logging
+from snapatac2.genome import Genome
 
-def call_peaks(
+def macs3(
     adata: AnnData | AnnDataSet,
     groupby: str | list[str],
     selections: set[str] | None = None,
@@ -15,11 +16,10 @@ def call_peaks(
     shift: int = -100,
     extsize: int = 200,
     blacklist: Path | None = None,
-    key_added: str = 'peaks',
-    keep_unmerged: bool = False,
+    key_added: str = 'macs3',
     inplace: bool = True,
     n_jobs: int = 8,
-) -> 'polars.DataFrame' | None:
+) -> dict[str, 'polars.DataFrame'] | None:
     """
     Call peaks using MACS3.
 
@@ -61,8 +61,6 @@ def call_peaks(
         afterwards.
     key_added
         `.uns` key under which to add the peak information.
-    keep_unmerged
-        Whether to keep the unmerged peaks in `.uns['unmerged_peaks']`.
     inplace
         Whether to store the result inplace.
     n_jobs
@@ -70,9 +68,9 @@ def call_peaks(
 
     Returns
     -------
-    'polars.DataFrame' | None
+    dict[str, 'polars.DataFrame'] | None
         If `inplace=True` it stores the result in `adata.uns[`key_added`]`.
-        Otherwise, it returns the result as a dataframe.
+        Otherwise, it returns the result as dataframes.
     """
     from MACS3.Signal.PeakDetect import PeakDetect
     from math import log
@@ -81,13 +79,9 @@ def call_peaks(
 
     if isinstance(groupby, str):
         groupby = list(adata.obs[groupby])
-
     
     logging.info("Counting fragments...")
     fw_tracks = _snapatac2.create_fwtrack_obj(adata, groupby, max_frag_size, selections)
-
-    chroms = adata.uns['reference_sequences']['reference_seq_name']
-    sizes = adata.uns['reference_sequences']['reference_seq_length']
 
     options = type('MACS3_OPT', (), {})()
     options.info = lambda _: None
@@ -99,7 +93,7 @@ def call_peaks(
     options.maxgap = 30
     options.minlen = 50
     options.shift = shift
-    options.gsize = sizes.sum()
+    options.gsize = adata.uns['reference_sequences']['reference_seq_length'].sum()
     options.nolambda = nolambda
     options.smalllocal = 1000
     options.largelocal = 10000
@@ -126,20 +120,21 @@ def call_peaks(
     logging.info("Calling peaks...")
     with Pool(n_jobs) as p:
         result = list(tqdm(p.imap(_call_peaks, list(fw_tracks.values())), total=len(fw_tracks)))
-        fw_tracks = {k: v for k, v in zip(fw_tracks.keys(), result)}
-
-    chrom_sizes = {k: v for k, v in zip(chroms, sizes)}
-    (merged, unmerged) = _snapatac2.py_merge_peaks(fw_tracks, chrom_sizes, blacklist)
+        peaks = _snapatac2.fetch_peaks({k: v for k, v in zip(fw_tracks.keys(), result)}, blacklist)
 
     if inplace:
-        if keep_unmerged:
-            adata.uns['unmerged_peaks'] = unmerged
         if adata.isbacked:
-            adata.uns[key_added] = merged
+            adata.uns[key_added] = peaks
         else:
-            adata.uns[key_added] = merged.to_pandas()
+            adata.uns[key_added] = {k: v.to_pandas() for k, v in peaks.items()}
     else:
-        if keep_unmerged:
-            return (merged, unmerged)
-        else:
-            return merged
+        return peaks
+
+def merge_peaks(
+    peaks: dict[str, 'polars.DataFrame'],
+    chrom_sizes: dict[str, int] | Genome,
+) -> 'polars.DataFrame':
+    """
+    """
+    chrom_sizes = chrom_sizes.chrom_sizes if isinstance(chrom_sizes, Genome) else chrom_sizes
+    return _snapatac2.py_merge_peaks(peaks, chrom_sizes)

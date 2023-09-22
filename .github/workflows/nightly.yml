@@ -15,31 +15,30 @@ jobs:
 
       - name: Get latest commit SHA
         id: get-latest-commit-sha
-        run: echo "::set-output name=sha::$(git rev-parse HEAD)"
+        run: echo "LATEST_COMMIT_SHA=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
       - name: Check if there are new commits since the last run
-        id: check-commits
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          latest_run_commit_sha=$(curl --silent --header "Authorization: token $GITHUB_TOKEN" \
-              "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs" \
-              | jq -r '.workflow_runs[] | select(.name=="Nightly Run") | .head_sha | select(. != null)' | head -1)
+      id: check-commits
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        latest_run_commit_sha=$(curl --silent --header "Authorization: token $GITHUB_TOKEN" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs" \
+            | jq -r '.workflow_runs[] | select(.name=="Nightly Run") | .head_sha | select(. != null)' | head -1)
 
-          echo "Latest run was on commit: $latest_run_commit_sha"
-          echo "Current commit is: ${{ steps.get-latest-commit-sha.outputs.sha }}"
+        echo "Latest run was on commit: $latest_run_commit_sha"
+        echo "Current commit is: $LATEST_COMMIT_SHA"
 
-          if [ "$latest_run_commit_sha" != "${{ steps.get-latest-commit-sha.outputs.sha }}" ]; then
-            echo "::set-output name=new_commits::true"
-          else
-            echo "::set-output name=new_commits::false"
-          fi
-        shell: bash
+        if [ "$latest_run_commit_sha" != "$LATEST_COMMIT_SHA" ]; then
+          echo "NEW_COMMITS=true" >> $GITHUB_ENV
+        else
+          echo "NEW_COMMITS=false" >> $GITHUB_ENV
+        fi
 
   conditional-job:
     runs-on: ubuntu-latest
     needs: check-for-new-commits
-    if: needs.check-for-new-commits.outputs.new_commits == 'true'
+    if: env.NEW_COMMITS == 'true'
     steps:
       - name: Conditional Job
         run: |

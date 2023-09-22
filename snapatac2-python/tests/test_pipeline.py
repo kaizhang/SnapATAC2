@@ -41,9 +41,9 @@ def pipeline(data):
     snap.pp.knn(data)
     snap.tl.leiden(data)
 
-    snap.tl.call_peaks(data, groupby="leiden")
+    snap.pp.make_gene_matrix(data, gene_anno=snap.genome.hg38)
 
-    snap.pp.make_gene_matrix(data, gene_anno=snap.genome.hg38, file=h5ad(tmp_path))
+    snap.tl.call_peaks(data, groupby="leiden")
 
 def test_backed(tmp_path):
     fragment_file = snap.datasets.pbmc500(True)
