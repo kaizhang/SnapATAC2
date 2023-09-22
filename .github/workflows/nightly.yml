@@ -19,22 +19,26 @@ jobs:
         id: get-latest-commit-sha
         run: echo "LATEST_COMMIT_SHA=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
+      - name: Get last run
+        run: |
+          workflow_id=$(basename $(github.event.workflow.url))
+          repo=${{ github.repository }}
+          last_run=$(gh api repos/$repo/actions/workflows/$workflow_id/runs --paginate | jq -r '.workflow_runs | map(select(.head_branch == "${{ github.event.ref }}" and .status == "completed")) | sort_by(.created_at) | .[-2]')
+          last_run_date=$(echo $last_run | jq -r '.created_at')
+          last_run_sha=$(echo $last_run | jq -r '.head_sha')
+          echo "Last run was at: $last_run_date"
+          echo "Last run SHA: $last_run_sha"
+          echo "LAST_RUN_SHA=$last_run_sha" >> $GITHUB_ENV
+
       - name: Check if there are new commits since the last run
         id: check-commits
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          latest_run_commit_sha=$(curl --silent --header "Authorization: token $GITHUB_TOKEN" \
-              "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs" \
-              | jq -r '.workflow_runs[] | select(.name=="Nightly Run") | .head_sha | select(. != null)' | head -1)
-
-          echo "Latest run was on commit: $latest_run_commit_sha"
-          echo "Current commit is: $LATEST_COMMIT_SHA"
-
-          if [ "$latest_run_commit_sha" != "$LATEST_COMMIT_SHA" ]; then
-            echo "NEW_COMMITS=true" >> "$GITHUB_OUTPUT"
+          if [ "${{ env.LAST_RUN_SHA }}" == "${{ env.LATEST_COMMIT_SHA }}" ]; then
+            echo "No new commits since the last run."
+            echo "NEW_COMMITS=false" >> $GITHUB_ENV
           else
-            echo "NEW_COMMITS=false" >> "$GITHUB_OUTPUT"
+            echo "There are new commits since the last run."
+            echo "NEW_COMMITS=true" >> $GITHUB_ENV
           fi
 
   conditional-job:

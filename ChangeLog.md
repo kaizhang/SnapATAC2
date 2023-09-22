@@ -9,7 +9,7 @@ v2.5.0dev
 - `tl.call_peaks` has been renamed to `tl.macs3`, and the underlying algorithm has been
   significantly improved, see #142.
 - `pp.import_data` now doesn't compute the TSS enrichment scores. Use `metrics.tsse`
-  to compute the TSS enrichment scores.
+  to compute the TSS enrichment scores. `genome` parameter is renamed to `chrom_sizes`.
 
 ## Major changes:
 

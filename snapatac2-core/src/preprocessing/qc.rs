@@ -151,43 +151,28 @@ pub struct QualityControl {
 }
 
 pub(crate) struct FragmentSummary<'a> {
-    promoter_insertion_count: [u64; 4001],
     pub(crate) num_unique_fragment: u64,
     num_total_fragment: u64, 
     num_mitochondrial : u64,
-    promoter: &'a BedTree<bool>,
     mitochondrial_dna: &'a HashSet<String>,
 }
 
 impl<'a> FragmentSummary<'a> {
-    pub(crate) fn new(promoter: &'a BedTree<bool>, mitochondrial_dna: &'a HashSet<String>) -> Self {
+    pub(crate) fn new(mitochondrial_dna: &'a HashSet<String>) -> Self {
         FragmentSummary {
-            promoter_insertion_count: [0; 4001],
             num_unique_fragment: 0,
             num_total_fragment: 0,
             num_mitochondrial: 0,
-            promoter,
             mitochondrial_dna,
         }
     }
 
     pub(crate) fn update(&mut self, fragment: &Fragment) {
-        self.num_total_fragment += fragment.count as u64;
         if self.mitochondrial_dna.contains(fragment.chrom.as_str()) {
             self.num_mitochondrial += 1;
         } else {
+            self.num_total_fragment += fragment.count as u64;
             self.num_unique_fragment += 1;
-            for ins in fragment.to_insertions() {
-                for (entry, data) in self.promoter.find(&ins) {
-                    let pos: u64 =
-                        if *data {
-                            ins.start() - entry.start()
-                        } else {
-                            4000 - (entry.end() - 1 - ins.start())
-                        };
-                    self.promoter_insertion_count[pos as usize] += 1;
-                }
-            }
         }
     }
 

@@ -95,11 +95,9 @@ def make_fragment_file(
 
 def import_data(
     fragment_file: Path | list[Path],
+    chrom_sizes: Genome | dict[str, int],
     *,
     file: Path | list[Path] | None = None,
-    genome: Genome | None = None,
-    gene_anno: Path | None = None,
-    chrom_size: dict[str, int] | None = None,
     min_num_fragments: int = 200,
     sorted_by_barcode: bool = True,
     whitelist: Path | list[str] | None = None,
@@ -137,24 +135,14 @@ def import_data(
         chromosome, start, end, barcode, count.
         Optionally it can contain one more column indicating the strand of the fragment.
         When strand is provided, the fragments are considered single-ended.
+    chrom_sizes
+        A Genome object or a dictionary containing chromosome sizes, for example,
+        `{"chr1": 2393, "chr2": 2344, ...}`.
     file
         File name of the output h5ad file used to store the result. If provided,
         result will be saved to a backed AnnData, otherwise an in-memory AnnData
         is used.
         If `fragment_file` is a list of files, `file` must also be a list of files if provided.
-    genome
-        A Genome object, providing gene annotation and chromosome sizes.
-        If not set, `gff_file` and `chrom_size` must be provided.
-        `genome` has lower priority than `gff_file` and `chrom_size`.
-    gene_anno
-        File name of the gene annotation file in GFF or GTF format.
-        This is required if `genome` is not set.
-        Setting `gene_anno` will override the annotations from the `genome` parameter.
-    chrom_size
-        A dictionary containing chromosome sizes, for example,
-        `{"chr1": 2393, "chr2": 2344, ...}`.
-        This is required if `genome` is not set.
-        Setting `chrom_size` will override the chrom_size from the `genome` parameter.
     min_num_fragments
         Number of unique fragments threshold used to filter cells
     sorted_by_barcode
@@ -210,12 +198,8 @@ def import_data(
         uns: 'reference_sequences'
         obsm: 'fragment'
     """
-    if genome is not None:
-        if chrom_size is None:
-            chrom_size = genome.chrom_sizes
-        if gene_anno is None:
-            gene_anno = genome.fetch_annotations()
-    if len(chrom_size) == 0:
+    chrom_sizes = chrom_sizes.chrom_sizes if isinstance(chrom_sizes, Genome) else chrom_sizes
+    if len(chrom_sizes) == 0:
         raise ValueError("chrom_size cannot be empty")
 
     if whitelist is not None:
@@ -237,7 +221,7 @@ def import_data(
         snapatac2._utils.anndata_ipar(
             list(enumerate(adatas)),
             lambda x: internal.import_fragments(
-                x[1], fragment_file[x[0]], gene_anno, chrom_size, min_num_fragments,
+                x[1], fragment_file[x[0]], chrom_sizes, min_num_fragments,
                 sorted_by_barcode, shift_left, shift_right, chunk_size, whitelist, tempdir,
             ),
             n_jobs=n_jobs,
@@ -246,7 +230,7 @@ def import_data(
     else:
         adata = ad.AnnData() if file is None else AnnData(filename=file, backend=backend)
         internal.import_fragments(
-            adata, fragment_file, gene_anno, chrom_size, chrM, min_num_fragments,
+            adata, fragment_file, chrom_sizes, chrM, min_num_fragments,
             sorted_by_barcode, shift_left, shift_right, chunk_size, whitelist, tempdir,
         )
         return adata

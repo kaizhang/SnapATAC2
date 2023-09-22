@@ -8,10 +8,7 @@ use anndata::{
     data::array::utils::{from_csr_data, to_csr_data}, ArrayData,
 };
 use anyhow::Result;
-use bed_utils::bed::{
-    tree::{BedTree, GenomeRegions},
-    BEDLike, Strand,
-};
+use bed_utils::bed::{tree::GenomeRegions, BEDLike, Strand};
 use indexmap::IndexSet;
 use indicatif::{style::ProgressStyle, ProgressBar, ProgressDrawTarget, ProgressIterator};
 use itertools::Itertools;
@@ -32,7 +29,6 @@ use std::collections::{HashSet, BTreeMap};
 pub fn import_fragments<A, I>(
     anndata: &A,
     fragments: I,
-    promoter: &BedTree<bool>,
     mitochrondrial_dna: &HashSet<String>,
     chrom_sizes: &ChromSizes,
     white_list: Option<&HashSet<String>>,
@@ -76,9 +72,9 @@ where
                 let data: Vec<(String, Vec<Fragment>)> =
                     chunk.map(|(barcode, x)| (barcode, x.collect())).collect();
                 if is_paired {
-                    make_arraydata::<u32>(data, promoter, mitochrondrial_dna, &genome_index, min_num_fragment, &mut scanned_barcodes, &mut saved_barcodes, &mut qc)
+                    make_arraydata::<u32>(data, mitochrondrial_dna, &genome_index, min_num_fragment, &mut scanned_barcodes, &mut saved_barcodes, &mut qc)
                 } else {
-                    make_arraydata::<i32>(data, promoter, mitochrondrial_dna, &genome_index, min_num_fragment, &mut scanned_barcodes, &mut saved_barcodes, &mut qc)
+                    make_arraydata::<i32>(data, mitochrondrial_dna, &genome_index, min_num_fragment, &mut scanned_barcodes, &mut saved_barcodes, &mut qc)
                 }
             }),
     )?;
@@ -91,7 +87,6 @@ where
 
 fn make_arraydata<V>(
     data: Vec<(String, Vec<Fragment>)>,
-    promoter: &BedTree<bool>,
     mitochrondrial_dna: &HashSet<String>,
     genome_index: &GenomeBaseIndex,
     min_num_fragment: u64,
@@ -106,7 +101,7 @@ where
     let num_features = genome_index.len();
     let result: Vec<_> = data
         .into_par_iter()
-        .map(|(barcode, x)| (barcode, count_fragments::<u32>(promoter, mitochrondrial_dna, &genome_index, x)))
+        .map(|(barcode, x)| (barcode, count_fragments::<u32>(mitochrondrial_dna, &genome_index, x)))
         .collect();
     let counts = result
         .into_iter()
@@ -128,7 +123,6 @@ where
 }
 
 fn count_fragments<V>(
-    promoter: &BedTree<bool>,
     mitochrondrial_dna: &HashSet<String>,
     genome_index: &GenomeBaseIndex,
     fragments: Vec<Fragment>,
@@ -137,7 +131,7 @@ where
     V: TryFrom<i64> + Ord,
     <V as TryFrom<i64>>::Error: std::fmt::Debug,
 {
-    let mut qc = FragmentSummary::new(promoter, mitochrondrial_dna);
+    let mut qc = FragmentSummary::new(mitochrondrial_dna);
     let mut values = Vec::new();
     fragments.into_iter().for_each(|f| {
         qc.update(&f);

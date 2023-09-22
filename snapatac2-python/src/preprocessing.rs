@@ -66,7 +66,6 @@ pub(crate) fn make_fragment_file(
 pub(crate) fn import_fragments(
     anndata: AnnDataLike,
     fragment_file: PathBuf,
-    gtf_file: PathBuf,
     chrom_size: BTreeMap<&str, u64>,
     mitochondrial_dna: Vec<String>,
     min_num_fragment: u64,
@@ -78,7 +77,6 @@ pub(crate) fn import_fragments(
     tempdir: Option<PathBuf>,
 ) -> Result<()>
 {
-    let promoters = preprocessing::make_promoter_map(preprocessing::read_tss(open_file(gtf_file)));
     let mitochondrial_dna: HashSet<String> = mitochondrial_dna.into_iter().collect();
     let final_white_list = if fragment_is_sorted_by_name || min_num_fragment <= 0 {
         white_list
@@ -112,7 +110,7 @@ pub(crate) fn import_fragments(
     macro_rules! run {
         ($data:expr) => {
             preprocessing::import_fragments(
-                $data, sorted_fragments, &promoters, &mitochondrial_dna, &chrom_sizes,
+                $data, sorted_fragments, &mitochondrial_dna, &chrom_sizes,
                 final_white_list.as_ref(), min_num_fragment, chunk_size,
             )?
         };
