@@ -9,6 +9,8 @@ on: [push]
 jobs:
   check-for-new-commits:
     runs-on: ubuntu-latest
+    outputs:
+      NEW_COMMITS: ${{ steps.check-commits.outputs.NEW_COMMITS }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -20,7 +22,7 @@ jobs:
       - name: Check if there are new commits since the last run
         id: check-commits
         env:
-         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           latest_run_commit_sha=$(curl --silent --header "Authorization: token $GITHUB_TOKEN" \
               "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs" \
@@ -30,17 +32,19 @@ jobs:
           echo "Current commit is: $LATEST_COMMIT_SHA"
 
           if [ "$latest_run_commit_sha" != "$LATEST_COMMIT_SHA" ]; then
-            echo "NEW_COMMITS=true" >> $GITHUB_ENV
+            echo "NEW_COMMITS=true" >> "$GITHUB_OUTPUT"
           else
-            echo "NEW_COMMITS=false" >> $GITHUB_ENV
+            echo "NEW_COMMITS=false" >> "$GITHUB_OUTPUT"
           fi
 
   conditional-job:
     runs-on: ubuntu-latest
     needs: check-for-new-commits
-    if: env.NEW_COMMITS == 'true'
     steps:
       - name: Conditional Job
+        env:
+          NEW_COMMITS: ${{ needs.check-for-new-commits.outputs.NEW_COMMITS }}
+        if : ${{ env.NEW_COMMITS == 'true' }}
         run: |
           echo "This job runs only if there are new commits since the last run."
           # Add your commands for the conditional job here.

@@ -20,6 +20,7 @@ def datasets():
             # The registry specifies the files that can be fetched
             registry={
                 "atac_pbmc_500.tsv.gz": "sha256:196c5d7ee0169957417e9f4d5502abf1667ef99453328f8d290d4a7f3b205c6c",
+                "atac_pbmc_500.bam": "sha256:2fac56ca45186943a1daf9da71aed42263ad43a9428f2388fa5f3bcf6d2754ff",
                 "atac_pbmc_500_downsample.tsv.gz": "sha256:6053cf4578a140bfd8ce34964602769dc5f5ec6b25ba4f2db23cdbd4681b0e2f",
 
                 "atac_pbmc_5k.tsv.gz": "sha256:5fe44c0f8f76ce1534c1ae418cf0707ca5ef712004eee77c3d98d2d4b35ceaec",
@@ -50,6 +51,7 @@ def datasets():
             },
             urls={
                 "atac_pbmc_500.tsv.gz": "https://cf.10xgenomics.com/samples/cell-atac/2.0.0/atac_pbmc_500_nextgem/atac_pbmc_500_nextgem_fragments.tsv.gz",
+                "atac_pbmc_500.bam": "https://cf.10xgenomics.com/samples/cell-atac/2.0.0/atac_pbmc_500_nextgem/atac_pbmc_500_nextgem_possorted_bam.bam",
                 "atac_pbmc_500_downsample.tsv.gz": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/b0e7e9e8-9ffb-4710-8619-73f7e5cbd10b?a=758c37e5-4832-4c91-af89-9a1a83a051b3",
 
                 "atac_pbmc_5k.tsv.gz": "https://cf.10xgenomics.com/samples/cell-atac/2.0.0/atac_pbmc_5k_nextgem/atac_pbmc_5k_nextgem_fragments.tsv.gz", 
@@ -79,7 +81,7 @@ def datasets():
         )
     return _datasets
 
-def pbmc500(downsampled: bool = False) -> Path:
+def pbmc500(type: Literal["fragment, bam"]="fragment", downsampled: bool = False) -> Path:
     """scATAC-seq dataset of 500 PBMCs from 10x Genomics.
 
     This function returns the path to the fragment file of the 10X scATAC-seq dataset
@@ -87,6 +89,11 @@ def pbmc500(downsampled: bool = False) -> Path:
 
     Parameters
     ----------
+    type
+        One of the following:
+            - "fragment": the fragment file.
+            - "bam": bam file.
+
     downsampled
         Whether to return downsampled dataset.
 
@@ -95,10 +102,15 @@ def pbmc500(downsampled: bool = False) -> Path:
     Path
         Path to the fragment file.
     """
-    if downsampled:
-        return Path(datasets().fetch("atac_pbmc_500_downsample.tsv.gz"))
+    if type == "fragment":
+        if downsampled:
+            return Path(datasets().fetch("atac_pbmc_500_downsample.tsv.gz"))
+        else:
+            return Path(datasets().fetch("atac_pbmc_500.tsv.gz"))
+    elif type == "bam":
+        return Path(datasets().fetch("atac_pbmc_500.bam"))
     else:
-        return Path(datasets().fetch("atac_pbmc_500.tsv.gz"))
+        raise NameError("type '{}' is not available.".format(type))
 
 def pbmc5k(type: Literal["fragment, h5ad, gene, annotated_h5ad"] = "fragment") -> Path:
     """scATAC-seq dataset of 5k PBMCs from 10x Genomics.
@@ -127,7 +139,6 @@ def pbmc5k(type: Literal["fragment, h5ad, gene, annotated_h5ad"] = "fragment") -
         return Path(datasets().fetch("atac_pbmc_5k_gene.h5ad"))
     else:
         raise NameError("type '{}' is not available.".format(type))
-    
 
 def pbmc10k_multiome(
     modality: Literal['ATAC', 'RNA'] = 'RNA',

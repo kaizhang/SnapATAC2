@@ -1,7 +1,7 @@
-use std::{io::{Read, BufRead, BufReader}, ops::Div, collections::HashMap};
+use std::{io::{Read, BufRead, BufReader}, ops::Div, collections::{HashMap, HashSet}};
 use anndata::data::CsrNonCanonical;
 use bed_utils::bed::{
-    GenomicRange, BEDLike, tree::{GenomeRegions, BedTree, SparseBinnedCoverage},
+    GenomicRange, BEDLike, tree::BedTree,
     ParseError, Strand, BED,
 };
 use anyhow::Result;
@@ -145,7 +145,6 @@ impl std::str::FromStr for Contact {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct QualityControl {
-    pub tss_enrichment: f64,
     pub num_unique_fragment: u64,
     pub frac_mitochondrial: f64,
     pub frac_duplicated: f64,
@@ -157,54 +156,48 @@ pub(crate) struct FragmentSummary<'a> {
     num_total_fragment: u64, 
     num_mitochondrial : u64,
     promoter: &'a BedTree<bool>,
+    mitochondrial_dna: &'a HashSet<String>,
 }
 
 impl<'a> FragmentSummary<'a> {
-    pub(crate) fn new(promoter: &'a BedTree<bool>) -> Self {
+    pub(crate) fn new(promoter: &'a BedTree<bool>, mitochondrial_dna: &'a HashSet<String>) -> Self {
         FragmentSummary {
             promoter_insertion_count: [0; 4001],
             num_unique_fragment: 0,
             num_total_fragment: 0,
             num_mitochondrial: 0,
             promoter,
+            mitochondrial_dna,
         }
     }
 
     pub(crate) fn update(&mut self, fragment: &Fragment) {
         self.num_total_fragment += fragment.count as u64;
-        match fragment.chrom.as_str() {
-            "chrM" | "M" => self.num_mitochondrial += 1,
-            _ => {
-                self.num_unique_fragment += 1;
-                for ins in fragment.to_insertions() {
-                    for (entry, data) in self.promoter.find(&ins) {
-                        let pos: u64 =
-                            if *data {
-                                ins.start() - entry.start()
-                            } else {
-                                4000 - (entry.end() - 1 - ins.start())
-                            };
-                        self.promoter_insertion_count[pos as usize] += 1;
-                    }
+        if self.mitochondrial_dna.contains(fragment.chrom.as_str()) {
+            self.num_mitochondrial += 1;
+        } else {
+            self.num_unique_fragment += 1;
+            for ins in fragment.to_insertions() {
+                for (entry, data) in self.promoter.find(&ins) {
+                    let pos: u64 =
+                        if *data {
+                            ins.start() - entry.start()
+                        } else {
+                            4000 - (entry.end() - 1 - ins.start())
+                        };
+                    self.promoter_insertion_count[pos as usize] += 1;
                 }
             }
         }
     }
 
     pub(crate) fn get_qc(self) -> QualityControl {
-        let bg_count: f64 =
-            ( self.promoter_insertion_count[ .. 100].iter().sum::<u64>() +
-            self.promoter_insertion_count[3901 .. 4001].iter().sum::<u64>() ) as f64 /
-            200.0 + 0.1;
-        let tss_enrichment = moving_average(5, &self.promoter_insertion_count)
-            .max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap().div(bg_count);
         let frac_duplicated = 1.0 -
             (self.num_unique_fragment + self.num_mitochondrial) as f64 /
             self.num_total_fragment as f64;
         let frac_mitochondrial = self.num_mitochondrial as f64 /
             (self.num_unique_fragment + self.num_mitochondrial) as f64;
         QualityControl {
-            tss_enrichment,
             num_unique_fragment: self.num_unique_fragment,
             frac_mitochondrial,
             frac_duplicated,
@@ -260,33 +253,6 @@ pub fn make_promoter_map<I: Iterator<Item = (String, u64, bool)>>(iter: I) -> Be
         }).collect()
 }
 
-pub fn compute_qc_count<B>(
-    fragments: Vec<Fragment>,
-    promoter: &BedTree<bool>,
-    regions: &GenomeRegions<B>,
-    min_n_fragment: u64,
-    min_tsse: f64,
-    ) -> Option<(QualityControl, Vec<(usize, u8)>)>
-where
-    B: BEDLike,
-{
-
-    let mut summary = FragmentSummary::new(promoter);
-    fragments.iter().for_each(|frag| summary.update(frag));
-    let qc = summary.get_qc();
-    if qc.num_unique_fragment < min_n_fragment || qc.tss_enrichment < min_tsse {
-        None
-    } else {
-        let mut binned_coverage = SparseBinnedCoverage::new(regions, 1);
-        fragments.iter().for_each(|fragment| {
-            fragment.to_insertions().into_iter().for_each(|x| binned_coverage.insert(&x, 1));
-        });
-        let count: Vec<(usize, u8)> = binned_coverage.get_coverage()
-            .iter().map(|(k, v)| (*k, *v)).collect();
-        Some((qc, count))
-    }
-}
-
 /// barcode counting.
 pub fn get_barcode_count<I>(fragments: I) -> HashMap<String, u64>
 where
@@ -298,6 +264,48 @@ where
         *barcodes.entry(key).or_insert(0) += 1;
     });
     barcodes
+}
+
+pub fn tss_enrichment<I>(fragments: I, promoter: &BedTree<bool>) -> f64
+where
+    I: Iterator<Item = BED<6>>,
+{
+    fn find_pos<'a>(promoter: &'a BedTree<bool>, ins: &'a GenomicRange) -> impl Iterator<Item = usize> + 'a {
+        promoter.find(ins).map(|(entry, data)| {
+            let pos: u64 =
+                if *data {
+                    ins.start() - entry.start()
+                } else {
+                    4000 - (entry.end() - 1 - ins.start())
+                };
+            pos as usize
+        })
+    }
+
+    let mut counts = [0; 4001];
+    fragments.for_each(|bed| match bed.strand {
+        None => {
+            let p1 = GenomicRange::new(bed.chrom(), bed.start(), bed.start() + 1);
+            let p2 = GenomicRange::new(bed.chrom(), bed.end() - 1, bed.end());
+            find_pos(promoter, &p1).for_each(|pos| counts[pos] += 1);
+            find_pos(promoter, &p2).for_each(|pos| counts[pos] += 1);
+        },
+        Some(Strand::Forward) => {
+            let p = GenomicRange::new(bed.chrom(), bed.start(), bed.start() + 1);
+            find_pos(promoter, &p).for_each(|pos| counts[pos] += 1);
+        },
+        Some(Strand::Reverse) => {
+            let p = GenomicRange::new(bed.chrom(), bed.end() - 1, bed.end());
+            find_pos(promoter, &p).for_each(|pos| counts[pos] += 1);
+        },
+    });
+    let bg_count: f64 =
+        ( counts[ .. 100].iter().sum::<u64>() +
+        counts[3901 .. 4001].iter().sum::<u64>() ) as f64 /
+        200.0 + 0.1;
+    let tss_enrichment = moving_average(5, &counts)
+        .max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap().div(bg_count);
+    tss_enrichment
 }
 
 /// Compute the fragment size distribution.

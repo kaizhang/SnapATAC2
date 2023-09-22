@@ -33,10 +33,10 @@ pub fn import_fragments<A, I>(
     anndata: &A,
     fragments: I,
     promoter: &BedTree<bool>,
+    mitochrondrial_dna: &HashSet<String>,
     chrom_sizes: &ChromSizes,
     white_list: Option<&HashSet<String>>,
     min_num_fragment: u64,
-    min_tsse: f64,
     chunk_size: usize,
 ) -> Result<()>
 where
@@ -76,9 +76,9 @@ where
                 let data: Vec<(String, Vec<Fragment>)> =
                     chunk.map(|(barcode, x)| (barcode, x.collect())).collect();
                 if is_paired {
-                    make_arraydata::<u32>(data, promoter, &genome_index, min_num_fragment, min_tsse, &mut scanned_barcodes, &mut saved_barcodes, &mut qc)
+                    make_arraydata::<u32>(data, promoter, mitochrondrial_dna, &genome_index, min_num_fragment, &mut scanned_barcodes, &mut saved_barcodes, &mut qc)
                 } else {
-                    make_arraydata::<i32>(data, promoter, &genome_index, min_num_fragment, min_tsse, &mut scanned_barcodes, &mut saved_barcodes, &mut qc)
+                    make_arraydata::<i32>(data, promoter, mitochrondrial_dna, &genome_index, min_num_fragment, &mut scanned_barcodes, &mut saved_barcodes, &mut qc)
                 }
             }),
     )?;
@@ -92,9 +92,9 @@ where
 fn make_arraydata<V>(
     data: Vec<(String, Vec<Fragment>)>,
     promoter: &BedTree<bool>,
+    mitochrondrial_dna: &HashSet<String>,
     genome_index: &GenomeBaseIndex,
     min_num_fragment: u64,
-    min_tsse: f64,
     scanned_barcodes: &mut HashSet<String>,
     saved_barcodes: &mut Vec<String>,
     qc: &mut Vec<QualityControl>,
@@ -106,7 +106,7 @@ where
     let num_features = genome_index.len();
     let result: Vec<_> = data
         .into_par_iter()
-        .map(|(barcode, x)| (barcode, count_fragments::<u32>(promoter, &genome_index, x)))
+        .map(|(barcode, x)| (barcode, count_fragments::<u32>(promoter, mitochrondrial_dna, &genome_index, x)))
         .collect();
     let counts = result
         .into_iter()
@@ -114,7 +114,7 @@ where
             if !scanned_barcodes.insert(barcode.clone()) {
                 panic!("Please sort fragment file by barcodes");
             }
-            if q.num_unique_fragment < min_num_fragment || q.tss_enrichment < min_tsse {
+            if q.num_unique_fragment < min_num_fragment {
                 return None;
             } else {
                 saved_barcodes.push(barcode);
@@ -129,6 +129,7 @@ where
 
 fn count_fragments<V>(
     promoter: &BedTree<bool>,
+    mitochrondrial_dna: &HashSet<String>,
     genome_index: &GenomeBaseIndex,
     fragments: Vec<Fragment>,
 ) -> (QualityControl, Vec<(usize, V)>)
@@ -136,7 +137,7 @@ where
     V: TryFrom<i64> + Ord,
     <V as TryFrom<i64>>::Error: std::fmt::Debug,
 {
-    let mut qc = FragmentSummary::new(promoter);
+    let mut qc = FragmentSummary::new(promoter, mitochrondrial_dna);
     let mut values = Vec::new();
     fragments.into_iter().for_each(|f| {
         qc.update(&f);
@@ -164,10 +165,6 @@ where
 
 fn qc_to_df(qc: Vec<QualityControl>) -> DataFrame {
     DataFrame::new(vec![
-        Series::new(
-            "tsse",
-            qc.iter().map(|x| x.tss_enrichment).collect::<Series>(),
-        ),
         Series::new(
             "n_fragment",
             qc.iter().map(|x| x.num_unique_fragment).collect::<Series>(),

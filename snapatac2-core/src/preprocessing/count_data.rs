@@ -14,6 +14,7 @@ pub use genome::{
 pub use matrix::{create_gene_matrix, create_tile_matrix, create_peak_matrix};
 
 use anndata::{container::{ChunkedArrayElem, StackedChunkedArrayElem}, ArrayElemOp};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use bed_utils::bed::{tree::BedTree, GenomicRange};
 use anndata::{AnnDataOp, ElemCollectionOp, AxisArraysOp, AnnDataSet, Backend, AnnData};
 use ndarray::Array2;
@@ -68,6 +69,15 @@ pub trait SnapData: AnnDataOp {
     }
 
     /// QC metrics for the data.
+
+    /// Compute TSS enrichment.
+    fn tss_enrichment(&self, promoter: &BedTree<bool>) -> Result<Vec<f64>> {
+        Ok(self.get_count_iter(2000)?.into_raw().flat_map(|(fragments, _, _)| {
+            fragments.into_par_iter()
+                .map(|x| qc::tss_enrichment(x.into_iter(), promoter))
+                .collect::<Vec<_>>()
+        }).collect())
+    }
 
     /// Compute the fragment size distribution.
     fn fragment_size_distribution(&self, max_size: usize) -> Result<Vec<usize>>;

@@ -58,6 +58,10 @@ def tsse(
         >>> fig = snap.pl.tsse(data, show=False, out_file=None)
         >>> fig.show()
     """
+    if "tsse" not in adata.obs:
+        logging.info("Computing TSS enrichment score...")
+        snapatac2.metrics.tsse(adata, inplace=True)
+
     selected_cells = np.where(adata.obs["n_fragment"] >= min_fragment)[0]
     x = adata.obs["n_fragment"][selected_cells]
     y = adata.obs["tsse"][selected_cells]

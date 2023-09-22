@@ -44,6 +44,7 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(preprocessing::mk_gene_matrix, m)?)?;
     m.add_function(wrap_pyfunction!(preprocessing::mk_peak_matrix, m)?)?;
 
+    m.add_function(wrap_pyfunction!(preprocessing::tss_enrichment, m)?)?;
     m.add_function(wrap_pyfunction!(preprocessing::add_frip, m)?)?;
     m.add_function(wrap_pyfunction!(preprocessing::fragment_size_distribution, m)?)?;
 

@@ -102,12 +102,21 @@ def test_make_fragment(datadir, tmp_path):
 def test_reproducibility(mat):
     adata = ad.AnnData(X=csr_matrix(mat))
     embeddings = []
-    for _ in range(5):
+    for _ in range(3):
         embeddings.append(snap.tl.spectral(adata, features=None, random_state=0, inplace=False)[1])
-
     for x in embeddings:
         np.testing.assert_array_equal(x, embeddings[0])
 
-    #knn = []
-    #for _ in range(5):
-    #    snap.pp.knn(adata, n_neighbors=25, random_state=2)
+    snap.tl.spectral(adata, features=None, random_state=0)
+    knn = []
+    for _ in range(3):
+        knn.append(snap.pp.knn(adata, random_state=0, n_neighbors=25, method='exact', inplace=False).todense())
+    for x in knn:
+        np.testing.assert_array_equal(x, knn[0])
+
+    snap.pp.knn(adata, random_state=0, n_neighbors=25, method='exact')
+    leiden = []
+    for _ in range(3):
+        leiden.append(snap.tl.leiden(adata, random_state=0, resolution=1, n_iterations=10, inplace=False))
+    for x in leiden:
+        np.testing.assert_array_equal(x, leiden[0])

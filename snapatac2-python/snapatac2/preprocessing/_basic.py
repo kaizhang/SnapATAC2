@@ -101,9 +101,9 @@ def import_data(
     gene_anno: Path | None = None,
     chrom_size: dict[str, int] | None = None,
     min_num_fragments: int = 200,
-    min_tsse: float = 1,
     sorted_by_barcode: bool = True,
     whitelist: Path | list[str] | None = None,
+    chrM: list[str] = ["chrM", "M"],
     shift_left: int = 0,
     shift_right: int = 0,
     chunk_size: int = 2000,
@@ -157,8 +157,6 @@ def import_data(
         Setting `chrom_size` will override the chrom_size from the `genome` parameter.
     min_num_fragments
         Number of unique fragments threshold used to filter cells
-    min_tsse
-        TSS enrichment threshold used to filter cells
     sorted_by_barcode
         Whether the fragment file has been sorted by cell barcodes.
         If `sorted_by_barcode == True`, this function makes use of small fixed amout of 
@@ -171,6 +169,9 @@ def import_data(
     shift_left
         Insertion site correction for the left end. This is set to 0 by default,
         as shift correction is usually done in the fragment file generation step.
+    chrM
+        A list of chromosome names that are considered mitochondrial DNA. This is
+        used to compute the fraction of mitochondrial DNA.
     shift_right
         Insertion site correction for the right end. Note this has no effect on single-end reads.
         For single-end reads, `shift_right` will be set using the value of `shift_left`.
@@ -205,7 +206,7 @@ def import_data(
     >>> data = snap.pp.import_data(snap.datasets.pbmc500(), genome=snap.genome.hg38, sorted_by_barcode=False)
     >>> print(data)
     AnnData object with n_obs × n_vars = 816 × 0
-        obs: 'tsse', 'n_fragment', 'frac_dup', 'frac_mito'
+        obs: 'n_fragment', 'frac_dup', 'frac_mito'
         uns: 'reference_sequences'
         obsm: 'fragment'
     """
@@ -237,8 +238,7 @@ def import_data(
             list(enumerate(adatas)),
             lambda x: internal.import_fragments(
                 x[1], fragment_file[x[0]], gene_anno, chrom_size, min_num_fragments,
-                min_tsse, sorted_by_barcode, shift_left, shift_right,
-                chunk_size, whitelist, tempdir,
+                sorted_by_barcode, shift_left, shift_right, chunk_size, whitelist, tempdir,
             ),
             n_jobs=n_jobs,
         )
@@ -246,9 +246,8 @@ def import_data(
     else:
         adata = ad.AnnData() if file is None else AnnData(filename=file, backend=backend)
         internal.import_fragments(
-            adata, fragment_file, gene_anno, chrom_size, min_num_fragments,
-            min_tsse, sorted_by_barcode, shift_left, shift_right,
-            chunk_size, whitelist, tempdir,
+            adata, fragment_file, gene_anno, chrom_size, chrM, min_num_fragments,
+            sorted_by_barcode, shift_left, shift_right, chunk_size, whitelist, tempdir,
         )
         return adata
 

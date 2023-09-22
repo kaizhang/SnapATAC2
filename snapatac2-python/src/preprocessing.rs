@@ -68,8 +68,8 @@ pub(crate) fn import_fragments(
     fragment_file: PathBuf,
     gtf_file: PathBuf,
     chrom_size: BTreeMap<&str, u64>,
+    mitochondrial_dna: Vec<String>,
     min_num_fragment: u64,
-    min_tsse: f64,
     fragment_is_sorted_by_name: bool,
     shift_left: i64,
     shift_right: i64,
@@ -79,6 +79,7 @@ pub(crate) fn import_fragments(
 ) -> Result<()>
 {
     let promoters = preprocessing::make_promoter_map(preprocessing::read_tss(open_file(gtf_file)));
+    let mitochondrial_dna: HashSet<String> = mitochondrial_dna.into_iter().collect();
     let final_white_list = if fragment_is_sorted_by_name || min_num_fragment <= 0 {
         white_list
     } else {
@@ -111,8 +112,8 @@ pub(crate) fn import_fragments(
     macro_rules! run {
         ($data:expr) => {
             preprocessing::import_fragments(
-                $data, sorted_fragments, &promoters, &chrom_sizes,
-                final_white_list.as_ref(), min_num_fragment, min_tsse, chunk_size,
+                $data, sorted_fragments, &promoters, &mitochondrial_dna, &chrom_sizes,
+                final_white_list.as_ref(), min_num_fragment, chunk_size,
             )?
         };
     }
@@ -270,6 +271,24 @@ pub(crate) fn mk_gene_matrix(
     }
     crate::with_anndata!(&anndata, run);
     Ok(())
+}
+
+/// QC metrics
+
+#[pyfunction]
+pub(crate) fn tss_enrichment(
+    anndata: AnnDataLike,
+    gtf_file: PathBuf,
+) -> Result<Vec<f64>>
+{
+    let promoters = preprocessing::make_promoter_map(preprocessing::read_tss(open_file(gtf_file)));
+
+    macro_rules! run {
+        ($data:expr) => {
+            $data.tss_enrichment(&promoters)
+        }
+    }
+    crate::with_anndata!(&anndata, run)
 }
 
 #[pyfunction]
