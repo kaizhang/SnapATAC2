@@ -18,22 +18,22 @@ jobs:
         run: echo "LATEST_COMMIT_SHA=$(git rev-parse HEAD)" >> $GITHUB_ENV
 
       - name: Check if there are new commits since the last run
-      id: check-commits
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        latest_run_commit_sha=$(curl --silent --header "Authorization: token $GITHUB_TOKEN" \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs" \
-            | jq -r '.workflow_runs[] | select(.name=="Nightly Run") | .head_sha | select(. != null)' | head -1)
+        id: check-commits
+        env:
+         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          latest_run_commit_sha=$(curl --silent --header "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/runs" \
+              | jq -r '.workflow_runs[] | select(.name=="Nightly Run") | .head_sha | select(. != null)' | head -1)
 
-        echo "Latest run was on commit: $latest_run_commit_sha"
-        echo "Current commit is: $LATEST_COMMIT_SHA"
+          echo "Latest run was on commit: $latest_run_commit_sha"
+          echo "Current commit is: $LATEST_COMMIT_SHA"
 
-        if [ "$latest_run_commit_sha" != "$LATEST_COMMIT_SHA" ]; then
-          echo "NEW_COMMITS=true" >> $GITHUB_ENV
-        else
-          echo "NEW_COMMITS=false" >> $GITHUB_ENV
-        fi
+          if [ "$latest_run_commit_sha" != "$LATEST_COMMIT_SHA" ]; then
+            echo "NEW_COMMITS=true" >> $GITHUB_ENV
+          else
+            echo "NEW_COMMITS=false" >> $GITHUB_ENV
+          fi
 
   conditional-job:
     runs-on: ubuntu-latest

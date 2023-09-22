@@ -1,6 +1,7 @@
 import snapatac2 as snap
 
 import numpy as np
+import anndata as ad
 import pandas as pd
 from pathlib import Path
 from natsort import natsorted
@@ -8,6 +9,7 @@ from collections import defaultdict
 import pytest
 from hypothesis import given, example, settings, HealthCheck, strategies as st
 from hypothesis.extra.numpy import *
+from scipy.sparse import csr_matrix
 
 from distutils import dir_util
 from pytest import fixture
@@ -89,3 +91,23 @@ def test_make_fragment(datadir, tmp_path):
         actual = sorted(fl.readlines())
     
     assert expected == actual
+
+@given(
+    mat = arrays(
+        np.float64, (50, 100),
+        elements = {"allow_subnormal": False, "allow_nan": False, "allow_infinity": False, "min_value": 1, "max_value": 100},
+    ),
+)
+@settings(deadline = None, suppress_health_check = [HealthCheck.function_scoped_fixture])
+def test_reproducibility(mat):
+    adata = ad.AnnData(X=csr_matrix(mat))
+    embeddings = []
+    for _ in range(5):
+        embeddings.append(snap.tl.spectral(adata, features=None, random_state=0, inplace=False)[1])
+
+    for x in embeddings:
+        np.testing.assert_array_equal(x, embeddings[0])
+
+    #knn = []
+    #for _ in range(5):
+    #    snap.pp.knn(adata, n_neighbors=25, random_state=2)

@@ -25,6 +25,7 @@ pub(crate) fn spectral_embedding<'py>(
     anndata: AnnDataLike,
     selected_features: &PyAny,
     n_components: usize,
+    random_state: i64,
     feature_weights: Option<Vec<f64>>,
 ) -> Result<(&'py PyArray1<f64>, &'py PyArray2<f64>)> {
     macro_rules! run {
@@ -38,7 +39,7 @@ pub(crate) fn spectral_embedding<'py>(
                 normalize(&mut mat, &weights);
             }
 
-            let (v, u, _) = spectral_mf(mat, n_components)?;
+            let (v, u, _) = spectral_mf(mat, n_components, random_state)?;
             anyhow::Ok((v, u))
         }};
     }
@@ -95,7 +96,7 @@ pub(crate) fn spectral_embedding_nystrom<'py>(
             normalize(&mut seed_mat, &weights);
 
             info!("Compute embeddings for {} landmarks...", sample_size);
-            let (v, mut u, d) = spectral_mf(seed_mat.clone(), n_components)?;
+            let (v, mut u, d) = spectral_mf(seed_mat.clone(), n_components, 0)?;
             info!("Apply Nystrom to out-of-sample data...");
             nystrom(
                 py,
@@ -124,6 +125,7 @@ pub(crate) fn spectral_embedding_nystrom<'py>(
 fn spectral_mf(
     mut input: CsrMatrix<f64>,
     n_components: usize,
+    random_state: i64,
 ) -> Result<(Array1<f64>, Array2<f64>, Array1<f64>)> {
     // Compute degrees.
     let mut col_sum = vec![0.0; input.ncols()];
@@ -145,15 +147,16 @@ fn spectral_mf(
     let (v, u) = Python::with_gil(|py| {
         let fun: Py<PyAny> = PyModule::from_code(
             py,
-            "def eigen(X, D, k):
+            "def eigen(X, D, k, seed):
                 from scipy.sparse.linalg import LinearOperator, eigsh
                 import numpy
+                numpy.random.seed(seed)
                 def f(v):
                     return X @ (v.T @ X).T - D * v
 
                 n = X.shape[0]
                 A = LinearOperator((n, n), matvec=f, dtype=numpy.float64)
-                evals, evecs = eigsh(A, k=k)
+                evals, evecs = eigsh(A, k=k, v0=numpy.random.rand(n))
                 ix = evals.argsort()[::-1]
                 evals = evals[ix]
                 evecs = evecs[:, ix]
@@ -167,6 +170,7 @@ fn spectral_mf(
             PyArrayData::from(ArrayData::from(input)),
             PyArray1::from_iter(py, degree_inv.into_iter().copied()),
             n_components,
+            random_state,
         );
         let result = fun.call1(py, args)?;
         let (evals, evecs): (&PyArray1<f64>, &PyArray2<f64>) = result.extract(py)?;
@@ -379,6 +383,7 @@ pub(crate) fn multi_spectral_embedding<'py>(
     selected_features: Vec<&PyAny>,
     weights: Vec<f64>,
     n_components: usize,
+    random_state: i64,
 ) -> Result<(&'py PyArray1<f64>, &'py PyArray2<f64>)> {
     info!("Compute normalized views...");
     let mats = anndata
@@ -425,7 +430,7 @@ pub(crate) fn multi_spectral_embedding<'py>(
         .unwrap();
 
     info!("Compute embedding...");
-    let (evals, evecs, _) = spectral_mf(mat, n_components)?;
+    let (evals, evecs, _) = spectral_mf(mat, n_components, random_state)?;
     Ok((
         PyArray1::from_owned_array(py, evals),
         PyArray2::from_owned_array(py, evecs),

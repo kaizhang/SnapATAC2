@@ -217,7 +217,7 @@ def spectral(
 
     if sample_size >= n_sample:
         if distance_metric == "cosine":
-            evals, evecs = spectral_embedding(adata, features, n_comps, feature_weights)
+            evals, evecs = spectral_embedding(adata, features, n_comps, random_state, feature_weights)
         else:
             if feature_weights is None:
                 feature_weights = idf(adata, features)
@@ -501,7 +501,7 @@ def multi_spectral(
     if weights is None:
         weights = [1.0 for _ in adatas]
 
-    evals, evecs = multi_spectral_embedding(adatas, features, weights, n_comps)
+    evals, evecs = multi_spectral_embedding(adatas, features, weights, n_comps, random_state)
 
     if weighted_by_sd:
         idx = [i for i in range(evals.shape[0]) if evals[i] > 0]
