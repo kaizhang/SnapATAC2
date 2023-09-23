@@ -8,20 +8,19 @@ def h5ad(dir=Path("./")):
     return str(dir / Path(str(uuid.uuid4()) + ".h5ad"))
 
 def test_exclude():
-    fragment_file = snap.datasets.pbmc500(True)
+    fragment_file = snap.datasets.pbmc500(downsample=True)
 
     chr_sizes = snap.genome.hg38.chrom_sizes
     chr_sizes.pop('chr1', None)
     chr_sizes.pop('chr10', None)
     data1 = snap.pp.import_data(
         fragment_file,
-        genome=snap.genome.hg38,
-        chrom_size=chr_sizes,
+        chrom_sizes=chr_sizes,
         sorted_by_barcode=False
     )
     snap.pp.add_tile_matrix(data1, exclude_chroms=None)
 
-    data2 = snap.pp.import_data(fragment_file, genome=snap.genome.hg38, sorted_by_barcode=False)
+    data2 = snap.pp.import_data(fragment_file, chrom_sizes=snap.genome.hg38, sorted_by_barcode=False)
     snap.pp.add_tile_matrix(data2, exclude_chroms=["chr1", "chr10"])
 
     np.testing.assert_array_equal(data1.X.data, data2.X.data)
@@ -29,6 +28,9 @@ def test_exclude():
     np.testing.assert_array_equal(data1.var_names, data2.var_names)
 
 def pipeline(data):
+    snap.metrics.frag_size_distr(data)
+    snap.metrics.tsse(data, snap.genome.hg38)
+
     snap.pp.add_tile_matrix(data)
 
     snap.pp.filter_cells(data)
@@ -41,27 +43,28 @@ def pipeline(data):
     snap.pp.knn(data)
     snap.tl.leiden(data)
 
+    snap.tl.macs3(data, groupby="leiden")
+    snap.tl.merge_peaks(data.uns["macs3"], snap.genome.hg38)
+
     snap.pp.make_gene_matrix(data, gene_anno=snap.genome.hg38)
 
-    snap.tl.call_peaks(data, groupby="leiden")
-
 def test_backed(tmp_path):
-    fragment_file = snap.datasets.pbmc500(True)
+    fragment_file = snap.datasets.pbmc500(downsample=True)
 
     data = snap.pp.import_data(
         fragment_file,
-        genome=snap.genome.hg38,
+        chrom_sizes=snap.genome.hg38,
         file=h5ad(tmp_path),
         sorted_by_barcode=False,
     )
     pipeline(data)
 
 def test_in_memory():
-    fragment_file = snap.datasets.pbmc500(True)
+    fragment_file = snap.datasets.pbmc500(downsample=True)
 
     data = snap.pp.import_data(
         fragment_file,
-        genome=snap.genome.hg38,
+        chrom_sizes=snap.genome.hg38,
         sorted_by_barcode=False,
     )
     pipeline(data)

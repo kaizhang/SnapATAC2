@@ -81,7 +81,7 @@ def datasets():
         )
     return _datasets
 
-def pbmc500(type: Literal["fragment, bam"]="fragment", downsampled: bool = False) -> Path:
+def pbmc500(type: Literal["fragment, bam"]="fragment", downsample: bool = False) -> Path:
     """scATAC-seq dataset of 500 PBMCs from 10x Genomics.
 
     This function returns the path to the fragment file of the 10X scATAC-seq dataset
@@ -103,7 +103,7 @@ def pbmc500(type: Literal["fragment, bam"]="fragment", downsampled: bool = False
         Path to the fragment file.
     """
     if type == "fragment":
-        if downsampled:
+        if downsample:
             return Path(datasets().fetch("atac_pbmc_500_downsample.tsv.gz"))
         else:
             return Path(datasets().fetch("atac_pbmc_500.tsv.gz"))

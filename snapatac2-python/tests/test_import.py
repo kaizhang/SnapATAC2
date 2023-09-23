@@ -13,13 +13,12 @@ def read_bed(bed_file):
         return sorted([line.strip().split('\t')[:4] for line in f if line.startswith('chr')])
 
 def test_in_memory():
-    fragment_file = snap.datasets.pbmc500(True)
+    fragment_file = snap.datasets.pbmc500(downsample=True)
 
     data = snap.pp.import_data(
         fragment_file,
-        genome=snap.genome.hg38,
+        chrom_sizes=snap.genome.hg38,
         min_num_fragments=0,
-        min_tsse=0,
         sorted_by_barcode=False,
     )
 

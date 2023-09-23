@@ -84,9 +84,9 @@ fn dataframe_to_narrow_peaks(df: &DataFrame) -> Result<Vec<NarrowPeak>> {
             chrom: chroms.get(i).map(|x| x.to_string()).unwrap(),
             start: starts.get(i).unwrap(),
             end: ends.get(i).unwrap(),
-            name: names.get(i).map(|x| x.to_string()),
+            name: names.get(i).and_then(|x| if x == "." { None } else { Some(x.to_string()) }),
             score: scores.get(i).map(|x| x.try_into().unwrap()),
-            strand: strands.get(i).map(|x| x.to_string().parse().unwrap()),
+            strand: strands.get(i).and_then(|x| if x == "." { None } else { Some(x.parse().unwrap()) }),
             signal_value: signal_values.get(i).unwrap(),
             p_value: p_values.get(i).unwrap(),
             q_value: q_values.get(i).unwrap(),
@@ -114,9 +114,9 @@ fn narrow_peak_to_dataframe<I: IntoIterator<Item = NarrowPeak>>(narrow_peaks: I)
         chroms.push(narrow_peak.chrom);
         starts.push(narrow_peak.start);
         ends.push(narrow_peak.end);
-        names.push(narrow_peak.name);
+        names.push(narrow_peak.name.unwrap_or(".".to_string()));
         scores.push(narrow_peak.score.map(|x| u16::from(x)));
-        strands.push(narrow_peak.strand.map(|x| x.to_string()));
+        strands.push(narrow_peak.strand.map_or(".".to_string(), |x| x.to_string()));
         signal_values.push(narrow_peak.signal_value);
         p_values.push(narrow_peak.p_value);
         q_values.push(narrow_peak.q_value);
