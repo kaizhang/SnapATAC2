@@ -54,6 +54,7 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(call_peaks::create_fwtrack_obj, m)?)?;
     m.add_function(wrap_pyfunction!(call_peaks::fetch_peaks, m)?)?;
     m.add_function(wrap_pyfunction!(call_peaks::py_merge_peaks, m)?)?;
+    m.add_function(wrap_pyfunction!(call_peaks::find_reproducible_peaks, m)?)?;
 
     m.add_function(wrap_pyfunction!(network::link_region_to_gene, m)?)?;
 

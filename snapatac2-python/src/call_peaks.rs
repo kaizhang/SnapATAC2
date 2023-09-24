@@ -3,6 +3,8 @@ use bed_utils::bed::{Strand, NarrowPeak};
 use indicatif::{ProgressStyle, ProgressIterator};
 use itertools::Itertools;
 use polars::prelude::TakeRandom;
+use rayon::prelude::ParallelBridge;
+use rayon::prelude::ParallelIterator;
 use snapatac2_core::utils::clip_peak;
 use snapatac2_core::utils::merge_peaks;
 use snapatac2_core::preprocessing::SnapData;
@@ -45,6 +47,29 @@ pub fn py_merge_peaks<'py>(
         Series::new(key.as_str(), values)
     });
     Ok(DataFrame::new(std::iter::once(peaks_str).chain(iter).collect())?.into())
+}
+
+#[pyfunction]
+pub fn find_reproducible_peaks<'py>(
+    peaks: HashMap<String, PyDataFrame>,
+    replicates: HashMap<String, Vec<PyDataFrame>>,
+) -> Result<HashMap<String, PyDataFrame>> {
+    replicates.into_iter().par_bridge().map(|(k, v)| {
+        let reps = v.into_iter().map(|x| dataframe_to_narrow_peaks(&x.into()).unwrap()).collect::<Vec<_>>();
+        let peak = dataframe_to_narrow_peaks(peaks.get(&k).unwrap().deref())?;
+        Ok((k, narrow_peak_to_dataframe(reproducible_peaks(peak, reps))?.into()))
+    }).collect()
+}
+
+fn reproducible_peaks<'py>(
+    peaks: Vec<NarrowPeak>,
+    replicates: Vec<Vec<NarrowPeak>>,
+) -> Vec<NarrowPeak> {
+    let replicates = replicates
+        .into_iter()
+        .map(|x| BedTree::from_iter(x.into_iter().map(|x| (x, ()))))
+        .collect::<Vec<_>>();
+    peaks.into_iter().filter(|x| replicates.iter().all(|y| y.is_overlapped(x))).collect()
 }
 
 #[pyfunction]

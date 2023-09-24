@@ -11,7 +11,7 @@ homepage = "https://github.com/"
 keywords = ["single-cell", "biology"]
 
 [dependencies]
-anndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "f971f0ea33398d37665b1f9004845d6fb819747e" }
+anndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "7279f0a8a2bf8a40aef5067af6dd2b4dca44a437" }
 anyhow = "1.0"
 bigtools = "0.1"
 bincode = "1.3"

@@ -9,9 +9,12 @@ from snapatac2.genome import Genome
 def macs3(
     adata: AnnData | AnnDataSet,
     groupby: str | list[str],
-    selections: set[str] | None = None,
+    *,
     q_value: float = 0.05,
+    replicate: str | list[str] | None = None,
+    replicate_q_value: float | None = None,
     max_frag_size: int | None = None,
+    selections: set[str] | None = None,
     nolambda: bool = False,
     shift: int = -100,
     extsize: int = 200,
@@ -35,10 +38,16 @@ def macs3(
     groupby
         Group the cells before peak calling. If a `str`, groups are obtained from
         `.obs[groupby]`.
-    selections
-        Call peaks for the selected groups only.
     q_value
         q_value cutoff used in MACS3.
+    replicate
+        Replicate information. If provided, reproducible peaks will be called
+        for each group.
+    replicate_q_value
+        q_value cutoff used in MACS3 for calling peaks in replicates.
+        This parameter is only used when `replicate` is provided.
+        Typically this parameter is used to call peaks in replicates with a more lenient cutoff.
+        If not provided, `q_value` will be used.
     max_frag_size
         Maximum fragment size. If provided, fragments with sizes larger than
         `max_frag_size` will be not be used in peak calling.
@@ -46,6 +55,8 @@ def macs3(
         from nucleosome-free regions.
         You can use :func:`~snapatac2.pl.frag_size_distr` to choose a proper value for
         this parameter.
+    selections
+        Call peaks for the selected groups only.
     nolambda
         Whether to use the `--nolambda` option in MACS.
     shift
@@ -119,8 +130,31 @@ def macs3(
 
     logging.info("Calling peaks...")
     with Pool(n_jobs) as p:
-        result = list(tqdm(p.imap(_call_peaks, list(fw_tracks.values())), total=len(fw_tracks)))
-        peaks = _snapatac2.fetch_peaks({k: v for k, v in zip(fw_tracks.keys(), result)}, blacklist)
+        peaks = list(tqdm(p.imap(_call_peaks, list(fw_tracks.values())), total=len(fw_tracks)))
+        peaks = _snapatac2.fetch_peaks({k: v for k, v in zip(fw_tracks.keys(), peaks)}, blacklist)
+
+    if replicate is not None:
+        if replicate_q_value is not None:
+            options.log_qvalue = log(replicate_q_value, 10) * -1
+        if isinstance(replicate, str):
+            replicate = list(adata.obs[replicate])
+        logging.info("Calling peaks for replicates...")
+        max_len = max([len(x) for x in groupby])
+        deliminator = "_" * (max_len + 1)
+        groupby = [f"{x}{deliminator}{y}" for x, y in zip(groupby, replicate)]
+        fw_tracks = _snapatac2.create_fwtrack_obj(adata, groupby, max_frag_size, selections)
+        with Pool(n_jobs) as p:
+            replicate_peaks = list(tqdm(p.imap(_call_peaks, list(fw_tracks.values())), total=len(fw_tracks)))
+            replicate_peaks = _snapatac2.fetch_peaks({k: v for k, v in zip(fw_tracks.keys(), replicate_peaks)}, blacklist)
+        replicates = {}
+        for k, v in replicate_peaks.items():
+            k = k.split(deliminator, 1)[0]
+            if k not in replicates:
+                replicates[k] = [v]
+            else:
+                replicates[k].append(v)
+        logging.info("Calling reproducible peaks...")
+        peaks = _snapatac2.find_reproducible_peaks(peaks, replicates)
 
     if inplace:
         if adata.isbacked:
