@@ -10,9 +10,9 @@ def macs3(
     adata: AnnData | AnnDataSet,
     groupby: str | list[str],
     *,
-    q_value: float = 0.05,
+    qvalue: float = 0.05,
     replicate: str | list[str] | None = None,
-    replicate_q_value: float | None = None,
+    replicate_qvalue: float | None = None,
     max_frag_size: int | None = None,
     selections: set[str] | None = None,
     nolambda: bool = False,
@@ -20,6 +20,7 @@ def macs3(
     extsize: int = 200,
     blacklist: Path | None = None,
     key_added: str = 'macs3',
+    tempdir: Path | None = None,
     inplace: bool = True,
     n_jobs: int = 8,
 ) -> dict[str, 'polars.DataFrame'] | None:
@@ -38,16 +39,16 @@ def macs3(
     groupby
         Group the cells before peak calling. If a `str`, groups are obtained from
         `.obs[groupby]`.
-    q_value
-        q_value cutoff used in MACS3.
+    qvalue
+        qvalue cutoff used in MACS3.
     replicate
         Replicate information. If provided, reproducible peaks will be called
         for each group.
-    replicate_q_value
-        q_value cutoff used in MACS3 for calling peaks in replicates.
+    replicate_qvalue
+        qvalue cutoff used in MACS3 for calling peaks in replicates.
         This parameter is only used when `replicate` is provided.
         Typically this parameter is used to call peaks in replicates with a more lenient cutoff.
-        If not provided, `q_value` will be used.
+        If not provided, `qvalue` will be used.
     max_frag_size
         Maximum fragment size. If provided, fragments with sizes larger than
         `max_frag_size` will be not be used in peak calling.
@@ -72,6 +73,9 @@ def macs3(
         afterwards.
     key_added
         `.uns` key under which to add the peak information.
+    tempdir
+        If provided, a temporary directory will be created in the directory.
+        Otherwise, a temporary directory will be created in the system default temporary directory.
     inplace
         Whether to store the result inplace.
     n_jobs
@@ -87,18 +91,24 @@ def macs3(
     from math import log
     from multiprocess import Pool
     from tqdm import tqdm
+    import tempfile
 
     if isinstance(groupby, str):
         groupby = list(adata.obs[groupby])
-    
-    logging.info("Counting fragments...")
-    fw_tracks = _snapatac2.create_fwtrack_obj(adata, groupby, max_frag_size, selections)
+    if replicate is not None and isinstance(replicate, str):
+        replicate = list(adata.obs[replicate])
+    if tempdir is None:
+        tempdir = Path(tempfile.mkdtemp())
+    else:
+        tempdir = Path(tempfile.mkdtemp(dir=tempdir))
 
+    logging.info("Exporting fragments...")
+    fragments = _snapatac2.export_tags(adata, tempdir, groupby, replicate, max_frag_size, selections)
+    
     options = type('MACS3_OPT', (), {})()
     options.info = lambda _: None
     options.debug = lambda _: None
     options.warn = logging.warn
-    options.log_qvalue = log(q_value, 10) * -1
     options.log_pvalue = None
     options.PE_MODE = False
     options.maxgap = 30
@@ -122,40 +132,33 @@ def macs3(
     options.d = extsize
     options.scanwindow = 2 * options.d
 
-    def _call_peaks(fwt):
-        peakdetect = PeakDetect(treat=fwt, opt=options)
+    def _call_peaks(tags):
+
+        merged, reps = _snapatac2.create_fwtrack_obj(tags)
+        options.log_qvalue = log(qvalue, 10) * -1
+        logging.getLogger().setLevel(logging.CRITICAL + 1)
+        peakdetect = PeakDetect(treat=merged, opt=options)
         peakdetect.call_peaks()
         peakdetect.peaks.filter_fc(fc_low = options.fecutoff)
-        return peakdetect.peaks
+        merged = peakdetect.peaks
+
+        others = []
+        if replicate_qvalue is not None:
+            options.log_qvalue = log(replicate_qvalue, 10) * -1
+        for x in reps:
+            peakdetect = PeakDetect(treat=x, opt=options)
+            peakdetect.call_peaks()
+            peakdetect.peaks.filter_fc(fc_low = options.fecutoff)
+            others.append(peakdetect.peaks)
+        
+        logging.getLogger().setLevel(logging.INFO)
+        return _snapatac2.find_reproducible_peaks(merged, others, blacklist)
 
     logging.info("Calling peaks...")
     with Pool(n_jobs) as p:
-        peaks = list(tqdm(p.imap(_call_peaks, list(fw_tracks.values())), total=len(fw_tracks)))
-        peaks = _snapatac2.fetch_peaks({k: v for k, v in zip(fw_tracks.keys(), peaks)}, blacklist)
+        peaks = list(tqdm(p.imap(_call_peaks, list(fragments.values())), total=len(fragments)))
 
-    if replicate is not None:
-        if replicate_q_value is not None:
-            options.log_qvalue = log(replicate_q_value, 10) * -1
-        if isinstance(replicate, str):
-            replicate = list(adata.obs[replicate])
-        logging.info("Calling peaks for replicates...")
-        max_len = max([len(x) for x in groupby])
-        deliminator = "_" * (max_len + 1)
-        groupby = [f"{x}{deliminator}{y}" for x, y in zip(groupby, replicate)]
-        fw_tracks = _snapatac2.create_fwtrack_obj(adata, groupby, max_frag_size, selections)
-        with Pool(n_jobs) as p:
-            replicate_peaks = list(tqdm(p.imap(_call_peaks, list(fw_tracks.values())), total=len(fw_tracks)))
-            replicate_peaks = _snapatac2.fetch_peaks({k: v for k, v in zip(fw_tracks.keys(), replicate_peaks)}, blacklist)
-        replicates = {}
-        for k, v in replicate_peaks.items():
-            k = k.split(deliminator, 1)[0]
-            if k not in replicates:
-                replicates[k] = [v]
-            else:
-                replicates[k].append(v)
-        logging.info("Calling reproducible peaks...")
-        peaks = _snapatac2.find_reproducible_peaks(peaks, replicates)
-
+    peaks = {k: v for k, v in zip(fragments.keys(), peaks)}
     if inplace:
         if adata.isbacked:
             adata.uns[key_added] = peaks
