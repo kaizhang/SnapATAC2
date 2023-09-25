@@ -12,7 +12,7 @@ use tempfile::Builder;
 use rayon::iter::{ParallelIterator, IntoParallelIterator};
 use which::which;
 use bed_utils::bed::{BEDLike, BedGraph, merge_sorted_bed_with};
-use bigtools::{bigwig::bigwigwrite::BigWigWrite, bed::bedparser::BedParser};
+use bigtools::{bbi::bigwigwrite::BigWigWrite, bed::bedparser::BedParser};
 use futures::executor::ThreadPool;
 use indicatif::{ProgressIterator, style::ProgressStyle};
 
@@ -206,16 +206,16 @@ where
         // write to bigwig file
         BigWigWrite::create_file(filename.as_path().to_str().unwrap().to_string()).write(
             chrom_sizes.clone(),
-            bigtools::bed::bedparser::BedParserStreamingIterator::new(
+            bigtools::bbi::bedchromdata::BedParserStreamingIterator::new(
                 BedParser::wrap_iter(bedgraph.into_iter().map(|x| {
-                    let val = bigtools::bigwig::Value {
+                    let val = bigtools::bbi::Value {
                         start: x.start() as u32,
                         end: x.end() as u32,
                         value: x.value,
                     };
-                    Ok((x.chrom().to_string(), val))
+                    let res: Result<_, bigtools::bed::bedparser::BedValueError> = Ok((x.chrom().to_string(), val));
+                    res
                 })),
-                chrom_sizes.clone(),
                 false,
             ),
             ThreadPool::new().unwrap(),

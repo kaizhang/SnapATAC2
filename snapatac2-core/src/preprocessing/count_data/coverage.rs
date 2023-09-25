@@ -77,7 +77,7 @@ where
                     let row_offsets = mat.row_offsets();
                     let col_indices = mat.col_indices();
                     let values = mat.values();
-                    (0..(row_offsets.len() - 1)).map(|i| {
+                    (0..(row_offsets.len() - 1)).into_par_iter().map(|i| {
                         let row_start = row_offsets[i];
                         let row_end = row_offsets[i + 1];
                         (row_start..row_end).map(|j| {
@@ -111,7 +111,7 @@ where
                     let row_offsets = mat.row_offsets();
                     let col_indices = mat.col_indices();
                     let values = mat.values();
-                    (0..(row_offsets.len() - 1)).map(|i| {
+                    (0..(row_offsets.len() - 1)).into_par_iter().map(|i| {
                         let row_start = row_offsets[i];
                         let row_end = row_offsets[i + 1];
                         (row_start..row_end).map(|j| {
