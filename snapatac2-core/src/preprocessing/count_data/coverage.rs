@@ -1,5 +1,6 @@
 use crate::preprocessing::count_data::genome::{FeatureCounter, GenomeBaseIndex, ChromSizes};
 
+use std::collections::HashMap;
 use anndata::data::{utils::to_csr_data, CsrNonCanonical};
 use bed_utils::bed::{BEDLike, BED, Strand, GenomicRange};
 use nalgebra_sparse::{CsrMatrix, pattern::SparsityPattern};
@@ -128,6 +129,25 @@ where
                 },
             };
             (beds, a, b)
+        })
+    }
+
+    pub fn into_raw_groups<F, K>(self, key: F) -> impl ExactSizeIterator<Item = HashMap<K, Vec<BED<6>>>>
+    where
+        F: Fn(usize) -> K,
+        K: Eq + PartialEq + std::hash::Hash,
+    {
+        self.into_raw().map(move |(vals, start, _)| {
+            let mut ordered = HashMap::new();
+            vals.into_iter().enumerate().for_each(|(i, xs)| {
+                let k = key(start + i);
+                ordered
+                    .entry(k)
+                    .or_insert_with(Vec::new)
+                    .extend(xs.into_iter());
+            });
+
+            ordered
         })
     }
 

@@ -5,12 +5,11 @@ use flate2::{Compression, write::GzEncoder};
 use itertools::Itertools;
 use log::info;
 use std::{
-    fs::File, io::{BufReader, BufWriter, BufRead, Write},
-    path::{Path, PathBuf}, collections::{BTreeMap, HashMap, HashSet}, process::Command,
+    sync::{Arc, Mutex},
+    fs::File, io::{BufWriter, Write},
+    path::{Path, PathBuf}, collections::{BTreeMap, HashMap, HashSet},
 };
-use tempfile::Builder;
-use rayon::iter::{ParallelIterator, IntoParallelIterator};
-use which::which;
+use rayon::iter::{ParallelBridge, ParallelIterator};
 use bed_utils::bed::{BEDLike, BedGraph, merge_sorted_bed_with};
 use bigtools::{bbi::bigwigwrite::BigWigWrite, bed::bedparser::BedParser};
 use futures::executor::ThreadPool;
@@ -33,36 +32,51 @@ pub trait Exporter: SnapData {
         if let Some(select) = selections { groups.retain(|x| select.contains(x)); }
         std::fs::create_dir_all(&dir)
             .with_context(|| format!("cannot create directory: {}", dir.as_ref().display()))?;
-        let mut files = groups.into_iter().map(|x| {
+        let files = groups.into_iter().map(|x| {
             let filename = dir.as_ref().join(
                 prefix.to_string() + x.replace("/", "+").as_str() + suffix
             );
-            let f = BufWriter::with_capacity(
+            let buffer = BufWriter::with_capacity(
                 1024*1024,
                 File::create(&filename).with_context(|| format!("cannot create file: {}", filename.display()))?,
             );
-            let e: Box<dyn Write> = if filename.extension().unwrap() == "gz" {
-                Box::new(GzEncoder::new(f, Compression::default()))
+            let writer: Box<dyn Write + Send> = if filename.extension().unwrap() == "gz" {
+                Box::new(GzEncoder::new(buffer, Compression::default()))
             } else {
-                Box::new(f)
+                Box::new(buffer)
             };
-            Ok((x, (filename, e)))
+            Ok((x, (filename, Arc::new(Mutex::new(writer)))))
         }).collect::<Result<HashMap<_, _>>>()?;
 
         let style = ProgressStyle::with_template("[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})")?;
-        self.get_count_iter(500)?.into_raw().progress_with_style(style).try_for_each(|(beds, start, _)|
-            beds.into_iter().enumerate().try_for_each::<_, Result<_>>(|(i, xs)| {
-                if let Some((_, fl)) = files.get_mut(group_by[start + i]) {
-                    xs.into_iter().try_for_each(|mut bed| {
-                        if let Some(barcodes_) = barcodes {
-                            bed.name = Some(barcodes_[start + i].to_string());
-                        }
-                        writeln!(fl, "{}", bed)
-                    })?;
-                }
-                Ok(())
+        self.get_count_iter(1000)?.into_raw()
+            .progress_with_style(style)
+            .map(move |(vals, start, _)| {
+                let mut ordered = HashMap::new();
+                vals.into_iter().enumerate().for_each(|(i, xs)| {
+                    let k = group_by[start + i];
+                    let entry = ordered
+                        .entry(k)
+                        .or_insert_with(Vec::new);
+                    if let Some(barcodes_) = barcodes {
+                        let bc = barcodes_[start + i];
+                        entry.extend(xs.into_iter().map(|mut x| {
+                            x.name = Some(bc.to_string());
+                            x
+                        }));
+                    } else {
+                        entry.extend(xs.into_iter());
+                    }
+                });
+                ordered
             })
-        )?;
+            .try_for_each(|vals| vals.into_iter().par_bridge().try_for_each(|(k, beds)| {
+                if let Some((_, fl)) = files.get(k) {
+                    let mut fl = fl.lock().unwrap();
+                    beds.into_iter().try_for_each(|x| writeln!(fl, "{}", x))?;
+                }
+                anyhow::Ok(())
+            }))?;
         Ok(files.into_iter().map(|(k, (v, _))| (k.to_string(), v)).collect())
     }
 
@@ -78,39 +92,6 @@ pub trait Exporter: SnapData {
         export_insertions_as_bigwig(
             self.get_count_iter(500)?, group_by, selections, resolution, dir, prefix, suffix,
         )
-    }
-
-    fn call_peaks<P: AsRef<Path> + std::marker::Sync>(
-        &self,
-        q_value: f64,
-        group_by: &Vec<&str>,
-        selections: Option<HashSet<&str>>,
-        dir: P,
-        prefix: &str,
-        suffix:&str,
-        nolambda: bool,
-        shift: i64,
-        extension_size: i64,
-    ) -> Result<HashMap<String, PathBuf>>
-    {
-        // Check if the command is in the PATH
-        ensure!(
-            which("macs2").is_ok(),
-            "Cannot find macs2; please make sure macs2 has been installed"
-        );
-
-        std::fs::create_dir_all(&dir)?;
-        info!("Exporting data...");
-        let files = self.export_bed(None, group_by, selections, &dir, "", "_insertion.bed.gz")?;
-        let genome_size = self.read_chrom_sizes()?.into_iter().map(|(_, v)| v).sum();
-        info!("Calling peaks for {} groups ...", files.len());
-        files.into_par_iter().map(|(key, fl)| {
-            let out_file = dir.as_ref().join(
-                prefix.to_string() + key.as_str().replace("/", "+").as_str() + suffix
-            );
-            macs2(fl, q_value, genome_size, nolambda, shift, extension_size, &dir, &out_file)?;
-            Ok((key, out_file))
-        }).collect()
     }
 }
 
@@ -224,66 +205,3 @@ where
         Ok((grp.to_string(), filename))
     }).collect()
 }
-
-/// Call peaks using macs2.
-fn macs2<P1, P2, P3>(
-    bed_file: P1,
-    q_value: f64,
-    genome_size: u64,
-    nolambda: bool,
-    shift: i64,
-    extension_size: i64,
-    tmp_dir: P2,
-    out_file: P3,
-) -> Result<()>
-where
-    P1: AsRef<Path>,
-    P2: AsRef<Path>,
-    P3: AsRef<Path>,
-{
-    let dir = Builder::new().tempdir_in(tmp_dir)?;
-
-    let cmd_out = Command::new("macs2").args([
-        "callpeak",
-        "-f", "BED",
-        "-t", bed_file.as_ref().to_str().unwrap(),
-        "--keep-dup", "all",
-        "--outdir", format!("{}", dir.path().display()).as_str(),
-        "--qvalue", format!("{}", q_value).as_str(),
-        "-g", format!("{}", (genome_size as f64 * 0.9).round()).as_str(),
-        "--call-summits",
-        "--nomodel",
-        "--shift", format!("{}", shift).as_str(),
-        "--extsize", format!("{}", extension_size).as_str(),
-        if nolambda { "--nolambda" } else { "" },
-        "--tempdir", format!("{}", dir.path().display()).as_str(),
-    ]).output().context("failed to execute macs2 command")?;
-
-    ensure!(
-        cmd_out.status.success(),
-        format!("macs2 error:\n{}", std::str::from_utf8(&cmd_out.stderr).unwrap()),
-    );
-
-    let peak_file = dir.path().join("NA_peaks.narrowPeak");
-    let reader = BufReader::new(File::open(&peak_file)
-        .context(format!("Cannot open file for read: {}", peak_file.display()))?
-    );
-    let mut writer: Box<dyn Write> = if out_file.as_ref().extension().unwrap() == "gz" {
-        Box::new(BufWriter::new(GzEncoder::new(
-            File::create(out_file)?,
-            Compression::default(),
-        )))
-    } else {
-        Box::new(BufWriter::new(File::create(out_file)?))
-    };
-    for x in reader.lines() {
-        let x_ = x?;
-        let mut strs: Vec<_> = x_.split("\t").collect();
-        if strs[4].parse::<u64>().unwrap() > 1000 {
-            strs[4] = "1000";
-        }
-        write!(writer, "{}\n", strs.into_iter().join("\t"))?;
-    }
-    Ok(())
-}
- 

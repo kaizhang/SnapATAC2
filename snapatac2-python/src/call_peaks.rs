@@ -10,6 +10,8 @@ use snapatac2_core::preprocessing::SnapData;
 use snapatac2_core::utils::clip_peak;
 use snapatac2_core::utils::merge_peaks;
 
+use rayon::iter::{ParallelBridge, ParallelIterator};
+use std::sync::{Arc, Mutex};
 use anndata::Backend;
 use anndata_hdf5::H5;
 use anyhow::{ensure, Result};
@@ -26,7 +28,6 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::io::Write;
 use std::{collections::HashMap, ops::Deref, path::PathBuf};
-use tempfile::Builder;
 
 #[pyfunction]
 pub fn py_merge_peaks<'py>(
@@ -337,22 +338,25 @@ fn _export_tags<D: SnapData, P: AsRef<std::path::Path>>(
     max_frag_size: Option<u64>,
     selections: Option<HashSet<&str>>,
 ) -> Result<HashMap<String, Vec<PathBuf>>> {
+    // Get keys
     ensure!(data.n_obs() == group_by.len(), "lengths differ");
-    let mut groups: HashSet<(&str, &str)> = match replicates {
+    let keys: Vec<(&str, &str)> = match replicates {
         Some(rep) => group_by
             .iter()
             .zip(rep.iter())
             .map(|(x, y)| (*x, *y))
-            .unique()
             .collect(),
-        None => group_by.iter().map(|x| (*x, "")).unique().collect(),
+        None => group_by.iter().map(|x| (*x, "")).collect(),
     };
+    let mut unique_keys: HashSet<(&str, &str)> = keys.iter().cloned().unique().collect();
+
+    // Create output files
     if let Some(select) = selections {
-        groups.retain(|x| select.contains(x.0));
+        unique_keys.retain(|x| select.contains(x.0));
     }
     std::fs::create_dir_all(dir.as_ref())
         .with_context(|| format!("cannot create directory: {}", dir.as_ref().display()))?;
-    let mut files = groups
+    let files = unique_keys
         .into_iter()
         .map(|(a, b)| {
             let filename = dir.as_ref().join(&format!(
@@ -366,32 +370,33 @@ fn _export_tags<D: SnapData, P: AsRef<std::path::Path>>(
                     .with_context(|| format!("cannot create file: {}", filename.display()))?,
             );
             let writer = GzEncoder::new(buf, Compression::default());
-            Ok(((a, b), (filename, writer)))
+            let val = (filename, Arc::new(Mutex::new(writer)));
+            Ok(((a, b), val))
         })
         .collect::<Result<HashMap<_, _>>>()?;
 
+    // Export
     let style = ProgressStyle::with_template(
         "[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})",
     )?;
-    data.get_count_iter(500)?
-        .into_raw()
+    data.get_count_iter(1000)?
+        .into_raw_groups(|x| keys[x])
         .progress_with_style(style)
-        .try_for_each(|(vals, start, _)| {
-            vals.into_iter()
-                .enumerate()
-                .try_for_each::<_, Result<_>>(|(i, beds)| {
-                    let key = (group_by[start + i], replicates.map_or("", |x| x[start + i]));
-                    if let Some((_, fl)) = files.get_mut(&key) {
-                        beds.into_iter().try_for_each(|x| {
-                            if x.strand().is_some() || max_frag_size.map_or(true, |s| s >= x.len())
-                            {
-                                writeln!(fl, "{}", x)?;
-                            }
-                            anyhow::Ok(())
-                        })?;
-                    }
-                    Ok(())
-                })
+        .try_for_each(|vals| {
+            vals.into_iter().par_bridge().try_for_each(|(i, beds)| {
+                if let Some((_, fl)) = files.get(&i) {
+                    let mut fl = fl.lock().unwrap();
+                    beds.into_iter().try_for_each(|bed| {
+                        if bed.strand().is_some()
+                            || max_frag_size.map_or(true, |s| s >= bed.len())
+                        {
+                            writeln!(fl, "{}", bed)?;
+                        }
+                        anyhow::Ok(())
+                    })?;
+                }
+                anyhow::Ok(())
+            })
         })?;
     let mut result = HashMap::new();
     files.into_iter().for_each(|((a, _), (filename, _))| {
