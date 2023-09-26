@@ -33,6 +33,7 @@ use std::{collections::HashMap, ops::Deref, path::PathBuf};
 pub fn py_merge_peaks<'py>(
     peaks: HashMap<String, PyDataFrame>,
     chrom_sizes: HashMap<String, u64>,
+    half_width: u64,
 ) -> Result<PyDataFrame> {
     let peak_list: Vec<_> = peaks
         .into_iter()
@@ -43,7 +44,7 @@ pub fn py_merge_peaks<'py>(
         .collect::<Result<_>>()?;
 
     let chrom_sizes = chrom_sizes.into_iter().collect();
-    let peaks: Vec<_> = merge_peaks(peak_list.iter().flat_map(|x| x.1.clone()), 250)
+    let peaks: Vec<_> = merge_peaks(peak_list.iter().flat_map(|x| x.1.clone()), half_width)
         .flatten()
         .map(|x| clip_peak(x, &chrom_sizes))
         .collect();
@@ -128,7 +129,7 @@ fn dataframe_to_narrow_peaks(df: &DataFrame) -> Result<Vec<NarrowPeak>> {
     let starts = df.column("start").unwrap().u64()?;
     let ends = df.column("end").unwrap().u64()?;
     let names = df.column("name").unwrap().utf8()?;
-    let scores = df.column("score").unwrap().u16()?;
+    let scores = df.column("score").unwrap().i32()?;
     let strands = df.column("strand").unwrap().utf8()?;
     let signal_values = df.column("signal_value").unwrap().f64()?;
     let p_values = df.column("p_value").unwrap().f64()?;
@@ -144,7 +145,7 @@ fn dataframe_to_narrow_peaks(df: &DataFrame) -> Result<Vec<NarrowPeak>> {
             name: names
                 .get(i)
                 .and_then(|x| if x == "." { None } else { Some(x.to_string()) }),
-            score: scores.get(i).map(|x| x.try_into().unwrap()),
+            score: scores.get(i).map(|x| (x as u16).try_into().unwrap()),
             strand: strands.get(i).and_then(|x| {
                 if x == "." {
                     None

@@ -24,12 +24,7 @@ def macs3(
     inplace: bool = True,
     n_jobs: int = 8,
 ) -> dict[str, 'polars.DataFrame'] | None:
-    """
-    Call peaks using MACS3.
-
-    Use the `callpeak` command in MACS3 to identify regions enriched with TN5
-    insertions. The default parameters passed to MACS are:
-    "-shift -100 -extsize 200 -nomodel -callsummits -nolambda -keep-dup all"
+    """ Call peaks using MACS3.
 
     Parameters
     ----------
@@ -170,8 +165,27 @@ def macs3(
 def merge_peaks(
     peaks: dict[str, 'polars.DataFrame'],
     chrom_sizes: dict[str, int] | Genome,
+    half_width: int = 250,
 ) -> 'polars.DataFrame':
-    """
+    """Merge peaks from different groups.
+
+    Merge peaks from different groups. This function is typically used to merge
+    results from :func:`~snapatac2.tools.macs3`.
+
+    Parameters
+    ----------
+    peaks
+        Peak information from different groups.
+    chrom_sizes
+        Chromosome sizes. If a :class:`~snapatac2.genome.Genome` is provided,
+        chromosome sizes will be obtained from the genome.
+    half_width
+        Half width of the merged peaks.
+
+    Returns
+    -------
+    'polars.DataFrame'
+        A dataframe with merged peaks.
     """
     chrom_sizes = chrom_sizes.chrom_sizes if isinstance(chrom_sizes, Genome) else chrom_sizes
-    return _snapatac2.py_merge_peaks(peaks, chrom_sizes)
+    return _snapatac2.py_merge_peaks(peaks, chrom_sizes, half_width)
