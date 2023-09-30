@@ -21,7 +21,6 @@ use linfa::{DatasetBase, traits::{Fit, Predict}};
 use linfa_clustering::KMeans;
 use rand_core::SeedableRng;
 use rand_isaac::Isaac64Rng;
-use hora::core::ann_index::ANNIndex;
 use nalgebra_sparse::CsrMatrix;
 
 macro_rules! with_sparsity_pattern {
@@ -257,53 +256,6 @@ pub(crate) fn kmeans<'py>(
         .fit(&observations)
         .expect("KMeans fitted");
     Ok(model.predict(observations).targets.into_pyarray(py))
-}
-
-// Search for and save nearest neighbors using ANN
-#[pyfunction]
-pub(crate) fn approximate_nearest_neighbors(
-    data_: PyReadonlyArray<'_, f32, Ix2>,
-    k: usize,
-) -> PyResult<(Vec<f32>, Vec<i32>, Vec<i32>)>
-{
-    let data = data_.as_array();
-    let shape = data.shape();
-    let mut index = hora::index::hnsw_idx::HNSWIndex::<f32, usize>::new(
-        shape[1],
-        &hora::index::hnsw_params::HNSWParams::<f32>::default().max_item(shape[0].max(1000000)),
-    );
-    for (i, sample) in data.axis_iter(ndarray::Axis(0)).enumerate() {
-        index.add(sample.to_vec().as_slice(), i).unwrap();
-    }
-    index.build(hora::core::metrics::Metric::Euclidean).unwrap();
-    let row_iter = data.axis_iter(ndarray::Axis(0)).map(move |row| {
-        index.search_nodes(row.to_vec().as_slice(), k).into_iter()
-            .map(|(n, d)| (n.idx().unwrap(), d)).collect::<Vec<_>>()
-    });
-    Ok(to_csr_matrix(row_iter))
-}
-
-pub(crate) fn to_csr_matrix<I, D>(iter: I) -> (Vec<D>, Vec<i32>, Vec<i32>)
-where
-    I: Iterator<Item = Vec<(usize, D)>>,
-{
-    let mut data: Vec<D> = Vec::new();
-    let mut indices: Vec<i32> = Vec::new();
-    let mut indptr: Vec<i32> = Vec::new();
-
-    let n = iter.fold(0, |r_idx, mut row| {
-        row.sort_by(|a, b| a.0.cmp(&b.0));
-        indptr.push(r_idx.try_into().unwrap());
-        let new_idx = r_idx + row.len();
-        let (mut a, mut b) = row.into_iter().map(|(x, y)| -> (i32, D) {
-            (x.try_into().unwrap(), y)
-        }).unzip();
-        indices.append(&mut a);
-        data.append(&mut b);
-        new_idx
-    });
-    indptr.push(n.try_into().unwrap());
-    (data, indices, indptr)
 }
 
 pub(crate) fn open_file<P: AsRef<Path>>(file: P) -> Box<dyn std::io::Read> {

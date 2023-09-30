@@ -24,9 +24,8 @@ def datasets():
                 "atac_pbmc_500_downsample.tsv.gz": "sha256:6053cf4578a140bfd8ce34964602769dc5f5ec6b25ba4f2db23cdbd4681b0e2f",
 
                 "atac_pbmc_5k.tsv.gz": "sha256:5fe44c0f8f76ce1534c1ae418cf0707ca5ef712004eee77c3d98d2d4b35ceaec",
-                "atac_pbmc_5k.h5ad": "sha256:8e48f1506cd64eb6a8d251f0e15ebd5f1adf2920f57c0c62022d120848085204",
-                "atac_pbmc_5k_annotated.h5ad": "sha256:1fb8b5f99ad9d627a970fe954b31dc0a7392323d514f82fa60b5e7469038417c",
-                "atac_pbmc_5k_gene.h5ad": "sha256:eee516e477d37bdabf78ff0d9c9983ae741260ed39f8640751018091d7e4e951",
+                "atac_pbmc_5k.h5ad": "sha256:dc60ede93271b06cee6d2dd7c527e3e040f3c2bdc489655b09b401650b2e0287",
+                "atac_pbmc_5k_annotated.h5ad": "sha256:592f1551c27d0cfe4d81e7febad624d6b7d3ebf977b0c3ea64e06b3f3d76f078",
 
                 "colon_transverse.tar": "sha256:18c56bf405ec0ef8e0e2ea31c63bf2299f21bcb82c67f46e8f70f8d71c65ae0e",
                 "HEA_cCRE.bed.gz": "sha256:d69ae94649201cd46ffdc634852acfccc317196637c1786aba82068618001408",
@@ -55,9 +54,8 @@ def datasets():
                 "atac_pbmc_500_downsample.tsv.gz": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/b0e7e9e8-9ffb-4710-8619-73f7e5cbd10b?a=758c37e5-4832-4c91-af89-9a1a83a051b3",
 
                 "atac_pbmc_5k.tsv.gz": "https://cf.10xgenomics.com/samples/cell-atac/2.0.0/atac_pbmc_5k_nextgem/atac_pbmc_5k_nextgem_fragments.tsv.gz", 
-                "atac_pbmc_5k.h5ad": "https://osf.io/download/y9t83/",
-                "atac_pbmc_5k_gene.h5ad": "https://osf.io/download/vf5zj/",
-                "atac_pbmc_5k_annotated.h5ad": "https://osf.io/download/rvwhf/",
+                "atac_pbmc_5k.h5ad": "https://osf.io/download/7nf9q/",
+                "atac_pbmc_5k_annotated.h5ad": "https://osf.io/download/e9vc3/",
 
                 "10x-Multiome-Pbmc10k-ATAC.h5ad": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/165dfb5c-c557-42a0-bd21-1276d4d7b23e?a=758c37e5-4832-4c91-af89-9a1a83a051b3",
                 "10x-Multiome-Pbmc10k-RNA.h5ad": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/d079a087-2913-4e29-979e-638e5932bd8c?a=758c37e5-4832-4c91-af89-9a1a83a051b3", 
@@ -112,7 +110,7 @@ def pbmc500(type: Literal["fragment, bam"]="fragment", downsample: bool = False)
     else:
         raise NameError("type '{}' is not available.".format(type))
 
-def pbmc5k(type: Literal["fragment, h5ad, gene, annotated_h5ad"] = "fragment") -> Path:
+def pbmc5k(type: Literal["fragment, h5ad, annotated_h5ad"] = "fragment") -> Path:
     """scATAC-seq dataset of 5k PBMCs from 10x Genomics.
 
     Parameters
@@ -121,7 +119,6 @@ def pbmc5k(type: Literal["fragment, h5ad, gene, annotated_h5ad"] = "fragment") -
         One of the following:
             - "fragment": the fragment file.
             - "h5ad": preprocessed h5ad file.
-            - "gene": gene activity matrix.
             - "annotated_h5ad": annotated h5ad file.
 
     Returns
@@ -135,8 +132,6 @@ def pbmc5k(type: Literal["fragment, h5ad, gene, annotated_h5ad"] = "fragment") -
         return Path(datasets().fetch("atac_pbmc_5k.h5ad"))
     elif type == "annotated_h5ad":
         return Path(datasets().fetch("atac_pbmc_5k_annotated.h5ad"))
-    elif type == "gene":
-        return Path(datasets().fetch("atac_pbmc_5k_gene.h5ad"))
     else:
         raise NameError("type '{}' is not available.".format(type))
 

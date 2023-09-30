@@ -8,7 +8,7 @@ import logging
 import anndata as ad
 
 from .._utils import chunks, anndata_par
-from snapatac2._snapatac2 import AnnData, approximate_nearest_neighbors
+from snapatac2._snapatac2 import AnnData, approximate_nearest_neighbour_graph
 from snapatac2.tools._embedding import spectral
 
 def scrublet(
@@ -357,7 +357,10 @@ def calculate_doublet_scores(
     
     # Find k_adj nearest neighbors
     if use_approx_neighbors:
-        _, indices, indptr = approximate_nearest_neighbors(manifold.astype(np.float32), k_adj)
+        knn = approximate_nearest_neighbour_graph(
+            manifold.astype(np.float32), k_adj)
+        indices = knn.indices
+        indptr = knn.indptr
         neighbors = np.vstack(
             [indices[indptr[i]:indptr[i+1]] for i in range(len(indptr) - 1)]
         )

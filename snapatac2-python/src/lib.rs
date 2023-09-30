@@ -5,6 +5,7 @@ mod preprocessing;
 mod embedding;
 mod network;
 mod motif;
+mod knn;
 
 use pyo3::{prelude::*, PyResult, Python};
 use pyanndata;
@@ -57,6 +58,9 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(call_peaks::py_merge_peaks, m)?)?;
     m.add_function(wrap_pyfunction!(call_peaks::find_reproducible_peaks, m)?)?;
 
+    m.add_function(wrap_pyfunction!(knn::nearest_neighbour_graph, m)?)?;
+    m.add_function(wrap_pyfunction!(knn::approximate_nearest_neighbour_graph, m)?)?;
+
     m.add_function(wrap_pyfunction!(network::link_region_to_gene, m)?)?;
 
     m.add_function(wrap_pyfunction!(utils::jaccard_similarity, m)?)?;
@@ -68,7 +72,6 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(utils::read_regions, m)?)?;
     m.add_function(wrap_pyfunction!(utils::intersect_bed, m)?)?;
     m.add_function(wrap_pyfunction!(utils::kmeans, m)?)?;
-    m.add_function(wrap_pyfunction!(utils::approximate_nearest_neighbors, m)?)?;
     m.add_function(wrap_pyfunction!(embedding::spectral_embedding, m)?)?;
     m.add_function(wrap_pyfunction!(embedding::multi_spectral_embedding, m)?)?;
     m.add_function(wrap_pyfunction!(embedding::spectral_embedding_nystrom, m)?)?;

@@ -110,11 +110,11 @@ def test_reproducibility(mat):
     snap.tl.spectral(adata, features=None, random_state=0)
     knn = []
     for _ in range(3):
-        knn.append(snap.pp.knn(adata, random_state=0, n_neighbors=25, method='exact', inplace=False).todense())
+        knn.append(snap.pp.knn(adata, random_state=0, n_neighbors=25, inplace=False).todense())
     for x in knn:
         np.testing.assert_array_equal(x, knn[0])
 
-    snap.pp.knn(adata, random_state=0, n_neighbors=25, method='exact')
+    snap.pp.knn(adata, random_state=0, n_neighbors=25)
     leiden = []
     for _ in range(3):
         leiden.append(snap.tl.leiden(adata, random_state=0, resolution=1, n_iterations=10, inplace=False))

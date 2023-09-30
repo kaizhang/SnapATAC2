@@ -5,16 +5,15 @@ import numpy as np
 from scipy.sparse import csr_matrix
 
 from snapatac2._utils import is_anndata
-from snapatac2._snapatac2 import AnnData, AnnDataSet, approximate_nearest_neighbors
+from snapatac2 import _snapatac2
+from snapatac2._snapatac2 import AnnData, AnnDataSet
 
-# TODO: add random state
 def knn(
     adata: AnnData | AnnDataSet | np.ndarray,
     n_neighbors: int = 50,
     use_dims: int | list[int] | None = None,
     use_rep: str = 'X_spectral',
-    method: Literal['hora', 'pynndescent', 'exact'] = "hora",
-    n_jobs: int = -1,
+    method: Literal['kdtree', 'hora', 'pynndescent'] = "kdtree",
     inplace: bool = True,
     random_state: int = 0,
 ) -> csr_matrix | None:
@@ -35,14 +34,16 @@ def knn(
     use_rep
         The key for the matrix
     method
-        'hora', 'pynndescent', or 'exact'. The default is 'hora', which uses the
-        HNSW algorithm to approximate the nearest neighbors.
-    n_jobs
-        number of CPUs to use
+        Can be one of the following:
+        - 'kdtree': use the kdtree algorithm to find the nearest neighbors.
+        - 'hora': use the HNSW algorithm to find the approximate nearest neighbors.
+        - 'pynndescent': use the pynndescent algorithm to find the approximate nearest neighbors.
     inplace
         Whether to store the result in the anndata object.
     random_state
         Random seed for approximate nearest neighbor search.
+        Note that this is only used when `method='pynndescent'`.
+        Currently 'hora' does not support random seed, so the result of 'hora' is not reproducible.
 
     Returns
     -------
@@ -66,8 +67,8 @@ def knn(
 
     n = data.shape[0]
     if method == 'hora':
-        (d, indices, indptr) = approximate_nearest_neighbors(data.astype(np.float32), n_neighbors)
-        adj = csr_matrix((d, indices, indptr), shape=(n, n))
+        adj = _snapatac2.approximate_nearest_neighbour_graph(
+            data.astype(np.float32), n_neighbors)
     elif method == 'pynndescent':
         import pynndescent
         index = pynndescent.NNDescent(data, n_neighbors=max(50, n_neighbors), random_state=random_state)
@@ -76,10 +77,10 @@ def knn(
         distances = np.ravel(distances[:, :n_neighbors]) 
         indptr = np.arange(0, distances.size + 1, n_neighbors)
         adj = csr_matrix((distances, indices, indptr), shape=(n, n))
+    elif method == 'kdtree':
+        adj = _snapatac2.nearest_neighbour_graph(data, n_neighbors)
     else:
-        from sklearn.neighbors import kneighbors_graph
-        adj = kneighbors_graph(data, n_neighbors, mode='distance', n_jobs=n_jobs)
-        adj.sort_indices()
+        raise ValueError("method must be one of 'hora', 'pynndescent', 'kdtree'")
     
     if inplace:
         adata.obsp['distances'] = adj

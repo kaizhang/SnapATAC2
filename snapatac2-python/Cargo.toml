@@ -20,7 +20,6 @@ extsort = "0.4"
 anyhow = "1.0"
 bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "19832eda2909dbe87289e09ba966af0797adb9f8" }
 flate2 = "1.0"
-hora = "0.1"
 itertools = "0.11"
 indicatif = "0.17"
 linreg = "0.2"
