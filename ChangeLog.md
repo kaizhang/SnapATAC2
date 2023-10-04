@@ -11,10 +11,9 @@ v2.5.0dev
 - `pp.import_data` now doesn't compute the TSS enrichment scores. Use `metrics.tsse`
   to compute the TSS enrichment scores. `genome` parameter is renamed to `chrom_sizes`.
 
-## Major changes:
+## Other changes:
 
-
-## Bug fixes:
+- Bug fixes: #165.
 
 
 v2.4.0 (2023-09-12)

@@ -8,7 +8,7 @@ import logging
 import anndata as ad
 
 from .._utils import chunks, anndata_par
-from snapatac2._snapatac2 import AnnData, approximate_nearest_neighbour_graph
+from snapatac2._snapatac2 import AnnData, approximate_nearest_neighbour_graph, nearest_neighbour_graph
 from snapatac2.tools._embedding import spectral
 
 def scrublet(
@@ -18,7 +18,7 @@ def scrublet(
     sim_doublet_ratio: float = 2.0,
     expected_doublet_rate: float = 0.1,
     n_neighbors: int | None = None,
-    use_approx_neighbors=True,
+    use_approx_neighbors=False,
     random_state: int = 0,
     inplace: bool = True,
     n_jobs: int = 8,
@@ -207,7 +207,7 @@ def scrub_doublets_core(
     expected_doublet_rate: float,
     synthetic_doublet_umi_subsampling: float =1.0,
     n_comps: int = 30,
-    use_approx_neighbors: bool = True,
+    use_approx_neighbors: bool = False,
     random_state: int = 0,
     verbose: bool = False,
 ) -> None:
@@ -326,7 +326,7 @@ def calculate_doublet_scores(
     k: int = 40,
     exp_doub_rate: float = 0.1,
     stdev_doub_rate: float = 0.03,
-    use_approx_neighbors=True,
+    use_approx_neighbors=False,
     random_state: int = 0,
 ) -> None:
     """
@@ -359,15 +359,13 @@ def calculate_doublet_scores(
     if use_approx_neighbors:
         knn = approximate_nearest_neighbour_graph(
             manifold.astype(np.float32), k_adj)
-        indices = knn.indices
-        indptr = knn.indptr
-        neighbors = np.vstack(
-            [indices[indptr[i]:indptr[i+1]] for i in range(len(indptr) - 1)]
-        )
     else:
-        neighbors = NearestNeighbors(
-            n_neighbors=k_adj, metric="euclidean"
-            ).fit(manifold).kneighbors(return_distance=False)
+        knn = nearest_neighbour_graph(manifold, k_adj)
+    indices = knn.indices
+    indptr = knn.indptr
+    neighbors = np.vstack(
+        [indices[indptr[i]:indptr[i+1]] for i in range(len(indptr) - 1)]
+    )
     
     # Calculate doublet score based on ratio of simulated cell neighbors vs. observed cell neighbors
     doub_neigh_mask = doub_labels[neighbors] == 1
