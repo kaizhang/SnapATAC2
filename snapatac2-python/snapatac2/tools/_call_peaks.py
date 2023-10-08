@@ -84,7 +84,7 @@ def macs3(
     """
     from MACS3.Signal.PeakDetect import PeakDetect
     from math import log
-    from multiprocess import Pool
+    from multiprocess import get_context
     from tqdm import tqdm
     import tempfile
 
@@ -150,7 +150,7 @@ def macs3(
         return _snapatac2.find_reproducible_peaks(merged, others, blacklist)
 
     logging.info("Calling peaks...")
-    with Pool(n_jobs) as p:
+    with get_context("spawn").Pool(n_jobs) as p:
         peaks = list(tqdm(p.imap(_call_peaks, list(fragments.values())), total=len(fragments)))
 
     peaks = {k: v for k, v in zip(fragments.keys(), peaks)}

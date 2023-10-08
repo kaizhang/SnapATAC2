@@ -62,7 +62,7 @@ where
     anndata.obsm().add_iter(
         obsm_key,
         fragments
-            .group_by(|x| x.barcode.clone())
+            .group_by(|x| x.name().unwrap().to_string())
             .into_iter()
             .progress_with(spinner)
             .filter(|(key, _)| white_list.map_or(true, |x| x.contains(key)))

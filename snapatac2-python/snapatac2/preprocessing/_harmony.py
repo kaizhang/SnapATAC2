@@ -5,11 +5,11 @@ from __future__ import annotations
 
 import numpy as np
 
-from snapatac2._snapatac2 import AnnData, AnnDataSet
+import snapatac2._snapatac2 as internal
 from snapatac2._utils import is_anndata 
 
 def harmony(
-    adata: AnnData | AnnDataSet | np.ndarray,
+    adata: internal.AnnData | internal.AnnDataSet | np.ndarray,
     *,
     batch: str | list[str],
     use_rep: str = "X_spectral",

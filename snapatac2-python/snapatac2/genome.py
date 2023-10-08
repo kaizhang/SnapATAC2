@@ -8,10 +8,13 @@ class Genome:
         self._fasta_filename = fasta
 
     def fetch_annotations(self):
-        return datasets().fetch(self._annotation_filename)
+        return datasets().fetch(self._annotation_filename, progressbar=True)
 
     def fetch_fasta(self):
-        return datasets().fetch(self._fasta_filename, processor = Decompress(method = "gzip"))
+        return datasets().fetch(
+            self._fasta_filename,
+            processor=Decompress(method = "gzip"),
+            progressbar=True)
 
 GRCh37 = Genome(
     {

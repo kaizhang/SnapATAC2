@@ -4,11 +4,11 @@ import numpy as np
 import itertools
 from scipy.special import logsumexp
 
-from snapatac2._snapatac2 import AnnData, AnnDataSet
+import snapatac2._snapatac2 as internal
 from snapatac2._utils import is_anndata 
 
 def mnc_correct(
-    adata: AnnData | AnnDataSet | np.adarray,
+    adata: internal.AnnData | internal.AnnDataSet | np.adarray,
     *,
     batch: str | list[str],
     n_neighbors: int = 5,

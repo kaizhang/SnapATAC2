@@ -84,7 +84,7 @@ pub trait SnapData: AnnDataOp {
 
     /// Compute the fraction of reads in each region.
     fn frip<D>(&self, regions: &Vec<BedTree<D>>) -> Result<Array2<f64>> {
-        let vec = qc::fraction_in_region(self.get_count_iter(2000)?.into_raw(), regions)
+        let vec = qc::fraction_of_reads_in_region(self.get_count_iter(2000)?.into_raw(), regions)
             .map(|x| x.0).flatten().flatten().collect::<Vec<_>>();
         Array2::from_shape_vec((self.n_obs(), regions.len()), vec).map_err(Into::into)
     }

@@ -5,14 +5,14 @@ from __future__ import annotations
 import numpy as np
 import scipy.sparse as ss
 import logging
-import anndata as ad
+from anndata import AnnData
 
 from .._utils import chunks, anndata_par
-from snapatac2._snapatac2 import AnnData, approximate_nearest_neighbour_graph, nearest_neighbour_graph
+import snapatac2._snapatac2 as internal
 from snapatac2.tools._embedding import spectral
 
 def scrublet(
-    adata: AnnData | list[AnnData],
+    adata: internal.AnnData | list[internal.AnnData],
     features: str | np.ndarray | None = "selected",
     n_comps: int = 15,
     sim_doublet_ratio: float = 2.0,
@@ -124,7 +124,7 @@ def scrublet(
         return probs, doublet_scores_obs
 
 def filter_doublets(
-    adata: AnnData | list[AnnData],
+    adata: internal.AnnData | list[internal.AnnData],
     probability_threshold: float | None = 0.5,
     score_threshold: float | None = None,
     inplace: bool = True,
@@ -255,7 +255,7 @@ def scrub_doublets_core(
     del count_matrix_sim
     gc.collect()
     _, evecs = spectral(
-        ad.AnnData(X=merged_matrix, dtype=merged_matrix.dtype),
+        AnnData(X=merged_matrix, dtype=merged_matrix.dtype),
         features=None,
         n_comps=n_comps,
         inplace=False,
@@ -357,10 +357,10 @@ def calculate_doublet_scores(
     
     # Find k_adj nearest neighbors
     if use_approx_neighbors:
-        knn = approximate_nearest_neighbour_graph(
+        knn = internal.approximate_nearest_neighbour_graph(
             manifold.astype(np.float32), k_adj)
     else:
-        knn = nearest_neighbour_graph(manifold, k_adj)
+        knn = internal.nearest_neighbour_graph(manifold, k_adj)
     indices = knn.indices
     indptr = knn.indptr
     neighbors = np.vstack(

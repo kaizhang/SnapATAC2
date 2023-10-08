@@ -15,7 +15,7 @@ anndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "7279f0a8a
 anyhow = "1.0"
 bigtools = "0.2"
 bincode = "1.3"
-bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "19832eda2909dbe87289e09ba966af0797adb9f8" }
+bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "27ae1ee81db4ac84434014877b8d17aa22583df2" }
 extsort = "0.4"
 either = "1.8"
 flate2 = "1.0"

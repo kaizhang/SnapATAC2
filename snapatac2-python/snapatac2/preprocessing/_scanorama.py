@@ -3,11 +3,11 @@ from __future__ import annotations
 import numpy as np
 import itertools
 
-from snapatac2._snapatac2 import AnnData, AnnDataSet
+import snapatac2._snapatac2 as internal
 from snapatac2._utils import is_anndata 
 
 def scanorama_integrate(
-    adata: AnnData | AnnDataSet | np.adarray,
+    adata: internal.AnnData | internal.AnnDataSet | np.adarray,
     *,
     batch: str | list[str],
     n_neighbors: int = 20,

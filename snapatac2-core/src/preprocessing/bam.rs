@@ -83,7 +83,7 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>>(
     let header: Header = fix_header(reader.read_header().unwrap()).parse().unwrap();
     reader.read_reference_sequences().unwrap();
 
-    let f = File::create(output_file.as_ref().clone()).expect("cannot create the output file");
+    let f = File::create(output_file.as_ref()).expect("cannot create the output file");
     let mut output: Box<dyn Write> =
         if output_file.as_ref().extension().and_then(|x| x.to_str()) == Some("gz") {
             Box::new(GzEncoder::new(BufWriter::new(f), Compression::default()))

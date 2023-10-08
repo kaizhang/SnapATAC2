@@ -4,12 +4,11 @@ from typing_extensions import Literal
 import scipy.sparse as ss
 import numpy as np
 
-from snapatac2._snapatac2 import AnnData, AnnDataSet
-import snapatac2._snapatac2 as _snapatac2
+import snapatac2._snapatac2 as internal
 from snapatac2._utils import get_igraph_from_adjacency, is_anndata 
 
 def leiden(
-    adata: AnnData | AnnDataSet | ss.spmatrix,
+    adata: internal.AnnData | internal.AnnDataSet | ss.spmatrix,
     resolution: float = 1,
     objective_function: Literal['CPM', 'modularity', 'RBConfiguration'] = 'modularity',
     min_cluster_size: int = 5,
@@ -137,7 +136,7 @@ def leiden(
         return groups
 
 def kmeans(
-    adata: AnnData | AnnDataSet | np.ndarray,
+    adata: internal.AnnData | internal.AnnDataSet | np.ndarray,
     n_clusters: int,
     n_iterations: int = -1,
     random_state: int = 0,
@@ -182,7 +181,7 @@ def kmeans(
         data = adata.obsm[use_rep]
     else:
         data = adata
-    groups = _snapatac2.kmeans(n_clusters, data)
+    groups = internal.kmeans(n_clusters, data)
     groups = np.array(groups, dtype=np.compat.unicode)
     if inplace:
         adata.obs[key_added] = polars.Series(
@@ -201,7 +200,7 @@ def kmeans(
         return groups
 
 def hdbscan(
-    adata: AnnData,
+    adata: internal.AnnData,
     min_cluster_size: int = 5,
     min_samples: int | None = None,
     cluster_selection_epsilon: float = 0.0,
@@ -270,7 +269,7 @@ def hdbscan(
     )
 
 def dbscan(
-    adata: AnnData,
+    adata: internal.AnnData,
     eps: float = 0.5,
     min_samples: int = 5,
     leaf_size: int = 30,

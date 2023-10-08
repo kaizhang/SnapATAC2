@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import functools
 
-from snapatac2._snapatac2 import AnnData, AnnDataSet
+import snapatac2._snapatac2 as internal
 from snapatac2._utils import is_anndata 
 from snapatac2.tools import leiden
 from snapatac2.preprocessing import knn
@@ -14,11 +14,11 @@ from snapatac2.preprocessing import knn
 __all__ = ['aggregate_X', 'aggregate_cells']
 
 def aggregate_X(
-    adata: AnnData | AnnDataSet,
+    adata: internal.AnnData | internal.AnnDataSet,
     groupby: str | list[str] | None = None,
     normalize: Literal["RPM", "RPKM"] | None = None,
     file: Path | None = None,
-) -> np.ndarray | AnnData:
+) -> np.ndarray | internal.AnnData:
     """
     Aggregate values in adata.X in a row-wise fashion.
 
@@ -43,9 +43,8 @@ def aggregate_X(
         If `grouby` is `None`, return a 1d array. Otherwise, return an AnnData
         object.
     """
-    import polars as pl
     from natsort import natsorted
-    import anndata as ad
+    from anndata import AnnData
 
     def norm(x):
         if normalize is None:
@@ -79,15 +78,15 @@ def aggregate_X(
 
         keys, values = zip(*result.items())
         if file is None:
-            out_adata = ad.AnnData(X=np.array(values))
+            out_adata = AnnData(X=np.array(values))
         else:
-            out_adata = AnnData(filename=file, X=np.array(values))
+            out_adata = internal.AnnData(filename=file, X=np.array(values))
         out_adata.obs_names = list(keys)
         out_adata.var_names = adata.var_names
         return out_adata
 
 def aggregate_cells(
-    adata: AnnData | AnnDataSet | np.ndarray,
+    adata: internal.AnnData | internal.AnnDataSet | np.ndarray,
     use_rep: str = 'X_spectral',
     target_num_cells: int | None = None,
     min_cluster_size: int = 50,
@@ -174,7 +173,7 @@ def aggregate_cells(
         return membership
  
 def marker_enrichment(
-    gene_matrix: AnnData,
+    gene_matrix: internal.AnnData,
     groupby: str | list[str],
     markers: dict[str, list[str]],
     min_num_markers: int = 1,

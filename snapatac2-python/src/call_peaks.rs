@@ -1,17 +1,15 @@
 use crate::utils::{open_file, AnnDataLike};
 use anyhow::Context;
-use bed_utils::bed::BED;
 use bed_utils::bed::{NarrowPeak, Strand};
 use flate2::read::MultiGzDecoder;
 use indicatif::{ProgressIterator, ProgressStyle};
 use itertools::Itertools;
 use polars::prelude::TakeRandom;
-use snapatac2_core::preprocessing::SnapData;
-use snapatac2_core::utils::clip_peak;
-use snapatac2_core::utils::merge_peaks;
+use snapatac2_core::{
+    preprocessing::{Fragment, SnapData},
+    utils::{clip_peak, merge_peaks},
+};
 
-use rayon::iter::{ParallelBridge, ParallelIterator};
-use std::sync::{Arc, Mutex};
 use anndata::Backend;
 use anndata_hdf5::H5;
 use anyhow::{ensure, Result};
@@ -23,10 +21,12 @@ use polars::{
 };
 use pyanndata::data::PyDataFrame;
 use pyo3::prelude::*;
+use rayon::iter::{ParallelBridge, ParallelIterator};
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::BufWriter;
 use std::io::Write;
+use std::sync::{Arc, Mutex};
 use std::{collections::HashMap, ops::Deref, path::PathBuf};
 
 #[pyfunction]
@@ -266,7 +266,7 @@ pub fn create_fwtrack_obj<'py>(
                 File::open(&fl).with_context(|| format!("cannot open file: {}", fl.display()))?,
             );
             bed_utils::bed::io::Reader::new(reader, None)
-                .into_records::<BED<6>>()
+                .into_records::<Fragment>()
                 .try_for_each(|x| {
                     let x = x?;
                     let chr = x.chrom().as_bytes();
@@ -388,8 +388,7 @@ fn _export_tags<D: SnapData, P: AsRef<std::path::Path>>(
                 if let Some((_, fl)) = files.get(&i) {
                     let mut fl = fl.lock().unwrap();
                     beds.into_iter().try_for_each(|bed| {
-                        if bed.strand().is_some()
-                            || max_frag_size.map_or(true, |s| s >= bed.len())
+                        if bed.strand().is_some() || max_frag_size.map_or(true, |s| s >= bed.len())
                         {
                             writeln!(fl, "{}", bed)?;
                         }

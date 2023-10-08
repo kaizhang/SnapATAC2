@@ -1,11 +1,11 @@
 import numpy as np
-import anndata as ad
 import logging
 
-from snapatac2._snapatac2 import AnnData, AnnDataSet, read
+from anndata import AnnData
+import snapatac2._snapatac2 as internal
 
 def is_anndata(data) -> bool:
-    return isinstance(data, ad.AnnData) or isinstance(data, AnnData) or isinstance(data, AnnDataSet)
+    return isinstance(data, AnnData) or isinstance(data, internal.AnnData) or isinstance(data, internal.AnnDataSet)
 
 def anndata_par(adatas, func, n_jobs=4):
     return anndata_ipar(list(enumerate(adatas)), lambda x: func(x[1]), n_jobs=n_jobs)
@@ -15,7 +15,7 @@ def anndata_ipar(inputs, func, n_jobs=4):
     
     exist_in_memory_adata = False
     for _, adata in inputs:
-        if isinstance(adata, ad.AnnData):
+        if isinstance(adata, AnnData):
             exist_in_memory_adata = True
             break
     if exist_in_memory_adata:
@@ -27,7 +27,7 @@ def anndata_ipar(inputs, func, n_jobs=4):
         from multiprocess import get_context
 
         def _func(x):
-            adata = read(x[1])
+            adata = internal.read(x[1])
             result = func((x[0], adata))
             adata.close() 
             return result

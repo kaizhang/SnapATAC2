@@ -1,8 +1,8 @@
-use crate::preprocessing::count_data::genome::{FeatureCounter, GenomeBaseIndex, ChromSizes};
+use crate::preprocessing::{count_data::genome::{FeatureCounter, GenomeBaseIndex, ChromSizes}, Fragment};
 
 use std::collections::HashMap;
 use anndata::data::{utils::to_csr_data, CsrNonCanonical};
-use bed_utils::bed::{BEDLike, BED, Strand, GenomicRange};
+use bed_utils::bed::{BEDLike, Strand, GenomicRange};
 use nalgebra_sparse::{CsrMatrix, pattern::SparsityPattern};
 use num::traits::{FromPrimitive, One, Zero, SaturatingAdd};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -70,7 +70,7 @@ where
         self
     }
 
-    pub fn into_raw(self) -> impl ExactSizeIterator<Item = (Vec<Vec<BED<6>>>, usize, usize)> {
+    pub fn into_raw(self) -> impl ExactSizeIterator<Item = (Vec<Vec<Fragment>>, usize, usize)> {
         let index = self.index;
         self.coverage.map(move |(raw_mat, a, b)| {
             let beds = match raw_mat {
@@ -85,25 +85,23 @@ where
                             let size = values[j];
                             let (chrom, pos) = index.get_position(col_indices[j]);
                             if size > 0 {
-                                BED::new(
-                                    chrom,
-                                    pos,
-                                    pos + size as u64,
-                                    None,
-                                    None,
-                                    Some(Strand::Forward),
-                                    Default::default(),
-                                )
+                                Fragment {
+                                    chrom: chrom.to_string(),
+                                    start: pos,
+                                    end: pos + size as u64,
+                                    barcode: None,
+                                    count: 1,
+                                    strand: Some(Strand::Forward),
+                                }
                             } else {
-                                BED::new(
-                                    chrom,
-                                    pos + 1 - size.abs() as u64,
-                                    pos + 1,
-                                    None,
-                                    None,
-                                    Some(Strand::Reverse),
-                                    Default::default(),
-                                )
+                                Fragment {
+                                    chrom: chrom.to_string(),
+                                    start: pos + 1 - size.abs() as u64,
+                                    end: pos + 1,
+                                    barcode: None,
+                                    count: 1,
+                                    strand: Some(Strand::Reverse),
+                                }
                             }
                         }).collect()
                     }).collect()
@@ -118,12 +116,14 @@ where
                         (row_start..row_end).map(|j| {
                             let size = values[j];
                             let (chrom, start) = index.get_position(col_indices[j]);
-                            BED::new(
-                                chrom,
+                            Fragment {
+                                chrom: chrom.to_string(),
                                 start,
-                                start + size as u64,
-                                None, None, None, Default::default(),
-                            )
+                                end: start + size as u64,
+                                barcode: None,
+                                count: 1,
+                                strand: None,
+                            }
                         }).collect()
                     }).collect()
                 },
@@ -132,7 +132,7 @@ where
         })
     }
 
-    pub fn into_raw_groups<F, K>(self, key: F) -> impl ExactSizeIterator<Item = HashMap<K, Vec<BED<6>>>>
+    pub fn into_raw_groups<F, K>(self, key: F) -> impl ExactSizeIterator<Item = HashMap<K, Vec<Fragment>>>
     where
         F: Fn(usize) -> K,
         K: Eq + PartialEq + std::hash::Hash,
@@ -146,7 +146,6 @@ where
                     .or_insert_with(Vec::new)
                     .extend(xs.into_iter());
             });
-
             ordered
         })
     }

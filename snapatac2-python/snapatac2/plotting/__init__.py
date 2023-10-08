@@ -54,7 +54,7 @@ def tsse(
     .. plotly::
 
         >>> import snapatac2 as snap
-        >>> data = snap.read(str(snap.datasets.pbmc5k(type='gene')))
+        >>> data = snap.read(snap.datasets.pbmc5k(type='h5ad'))
         >>> fig = snap.pl.tsse(data, show=False, out_file=None)
         >>> fig.show()
     """
@@ -190,17 +190,18 @@ def regions(
     import polars as pl
     import plotly.graph_objects as go
 
+    peaks = np.concatenate([[x for x in p] for p in peaks.values()])
     count = aggregate_X(adata, groupby=groupby, normalize="RPKM")
     names = count.obs_names
     count = pl.DataFrame(count.X.T)
     count.columns = list(names)
     idx_map = {x: i for i, x in enumerate(adata.var_names)}
-    idx = [idx_map[x] for x in np.concatenate(list(peaks.values()))]
+    idx = [idx_map[x] for x in peaks]
     mat = np.log2(1 + count.to_numpy()[idx, :])
 
     trace = go.Heatmap(
         x=count.columns,
-        y=np.concatenate(list(peaks.values()))[::-1],
+        y=peaks[::-1],
         z=mat,
         type='heatmap',
         colorscale='Viridis',

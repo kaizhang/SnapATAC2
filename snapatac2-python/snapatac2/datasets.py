@@ -127,11 +127,11 @@ def pbmc5k(type: Literal["fragment, h5ad, annotated_h5ad"] = "fragment") -> Path
         path to the file.
     """
     if type == "fragment":
-        return Path(datasets().fetch("atac_pbmc_5k.tsv.gz"))
+        return Path(datasets().fetch("atac_pbmc_5k.tsv.gz", progressbar=True))
     elif type == "h5ad":
-        return Path(datasets().fetch("atac_pbmc_5k.h5ad"))
+        return Path(datasets().fetch("atac_pbmc_5k.h5ad", progressbar=True))
     elif type == "annotated_h5ad":
-        return Path(datasets().fetch("atac_pbmc_5k_annotated.h5ad"))
+        return Path(datasets().fetch("atac_pbmc_5k_annotated.h5ad", progressbar=True))
     else:
         raise NameError("type '{}' is not available.".format(type))
 
@@ -175,7 +175,7 @@ def colon() -> list[tuple[str, Path]]:
     list[tuple[str, Path]]
         A list of tuples, each tuple contains the sample name and the path to the fragment file.
     """
-    files = datasets().fetch("colon_transverse.tar", processor = pooch.Untar())
+    files = datasets().fetch("colon_transverse.tar", progressbar=True, processor = pooch.Untar())
     return [(fl.split("/")[-1].split("_rep1_fragments")[0], Path(fl)) for fl in files]
 
 def cre_HEA() -> Path:

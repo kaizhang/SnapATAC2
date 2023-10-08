@@ -4,12 +4,11 @@ from pathlib import Path
 import numpy as np
 
 import snapatac2
-from snapatac2._snapatac2 import AnnData, AnnDataSet
 import snapatac2._snapatac2 as internal
 from snapatac2.genome import Genome
 
 def tsse(
-    adata: AnnData | list[AnnData],
+    adata: internal.AnnData | list[internal.AnnData],
     gene_anno: Genome | Path,
     *,
     inplace: bool = True,
@@ -39,13 +38,26 @@ def tsse(
     np.ndarray | list[np.ndarray] | None
         If `inplace = True`, directly adds the results to `adata.obs`.
         Otherwise return the results.
+
+    Examples
+    --------
+    >>> import snapatac2 as snap
+    >>> data = snap.pp.import_data(snap.datasets.pbmc500(downsample=True), chrom_sizes=snap.genome.hg38, sorted_by_barcode=False)
+    >>> snap.metrics.tsse(data, snap.genome.hg38)
+    >>> print(data.obs['tsse'].head())
+    AAACTGCAGACTCGGA-1    32.129514
+    AAAGATGCACCTATTT-1    22.052786
+    AAAGATGCAGATACAA-1    27.109808
+    AAAGGGCTCGCTCTAC-1    24.990329
+    AAATGAGAGTCCCGCA-1    33.264463
+    Name: tsse, dtype: float64
     """
     gene_anno = gene_anno.fetch_annotations() if isinstance(gene_anno, Genome) else gene_anno
  
     if isinstance(adata, list):
         return snapatac2._utils.anndata_par(
             adata,
-            lambda x: tsse(x, gene_anno, inplace),
+            lambda x: tsse(x, gene_anno, inplace=inplace),
             n_jobs=n_jobs,
         )
     else:
@@ -56,7 +68,7 @@ def tsse(
             return result
 
 def frip(
-    adata: AnnData | list[AnnData],
+    adata: internal.AnnData | list[internal.AnnData],
     regions: dict[str, Path | list[str]],
     *,
     inplace: bool = True,
@@ -93,15 +105,14 @@ def frip(
     Examples
     --------
     >>> import snapatac2 as snap
-    >>> data = snap.read(snap.datasets.pbmc5k(type='h5ad'), backed=None)
-    >>> snap.pp.add_frip(data, {"peaks_frac": snap.datasets.cre_HEA()})
+    >>> data = snap.pp.import_data(snap.datasets.pbmc500(downsample=True), chrom_sizes=snap.genome.hg38, sorted_by_barcode=False)
+    >>> snap.metrics.frip(data, {"peaks_frac": snap.datasets.cre_HEA()})
     >>> print(data.obs['peaks_frac'].head())
-    index
-    AAACGAAAGACGTCAG-1    0.708841
-    AAACGAAAGATTGACA-1    0.731711
-    AAACGAAAGGGTCCCT-1    0.692434
-    AAACGAACAATTGTGC-1    0.694849
-    AAACGAACACTCGTGG-1    0.687787
+    AAACTGCAGACTCGGA-1    0.715930
+    AAAGATGCACCTATTT-1    0.697364
+    AAAGATGCAGATACAA-1    0.713615
+    AAAGGGCTCGCTCTAC-1    0.678428
+    AAATGAGAGTCCCGCA-1    0.724910
     Name: peaks_frac, dtype: float64
     """
 
@@ -114,7 +125,7 @@ def frip(
     if isinstance(adata, list):
         return snapatac2._utils.anndata_par(
             adata,
-            lambda x: frip(x, regions, inplace),
+            lambda x: frip(x, regions, inplace=inplace),
             n_jobs=n_jobs,
         )
     else:
@@ -127,7 +138,7 @@ def frip(
 
 
 def frag_size_distr(
-    adata: AnnData | list[AnnData],
+    adata: internal.AnnData | list[internal.AnnData],
     *,
     max_recorded_size: int = 1000,
     add_key: str = "frag_size_distr",

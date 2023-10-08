@@ -5,11 +5,10 @@ import numpy as np
 from scipy.sparse import csr_matrix
 
 from snapatac2._utils import is_anndata
-from snapatac2 import _snapatac2
-from snapatac2._snapatac2 import AnnData, AnnDataSet
+import snapatac2._snapatac2 as internal
 
 def knn(
-    adata: AnnData | AnnDataSet | np.ndarray,
+    adata: internal.AnnData | internal.AnnDataSet | np.ndarray,
     n_neighbors: int = 50,
     use_dims: int | list[int] | None = None,
     use_rep: str = 'X_spectral',
@@ -67,7 +66,7 @@ def knn(
 
     n = data.shape[0]
     if method == 'hora':
-        adj = _snapatac2.approximate_nearest_neighbour_graph(
+        adj = internal.approximate_nearest_neighbour_graph(
             data.astype(np.float32), n_neighbors)
     elif method == 'pynndescent':
         import pynndescent
@@ -78,7 +77,7 @@ def knn(
         indptr = np.arange(0, distances.size + 1, n_neighbors)
         adj = csr_matrix((distances, indices, indptr), shape=(n, n))
     elif method == 'kdtree':
-        adj = _snapatac2.nearest_neighbour_graph(data, n_neighbors)
+        adj = internal.nearest_neighbour_graph(data, n_neighbors)
     else:
         raise ValueError("method must be one of 'hora', 'pynndescent', 'kdtree'")
     

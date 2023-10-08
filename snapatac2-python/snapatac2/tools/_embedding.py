@@ -8,13 +8,12 @@ import logging
 import math
 
 from snapatac2._utils import get_igraph_from_adjacency, is_anndata 
-from snapatac2._snapatac2 import (AnnData, AnnDataSet, jm_regress, jaccard_similarity,
-    cosine_similarity, spectral_embedding, multi_spectral_embedding, spectral_embedding_nystrom)
+import snapatac2._snapatac2 as internal
 
 __all__ = ['umap2', 'umap', 'spectral', 'multi_spectral']
 
 def umap2(
-    adata: AnnData | AnnDataSet | np.ndarray,
+    adata: internal.AnnData | internal.AnnDataSet | np.ndarray,
     n_comps: int = 2,
     key_added: str = 'umap',
     random_state: int = 0,
@@ -62,7 +61,7 @@ def umap2(
         return umap
 
 def umap(
-    adata: AnnData | AnnDataSet | np.ndarray,
+    adata: internal.AnnData | internal.AnnDataSet | np.ndarray,
     n_comps: int = 2,
     use_dims: int | list[int] | None = None,
     use_rep: str = "X_spectral",
@@ -119,7 +118,7 @@ def idf(data, features=None):
     return np.log(n / (1 + count))
 
 def spectral(
-    adata: AnnData | AnnDataSet,
+    adata: internal.AnnData | internal.AnnDataSet,
     n_comps: int = 30,
     features: str | np.ndarray | None = "selected",
     random_state: int = 0,
@@ -217,7 +216,7 @@ def spectral(
 
     if sample_size >= n_sample:
         if distance_metric == "cosine":
-            evals, evecs = spectral_embedding(adata, features, n_comps, random_state, feature_weights)
+            evals, evecs = internal.spectral_embedding(adata, features, n_comps, random_state, feature_weights)
         else:
             if feature_weights is None:
                 feature_weights = idf(adata, features)
@@ -232,7 +231,7 @@ def spectral(
                 weighted_by_degree = False
             else:
                 weighted_by_degree = True
-            v, u = spectral_embedding_nystrom(adata, features, n_comps, sample_size, weighted_by_degree, chunk_size)
+            v, u = internal.spectral_embedding_nystrom(adata, features, n_comps, sample_size, weighted_by_degree, chunk_size)
             evals, evecs = orthogonalize(v, u)
         else:
             if feature_weights is None:
@@ -276,9 +275,9 @@ class Spectral:
         self.out_dim = out_dim
         self.distance = distance
         if (self.distance == "jaccard"):
-            self.compute_similarity = lambda x, y=None: jaccard_similarity(x, y, feature_weights)
+            self.compute_similarity = lambda x, y=None: internal.jaccard_similarity(x, y, feature_weights)
         elif (self.distance == "cosine"):
-            self.compute_similarity = lambda x, y=None: cosine_similarity(x, y, feature_weights)
+            self.compute_similarity = lambda x, y=None: internal.cosine_similarity(x, y, feature_weights)
         elif (self.distance == "rbf"):
             from sklearn.metrics.pairwise import rbf_kernel
             self.compute_similarity = lambda x, y=None: rbf_kernel(x, y)
@@ -385,7 +384,7 @@ def orthogonalize(evals, evecs):
 
 class JaccardNormalizer:
     def __init__(self, jm, c):
-        (slope, intersect) = jm_regress(jm, c)
+        (slope, intersect) = internal.jm_regress(jm, c)
         self.slope = slope
         self.intersect = intersect
         self.outlier = None
@@ -452,7 +451,7 @@ def _eigen(X, D, k):
     return sp.sparse.linalg.eigsh(A, k=k)
 
 def multi_spectral(
-    adatas: list[AnnData] | list[AnnDataSet], 
+    adatas: list[internal.AnnData] | list[internal.AnnDataSet], 
     n_comps: int = 30,
     features: str | list[str] | list[np.ndarray] | None = "selected",
     weights: list[float] | None = None,
@@ -501,7 +500,7 @@ def multi_spectral(
     if weights is None:
         weights = [1.0 for _ in adatas]
 
-    evals, evecs = multi_spectral_embedding(adatas, features, weights, n_comps, random_state)
+    evals, evecs = internal.multi_spectral_embedding(adatas, features, weights, n_comps, random_state)
 
     if weighted_by_sd:
         idx = [i for i in range(evals.shape[0]) if evals[i] > 0]

@@ -3,11 +3,10 @@ from typing_extensions import Literal
 
 from pathlib import Path
 import numpy as np
-import anndata as ad
+from anndata import AnnData
 import logging
 
 import snapatac2
-from snapatac2._snapatac2 import AnnData, AnnDataSet, PyFlagStat
 import snapatac2._snapatac2 as internal
 from snapatac2.genome import Genome
 
@@ -27,7 +26,7 @@ def make_fragment_file(
     shift_right: int = -5,
     min_mapq: int | None = 30,
     chunk_size: int = 50000000,
-) -> PyFlagStat:
+) -> internal.PyFlagStat:
     """
     Convert a BAM file to a fragment file.
 
@@ -108,7 +107,7 @@ def import_data(
     tempdir: Path | None = None,
     backend: Literal['hdf5'] = 'hdf5',
     n_jobs: int = 8,
-) -> AnnData:
+) -> internal.AnnData:
     """Import data fragment files and compute basic QC metrics.
 
     A fragment is defined as the sequencing output corresponding to one location in the genome.
@@ -191,12 +190,12 @@ def import_data(
     Examples
     --------
     >>> import snapatac2 as snap
-    >>> data = snap.pp.import_data(snap.datasets.pbmc500(), genome=snap.genome.hg38, sorted_by_barcode=False)
+    >>> data = snap.pp.import_data(snap.datasets.pbmc500(downsample=True), chrom_sizes=snap.genome.hg38, sorted_by_barcode=False)
     >>> print(data)
-    AnnData object with n_obs × n_vars = 816 × 0
+    AnnData object with n_obs × n_vars = 585 × 0
         obs: 'n_fragment', 'frac_dup', 'frac_mito'
         uns: 'reference_sequences'
-        obsm: 'fragment'
+        obsm: 'fragment_paired'
     """
     chrom_sizes = chrom_sizes.chrom_sizes if isinstance(chrom_sizes, Genome) else chrom_sizes
     if len(chrom_sizes) == 0:
@@ -212,23 +211,23 @@ def import_data(
     if isinstance(fragment_file, list):
         n = len(fragment_file)
         if file is None:
-            adatas = [ad.AnnData() for _ in range(n)]
+            adatas = [AnnData() for _ in range(n)]
         else:
             if len(file) != n:
                 raise ValueError("The length of 'file' must be the same as the length of 'fragment_file'")
-            adatas = [AnnData(filename=f, backend=backend) for f in file]
+            adatas = [internal.AnnData(filename=f, backend=backend) for f in file]
 
         snapatac2._utils.anndata_ipar(
             list(enumerate(adatas)),
             lambda x: internal.import_fragments(
-                x[1], fragment_file[x[0]], chrom_sizes, min_num_fragments,
+                x[1], fragment_file[x[0]], chrom_sizes, chrM, min_num_fragments,
                 sorted_by_barcode, shift_left, shift_right, chunk_size, whitelist, tempdir,
             ),
             n_jobs=n_jobs,
         )
         return adatas
     else:
-        adata = ad.AnnData() if file is None else AnnData(filename=file, backend=backend)
+        adata = AnnData() if file is None else internal.AnnData(filename=file, backend=backend)
         internal.import_fragments(
             adata, fragment_file, chrom_sizes, chrM, min_num_fragments,
             sorted_by_barcode, shift_left, shift_right, chunk_size, whitelist, tempdir,
@@ -245,7 +244,7 @@ def import_contacts(
     chunk_size: int = 2000,
     tempdir: Path | None = None,
     backend: Literal['hdf5'] = 'hdf5',
-) -> AnnData:
+) -> internal.AnnData:
     """Import chromatin contacts.
 
     Parameters
@@ -289,14 +288,14 @@ def import_contacts(
         if chrom_size is None:
             chrom_size = genome.chrom_sizes
 
-    adata = ad.AnnData() if file is None else AnnData(filename=file, backend=backend)
+    adata = AnnData() if file is None else internal.AnnData(filename=file, backend=backend)
     internal.import_contacts(
         adata, contact_file, chrom_size, sorted_by_barcode, chunk_size, tempdir
     )
     return adata
 
 def add_tile_matrix(
-    adata: AnnData | list[AnnData],
+    adata: internal.AnnData | list[internal.AnnData],
     *,
     bin_size: int = 500,
     inplace: bool = True,
@@ -305,7 +304,7 @@ def add_tile_matrix(
     file: Path | None = None,
     backend: Literal['hdf5'] = 'hdf5',
     n_jobs: int = 8,
-) -> AnnData | None:
+) -> internal.AnnData | None:
     """Generate cell by bin count matrix.
 
     This function is used to generate and add a cell by bin count matrix to the AnnData
@@ -353,13 +352,13 @@ def add_tile_matrix(
     Examples
     --------
     >>> import snapatac2 as snap
-    >>> data = snap.pp.import_data(snap.datasets.pbmc500(), genome=snap.genome.hg38, sorted_by_barcode=False)
+    >>> data = snap.pp.import_data(snap.datasets.pbmc500(downsample=True), chrom_sizes=snap.genome.hg38, sorted_by_barcode=False)
     >>> snap.pp.add_tile_matrix(data, bin_size=500)
     >>> print(data)
-    AnnData object with n_obs × n_vars = 816 × 6062095
-        obs: 'tsse', 'n_fragment', 'frac_dup', 'frac_mito'
+    AnnData object with n_obs × n_vars = 585 × 6062095
+        obs: 'n_fragment', 'frac_dup', 'frac_mito'
         uns: 'reference_sequences'
-        obsm: 'fragment'
+        obsm: 'fragment_paired'
     """
     if isinstance(exclude_chroms, str):
         exclude_chroms = [exclude_chroms]
@@ -376,16 +375,16 @@ def add_tile_matrix(
     else:
         if file is None:
             if adata.isbacked:
-                out = ad.AnnData(obs=adata.obs[:].to_pandas())
+                out = AnnData(obs=adata.obs[:].to_pandas())
             else:
-                out = ad.AnnData(obs=adata.obs[:])
+                out = AnnData(obs=adata.obs[:])
         else:
-            out = AnnData(filename=file, backend=backend, obs=adata.obs[:])
+            out = internal.AnnData(filename=file, backend=backend, obs=adata.obs[:])
         internal.mk_tile_matrix(adata, bin_size, chunk_size, exclude_chroms, out)
         return out
 
 def make_peak_matrix(
-    adata: AnnData | AnnDataSet,
+    adata: internal.AnnData | internal.AnnDataSet,
     *,
     use_rep: str | list[str] | None = None,
     inplace: bool = False,
@@ -394,7 +393,7 @@ def make_peak_matrix(
     peak_file: Path | None = None,
     chunk_size: int = 500,
     use_x: bool = False,
-) -> AnnData:
+) -> internal.AnnData:
     """Generate cell by peak count matrix.
 
     This function will generate a cell by peak count matrix and store it in a 
@@ -443,11 +442,11 @@ def make_peak_matrix(
     Examples
     --------
     >>> import snapatac2 as snap
-    >>> data = snap.pp.import_data(snap.datasets.pbmc500(), genome=snap.genome.hg38, sorted_by_barcode=False)
+    >>> data = snap.pp.import_data(snap.datasets.pbmc500(downsample=True), chrom_sizes=snap.genome.hg38, sorted_by_barcode=False)
     >>> peak_mat = snap.pp.make_peak_matrix(data, peak_file=snap.datasets.cre_HEA())
     >>> print(peak_mat)
-    AnnData object with n_obs × n_vars = 816 × 1154611
-        obs: 'tsse', 'n_fragment', 'frac_dup', 'frac_mito'
+    AnnData object with n_obs × n_vars = 585 × 1154611
+        obs: 'n_fragment', 'frac_dup', 'frac_mito'
     """
     import gzip
 
@@ -476,16 +475,16 @@ def make_peak_matrix(
     else:
         if file is None:
             if adata.isbacked:
-                out = ad.AnnData(obs=adata.obs[:].to_pandas())
+                out = AnnData(obs=adata.obs[:].to_pandas())
             else:
-                out = ad.AnnData(obs=adata.obs[:])
+                out = AnnData(obs=adata.obs[:])
         else:
-            out = AnnData(filename=file, backend=backend, obs=adata.obs[:])
+            out = internal.AnnData(filename=file, backend=backend, obs=adata.obs[:])
         internal.mk_peak_matrix(adata, peaks, chunk_size, use_x, out)
         return out
 
 def make_gene_matrix(
-    adata: AnnData | AnnDataSet,
+    adata: internal.AnnData | internal.AnnDataSet,
     gene_anno: Genome | Path,
     *,
     inplace: bool = False,
@@ -494,7 +493,7 @@ def make_gene_matrix(
     chunk_size: int = 500,
     use_x: bool = False,
     id_type: Literal['gene', 'transcript'] = "gene",
-) -> AnnData:
+) -> internal.AnnData:
     """Generate cell by gene activity matrix.
 
     Generate cell by gene activity matrix by counting the TN5 insertions in gene
@@ -539,11 +538,11 @@ def make_gene_matrix(
     Examples
     --------
     >>> import snapatac2 as snap
-    >>> data = snap.pp.import_data(snap.datasets.pbmc500(), genome=snap.genome.hg38, sorted_by_barcode=False)
+    >>> data = snap.pp.import_data(snap.datasets.pbmc500(downsample=True), chrom_sizes=snap.genome.hg38, sorted_by_barcode=False)
     >>> gene_mat = snap.pp.make_gene_matrix(data, gene_anno=snap.genome.hg38)
     >>> print(gene_mat)
-    AnnData object with n_obs × n_vars = 816 × 60606
-        obs: 'tsse', 'n_fragment', 'frac_dup', 'frac_mito'
+    AnnData object with n_obs × n_vars = 585 × 60606
+        obs: 'n_fragment', 'frac_dup', 'frac_mito'
     """
     if isinstance(gene_anno, Genome):
         gene_anno = gene_anno.fetch_annotations()
@@ -553,21 +552,22 @@ def make_gene_matrix(
     else:
         if file is None:
             if adata.isbacked:
-                out = ad.AnnData(obs=adata.obs[:].to_pandas())
+                out = AnnData(obs=adata.obs[:].to_pandas())
             else:
-                out = ad.AnnData(obs=adata.obs[:])
+                out = AnnData(obs=adata.obs[:])
         else:
-            out = AnnData(filename=file, backend=backend, obs=adata.obs[:])
+            out = internal.AnnData(filename=file, backend=backend, obs=adata.obs[:])
         internal.mk_gene_matrix(adata, gene_anno, chunk_size, use_x, id_type, out)
         return out
 
 def filter_cells(
-    data: AnnData,
+    data: internal.AnnData | list[internal.AnnData],
     min_counts: int | None = 1000,
     min_tsse: float | None = 5.0,
     max_counts: int | None = None,
     max_tsse: float | None = None,
     inplace: bool = True,
+    n_jobs: int = 8,
 ) -> np.ndarray | None:
     """
     Filter cell outliers based on counts and numbers of genes expressed.
@@ -580,6 +580,8 @@ def filter_cells(
     data
         The (annotated) data matrix of shape `n_obs` x `n_vars`.
         Rows correspond to cells and columns to regions.
+        `data` can also be a list of AnnData objects.
+        In this case, the function will be applied to each AnnData object in parallel.
     min_counts
         Minimum number of counts required for a cell to pass filtering.
     min_tsse
@@ -590,6 +592,8 @@ def filter_cells(
         Maximum TSS enrichment score expressed required for a cell to pass filtering.
     inplace
         Perform computation inplace or return result.
+    n_jobs
+        Number of parallel jobs to use when `data` is a list.
 
     Returns
     -------
@@ -598,6 +602,17 @@ def filter_cells(
         a boolean index mask that does filtering, where `True` means that the
         cell is kept, `False` means the cell is removed.
     """
+    if isinstance(data, list):
+        result = snapatac2._utils.anndata_par(
+            data,
+            lambda x: filter_cells(x, min_counts, min_tsse, max_counts, max_tsse, inplace=inplace),
+            n_jobs=n_jobs,
+        )
+        if inplace:
+            return None
+        else:
+            return result
+
     selected_cells = True
     if min_counts: selected_cells &= data.obs["n_fragment"] >= min_counts
     if max_counts: selected_cells &= data.obs["n_fragment"] <= max_counts
@@ -631,7 +646,7 @@ def _find_most_accessible_features(
  
  
 def select_features(
-    adata: AnnData | AnnDataSet | list[AnnData],
+    adata: internal.AnnData | internal.AnnDataSet | list[internal.AnnData],
     n_features: int = 500000,
     filter_lower_quantile: float = 0.005,
     filter_upper_quantile: float = 0.005,

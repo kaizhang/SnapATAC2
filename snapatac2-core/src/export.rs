@@ -61,7 +61,7 @@ pub trait Exporter: SnapData {
                     if let Some(barcodes_) = barcodes {
                         let bc = barcodes_[start + i];
                         entry.extend(xs.into_iter().map(|mut x| {
-                            x.name = Some(bc.to_string());
+                            x.barcode = Some(bc.to_string());
                             x
                         }));
                     } else {

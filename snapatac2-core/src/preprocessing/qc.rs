@@ -1,13 +1,11 @@
 use std::{io::{Read, BufRead, BufReader}, ops::Div, collections::{HashMap, HashSet}};
 use anndata::data::CsrNonCanonical;
-use bed_utils::bed::{
-    GenomicRange, BEDLike, tree::BedTree,
-    ParseError, Strand, BED,
-};
+use bed_utils::bed::{GenomicRange, BEDLike, tree::BedTree, ParseError, Strand};
 use anyhow::Result;
 use serde::{Serialize, Deserialize};
 use extsort::sorter::Sortable;
 use bincode;
+use smallvec::{SmallVec, smallvec};
 
 pub type CellBarcode = String;
 
@@ -18,7 +16,7 @@ pub struct Fragment {
     pub chrom: String,
     pub start: u64,
     pub end: u64,
-    pub barcode: CellBarcode,
+    pub barcode: Option<CellBarcode>,
     pub count: u32,
     pub strand: Option<Strand>,
 }
@@ -35,16 +33,16 @@ impl Sortable for Fragment {
 }
 
 impl Fragment {
-    pub fn to_insertions(&self) -> Vec<GenomicRange> {
+    pub fn to_reads(&self) -> SmallVec<[GenomicRange; 2]> {
         match self.strand {
-            None => vec![
+            None => smallvec![
                 GenomicRange::new(self.chrom.clone(), self.start, self.start + 1),
                 GenomicRange::new(self.chrom.clone(), self.end - 1, self.end),
             ],
-            Some(Strand::Forward) => vec![
+            Some(Strand::Forward) => smallvec![
                 GenomicRange::new(self.chrom.clone(), self.start, self.start + 1)
             ],
-            Some(Strand::Reverse) => vec![
+            Some(Strand::Reverse) => smallvec![
                 GenomicRange::new(self.chrom.clone(), self.end - 1, self.end)
             ],
         }
@@ -67,9 +65,33 @@ impl BEDLike for Fragment {
         self.end = end;
         self
     }
-    fn name(&self) -> Option<&str> { None }
-    fn score(&self) -> Option<bed_utils::bed::Score> { None }
-    fn strand(&self) -> Option<Strand> { None }
+    fn name(&self) -> Option<&str> {
+        self.barcode.as_deref()
+    }
+    fn score(&self) -> Option<bed_utils::bed::Score> {
+        Some(self.count.try_into().unwrap())
+    }
+    fn strand(&self) -> Option<Strand> {
+        self.strand
+    }
+}
+
+impl core::fmt::Display for Fragment {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(
+            f,
+            "{}\t{}\t{}\t{}\t{}",
+            self.chrom(),
+            self.start(),
+            self.end(),
+            self.barcode.as_deref().unwrap_or("."),
+            self.count,
+        )?;
+        if let Some(strand) = self.strand() {
+            write!(f, "\t{}", strand)?;
+        }
+        Ok(())
+    }
 }
 
 impl std::str::FromStr for Fragment {
@@ -82,8 +104,13 @@ impl std::str::FromStr for Fragment {
             .and_then(|s| lexical::parse(s).map_err(ParseError::InvalidStartPosition))?;
         let end = fields.next().ok_or(ParseError::MissingEndPosition)
             .and_then(|s| lexical::parse(s).map_err(ParseError::InvalidEndPosition))?;
-        let barcode = fields.next().ok_or(ParseError::MissingName)
-            .map(|s| s.into())?;
+        let barcode = fields
+            .next()
+            .ok_or(ParseError::MissingName)
+            .map(|s| match s {
+                "." => None,
+                _ => Some(s.into()),
+            })?;
         let count = fields.next().map_or(Ok(1), |s| if s == "." {
             Ok(1)
         } else {
@@ -245,7 +272,7 @@ where
 {
     let mut barcodes = HashMap::new();
     fragments.for_each(|frag| {
-        let key = frag.barcode.clone();
+        let key = frag.barcode.unwrap().clone();
         *barcodes.entry(key).or_insert(0) += 1;
     });
     barcodes
@@ -253,7 +280,7 @@ where
 
 pub fn tss_enrichment<I>(fragments: I, promoter: &BedTree<bool>) -> f64
 where
-    I: Iterator<Item = BED<6>>,
+    I: Iterator<Item = Fragment>,
 {
     fn find_pos<'a>(promoter: &'a BedTree<bool>, ins: &'a GenomicRange) -> impl Iterator<Item = usize> + 'a {
         promoter.find(ins).map(|(entry, data)| {
@@ -316,25 +343,28 @@ pub fn fragment_size_distribution<I>(data: I, max_size: usize) -> Vec<usize>
     size_dist
 }
 
-/// Count the fraction of the records in the given regions.
-pub fn fraction_in_region<'a, I, D>(
+/// Count the fraction of the reads in the given regions.
+pub fn fraction_of_reads_in_region<'a, I, D>(
     iter: I, regions: &'a Vec<BedTree<D>>,
 ) -> impl Iterator<Item = (Vec<Vec<f64>>, usize, usize)> + 'a
 where
-    I: Iterator<Item = (Vec<Vec<BED<6>>>, usize, usize)> + 'a,
+    I: Iterator<Item = (Vec<Vec<Fragment>>, usize, usize)> + 'a,
 {
     let k = regions.len();
-    iter.map(move |(beds, start, end)| {
-        let frac = beds.into_iter().map(|xs| {
-            let sum = xs.len() as f64;
+    iter.map(move |(data, start, end)| {
+        let frac = data.into_iter().map(|fragments| {
+            let mut sum = 0.0;
             let mut counts = vec![0.0; k];
-            xs.into_iter().for_each(|x|
-                regions.iter().enumerate().for_each(|(i, r)| {
-                    if r.is_overlapped(&x) {
-                        counts[i] += 1.0;
-                    }
-                })
-            );
+            fragments
+                .into_iter().flat_map(|fragment| fragment.to_reads())
+                .for_each(|read| {
+                    sum += 1.0;
+                    regions.iter().enumerate().for_each(|(i, r)|
+                        if r.is_overlapped(&read) {
+                            counts[i] += 1.0;
+                        }
+                    )
+                });
             counts.iter_mut().for_each(|x| *x /= sum);
             counts
         }).collect::<Vec<_>>();
