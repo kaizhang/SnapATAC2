@@ -25,8 +25,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           latest_run_commit_sha=$(curl --silent --header "Authorization: token $GITHUB_TOKEN" \
-              "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/Nightly%20Run/runs?event=workflow_run.completed" \
-              | jq -r '.workflow_runs | select(.status == "completed") | .head_sha' | head -1)
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/actions/workflows/nightly.yml/runs?status=success&&per_page=1" \
+              | jq -r '.workflow_runs | first | .head_sha')
           echo "Latest completed run was on commit: $latest_run_commit_sha"
           echo "Current commit is: $LATEST_COMMIT_SHA"
           if [ "$latest_run_commit_sha" != "$LATEST_COMMIT_SHA" ]; then
@@ -35,14 +35,9 @@ jobs:
             echo "NEW_COMMITS=false" >> "$GITHUB_OUTPUT"
           fi
 
-  conditional-job:
-    runs-on: ubuntu-latest
+  build-wheel:
     needs: check-for-new-commits
-    steps:
-      - name: Conditional Job
-        env:
-          NEW_COMMITS: ${{ needs.check-for-new-commits.outputs.NEW_COMMITS }}
-        if : ${{ env.NEW_COMMITS == 'true' }}
-        run: |
-          echo "This job runs only if there are new commits since the last run."
-          # Add your commands for the conditional job here.
+    if : ${{ needs.check-for-new-commits.outputs.NEW_COMMITS == 'true' }}
+    uses: kaizhang/SnapATAC2/.github/workflows/wheels.yml@main
+    with:
+      wheel: 'true'
