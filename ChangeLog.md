@@ -3,9 +3,9 @@ v2.5.0dev
 
 ## Breaking changes:
 
-- Fragments are now stored in `.obms['fragment_single']` or `.obsm['fragment_paired']`.
-  The h5ad files generated prior to this version are no longer compatible.
-  We provide a script `scripts/XXX.py` to convert the old h5ad files to the new format.
+- Fragments are now stored in `.obms['fragment_single']` or `.obsm['fragment_paired']`,
+  depending on whether the data is single-end or paired-end.
+  As a result, the h5ad files generated prior to this version are no longer compatible.
 - `tl.call_peaks` has been renamed to `tl.macs3`, and the underlying algorithm has been
   significantly improved, see #142.
 - `pp.import_data` now doesn't compute the TSS enrichment scores. Use `metrics.tsse`

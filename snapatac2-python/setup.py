@@ -34,7 +34,7 @@ setup(
     zip_safe=False,
     python_requires=">=3.7",
     install_requires=[
-        "anndata>=0.8.0",
+        "anndata>=0.8.0, <0.10.0",
         "kaleido",
         "multiprocess",
         "MACS3==3.0.0b3",
@@ -42,7 +42,7 @@ setup(
         "numpy>=1.16.0",
         "pandas>=1.0",
         "plotly>=5.6.0",
-        "polars>=0.14.0, <=0.18.0",
+        "polars>=0.18.15, <0.20.0",
         "pooch>=1.6.0",
         "igraph>=0.10.0",
         "pynndescent",

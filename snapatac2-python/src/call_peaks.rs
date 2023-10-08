@@ -129,7 +129,7 @@ fn dataframe_to_narrow_peaks(df: &DataFrame) -> Result<Vec<NarrowPeak>> {
     let starts = df.column("start").unwrap().u64()?;
     let ends = df.column("end").unwrap().u64()?;
     let names = df.column("name").unwrap().utf8()?;
-    let scores = df.column("score").unwrap().i32()?;
+    let scores = df.column("score").unwrap().u16()?;
     let strands = df.column("strand").unwrap().utf8()?;
     let signal_values = df.column("signal_value").unwrap().f64()?;
     let p_values = df.column("p_value").unwrap().f64()?;

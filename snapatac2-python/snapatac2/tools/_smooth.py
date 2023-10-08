@@ -3,10 +3,10 @@ from scipy.sparse import vstack
 import numpy as np
 import scipy.sparse as ss
 
-from snapatac2._snapatac2 import AnnData, AnnDataSet
+import snapatac2._snapatac2 as internal
 
 def smooth(
-    adata: Union[AnnData, AnnDataSet, ss.spmatrix],
+    adata: Union[internal.AnnData, internal.AnnDataSet, ss.spmatrix],
     distances: Optional[Union[str, ss.spmatrix]] = None,
     inplace: bool = True,
 ) -> Optional[np.ndarray]:
@@ -30,7 +30,7 @@ def smooth(
  
     if distances is None: distances = "distances"
     if isinstance(str, distances): distances = adata.obsp[distances] 
-    data = adata.X[:] if isinstance(AnnData, adata) or isinstance(AnnDataSet, adata) else adata
+    data = adata.X[:] if isinstance(internal.AnnData, adata) or isinstance(internal.AnnDataSet, adata) else adata
     data = data * make_diffuse_operator(distances)
     if inplace:
         adata.X = data

@@ -81,6 +81,10 @@ def macs3(
     dict[str, 'polars.DataFrame'] | None
         If `inplace=True` it stores the result in `adata.uns[`key_added`]`.
         Otherwise, it returns the result as dataframes.
+
+    See Also
+    --------
+    merge_peaks
     """
     from MACS3.Signal.PeakDetect import PeakDetect
     from math import log
@@ -186,6 +190,10 @@ def merge_peaks(
     -------
     'polars.DataFrame'
         A dataframe with merged peaks.
+
+    See Also
+    --------
+    macs3
     """
     chrom_sizes = chrom_sizes.chrom_sizes if isinstance(chrom_sizes, Genome) else chrom_sizes
     return _snapatac2.py_merge_peaks(peaks, chrom_sizes, half_width)
