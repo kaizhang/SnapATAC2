@@ -52,7 +52,7 @@ def umap2(
         adjacency = adata
     gr = get_igraph_from_adjacency(adjacency)
     dist = np.array(gr.es["weight"])
-    umap = gr.layout_umap(dist=dist, dim=n_comps, min_dist=0.01, epochs=500)
+    umap = gr.layout_umap(dist=dist, dim=n_comps, min_dist=0.1, epochs=500)
     umap = np.array(umap.coords)
 
     if inplace:

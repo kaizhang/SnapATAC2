@@ -191,6 +191,13 @@ def regions(
     import plotly.graph_objects as go
 
     peaks = np.concatenate([[x for x in p] for p in peaks.values()])
+    n = len(peaks)
+    if n > 50000:
+        logging.warning(f"Input contains {n} peaks, only 50000 peaks will be plotted.")
+        np.random.seed(0)
+        indices = np.random.choice(n, 50000, replace=False)
+        peaks = peaks[sorted(indices)]
+
     count = aggregate_X(adata, groupby=groupby, normalize="RPKM")
     names = count.obs_names
     count = pl.DataFrame(count.X.T)

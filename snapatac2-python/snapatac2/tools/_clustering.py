@@ -108,7 +108,7 @@ def leiden(
         partition = gr.community_leiden(
             objective_function=objective_function,
             weights=weights,
-            resolution_parameter=resolution,
+            resolution=resolution,
             beta=0.01,
             initial_membership=None,
             n_iterations=n_iterations,

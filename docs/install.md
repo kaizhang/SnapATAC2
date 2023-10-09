@@ -35,11 +35,15 @@ The nightly build is the build from the latest source codes, which includes the
 latest features, enhancements, and bug fixes that haven't been released. 
 The nightly build can be unstable and include some untested features.
 
-You can download the wheel files of the latest Nightly build from this
-[link](https://nightly.link/kaizhang/SnapATAC2/workflows/wheels/main/artifact.zip).
+After downloading the
+{download}`[Nightly Build](https://nightly.link/kaizhang/SnapATAC2/workflows/wheels/main/artifact.zip).`,
+unzip it and then select the appropriate wheel file for your platform and use `pip install` to install it.
+For example, if you are using a Linux system with Python 3.8, you can use the following command to install it:
 
-After downloading the file, unzip it and then select the appropriate wheel file
-for your platform and use `pip install` to install it.
+```
+unzip artifact.zip
+pip install snapatac2-x.x.x-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+```
 
 Build from the latest source code 
 ---------------------------------
