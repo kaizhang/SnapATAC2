@@ -36,7 +36,7 @@ latest features, enhancements, and bug fixes that haven't been released.
 The nightly build can be unstable and include some untested features.
 
 After downloading the
-{download}`Nightly Build <https://nightly.link/kaizhang/SnapATAC2/workflows/nightly.yml/main/artifact.zip`>,
+{download}`Nightly Build <https://nightly.link/kaizhang/SnapATAC2/workflows/nightly.yml/main/artifact.zip>`,
 unzip it and then select the appropriate wheel file for your platform and use `pip install` to install it.
 For example, if you are using a Linux system with Python 3.8, you can use the following command to install it:
 

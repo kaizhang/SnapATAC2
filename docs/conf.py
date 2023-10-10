@@ -117,7 +117,7 @@ else:
     switcher_version = f"{version}"
 
 html_theme_options = {
-     "logo": {
+    "logo": {
         "text": "SnapATAC2",
         "image_dark": "_static/logo-dark.svg",
         "alt_text": "SnapATAC2",
@@ -127,9 +127,11 @@ html_theme_options = {
     "external_links": [
         {"name": "Learn", "url": "https://kzhang.org/epigenomics-analysis/"}
     ],
+    "header_links_before_dropdown": 6,
 
     "navbar_center": ["version-switcher", "navbar-nav"],
     "navbar_end": ["theme-switcher", "navbar-icon-links"],
+    "navbar_align": "left",
     "show_version_warning_banner": True,
 
     "switcher": {
@@ -137,7 +139,6 @@ html_theme_options = {
         "json_url": "https://raw.githubusercontent.com/kaizhang/SnapATAC2/main/docs/_static/versions.json", 
     },
 }
-
 
 commit = subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip().decode('ascii')
 code_url = f"https://github.com/kaizhang/SnapATAC2/blob/{commit}"
@@ -197,13 +198,3 @@ def linkcode_resolve(domain, info):
     fn = os.path.relpath(fn, start=os.path.dirname(snapatac2.__file__))
 
     return f"{code_url}/snapatac2-python/snapatac2/{fn}{linespec}"
-
-    '''
-    if "+" in snapatac2.__version__:
-        return f"https://github.com/kaizhang/SnapATAC2/blob/main/snapatac2-python/snapatac2/{fn}{linespec}"
-    else:
-        return (
-            f"https://github.com/kaizhang/SnapATAC2/blob/"
-            f"v{snapatac2.__version__}/snapatac2-python/snapatac2/{fn}{linespec}"
-        )
-    '''
