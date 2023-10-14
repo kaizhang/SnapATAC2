@@ -4,8 +4,9 @@ pub use mark_duplicates::{filter_bam, group_bam_by_barcode, BarcodeLocation, Fla
 use bed_utils::bed::BEDLike;
 use either::Either;
 use flate2::{write::GzEncoder, Compression};
-use noodles::{bam, sam::{record::data::field::Tag, Header}};
+use noodles::{bam, sam::record::data::field::Tag};
 use regex::Regex;
+use anyhow::{Result, bail};
 use std::{fs::File, io::{BufWriter, Write}, path::Path};
 use tempfile::Builder;
 
@@ -51,37 +52,34 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>>(
     shift_right: i64,
     mapq: Option<u8>,
     chunk_size: usize,
-) -> FlagStat {
+) -> Result<FlagStat> {
     let tmp_dir = Builder::new()
         .tempdir_in("./")
         .expect("failed to create tmperorary directory");
 
     if barcode_regex.is_some() && barcode_tag.is_some() {
-        panic!("Can only set barcode_tag or barcode_regex but not both");
+        bail!("Can only set barcode_tag or barcode_regex but not both");
     }
     if umi_regex.is_some() && umi_tag.is_some() {
-        panic!("Can only set umi_tag or umi_regex but not both");
+        bail!("Can only set umi_tag or umi_regex but not both");
     }
     let barcode = match barcode_tag {
-        Some(tag) => BarcodeLocation::InData(Tag::try_from(tag).unwrap()),
+        Some(tag) => BarcodeLocation::InData(Tag::try_from(tag)?),
         None => match barcode_regex {
-            Some(regex) => BarcodeLocation::Regex(Regex::new(regex).unwrap()),
-            None => BarcodeLocation::InReadName,
+            Some(regex) => BarcodeLocation::Regex(Regex::new(regex)?),
+            None => bail!("Either barcode_tag or barcode_regex must be set"),
         },
     };
     let umi = match umi_tag {
-        Some(tag) => Some(BarcodeLocation::InData(Tag::try_from(tag).unwrap())),
+        Some(tag) => Some(BarcodeLocation::InData(Tag::try_from(tag)?)),
         None => match umi_regex {
-            Some(regex) => Some(BarcodeLocation::Regex(Regex::new(regex).unwrap())),
+            Some(regex) => Some(BarcodeLocation::Regex(Regex::new(regex)?)),
             None => None,
         },
     };
 
-    let mut reader = File::open(bam_file)
-        .map(bam::Reader::new)
-        .expect("cannot open bam file");
-    let header: Header = fix_header(reader.read_header().unwrap()).parse().unwrap();
-    reader.read_reference_sequences().unwrap();
+    let mut reader = bam::reader::Builder::default().build_from_path(bam_file)?;
+    let header = reader.read_header()?;
 
     let f = File::create(output_file.as_ref()).expect("cannot create the output file");
     let mut output: Box<dyn Write> =
@@ -119,7 +117,7 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>>(
         }
         Either::Right(x) => writeln!(output, "{}", x).unwrap(),
     });
-    flagstat
+    Ok(flagstat)
 }
 
 /// This function is used to fix 10X bam headers, as the headers of 10X bam
@@ -148,6 +146,7 @@ fn fix_header(header: String) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use noodles::sam::Header;
 
     #[test]
     fn test_fix_header() {

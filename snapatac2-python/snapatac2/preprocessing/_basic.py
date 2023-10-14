@@ -39,7 +39,15 @@ def make_fragment_file(
            for each unique cell barcode.
         3. Output: Convert BAM records to fragments (if paired-end) or single-end reads.
 
-    Note the bam file needn't be sorted or filtered.
+    The bam file needn't be sorted or filtered.
+
+    Note
+    ----
+    BAM files produced by the 10X Genomics Cell Ranger pipeline are not supported,
+    as they contain invalid BAM headers. Specifically, Cell Ranger ATAC <= 2.0 produces BAM
+    files with no @VN tag in the header, and Cell Ranger ATAC >= 2.1 produces BAM files
+    with invalid @VN tag in the header.
+    It is recommended to use the fragment files produced by Cell Ranger ATAC instead.
 
     Parameters
     ----------
@@ -50,12 +58,12 @@ def make_fragment_file(
     is_paired
         Indicate whether the BAM file contain paired-end reads
     barcode_tag
-        Extract barcodes from TAG fields of BAM records, e.g., `barcode_tag = "CB"`.
+        Extract barcodes from TAG fields of BAM records, e.g., `barcode_tag="CB"`.
     barcode_regex
         Extract barcodes from read names of BAM records using regular expressions.
         Reguler expressions should contain exactly one capturing group 
         (Parentheses group the regex between them) that matches
-        the barcodes. For example, `barcode_regex = "(..:..:..:..):\w+$"`
+        the barcodes. For example, `barcode_regex="(..:..:..:..):\w+$"`
         extracts `bd:69:Y6:10` from
         `A01535:24:HW2MMDSX2:2:1359:8513:3458:bd:69:Y6:10:TGATAGGTTG`.
     umi_tag

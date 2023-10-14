@@ -93,6 +93,14 @@ pub trait Exporter: SnapData {
             self.get_count_iter(500)?, group_by, selections, resolution, dir, prefix, suffix,
         )
     }
+
+    fn get_counts(
+        &self,
+        group_by: &Vec<&str>,
+        selections: Option<HashSet<&str>>,
+    ) -> Result<()> {
+        todo!()
+    }
 }
 
 /// Export TN5 insertions as bigwig files
@@ -157,7 +165,7 @@ where
         let norm_factor = total_count * resolution as f64 / 1e9;
 
         // Make BedGraph
-        let mut bedgraph: Vec<BedGraph<f32>> = count.into_iter().map(|(k, v)| {
+        let bedgraph: Vec<BedGraph<f32>> = count.into_iter().map(|(k, v)| {
             let mut region = index.get_region(k);
             region.set_end(region.start() + resolution as u64);
             BedGraph::from_bed(&region, (v as f64 / norm_factor) as f32)
@@ -175,33 +183,46 @@ where
             )
         ).collect();
 
-        // perform clipping to make sure the end of each region is within the range.
-        bedgraph.iter_mut().group_by(|x| x.chrom().to_string()).into_iter().for_each(|(chr, groups)| {
-            let size = *chrom_sizes.get(&chr).expect(&format!("chromosome not found: {}", chr)) as u64;
-            let bed = groups.last().unwrap();
-            if bed.end() > size {
-                bed.set_end(size);
-            }
-        });
-
-        // write to bigwig file
-        BigWigWrite::create_file(filename.as_path().to_str().unwrap().to_string()).write(
-            chrom_sizes.clone(),
-            bigtools::bbi::bedchromdata::BedParserStreamingIterator::new(
-                BedParser::wrap_iter(bedgraph.into_iter().map(|x| {
-                    let val = bigtools::bbi::Value {
-                        start: x.start() as u32,
-                        end: x.end() as u32,
-                        value: x.value,
-                    };
-                    let res: Result<_, bigtools::bed::bedparser::BedValueError> = Ok((x.chrom().to_string(), val));
-                    res
-                })),
-                false,
-            ),
-            ThreadPool::new().unwrap(),
-        ).unwrap();
+        create_bigwig_from_bedgraph(bedgraph, &chrom_sizes, filename.as_path())?;
 
         Ok((grp.to_string(), filename))
     }).collect()
+}
+
+//fn create_bedgraph_from_fragments() {
+//}
+
+/// Create a bigwig file from BedGraph records.
+fn create_bigwig_from_bedgraph<P: AsRef<Path>>(
+    mut bedgraph: Vec<BedGraph<f32>>,
+    chrom_sizes: &HashMap<String, u32>,
+    filename: P,
+) -> Result<()> {
+    // perform clipping to make sure the end of each region is within the range.
+    bedgraph.iter_mut().group_by(|x| x.chrom().to_string()).into_iter().for_each(|(chr, groups)| {
+        let size = *chrom_sizes.get(&chr).expect(&format!("chromosome not found: {}", chr)) as u64;
+        let bed = groups.last().unwrap();
+        if bed.end() > size {
+            bed.set_end(size);
+        }
+    });
+
+    // write to bigwig file
+    BigWigWrite::create_file(filename.as_ref().to_str().unwrap().to_string()).write(
+        chrom_sizes.clone(),
+        bigtools::bbi::bedchromdata::BedParserStreamingIterator::new(
+            BedParser::wrap_iter(bedgraph.into_iter().map(|x| {
+                let val = bigtools::bbi::Value {
+                    start: x.start() as u32,
+                    end: x.end() as u32,
+                    value: x.value,
+                };
+                let res: Result<_, bigtools::bed::bedparser::BedValueError> = Ok((x.chrom().to_string(), val));
+                res
+            })),
+            false,
+        ),
+        ThreadPool::new().unwrap(),
+    ).unwrap();
+    Ok(())
 }

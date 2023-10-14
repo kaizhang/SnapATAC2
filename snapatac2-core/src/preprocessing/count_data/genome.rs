@@ -109,11 +109,7 @@ impl TryFrom<gff::Record> for Transcript {
 
         let left = record.start();
         let right = record.end();
-        let attributes: HashMap<&str, &str> = record
-            .attributes()
-            .iter()
-            .map(|x| (x.key(), x.value()))
-            .collect();
+        let attributes = record.attributes();
         Ok(Transcript {
             transcript_name: attributes.get("transcript_name").map(|x| x.to_string()),
             transcript_id: attributes
@@ -130,7 +126,7 @@ impl TryFrom<gff::Record> for Transcript {
                 .to_string(),
             is_coding: attributes
                 .get("transcript_type")
-                .map(|x| *x == "protein_coding"),
+                .map(|x| x.as_string() == Some("protein_coding")),
             chrom: record.reference_sequence_name().to_string(),
             left,
             right,

@@ -43,7 +43,7 @@ pub(crate) fn make_fragment_file(
     umi_tag: Option<&str>,
     umi_regex: Option<&str>,
     mapq: Option<u8>,
-) -> PyFlagStat
+) -> Result<PyFlagStat>
 {
     fn parse_tag(tag: &str) -> [u8; 2] {
         let tag_b = tag.as_bytes();
@@ -58,8 +58,8 @@ pub(crate) fn make_fragment_file(
         barcode_tag.map(|x| parse_tag(x)), barcode_regex,
         umi_tag.map(|x| parse_tag(x)), umi_regex,
         shift_left, shift_right, mapq, chunk_size,
-    );
-    PyFlagStat(stat)
+    )?;
+    Ok(PyFlagStat(stat))
 }
 
 #[pyfunction]

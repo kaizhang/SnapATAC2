@@ -1,6 +1,8 @@
 Release Notes
 =============
 
+## Development version (unreleased)
+
 ## Release 2.5.0 (released Oct 10, 2023)
 
 ### Breaking changes:

@@ -70,6 +70,7 @@ where
         self
     }
 
+    /// Return an iterator of raw fragments.
     pub fn into_raw(self) -> impl ExactSizeIterator<Item = (Vec<Vec<Fragment>>, usize, usize)> {
         let index = self.index;
         self.coverage.map(move |(raw_mat, a, b)| {
@@ -132,6 +133,9 @@ where
         })
     }
 
+    /// Return an iterator of raw fragments grouped by a key function.
+    /// The key function takes the index of current cell as the input and
+    /// returns a key for grouping.
     pub fn into_raw_groups<F, K>(self, key: F) -> impl ExactSizeIterator<Item = HashMap<K, Vec<Fragment>>>
     where
         F: Fn(usize) -> K,

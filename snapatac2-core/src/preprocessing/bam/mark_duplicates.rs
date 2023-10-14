@@ -22,10 +22,7 @@ use noodles::{
     bam::lazy::Record,
     sam::{
         Header,
-        record::{
-            Cigar, Data, ReadName, Flags, MappingQuality,
-            cigar::op::Kind, data::field::{Tag, Value}, mapping_quality,
-        },
+        record::{Cigar, Data, Flags, cigar::op::Kind, data::field::{Tag, Value}, mapping_quality},
     },
 };
 use bed_utils::bed::{BED, BEDLike, Score, Strand};
@@ -72,30 +69,24 @@ pub enum Orientation { FR, FF, RR, RF }
 pub enum BarcodeLocation {
     InData(Tag),
     Regex(Regex),
-    InReadName,
 }
 
 impl BarcodeLocation {
     pub fn extract(&self, rec: &Record) -> Result<String> {
         match self {
             BarcodeLocation::InData(tag) => match Data::try_from(rec.data())?
-                .get(*tag).ok_or(anyhow!("No data: {}", tag))?
+                .get(tag).ok_or(anyhow!("No data: {}", tag))?
                 {
                     Value::String(barcode) => Ok(barcode.to_string()),
                     _ => bail!("Not a String"),
                 },
             BarcodeLocation::Regex(re) => {
-                let read_name = rec.read_name()?.context("No read name")?;
-                let mat = re.captures(read_name.as_ref()).and_then(|x| x.get(1))
+                let read_name = rec.read_name().context("No read name")?;
+                let mat = re.captures(std::str::from_utf8(read_name.as_bytes())?)
+                    .and_then(|x| x.get(1))
                     .ok_or(anyhow!("The regex must contain exactly one capturing group matching the barcode"))?
                     .as_str().to_string();
                 Ok(mat)
-            },
-            BarcodeLocation::InReadName => {
-                let read_name = rec.read_name()?.context("No read name")?;
-                Ok(<ReadName as AsRef<str>>::as_ref(&read_name).split_once(':')
-                    .unwrap().0.to_string()
-                )
             },
         }
     }
@@ -135,9 +126,9 @@ impl AlignmentInfo {
             .map(|x| x.len() as u32).sum();
 
         Ok(Self {
-            name: rec.read_name()?.context("no read name")?.to_string(),
+            name: std::str::from_utf8(rec.read_name().context("no read name")?.as_bytes())?.to_string(),
             reference_sequence_id: rec.reference_sequence_id()?.context("no reference sequence id")?.try_into()?,
-            flags: rec.flags()?.bits(),
+            flags: rec.flags().bits(),
             alignment_start,
             alignment_end,
             unclipped_start: alignment_start - clipped_start,
@@ -148,7 +139,7 @@ impl AlignmentInfo {
         })
     }
 
-    fn flags(&self) -> Flags { unsafe { Flags::from_bits_unchecked(self.flags) } }
+    fn flags(&self) -> Flags { Flags::from_bits_retain(self.flags) }
 
     fn alignment_5p(&self) -> u32 {
         if self.flags().is_reverse_complemented() {
@@ -289,7 +280,7 @@ pub struct FlagStat {
 
 impl FlagStat {
     pub fn update(&mut self, record: &Record) {
-        let flags = record.flags().unwrap();
+        let flags = record.flags();
 
         self.read += 1;
 
@@ -341,9 +332,8 @@ impl FlagStat {
                             self.mate_reference_sequence_id_mismatch += 1;
 
                             let mapq = record
-                                .mapping_quality().unwrap()
-                                .map(u8::from)
-                                .unwrap_or(mapping_quality::MISSING);
+                                .mapping_quality()
+                                .map_or(mapping_quality::MISSING, |x| x.get());
 
                             if mapq >= 5 {
                                 self.mate_reference_sequence_id_mismatch_hq += 1;
@@ -375,14 +365,14 @@ where
     let flag_failed = Flags::from_bits(1804).unwrap();
     reads.filter(move |r| {
         flagstat.update(r);
-        let flag = r.flags().unwrap();
+        let flag = r.flags();
         let is_properly_aligned = !flag.is_supplementary() &&
             (!is_paired || flag.is_properly_aligned());
         let flag_pass = !flag.intersects(flag_failed);
-        let mapq_pass = mapq_filter.and_then(|x| {
-            let q = MappingQuality::new(x).unwrap();
-            r.mapping_quality().unwrap().and_then(|mapq| Some(mapq >= q))
-        }).unwrap_or(true);
+        let mapq_pass = mapq_filter.map_or(true, |min_q| {
+            let q = r.mapping_quality().map_or(mapping_quality::MISSING, |x| x.get());
+            q >= min_q
+        });
         is_properly_aligned && flag_pass && mapq_pass
     })
 }

@@ -3,11 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 import numpy as np
 
-from snapatac2._snapatac2 import AnnData, AnnDataSet
 import snapatac2._snapatac2 as internal
 
 def export_bed(
-    adata: AnnData | AnnDataSet,
+    adata: internal.AnnData | internal.AnnDataSet,
     groupby: str | list[str],
     selections: list[str] | None = None,
     ids: str | list[str] | None = None,
@@ -15,7 +14,7 @@ def export_bed(
     prefix: str = "",
     suffix: str = ".bed.gz",
 ) -> dict[str, str]:
-    """Export base-resolution TN5 insertion sites as BED format file.
+    """Export and save fragments in a BED format file.
 
     Parameters
     ----------
@@ -58,7 +57,7 @@ def export_bed(
 
 
 def export_bigwig(
-    adata: AnnData | AnnDataSet,
+    adata: internal.AnnData | internal.AnnDataSet,
     groupby: str | list[str],
     selections: list[str] | None = None,
     resolution: int = 1,
@@ -67,7 +66,7 @@ def export_bigwig(
     suffix: str = ".bw",
 ) -> dict[str, str]:
     """
-    Export TN5 insertions as BigWig format file.
+    Export and create BigWig format files.
 
     Parameters
     ----------
