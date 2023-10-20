@@ -136,7 +136,8 @@ def import_data(
     Parameters
     ----------
     fragment_file
-        File name of the fragment file. This can be a single file or a list of files.
+        File name of the fragment file, optionally compressed with gzip or zstd.
+        This can be a single file or a list of files.
         If it is a list of files, a separate AnnData object will be created for each file.
         A fragment file must contain at least 5 columns:
         chromosome, start, end, barcode, count.

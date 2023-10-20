@@ -62,6 +62,7 @@ where
     anndata.obsm().add_iter(
         obsm_key,
         fragments
+            .filter(|x| x.len() > 0)
             .group_by(|x| x.name().unwrap().to_string())
             .into_iter()
             .progress_with(spinner)
@@ -95,13 +96,15 @@ fn make_arraydata<V>(
     qc: &mut Vec<QualityControl>,
 ) -> ArrayData
 where
-    V: TryFrom<i64> + Ord,
+    V: TryFrom<i64> + Ord + std::marker::Send,
+    ArrayData: From<anndata::data::CsrNonCanonical<V>>,
+    ArrayData: From<nalgebra_sparse::CsrMatrix<V>>,
     <V as TryFrom<i64>>::Error: std::fmt::Debug,
 {
     let num_features = genome_index.len();
     let result: Vec<_> = data
         .into_par_iter()
-        .map(|(barcode, x)| (barcode, count_fragments::<u32>(mitochrondrial_dna, &genome_index, x)))
+        .map(|(barcode, x)| (barcode, count_fragments::<V>(mitochrondrial_dna, &genome_index, x)))
         .collect();
     let counts = result
         .into_iter()
@@ -139,18 +142,24 @@ where
         if genome_index.contain_chrom(chrom) {
             let start = f.start as i64;
             let end = f.end as i64;
+            let size = end - start;
+            let pos;
+            let shift: V;
             match f.strand {
                 Some(Strand::Reverse) => {
-                    let pos = genome_index.get_position_rev(chrom, (end-1) as u64);
-                    let size: V = (start - end).try_into().unwrap();
-                    values.push((pos, size));
+                    pos = genome_index.get_position_rev(chrom, (end-1) as u64);
+                    shift = (-size).try_into().expect(
+                        format!("cannot convert size {} to {}", -size, std::any::type_name::<V>()).as_str()
+                    );
                 },
                 _ => {
-                    let pos = genome_index.get_position_rev(chrom, start as u64);
-                    let size: V = (end - start).try_into().unwrap();
-                    values.push((pos, size));
+                    pos = genome_index.get_position_rev(chrom, start as u64);
+                    shift = size.try_into().expect(
+                        format!("cannot convert size {} to {}", size, std::any::type_name::<V>()).as_str()
+                    );
                 },
             }
+            values.push((pos, shift));
         }
     });
     values.sort();

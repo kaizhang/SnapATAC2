@@ -258,16 +258,21 @@ pub(crate) fn kmeans<'py>(
     Ok(model.predict(observations).targets.into_pyarray(py))
 }
 
+/// Open a file, possibly compressed. Supports gzip and zstd.
 pub(crate) fn open_file<P: AsRef<Path>>(file: P) -> Box<dyn std::io::Read> {
     if is_gzipped(file.as_ref()) {
         Box::new(MultiGzDecoder::new(File::open(file.as_ref()).unwrap()))
     } else {
-        Box::new(File::open(file.as_ref()).unwrap())
+        if let Ok(r) = zstd::stream::read::Decoder::new(File::open(file.as_ref()).unwrap()) {
+            Box::new(r)
+        } else {
+            Box::new(File::open(file.as_ref()).unwrap())
+        }
     }
 }
 
 /// Determine if a file is gzipped.
-pub(crate) fn is_gzipped<P: AsRef<Path>>(file: P) -> bool {
+fn is_gzipped<P: AsRef<Path>>(file: P) -> bool {
     MultiGzDecoder::new(File::open(file).unwrap()).header().is_some()
 }
 
