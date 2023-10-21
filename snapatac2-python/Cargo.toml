@@ -39,7 +39,7 @@ rand = "0.8"
 rayon = "1.8"
 statrs = "0.16"
 tempfile = "3.3"
-zstd = "0.13"
+zstd = { version = "0.13", features = ["zstdmt"] }
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 tikv-jemallocator = {version = "0.5", features = ["disable_initial_exec_tls"]}

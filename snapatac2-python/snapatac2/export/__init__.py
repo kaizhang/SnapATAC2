@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing_extensions import Literal
 
 from pathlib import Path
 import numpy as np
@@ -12,7 +13,9 @@ def export_bed(
     ids: str | list[str] | None = None,
     out_dir: Path = "./",
     prefix: str = "",
-    suffix: str = ".bed.gz",
+    suffix: str = ".bed.zst",
+    compression: Literal["gzip", "zstandard"] | None = None,
+    compression_level: int | None = None,
 ) -> dict[str, str]:
     """Export and save fragments in a BED format file.
 
@@ -34,6 +37,10 @@ def export_bed(
         Text added to the output file name.
     suffix
         Text added to the output file name.
+    compression
+        Compression type. If `None`, it is inferred from the suffix.
+    compression_level
+        Compression level. If `None`, it is set to 6 for gzip and 3 for zstandard.
 
     Returns
     -------
@@ -51,8 +58,16 @@ def export_bed(
     elif isinstance(ids, str):
         ids = adata.obs[ids]
 
+    if compression is None:
+        if suffix.endswith(".gz"):
+            compression = "gzip"
+        elif suffix.endswith(".zst"):
+            compression = "zstandard"
+        else:
+            raise ValueError("Compression type must be: gzip or zstandard.")
+
     return internal.export_bed(
-        adata, list(ids), list(groupby), selections, out_dir, prefix, suffix,
+        adata, list(ids), list(groupby), out_dir, prefix, suffix, selections, compression, compression_level,
     )
 
 

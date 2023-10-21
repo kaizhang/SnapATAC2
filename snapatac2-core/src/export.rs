@@ -1,12 +1,10 @@
-use crate::preprocessing::count_data::{SnapData, GenomeCoverage, CoverageType};
+use crate::{preprocessing::count_data::{SnapData, GenomeCoverage, CoverageType}, utils::open_file_for_write};
 
 use anyhow::{Context, Result, ensure};
-use flate2::{Compression, write::GzEncoder};
 use itertools::Itertools;
 use log::info;
 use std::{
-    sync::{Arc, Mutex},
-    fs::File, io::{BufWriter, Write},
+    sync::{Arc, Mutex}, io::Write,
     path::{Path, PathBuf}, collections::{BTreeMap, HashMap, HashSet},
 };
 use rayon::iter::{ParallelBridge, ParallelIterator};
@@ -26,6 +24,8 @@ pub trait Exporter: SnapData {
         dir: P,
         prefix: &str,
         suffix:&str,
+        compression: Option<&str>,
+        compression_level: Option<u32>,
     ) -> Result<HashMap<String, PathBuf>> {
         ensure!(self.n_obs() == group_by.len(), "lengths differ");
         let mut groups: HashSet<&str> = group_by.iter().map(|x| *x).unique().collect();
@@ -36,15 +36,7 @@ pub trait Exporter: SnapData {
             let filename = dir.as_ref().join(
                 prefix.to_string() + x.replace("/", "+").as_str() + suffix
             );
-            let buffer = BufWriter::with_capacity(
-                1024*1024,
-                File::create(&filename).with_context(|| format!("cannot create file: {}", filename.display()))?,
-            );
-            let writer: Box<dyn Write + Send> = if filename.extension().unwrap() == "gz" {
-                Box::new(GzEncoder::new(buffer, Compression::default()))
-            } else {
-                Box::new(buffer)
-            };
+            let writer = open_file_for_write(&filename, compression, compression_level)?;
             Ok((x, (filename, Arc::new(Mutex::new(writer)))))
         }).collect::<Result<HashMap<_, _>>>()?;
 

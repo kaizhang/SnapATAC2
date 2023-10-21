@@ -1,20 +1,18 @@
 use crate::utils::{open_file, AnnDataLike};
 use anyhow::Context;
 use bed_utils::bed::{NarrowPeak, Strand};
-use flate2::read::MultiGzDecoder;
 use indicatif::{ProgressIterator, ProgressStyle};
 use itertools::Itertools;
 use polars::prelude::TakeRandom;
 use snapatac2_core::{
     preprocessing::{Fragment, SnapData},
-    utils::{clip_peak, merge_peaks},
+    utils::{clip_peak, merge_peaks, open_file_for_write},
 };
 
 use anndata::Backend;
 use anndata_hdf5::H5;
 use anyhow::{ensure, Result};
 use bed_utils::bed::{io::Reader, tree::BedTree, BEDLike, GenomicRange};
-use flate2::{write::GzEncoder, Compression};
 use polars::{
     prelude::{DataFrame, NamedFrom},
     series::Series,
@@ -23,8 +21,6 @@ use pyanndata::data::PyDataFrame;
 use pyo3::prelude::*;
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use std::collections::HashSet;
-use std::fs::File;
-use std::io::BufWriter;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
 use std::{collections::HashMap, ops::Deref, path::PathBuf};
@@ -262,9 +258,7 @@ pub fn create_fwtrack_obj<'py>(
         .into_iter()
         .map(|fl| {
             let fwt = macs.getattr("FWTrack")?.call1((1000000,))?;
-            let reader = MultiGzDecoder::new(
-                File::open(&fl).with_context(|| format!("cannot open file: {}", fl.display()))?,
-            );
+            let reader = open_file(&fl);
             bed_utils::bed::io::Reader::new(reader, None)
                 .into_records::<Fragment>()
                 .try_for_each(|x| {
@@ -361,16 +355,11 @@ fn _export_tags<D: SnapData, P: AsRef<std::path::Path>>(
         .into_iter()
         .map(|(a, b)| {
             let filename = dir.as_ref().join(&format!(
-                "{}_{}.gz",
+                "{}_{}.zst",
                 a.replace("/", "+"),
                 b.replace("/", "+")
             ));
-            let buf = BufWriter::with_capacity(
-                1024 * 1024,
-                File::create(&filename)
-                    .with_context(|| format!("cannot create file: {}", filename.display()))?,
-            );
-            let writer = GzEncoder::new(buf, Compression::default());
+            let writer = open_file_for_write(&filename, Some("zstandard"), Some(1))?;
             let val = (filename, Arc::new(Mutex::new(writer)));
             Ok(((a, b), val))
         })

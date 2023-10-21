@@ -13,15 +13,17 @@ pub fn export_bed(
     anndata: AnnDataLike,
     barcodes: Vec<&str>,
     group_by: Vec<&str>,
-    selections: Option<HashSet<&str>>,
     dir: PathBuf,
     prefix: &str,
     suffix: &str,
+    selections: Option<HashSet<&str>>,
+    compression: Option<&str>,
+    compression_level: Option<u32>,
 ) -> Result<HashMap<String, PathBuf>> {
     macro_rules! run {
         ($data:expr) => {
             $data.export_bed(
-                Some(&barcodes), &group_by, selections, dir, prefix, suffix,
+                Some(&barcodes), &group_by, selections, dir, prefix, suffix, compression, compression_level
             )
         }
     }

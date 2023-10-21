@@ -1,5 +1,11 @@
 pub mod similarity;
 
+use std::path::Path;
+use std::fs::File;
+use std::io::{BufWriter, Write};
+use flate2::{Compression, write::GzEncoder};
+use anyhow::{Result, Context};
+
 use bed_utils::bed::{BEDLike, NarrowPeak, merge_bed_with};
 
 pub fn merge_peaks<I>(peaks: I, half_window_size: u64) -> impl Iterator<Item = Vec<NarrowPeak>>
@@ -38,6 +44,27 @@ pub fn clip_peak(mut peak: NarrowPeak, chrom_sizes: &crate::preprocessing::count
     peak.set_end(new_end);
     peak.peak = (new_start + peak.peak).min(new_end) - new_start;
     peak
+}
+
+pub fn open_file_for_write<P: AsRef<Path>>(
+    filename: P,
+    compression: Option<&str>,
+    compression_level: Option<u32>,
+) -> Result<Box<dyn Write + Send>> {
+    let buffer = BufWriter::new(
+        File::create(&filename).with_context(|| format!("cannot create file: {}", filename.as_ref().display()))?
+    );
+    let writer: Box<dyn Write + Send> = match compression {
+        None => Box::new(buffer),
+        Some("gzip") => Box::new(GzEncoder::new(buffer, Compression::new(compression_level.unwrap_or(6)))),
+        Some("zstandard") => {
+            let mut zstd = zstd::stream::Encoder::new(buffer, compression_level.unwrap_or(3) as i32)?;
+            zstd.multithread(8)?;
+            Box::new(zstd.auto_finish())
+        },
+        _ => panic!("unsupported compression: {}", compression.unwrap()),
+    };
+    Ok(writer)
 }
 
 #[cfg(test)]

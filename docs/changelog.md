@@ -3,6 +3,15 @@ Release Notes
 
 ## Development version (unreleased)
 
+### Features:
+
+- Add zstandard file support at various places.
+- Change the default output format of `ex.export_bed` to `zst`. To restore the old behavior, set `suffix='.bed.gz'`.
+
+### Bugs fixed:
+
+- Fix a bug in `pp.import_data` that causes the function to occasionally fail on small chunk sizes.
+
 ## Release 2.5.0 (released Oct 10, 2023)
 
 ### Breaking changes:

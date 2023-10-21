@@ -23,6 +23,6 @@ def test_in_memory():
     )
 
     data.obs['group'] = '1'
-    snap.ex.export_bed(data, groupby="group")
+    snap.ex.export_bed(data, groupby="group", suffix='.bed.gz')
 
     assert read_bed("1.bed.gz") == read_bed(fragment_file)
