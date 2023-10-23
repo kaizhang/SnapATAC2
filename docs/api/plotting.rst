@@ -10,5 +10,6 @@ Plotting: `pl`
     pl.umap
     pl.motif_enrichment
     pl.regions
+    pl.spectral_eigenvalues
     pl.network_edge_stat
     pl.render_plot

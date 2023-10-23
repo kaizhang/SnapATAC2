@@ -136,18 +136,25 @@ def spectral(
     Convert the cell-by-feature count matrix into lower dimensional representations
     using the spectrum of the normalized graph Laplacian defined by pairwise similarity
     between cells.
-
+    This function utilizes the matrix-free spectral embedding algorithm to compute
+    the embedding when `distance_metric` is "cosine", which scales linearly with the
+    number of cells. For other types of similarity metrics, the time and space complexity
+    scale quadratically with the number of cells.
+    
     Note
     ----
-    When using the cosine similarity as the similarity metric, the matrix-free
-    spectral embedding algorithm is used, which scales linearly with the number of cells. 
-    The memory usage is roughly :math:`2 \\times \\text{input_size}`.
-    For other types of similarity metrics, the time and space complexity is :math:`O(N^2)`,
-    where $N$ is the minimum between the total of cells and the `sample_size`.
-    The memory usage in bytes is given by $N^2 * 8 * 2$. For example,
-    when $N = 10,000$ it will use roughly 745 MB memory.
-    When `sample_size` is set, the Nystrom algorithm will be used to approximate
-    the embedding. 
+    Determining the appropriate number of components is crucial when performing
+    downstream analyses to ensure optimal clustering outcomes. Utilizing components
+    that are either uninformative or irrelevant can compromise the quality of the results.
+    By default, this function adopts a strategy where all eigenvectors are weighted
+    according to the square root of their corresponding eigenvalues, rather than
+    implementing a strict cutoff threshold. This method generally provides satisfactory
+    results, circumventing the necessity for manual specification of component numbers.
+    However, it's important to note that there might be exceptional cases with
+    certain datasets where deviating from this default setting could yield better
+    outcomes. In such scenarios, you can disable the automatic weighting by
+    setting `weighted_by_sd=False`. Subsequently, you will need to manually determine
+    and select the number of components to use for your specific analysis.
 
     Parameters
     ----------
@@ -162,7 +169,8 @@ def spectral(
     random_state
         Seed of the random state generator
     sample_size
-        Sample size used in the Nystrom method. It could be either an integer
+        Approximate the embedding using the Nystrom algorithm by selecting
+        a subset of cells. It could be either an integer
         indicating the number of cells to sample or a real value from 0 to 1
         indicating the fraction of cells to sample.
         Using this only when the number of cells is too large, e.g. > 10,000,000, or
