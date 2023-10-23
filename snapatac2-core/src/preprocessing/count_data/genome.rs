@@ -376,6 +376,15 @@ where
     }
 }
 
+impl<'a> IntoIterator for &'a ChromSizes {
+    type Item = (&'a String, &'a u64);
+    type IntoIter = indexmap::map::Iter<'a, String, u64>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
 impl IntoIterator for ChromSizes {
     type Item = (String, u64);
     type IntoIter = indexmap::map::IntoIter<String, u64>;

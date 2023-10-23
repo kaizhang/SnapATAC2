@@ -118,13 +118,35 @@ def import_data(
 ) -> internal.AnnData:
     """Import data fragment files and compute basic QC metrics.
 
-    A fragment is defined as the sequencing output corresponding to one location in the genome.
-    If single-ended sequencing is performed, one read is considered a fragment.
-    If paired-ended sequencing is performed, one pair of reads is considered a fragment.
-    This function takes input fragment files and computes basic QC metrics, including
-    TSSe, number of unique fragments, duplication rate, fraction of mitochondrial DNA.
-    The fragments will be stored in `.obsm['fragment_single']` if they are single-ended.
-    Otherwise, they will be stored in `.obsm['fragment_paired']`.
+    A fragment refers to the sequence data originating from a distinct location
+    in the genome. In single-ended sequencing, one read equates to a fragment.
+    However, in paired-ended sequencing, a fragment is defined by a pair of reads.
+    This function is designed to handle, store, and process input files with
+    fragment data, further yielding a range of basic Quality Control (QC) metrics.
+    These metrics include TSSe (Transcription Start Site enrichment), the total
+    number of unique fragments, duplication rates, and the percentage of
+    mitochondrial DNA detected.
+
+    How fragments are stored is dependent on the sequencing approach utilized.
+    For single-ended sequencing, fragments are found in `.obsm['fragment_single']`.
+    In contrast, for paired-ended sequencing, they are located in
+    `.obsm['fragment_paired']`.
+
+    Diving deeper technically, the fragments are internally structured within a
+    Compressed Sparse Row (CSR) matrix. In this configuration, each row signifies
+    a specific cell, while each column represents a unique genomic position.
+    Fragment starting positions dictate the column indices. Matrix values
+    capture the lengths of the fragments for paired-end reads or the lengths of
+    the reads for single-ended scenarios. It's important to note that for
+    single-ended reads, the values are signed, with the sign providing information
+    on the fragment's strand orientation. Additionally, it is worth noting that
+    cells may harbor duplicate fragments, leading to the presence of duplicate
+    column indices within the matrix. As a result, the matrix deviates from
+    the standard CSR format, and it is not advisable to use the matrix for linear
+    algebra operations.
+    
+    .. image:: /_static/images/func+import_data.svg
+        :align: center
 
     Note
     ----
@@ -195,6 +217,7 @@ def import_data(
     See Also
     --------
     make_fragment_file
+    :func:`~snapatac2.ex.export_fragments` 
 
     Examples
     --------

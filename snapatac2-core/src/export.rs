@@ -1,4 +1,4 @@
-use crate::{preprocessing::count_data::{SnapData, GenomeCoverage, CoverageType}, utils::open_file_for_write};
+use crate::{preprocessing::{count_data::{SnapData, GenomeCoverage, CoverageType, ChromSizes}, Fragment}, utils::open_file_for_write};
 
 use anyhow::{Context, Result, ensure};
 use itertools::Itertools;
@@ -8,7 +8,7 @@ use std::{
     path::{Path, PathBuf}, collections::{BTreeMap, HashMap, HashSet},
 };
 use rayon::iter::{ParallelBridge, ParallelIterator};
-use bed_utils::bed::{BEDLike, BedGraph, merge_sorted_bed_with};
+use bed_utils::bed::{BEDLike, BedGraph, merge_sorted_bed_with, GenomicRange, tree::{GenomeRegions, SparseBinnedCoverage}};
 use bigtools::{bbi::bigwigwrite::BigWigWrite, bed::bedparser::BedParser};
 use futures::executor::ThreadPool;
 use indicatif::{ProgressIterator, style::ProgressStyle};
@@ -16,7 +16,7 @@ use indicatif::{ProgressIterator, style::ProgressStyle};
 impl<T> Exporter for T where T: SnapData {}
 
 pub trait Exporter: SnapData {
-    fn export_bed<P: AsRef<Path>>(
+    fn export_fragments<P: AsRef<Path>>(
         &self,
         barcodes: Option<&Vec<&str>>,
         group_by: &Vec<&str>,
@@ -181,8 +181,18 @@ where
     }).collect()
 }
 
-//fn create_bedgraph_from_fragments() {
-//}
+fn create_bedgraph_from_fragments<I>(fragments: I, chrom_sizes: &ChromSizes, bin_size: u64)
+where
+    I: Iterator<Item = Fragment>,
+{
+    let genome: GenomeRegions<GenomicRange> = chrom_sizes.into_iter()
+        .map(|(k, v)| GenomicRange::new(k, 0, *v)).collect();
+    let mut coverage = SparseBinnedCoverage::new(&genome, bin_size);
+    fragments.for_each(|frag| frag.to_reads().into_iter().for_each(|read|
+        coverage.insert(&read, 1.0)
+    ));
+    todo!()
+}
 
 /// Create a bigwig file from BedGraph records.
 fn create_bigwig_from_bedgraph<P: AsRef<Path>>(

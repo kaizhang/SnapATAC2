@@ -49,7 +49,7 @@ fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(preprocessing::add_frip, m)?)?;
     m.add_function(wrap_pyfunction!(preprocessing::fragment_size_distribution, m)?)?;
 
-    m.add_function(wrap_pyfunction!(export::export_bed, m)?)?;
+    m.add_function(wrap_pyfunction!(export::export_fragments, m)?)?;
     m.add_function(wrap_pyfunction!(export::export_bigwig, m)?)?;
 
     m.add_function(wrap_pyfunction!(call_peaks::export_tags, m)?)?;

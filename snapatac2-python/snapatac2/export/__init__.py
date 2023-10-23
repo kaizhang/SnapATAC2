@@ -6,7 +6,7 @@ import numpy as np
 
 import snapatac2._snapatac2 as internal
 
-def export_bed(
+def export_fragments(
     adata: internal.AnnData | internal.AnnDataSet,
     groupby: str | list[str],
     selections: list[str] | None = None,
@@ -66,7 +66,7 @@ def export_bed(
         else:
             raise ValueError("Compression type must be: gzip or zstandard.")
 
-    return internal.export_bed(
+    return internal.export_fragments(
         adata, list(ids), list(groupby), out_dir, prefix, suffix, selections, compression, compression_level,
     )
 

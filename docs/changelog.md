@@ -3,6 +3,10 @@ Release Notes
 
 ## Development version (unreleased)
 
+### Function renaming:
+
+- `ex.export_bed` is renamed to `ex.export_fragments`.
+
 ### Features:
 
 - Add zstandard file support at various places.

@@ -9,7 +9,7 @@ use std::{collections::{HashSet, HashMap}, path::PathBuf};
 use anyhow::Result;
 
 #[pyfunction]
-pub fn export_bed(
+pub fn export_fragments(
     anndata: AnnDataLike,
     barcodes: Vec<&str>,
     group_by: Vec<&str>,
@@ -22,7 +22,7 @@ pub fn export_bed(
 ) -> Result<HashMap<String, PathBuf>> {
     macro_rules! run {
         ($data:expr) => {
-            $data.export_bed(
+            $data.export_fragments(
                 Some(&barcodes), &group_by, selections, dir, prefix, suffix, compression, compression_level
             )
         }

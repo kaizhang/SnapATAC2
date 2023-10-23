@@ -6,5 +6,5 @@ Exporting: `ex`
 .. autosummary::
     :toctree: _autosummary
 
-    ex.export_bed
+    ex.export_fragments
     ex.export_bigwig
