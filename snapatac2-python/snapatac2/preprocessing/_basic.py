@@ -26,6 +26,8 @@ def make_fragment_file(
     shift_right: int = -5,
     min_mapq: int | None = 30,
     chunk_size: int = 50000000,
+    compression: Literal["gzip", "zstandard"] | None = None,
+    compression_level: int | None = None,
 ) -> internal.PyFlagStat:
     """
     Convert a BAM file to a fragment file.
@@ -80,6 +82,11 @@ def make_fragment_file(
     chunk_size
         The size of data retained in memory when performing sorting. Larger chunk sizes
         result in faster sorting and greater memory usage.
+    compression
+        Compression type. If `None`, it is inferred from the suffix.
+    compression_level
+        Compression level. 1-9 for gzip, 1-22 for zstandard.
+        If `None`, it is set to 6 for gzip and 3 for zstandard.
 
     Returns
     -------
@@ -95,9 +102,15 @@ def make_fragment_file(
     if barcode_tag is not None and barcode_regex is not None:
         raise ValueError("Only one of barcode_tag or barcode_regex can be set.")
 
+    if compression is None:
+        if output_file.endswith(".gz"):
+            compression = "gzip"
+        elif output_file.endswith(".zst"):
+            compression = "zstandard"
+
     return internal.make_fragment_file(
         bam_file, output_file, is_paired, shift_left, shift_right, chunk_size,
-        barcode_tag, barcode_regex, umi_tag, umi_regex, min_mapq,
+        barcode_tag, barcode_regex, umi_tag, umi_regex, min_mapq, compression, compression_level,
     )
 
 def import_data(
@@ -123,9 +136,8 @@ def import_data(
     However, in paired-ended sequencing, a fragment is defined by a pair of reads.
     This function is designed to handle, store, and process input files with
     fragment data, further yielding a range of basic Quality Control (QC) metrics.
-    These metrics include TSSe (Transcription Start Site enrichment), the total
-    number of unique fragments, duplication rates, and the percentage of
-    mitochondrial DNA detected.
+    These metrics include the total number of unique fragments, duplication rates,
+    and the percentage of mitochondrial DNA detected.
 
     How fragments are stored is dependent on the sequencing approach utilized.
     For single-ended sequencing, fragments are found in `.obsm['fragment_single']`.

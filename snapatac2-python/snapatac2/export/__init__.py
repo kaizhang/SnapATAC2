@@ -40,7 +40,8 @@ def export_fragments(
     compression
         Compression type. If `None`, it is inferred from the suffix.
     compression_level
-        Compression level. If `None`, it is set to 6 for gzip and 3 for zstandard.
+        Compression level. 1-9 for gzip, 1-22 for zstandard.
+        If `None`, it is set to 6 for gzip and 3 for zstandard.
 
     Returns
     -------
@@ -63,8 +64,6 @@ def export_fragments(
             compression = "gzip"
         elif suffix.endswith(".zst"):
             compression = "zstandard"
-        else:
-            raise ValueError("Compression type must be: gzip or zstandard.")
 
     return internal.export_fragments(
         adata, list(ids), list(groupby), out_dir, prefix, suffix, selections, compression, compression_level,
