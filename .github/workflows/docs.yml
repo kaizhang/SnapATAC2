@@ -50,8 +50,10 @@ jobs:
         VERSION_NUMBER=$(python -c "import snapatac2;print('.'.join(snapatac2.__version__.split('.')[:2]))")
         echo $VERSION_NUMBER
         echo "VERSION=$VERSION_NUMBER" >> $GITHUB_ENV
+        IS_DEV=$(python -c "import snapatac2;print('dev' in snapatac2.__version__)")
+        echo $IS_DEV
         BRANCH_NAME=${{ github.event.workflow_run.head_branch }}
-        if [[ $VERSION_NUMBER =~ "dev" ]]; then
+        if [[ $IS_DEV == "True" ]]; then
           echo "DEPLOY_DEV=true" >> $GITHUB_ENV
         elif [[ $BRANCH_NAME =~ ^v[0-9]+ || $BRANCH_NAME == "main" ]]; then
           echo "DEPLOY_VERSION=true" >> $GITHUB_ENV
