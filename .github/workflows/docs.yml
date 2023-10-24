@@ -51,13 +51,15 @@ jobs:
         echo $VERSION_NUMBER
         echo "VERSION=$VERSION_NUMBER" >> $GITHUB_ENV
         BRANCH_NAME=${{ github.event.workflow_run.head_branch }}
-        if [[ $BRANCH_NAME =~ ^v[0-9]+ ]]; then
+        if [[ $VERSION_NUMBER =~ "dev" ]]; then
+          echo "DEPLOY_DEV=true" >> $GITHUB_ENV
+        elif [[ $BRANCH_NAME =~ ^v[0-9]+ || $BRANCH_NAME == "main" ]]; then
           echo "DEPLOY_VERSION=true" >> $GITHUB_ENV
         fi
 
     - name: Deploy 🚀
       uses: JamesIves/github-pages-deploy-action@v4
-      if: ${{ env.DEPLOY_VERSION != 'true' }}
+      if: ${{ env.DEPLOY_DEV == 'true' }}
       with:
         single-commit: true
         branch: gh-pages
