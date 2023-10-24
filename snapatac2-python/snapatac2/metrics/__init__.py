@@ -36,7 +36,7 @@ def tsse(
     Returns
     -------
     np.ndarray | list[np.ndarray] | None
-        If `inplace = True`, directly adds the results to `adata.obs`.
+        If `inplace = True`, directly adds the results to `adata.obs['tsse']`.
         Otherwise return the results.
 
     Examples
@@ -55,7 +55,7 @@ def tsse(
     gene_anno = gene_anno.fetch_annotations() if isinstance(gene_anno, Genome) else gene_anno
  
     if isinstance(adata, list):
-        return snapatac2._utils.anndata_par(
+        result = snapatac2._utils.anndata_par(
             adata,
             lambda x: tsse(x, gene_anno, inplace=inplace),
             n_jobs=n_jobs,
@@ -64,8 +64,10 @@ def tsse(
         result = np.array(internal.tss_enrichment(adata, gene_anno))
         if inplace:
             adata.obs["tsse"] = result
-        else:
-            return result
+    if inplace:
+        return None
+    else:
+        return result
 
 def frip(
     adata: internal.AnnData | list[internal.AnnData],
@@ -123,7 +125,7 @@ def frip(
             regions[k] = list(iter(regions[k]))
 
     if isinstance(adata, list):
-        return snapatac2._utils.anndata_par(
+        result = snapatac2._utils.anndata_par(
             adata,
             lambda x: frip(x, regions, inplace=inplace),
             n_jobs=n_jobs,
@@ -133,9 +135,10 @@ def frip(
         if inplace:
             for k, v in result.items():
                 adata.obs[k] = v
-        else:
-            return result
-
+    if inplace:
+        return None
+    else:
+        return result
 
 def frag_size_distr(
     adata: internal.AnnData | list[internal.AnnData],

@@ -8,18 +8,28 @@ import subprocess
 
 import snapatac2
 
+# -- Software version --------------------------------------------------------
+
+# The short X.Y version (including .devXXXX, rcX, b1 suffixes if present)
+version = re.sub(r'(\d+\.\d+)\.\d+(.*)', r'\1\2', snapatac2.__version__)
+version = re.sub(r'(\.dev\d+).*?$', r'\1', version)
+
+# The full version, including alpha/beta/rc tags.
+release = snapatac2.__version__
+
+# pyData/Sphinx-Theme version switcher
+if ".dev" in version:
+    switcher_version = "dev"
+else:
+    switcher_version = f"{version}"
+
+print(f'Building documentation for SnapATAC2 {release} (short version: {version}, switcher version: {switcher_version})')
+
 # -- Project information -----------------------------------------------------
 
 project = 'SnapATAC2'
 copyright = '2022-2023, Kai Zhang'
 author = 'Kai Zhang'
-
-# The short X.Y version (including .devXXXX, rcX, b1 suffixes if present)
-version = re.sub(r'(\d+\.\d+)\.\d+(.*)', r'\1\2', snapatac2.__version__)
-version = re.sub(r'(\.dev\d+).*?$', r'\1', version)
-# The full version, including alpha/beta/rc tags.
-release = snapatac2.__version__
-print("%s %s" % (version, release))
 
 # -- General configuration ---------------------------------------------------
 
@@ -111,11 +121,6 @@ html_css_files = [
     'css/custom.css',
 ]
 
-if ".dev" in version:
-    switcher_version = "dev"
-else:
-    switcher_version = f"{version}"
-
 html_theme_options = {
     "logo": {
         "text": "SnapATAC2",
@@ -132,7 +137,7 @@ html_theme_options = {
     "navbar_center": ["version-switcher", "navbar-nav"],
     "navbar_end": ["theme-switcher", "navbar-icon-links"],
     "navbar_align": "left",
-    "show_version_warning_banner": True,
+    #"show_version_warning_banner": True,
 
     "switcher": {
         "version_match": switcher_version,
