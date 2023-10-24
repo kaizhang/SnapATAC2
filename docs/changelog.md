@@ -1,5 +1,7 @@
 # Release Notes
 
+## Development version (unreleased)
+
 ## Release 2.5.1 (released Oct 23, 2023)
 
 ### Function renaming:
