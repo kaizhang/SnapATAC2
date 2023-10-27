@@ -2,6 +2,10 @@
 
 ## Development version (unreleased)
 
+### Features:
+
+- Support anndata v0.10.
+
 ### Bugs fixed:
 
 - Fix a bug in `pp.add_tile_matrix` that causes the function to fail when the genome
