@@ -17,6 +17,6 @@ runs:
 
     - name: Cache rust build
       uses: Swatinem/rust-cache@v2
-      if: ${{ inputs.cache }}
+      if: ${{ inputs.cache == 'true' }}
       with:
         workspaces: "snapatac2-python -> target"
