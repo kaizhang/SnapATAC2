@@ -1,8 +1,8 @@
-name: Documentation
+name: build_documentation
 
 on:
   workflow_run:
-    workflows: [Run Tests]
+    workflows: [test-python-package]
     types: 
       - completed
 
@@ -33,7 +33,7 @@ jobs:
       id: download-artifact
       uses: dawidd6/action-download-artifact@v2
       with:
-        workflow: ci.yml
+        workflow: test_python.yml
         commit: ${{ github.event.workflow_run.head_sha }}
         name: wheel-files
         path: wheel_files

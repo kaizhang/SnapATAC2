@@ -1,0 +1,19 @@
+name: test-rust-package
+
+on: [push, pull_request]
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: nschloe/action-cached-lfs-checkout@v1
+
+    - uses: ./.github/actions/setup-rust
+      with:
+        cache: false
+
+    - name: Test Rust package
+      run: |
+        cd ${GITHUB_WORKSPACE}/snapatac2-core
+        cargo test --release --all --no-fail-fast

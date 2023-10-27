@@ -15,16 +15,8 @@ runs:
         toolchain: stable
         override: true
 
-    - name: Cache cargo registry
-      uses: actions/cache@v3
+    - name: Cache rust build
+      uses: Swatinem/rust-cache@v2
       if: ${{ inputs.cache }}
-      continue-on-error: false
       with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git            
-          snapatac2-core/target/  
-          snapatac2-python/target/  
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-cargo-
+        workspaces: "snapatac2-python -> target"

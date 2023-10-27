@@ -1,4 +1,4 @@
-name: Run Tests
+name: test-python-package
 
 on: [push, pull_request]
 
@@ -22,11 +22,6 @@ jobs:
       run: |
         sudo pip install --upgrade pip
         pip install --user coverage pytest hypothesis wheel
-
-    - name: Test Rust package
-      run: |
-        cd ${GITHUB_WORKSPACE}/snapatac2-core
-        cargo test --release --all --no-fail-fast
 
     - name: Build wheel files
       run: |
