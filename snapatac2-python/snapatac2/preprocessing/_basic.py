@@ -189,9 +189,9 @@ def import_data(
         Number of unique fragments threshold used to filter cells
     sorted_by_barcode
         Whether the fragment file has been sorted by cell barcodes.
-        If `sorted_by_barcode == True`, this function makes use of small fixed amout of 
-        memory. If `sorted_by_barcode == False` and `low_memory == False`,
-        all data will be kept in memory. See `low_memory` for more details.
+        This function will be faster if `sorted_by_barcode==True`.
+        Note the :func:`~snapatac2.pp.make_fragment_file` will always sort the
+        fragment file by barcode.
     whitelist
         File name or a list of barcodes. If it is a file name, each line
         must contain a valid barcode. When provided, only barcodes in the whitelist

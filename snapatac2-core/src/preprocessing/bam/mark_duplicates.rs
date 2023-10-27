@@ -25,7 +25,7 @@ use noodles::{
         record::{Cigar, Data, Flags, cigar::op::Kind, data::field::{Tag, Value}, mapping_quality},
     },
 };
-use bed_utils::bed::{BED, BEDLike, Score, Strand};
+use bed_utils::bed::{BEDLike, Strand};
 use std::collections::HashMap;
 use itertools::Itertools;
 use extsort::{sorter::Sortable, ExternalSorter};
@@ -34,7 +34,8 @@ use rayon::prelude::ParallelSliceMut;
 use serde::{Serialize, Deserialize};
 use anyhow::{Result, bail, anyhow, Context};
 use regex::Regex;
-use either::Either;
+
+use crate::preprocessing::Fragment;
 
 // Library type    orientation   Vizualization according to first strand
 // FF_firststrand  matching      3' <==2==----<==1== 5'
@@ -431,7 +432,7 @@ where
     I: Iterator<Item = AlignmentInfo>,
     F: FnMut(&AlignmentInfo) -> String,
 {
-    pub fn into_fragments<'a>(&'a self, header: &'a Header) -> impl Iterator<Item = Either<BED<5>, BED<6>>> + '_ {
+    pub fn into_fragments<'a>(&'a self, header: &'a Header) -> impl Iterator<Item = Fragment> + '_ {
         self.groups.into_iter().flat_map(|(_, rec)| get_unique_fragments(rec, header, self.is_paired))
     }
 }
@@ -440,7 +441,7 @@ fn get_unique_fragments<I>(
     reads: I,
     header: &Header,
     is_paired: bool,
-) -> Vec<Either<BED<5>, BED<6>>>
+) -> Vec<Fragment>
 where
     I: Iterator<Item = AlignmentInfo>,
 {
@@ -456,37 +457,32 @@ where
             } else {
                 (rec2_5p, rec1_5p)
             };
-            Some(Either::Left(BED::new(
-                header.reference_sequences().get_index(ref_id1).unwrap().0.as_str(),
-                start as u64 - 1,
-                end as u64,
-                Some(rec1.barcode.as_ref().unwrap().clone()),
-                Some(Score::try_from(u16::try_from(c).unwrap()).unwrap()),
-                None,
-                Default::default(),
-            )))
+            Some(Fragment {
+                chrom: header.reference_sequences().get_index(ref_id1).unwrap().0.as_str().to_string(),
+                start: start as u64 - 1,
+                end: end as u64,
+                barcode: Some(rec1.barcode.as_ref().unwrap().clone()),
+                count: c.try_into().unwrap(),
+                strand: None,
+            })
         }).collect();
-        result.par_sort_unstable_by(|a, b| match (a, b) {
-            (Either::Left(a_), Either::Left(b_)) => BEDLike::compare(a_, b_),
-            _ => todo!(),
-        });
+        result.par_sort_unstable_by(|a, b| BEDLike::compare(a, b));
         result
     } else {
         rm_dup_single(reads).map(move |(r, c)| {
             let ref_id: usize = r.reference_sequence_id.try_into().unwrap();
-            Either::Right(BED::new(
-                header.reference_sequences().get_index(ref_id).unwrap().0.as_str(),
-                r.alignment_start as u64 - 1,
-                r.alignment_end as u64,
-                Some(r.barcode.as_ref().unwrap().clone()),
-                Some(Score::try_from(u16::try_from(c).unwrap()).unwrap()),
-                Some(if r.flags().is_reverse_complemented() {
+            Fragment {
+                chrom: header.reference_sequences().get_index(ref_id).unwrap().0.as_str().to_string(),
+                start: r.alignment_start as u64 - 1,
+                end: r.alignment_end as u64,
+                barcode: Some(r.barcode.as_ref().unwrap().clone()),
+                count: c.try_into().unwrap(),
+                strand: Some(if r.flags().is_reverse_complemented() {
                     Strand::Reverse
                 } else {
                     Strand::Forward
                 }),
-                Default::default(),
-            ))
+            }
         }).collect()
     }
 }

@@ -11,13 +11,12 @@ homepage = "https://github.com/"
 keywords = ["single-cell", "biology"]
 
 [dependencies]
-anndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "730eea8495ba1884ea50308e5f03ab0cb60f9ae8" }
+anndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "959dc1244e3d11d7ab67cb4b422eca38a2e4d8fc" }
 anyhow = "1.0"
 bigtools = { version = "0.2", features = ["read", "write"] }
 bincode = "1.3"
 bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "d06f2b4ff189c64bc0d3f7054f4ee8d0797368ca" }
 extsort = "0.4"
-either = "1.8"
 flate2 = "1.0"
 futures = "0.3"
 hora = "0.1"

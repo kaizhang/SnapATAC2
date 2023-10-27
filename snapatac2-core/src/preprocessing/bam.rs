@@ -2,7 +2,6 @@ mod mark_duplicates;
 pub use mark_duplicates::{filter_bam, group_bam_by_barcode, BarcodeLocation, FlagStat};
 
 use bed_utils::bed::BEDLike;
-use either::Either;
 use noodles::{bam, sam::record::data::field::Tag};
 use regex::Regex;
 use anyhow::{Result, bail};
@@ -104,17 +103,18 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>>(
         chunk_size,
     )
     .into_fragments(&header)
-    .for_each(|rec| match rec {
-        Either::Left(mut x) => {
-            let new_start = x.start().saturating_add_signed(shift_left);
-            let new_end = x.end().saturating_add_signed(shift_right);
+    .for_each(|mut rec| {
+        if rec.strand().is_none() {
+            let new_start = rec.start().saturating_add_signed(shift_left);
+            let new_end = rec.end().saturating_add_signed(shift_right);
             if new_start < new_end {
-                x.set_start(new_start);
-                x.set_end(new_end);
-                writeln!(output, "{}", x).unwrap();
+                rec.set_start(new_start);
+                rec.set_end(new_end);
+                writeln!(output, "{}", rec).unwrap();
             }
+        } else {
+            writeln!(output, "{}", rec).unwrap();
         }
-        Either::Right(x) => writeln!(output, "{}", x).unwrap(),
     });
     Ok(flagstat)
 }
