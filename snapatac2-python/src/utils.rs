@@ -260,20 +260,35 @@ pub(crate) fn kmeans<'py>(
 
 /// Open a file, possibly compressed. Supports gzip and zstd.
 pub(crate) fn open_file<P: AsRef<Path>>(file: P) -> Box<dyn std::io::Read> {
-    if is_gzipped(file.as_ref()) {
-        Box::new(MultiGzDecoder::new(File::open(file.as_ref()).unwrap()))
-    } else {
-        if let Ok(r) = zstd::stream::read::Decoder::new(File::open(file.as_ref()).unwrap()) {
+    match detect_compression(file.as_ref()) {
+        Compression::Gzip => Box::new(MultiGzDecoder::new(File::open(file.as_ref()).unwrap())),
+        Compression::Zstd => {
+            let r = zstd::stream::read::Decoder::new(File::open(file.as_ref()).unwrap()).unwrap();
             Box::new(r)
-        } else {
-            Box::new(File::open(file.as_ref()).unwrap())
-        }
+        },
+        Compression::None => Box::new(File::open(file.as_ref()).unwrap()),
     }
 }
 
-/// Determine if a file is gzipped.
-fn is_gzipped<P: AsRef<Path>>(file: P) -> bool {
-    MultiGzDecoder::new(File::open(file).unwrap()).header().is_some()
+enum Compression {
+    Gzip,
+    Zstd,
+    None,
+}
+
+/// Determine the file compression type. Supports gzip and zstd.
+fn detect_compression<P: AsRef<Path>>(file: P) -> Compression {
+    if MultiGzDecoder::new(File::open(file.as_ref()).unwrap()).header().is_some() {
+        Compression::Gzip
+    } else if let Some(ext) = file.as_ref().extension() {
+        if ext == "zst" {
+            Compression::Zstd
+        } else {
+            Compression::None
+        }
+    } else {
+        Compression::None
+    }
 }
 
 pub fn read_transcripts<P: AsRef<std::path::Path>>(file_path: P) -> Vec<Transcript> {
