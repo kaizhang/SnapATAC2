@@ -12,6 +12,7 @@ use bed_utils::bed::{tree::GenomeRegions, BEDLike, Strand};
 use indexmap::IndexSet;
 use indicatif::{style::ProgressStyle, ProgressBar, ProgressDrawTarget, ProgressIterator};
 use itertools::Itertools;
+use log::warn;
 use nalgebra_sparse::CsrMatrix;
 use polars::prelude::{DataFrame, NamedFrom, Series};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -59,30 +60,33 @@ where
     let mut qc = Vec::new();
 
     let mut scanned_barcodes = HashSet::new();
-    anndata.obsm().add_iter(
-        obsm_key,
-        fragments
-            .filter(|x| x.len() > 0)
-            .group_by(|x| x.name().unwrap().to_string())
-            .into_iter()
-            .progress_with(spinner)
-            .filter(|(key, _)| white_list.map_or(true, |x| x.contains(key)))
-            .chunks(chunk_size)
-            .into_iter()
-            .map(|chunk| {
-                let data: Vec<(String, Vec<Fragment>)> =
-                    chunk.map(|(barcode, x)| (barcode, x.collect())).collect();
-                if is_paired {
-                    make_arraydata::<u32>(data, mitochrondrial_dna, &genome_index, min_num_fragment, &mut scanned_barcodes, &mut saved_barcodes, &mut qc)
-                } else {
-                    make_arraydata::<i32>(data, mitochrondrial_dna, &genome_index, min_num_fragment, &mut scanned_barcodes, &mut saved_barcodes, &mut qc)
-                }
-            }),
-    )?;
-
-    anndata.uns().add("reference_sequences", chrom_sizes.to_dataframe())?;
-    anndata.set_obs_names(saved_barcodes.into())?;
-    anndata.set_obs(qc_to_df(qc))?;
+    let frag_grouped= fragments
+        .filter(|x| x.len() > 0)
+        .group_by(|x| x.name().unwrap().to_string());
+    let frag_chunked = frag_grouped
+        .into_iter()
+        .progress_with(spinner)
+        .filter(|(key, _)| white_list.map_or(true, |x| x.contains(key)))
+        .chunks(chunk_size);
+    let mut arrays = frag_chunked
+        .into_iter()
+        .map(|chunk| {
+            let data: Vec<(String, Vec<Fragment>)> =
+                chunk.map(|(barcode, x)| (barcode, x.collect())).collect();
+            if is_paired {
+                make_arraydata::<u32>(data, mitochrondrial_dna, &genome_index, min_num_fragment, &mut scanned_barcodes, &mut saved_barcodes, &mut qc)
+            } else {
+                make_arraydata::<i32>(data, mitochrondrial_dna, &genome_index, min_num_fragment, &mut scanned_barcodes, &mut saved_barcodes, &mut qc)
+            }
+        }).peekable();
+    if arrays.peek().is_some() {
+        anndata.obsm().add_iter(obsm_key, arrays)?;
+        anndata.uns().add("reference_sequences", chrom_sizes.to_dataframe())?;
+        anndata.set_obs_names(saved_barcodes.into())?;
+        anndata.set_obs(qc_to_df(qc))?;
+    } else {
+        warn!("No barcodes passed the QC filter. No data is imported.");
+    }
     Ok(())
 }
 
