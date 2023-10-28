@@ -63,7 +63,7 @@ dependencies = [
 [[package]]
 name = "anndata"
 version = "0.2.1"
-source = "git+https://github.com/kaizhang/anndata-rs.git?rev=c39ee5428dfe0d1c8274a12d56241806feae0516#c39ee5428dfe0d1c8274a12d56241806feae0516"
+source = "git+https://github.com/kaizhang/anndata-rs.git?rev=c90e5fa1cfbc9fec0736eb475ebcc85f77125d44#c90e5fa1cfbc9fec0736eb475ebcc85f77125d44"
 dependencies = [
  "anyhow",
  "flate2",
@@ -84,7 +84,7 @@ dependencies = [
 [[package]]
 name = "anndata-hdf5"
 version = "0.1.0"
-source = "git+https://github.com/kaizhang/anndata-rs.git?rev=c39ee5428dfe0d1c8274a12d56241806feae0516#c39ee5428dfe0d1c8274a12d56241806feae0516"
+source = "git+https://github.com/kaizhang/anndata-rs.git?rev=c90e5fa1cfbc9fec0736eb475ebcc85f77125d44#c90e5fa1cfbc9fec0736eb475ebcc85f77125d44"
 dependencies = [
  "anndata",
  "anyhow",
@@ -2597,7 +2597,7 @@ dependencies = [
 [[package]]
 name = "pyanndata"
 version = "0.2.1"
-source = "git+https://github.com/kaizhang/anndata-rs.git?rev=c39ee5428dfe0d1c8274a12d56241806feae0516#c39ee5428dfe0d1c8274a12d56241806feae0516"
+source = "git+https://github.com/kaizhang/anndata-rs.git?rev=c90e5fa1cfbc9fec0736eb475ebcc85f77125d44#c90e5fa1cfbc9fec0736eb475ebcc85f77125d44"
 dependencies = [
  "anndata",
  "anndata-hdf5",
