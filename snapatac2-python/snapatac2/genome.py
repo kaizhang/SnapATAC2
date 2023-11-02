@@ -1,20 +1,65 @@
 from snapatac2.datasets import datasets
 from pooch import Decompress
+import shutil
 
 class Genome:
     def __init__(self, chrom_sizes, annotation_filename, fasta = None) -> None:
         self.chrom_sizes = chrom_sizes
-        self._annotation_filename = annotation_filename
-        self._fasta_filename = fasta
+        self.annotation_filename = annotation_filename
+        self.fasta_filename = fasta
+
+    #custom pooch downloader for local files
+    def local_cp(self,url, output_file, pooch):
+        shutil.copy(url,output_file)
+
+    def is_gz_file(self,filepath):
+        if os.path.exists(filepath):
+            return False
+        with open(filepath, 'rb') as test_f:
+            return test_f.read(2) == b'\x1f\x8b'
+    
+    #You need to run this to make your custom assembly accessible downstream
+    #Provide a prefix if you are using annotations from cellranger
+    #where the files are named unidentifiably (genome.fa,genes.gtf.gz, etc)
+    #Adds the file to the pooch registry and gives it a new name if prefix is provided
+    def add_custom_genome(self, genome_prefix='',annotation_prefix=''):
+        self.fasta_cache_filename=genome_prefix+os.path.basename(self.fasta_filename)
+        self.annotation_cache_filename=annotation_prefix+os.path.basename(self.annotation_filename)
+        snap.datasets.datasets().registry[self.fasta_cache_filename]='sha256:'+pooch.file_hash(self.fasta_filename,alg='sha256')
+        snap.datasets.datasets().urls[self.fasta_cache_filename]=self.fasta_filename
+        snap.datasets.datasets().registry[self.annotation_cache_filename]='sha256:'+pooch.file_hash(self.annotation_filename,alg='sha256')
+        snap.datasets.datasets().urls[self.annotation_cache_filename]=self.annotation_filename
+
+    #Works by tricking pooch into using local_cp if the file isn't in the registry
+    def fetch_file(self,key_name,file_name):
+        if self.is_gz_file(file_name):
+            decomp=Decompress(method="gzip")
+        else:
+            decomp=None
+     
+        try:
+            fetched = datasets().fetch(
+                key_name,
+                processor=decomp,
+                progressbar=True
+            )
+        except ValueError:
+            try:
+                fetched = datasets().fetch(
+                    key_name,
+                    processor=decomp,
+                    progressbar=True,
+                    downloader= self.local_cp
+                )
+            except Exception as e:
+                raise RuntimeError("The file can't be obtained.") from e
+        return fetched
 
     def fetch_annotations(self):
-        return datasets().fetch(self._annotation_filename, progressbar=True)
-
+        return self.fetch_file(self.annotation_cache_filename,self.annotation_filename)
+        
     def fetch_fasta(self):
-        return datasets().fetch(
-            self._fasta_filename,
-            processor=Decompress(method = "gzip"),
-            progressbar=True)
+        return self.fetch_file(self.fasta_cache_filename,self.fasta_filename)
 
 GRCh37 = Genome(
     {
