@@ -30,6 +30,7 @@ use std::collections::HashMap;
 use itertools::Itertools;
 use extsort::{sorter::Sortable, ExternalSorter};
 use bincode;
+use log::warn;
 use rayon::prelude::ParallelSliceMut;
 use serde::{Serialize, Deserialize};
 use anyhow::{Result, bail, anyhow, Context};
@@ -83,10 +84,14 @@ impl BarcodeLocation {
                 },
             BarcodeLocation::Regex(re) => {
                 let read_name = rec.read_name().context("No read name")?;
-                let mat = re.captures(std::str::from_utf8(read_name.as_bytes())?)
+                let read_name = std::str::from_utf8(read_name.as_bytes())?;
+                let mat = re.captures(read_name)
                     .and_then(|x| x.get(1))
                     .ok_or(anyhow!("The regex must contain exactly one capturing group matching the barcode"))?
                     .as_str().to_string();
+                if mat.is_empty() {
+                    warn!("regex match is empty for read name: {}", read_name);
+                }
                 Ok(mat)
             },
         }

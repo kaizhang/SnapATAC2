@@ -12,7 +12,7 @@ use anyhow::Result;
 
 use snapatac2_core::{
     preprocessing::{Fragment, Contact, FlagStat, SnapData},
-    preprocessing,
+    preprocessing, utils,
 };
 
 #[pyclass]
@@ -59,7 +59,8 @@ pub(crate) fn make_fragment_file(
         bam_file, output_file, is_paired,
         barcode_tag.map(|x| parse_tag(x)), barcode_regex,
         umi_tag.map(|x| parse_tag(x)), umi_regex,
-        shift_left, shift_right, mapq, chunk_size, compression, compression_level,
+        shift_left, shift_right, mapq, chunk_size,
+        compression.map(|x| utils::Compression::from_str(x).unwrap()), compression_level,
     )?;
     Ok(PyFlagStat(stat))
 }
@@ -85,7 +86,7 @@ pub(crate) fn import_fragments(
     } else {
         let mut barcode_count = preprocessing::get_barcode_count(
             bed::io::Reader::new(
-                open_file(&fragment_file),
+                utils::open_file_for_read(&fragment_file),
                 Some("#".to_string()),
             ).into_records().map(Result::unwrap)
         );
@@ -97,7 +98,7 @@ pub(crate) fn import_fragments(
         }
     };
     let chrom_sizes = chrom_size.into_iter().collect();
-    let fragments = bed::io::Reader::new(open_file(&fragment_file), Some("#".to_string()))
+    let fragments = bed::io::Reader::new(utils::open_file_for_read(&fragment_file), Some("#".to_string()))
         .into_records::<Fragment>().map(|x| {
             let mut f = x.unwrap();
             shift_fragment(&mut f, shift_left, shift_right);
@@ -146,7 +147,7 @@ pub(crate) fn import_contacts(
 {
     let chrom_sizes = chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect();
 
-    let contacts = BufReader::new(open_file(&contact_file)).lines()
+    let contacts = BufReader::new(utils::open_file_for_read(&contact_file)).lines()
         .map(|x| Contact::from_str(&x.unwrap()).unwrap());
     let sorted_contacts: Box<dyn Iterator<Item = Contact>> = if !fragment_is_sorted_by_name {
         let tmp = if let Some(dir) = tempdir {
@@ -281,7 +282,7 @@ pub(crate) fn tss_enrichment(
     gtf_file: PathBuf,
 ) -> Result<Vec<f64>>
 {
-    let promoters = preprocessing::make_promoter_map(preprocessing::read_tss(open_file(gtf_file)));
+    let promoters = preprocessing::make_promoter_map(preprocessing::read_tss(utils::open_file_for_read(gtf_file)));
 
     macro_rules! run {
         ($data:expr) => {

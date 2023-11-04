@@ -63,7 +63,7 @@ dependencies = [
 [[package]]
 name = "anndata"
 version = "0.2.1"
-source = "git+https://github.com/kaizhang/anndata-rs.git?rev=c90e5fa1cfbc9fec0736eb475ebcc85f77125d44#c90e5fa1cfbc9fec0736eb475ebcc85f77125d44"
+source = "git+https://github.com/kaizhang/anndata-rs.git?rev=f7b0945370bff815107a2b7094b47e7c96488274#f7b0945370bff815107a2b7094b47e7c96488274"
 dependencies = [
  "anyhow",
  "flate2",
@@ -84,7 +84,7 @@ dependencies = [
 [[package]]
 name = "anndata-hdf5"
 version = "0.1.0"
-source = "git+https://github.com/kaizhang/anndata-rs.git?rev=c90e5fa1cfbc9fec0736eb475ebcc85f77125d44#c90e5fa1cfbc9fec0736eb475ebcc85f77125d44"
+source = "git+https://github.com/kaizhang/anndata-rs.git?rev=f7b0945370bff815107a2b7094b47e7c96488274#f7b0945370bff815107a2b7094b47e7c96488274"
 dependencies = [
  "anndata",
  "anyhow",
@@ -289,7 +289,7 @@ dependencies = [
 [[package]]
 name = "bed-utils"
 version = "0.1.0"
-source = "git+https://github.com/kaizhang/bed-utils.git?rev=d06f2b4ff189c64bc0d3f7054f4ee8d0797368ca#d06f2b4ff189c64bc0d3f7054f4ee8d0797368ca"
+source = "git+https://github.com/kaizhang/bed-utils.git?rev=15f67dc094d1946f1b110b0ff5b496439405fc09#15f67dc094d1946f1b110b0ff5b496439405fc09"
 dependencies = [
  "bincode",
  "bio",
@@ -1265,6 +1265,7 @@ dependencies = [
  "instant",
  "number_prefix",
  "portable-atomic",
+ "rayon",
  "unicode-width",
 ]
 
@@ -2597,7 +2598,7 @@ dependencies = [
 [[package]]
 name = "pyanndata"
 version = "0.2.1"
-source = "git+https://github.com/kaizhang/anndata-rs.git?rev=c90e5fa1cfbc9fec0736eb475ebcc85f77125d44#c90e5fa1cfbc9fec0736eb475ebcc85f77125d44"
+source = "git+https://github.com/kaizhang/anndata-rs.git?rev=f7b0945370bff815107a2b7094b47e7c96488274#f7b0945370bff815107a2b7094b47e7c96488274"
 dependencies = [
  "anndata",
  "anndata-hdf5",

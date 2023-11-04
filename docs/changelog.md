@@ -10,6 +10,7 @@
 
 - Fix a bug in `pp.add_tile_matrix` that causes the function to fail when the genome
   contains a large number (>1000) of chromosomes.
+- Fix memory leak in `tl.macs3`.
 - Fix #177: counter overflow in `pp.make_fragment_file` when duplicate reads are more than 2^16.
 - Fix #178: issue a warning instead of an error when no cells pass the filter in `pp.import_data`.
 - Fix #179: AnnDataSet to AnnData conversion error when `.X` is empty.

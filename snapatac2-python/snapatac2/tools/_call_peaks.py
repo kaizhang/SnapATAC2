@@ -132,7 +132,6 @@ def macs3(
     options.scanwindow = 2 * options.d
 
     def _call_peaks(tags):
-
         merged, reps = _snapatac2.create_fwtrack_obj(tags)
         options.log_qvalue = log(qvalue, 10) * -1
         logging.getLogger().setLevel(logging.CRITICAL + 1)
@@ -154,9 +153,7 @@ def macs3(
         return _snapatac2.find_reproducible_peaks(merged, others, blacklist)
 
     logging.info("Calling peaks...")
-    with get_context("spawn").Pool(n_jobs) as p:
-        peaks = list(tqdm(p.imap(_call_peaks, list(fragments.values())), total=len(fragments)))
-
+    peaks = _par_map(_call_peaks, [(x,) for x in fragments.values()], n_jobs)
     peaks = {k: v for k, v in zip(fragments.keys(), peaks)}
     if inplace:
         if adata.isbacked:
@@ -197,3 +194,28 @@ def merge_peaks(
     """
     chrom_sizes = chrom_sizes.chrom_sizes if isinstance(chrom_sizes, Genome) else chrom_sizes
     return _snapatac2.py_merge_peaks(peaks, chrom_sizes, half_width)
+
+def _par_map(mapper, args, nprocs):
+    import time
+    from multiprocess import get_context
+    from tqdm import tqdm
+
+    with get_context("spawn").Pool(nprocs) as pool:
+        procs = set(pool._pool)
+        jobs = [(i, pool.apply_async(mapper, x)) for i, x in enumerate(args)]
+        results = []
+        with tqdm(total=len(jobs)) as pbar:
+            while len(jobs) > 0:
+                if any(map(lambda p: not p.is_alive(), procs)):
+                    raise RuntimeError("Some worker process has died unexpectedly.")
+
+                remaining = []
+                for i, job in jobs:
+                    if job.ready():
+                        results.append((i, job.get()))
+                        pbar.update(1)
+                    else:
+                        remaining.append((i, job))
+                jobs = remaining
+                time.sleep(0.5)
+        return [x for _,x in sorted(results, key=lambda x: x[0])]

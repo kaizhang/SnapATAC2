@@ -1,4 +1,6 @@
-use crate::utils::{open_file, AnnDataLike};
+use crate::utils::AnnDataLike;
+
+use snapatac2_core::utils::{self, Compression};
 use anyhow::Context;
 use bed_utils::bed::{NarrowPeak, Strand};
 use indicatif::{ProgressIterator, ProgressStyle};
@@ -71,7 +73,7 @@ pub fn find_reproducible_peaks<'py>(
     blacklist: Option<PathBuf>,
 ) -> Result<PyDataFrame> {
     let black: BedTree<_> = if let Some(black) = blacklist {
-        Reader::new(open_file(black), None)
+        Reader::new(utils::open_file_for_read(black), None)
             .into_records::<GenomicRange>()
             .map(|x| (x.unwrap(), ()))
             .collect()
@@ -100,7 +102,7 @@ pub fn fetch_peaks<'py>(
     blacklist: Option<PathBuf>,
 ) -> Result<HashMap<String, PyDataFrame>> {
     let black: BedTree<_> = if let Some(black) = blacklist {
-        Reader::new(open_file(black), None)
+        Reader::new(utils::open_file_for_read(black), None)
             .into_records::<GenomicRange>()
             .map(|x| (x.unwrap(), ()))
             .collect()
@@ -257,11 +259,12 @@ pub fn create_fwtrack_obj<'py>(
     let replicates = files
         .into_iter()
         .map(|fl| {
-            let fwt = macs.getattr("FWTrack")?.call1((1000000,))?;
-            let reader = open_file(&fl);
+            let fwt = macs.getattr("FWTrack")?.call1((100000,))?;
+            let reader = utils::open_file_for_read(&fl);
             bed_utils::bed::io::Reader::new(reader, None)
                 .into_records::<Fragment>()
                 .try_for_each(|x| {
+                    let _pool = unsafe { py.new_pool() }; // This is necessary to release memory of objects created in the loop
                     let x = x?;
                     let chr = x.chrom().as_bytes();
                     match x.strand() {
@@ -359,7 +362,7 @@ fn _export_tags<D: SnapData, P: AsRef<std::path::Path>>(
                 a.replace("/", "+"),
                 b.replace("/", "+")
             ));
-            let writer = open_file_for_write(&filename, Some("zstandard"), Some(1))?;
+            let writer = open_file_for_write(&filename, Some(Compression::Zstd), Some(1))?;
             let val = (filename, Arc::new(Mutex::new(writer)));
             Ok(((a, b), val))
         })

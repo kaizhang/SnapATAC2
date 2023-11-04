@@ -8,7 +8,7 @@ use anyhow::{Result, bail};
 use std::{io::Write, path::Path};
 use tempfile::Builder;
 
-use crate::utils::open_file_for_write;
+use crate::utils::{open_file_for_write, Compression};
 
 /// Convert a BAM file to a fragment file by performing the following steps:
 ///
@@ -54,7 +54,7 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>>(
     shift_right: i64,
     mapq: Option<u8>,
     chunk_size: usize,
-    compression: Option<&str>,
+    compression: Option<Compression>,
     compression_level: Option<u32>,
 ) -> Result<FlagStat> {
     let tmp_dir = Builder::new()

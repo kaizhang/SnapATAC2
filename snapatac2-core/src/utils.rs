@@ -3,7 +3,7 @@ pub mod similarity;
 use std::path::Path;
 use std::fs::File;
 use std::io::{BufWriter, Write};
-use flate2::{Compression, write::GzEncoder};
+use std::str::FromStr;
 use anyhow::{Result, Context};
 
 use bed_utils::bed::{BEDLike, NarrowPeak, merge_bed_with};
@@ -46,9 +46,27 @@ pub fn clip_peak(mut peak: NarrowPeak, chrom_sizes: &crate::preprocessing::count
     peak
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum Compression {
+    Gzip,
+    Zstd,
+}
+
+impl FromStr for Compression {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "gzip" => Ok(Compression::Gzip),
+            "zstd" | "zstandard" => Ok(Compression::Zstd),
+            _ => Err(format!("unsupported compression: {}", s)),
+        }
+    }
+}
+
 pub fn open_file_for_write<P: AsRef<Path>>(
     filename: P,
-    compression: Option<&str>,
+    compression: Option<Compression>,
     compression_level: Option<u32>,
 ) -> Result<Box<dyn Write + Send>> {
     let buffer = BufWriter::new(
@@ -56,15 +74,41 @@ pub fn open_file_for_write<P: AsRef<Path>>(
     );
     let writer: Box<dyn Write + Send> = match compression {
         None => Box::new(buffer),
-        Some("gzip") => Box::new(GzEncoder::new(buffer, Compression::new(compression_level.unwrap_or(6)))),
-        Some("zstandard") => {
+        Some(Compression::Gzip) => Box::new(flate2::write::GzEncoder::new(buffer, flate2::Compression::new(compression_level.unwrap_or(6)))),
+        Some(Compression::Zstd) => {
             let mut zstd = zstd::stream::Encoder::new(buffer, compression_level.unwrap_or(3) as i32)?;
             zstd.multithread(8)?;
             Box::new(zstd.auto_finish())
         },
-        _ => panic!("unsupported compression: {}", compression.unwrap()),
     };
     Ok(writer)
+}
+
+/// Open a file, possibly compressed. Supports gzip and zstd.
+pub fn open_file_for_read<P: AsRef<Path>>(file: P) -> Box<dyn std::io::Read> {
+    match detect_compression(file.as_ref()) {
+        Some(Compression::Gzip) => Box::new(flate2::read::MultiGzDecoder::new(File::open(file.as_ref()).unwrap())),
+        Some(Compression::Zstd) => {
+            let r = zstd::stream::read::Decoder::new(File::open(file.as_ref()).unwrap()).unwrap();
+            Box::new(r)
+        },
+        None => Box::new(File::open(file.as_ref()).unwrap()),
+    }
+}
+
+/// Determine the file compression type. Supports gzip and zstd.
+fn detect_compression<P: AsRef<Path>>(file: P) -> Option<Compression> {
+    if flate2::read::MultiGzDecoder::new(File::open(file.as_ref()).unwrap()).header().is_some() {
+        Some(Compression::Gzip)
+    } else if let Some(ext) = file.as_ref().extension() {
+        if ext == "zst" {
+            Some(Compression::Zstd)
+        } else {
+            None
+        }
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]

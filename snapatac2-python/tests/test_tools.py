@@ -10,6 +10,7 @@ import pytest
 from hypothesis import given, example, settings, HealthCheck, strategies as st
 from hypothesis.extra.numpy import *
 from scipy.sparse import csr_matrix
+import gzip
 
 from distutils import dir_util
 from pytest import fixture
@@ -78,7 +79,6 @@ def test_aggregation(x, groups, var, tmp_path):
 
 
 def test_make_fragment(datadir, tmp_path):
-    import gzip
     bam = str(datadir.join('test.bam'))
     bed = str(datadir.join('test.bed.gz'))
     output = str(tmp_path) + "/out.bed.gz"
@@ -120,3 +120,23 @@ def test_reproducibility(mat):
         leiden.append(snap.tl.leiden(adata, random_state=0, resolution=1, n_iterations=10, inplace=False))
     for x in leiden:
         np.testing.assert_array_equal(x, leiden[0])
+
+def read_bed(bed_file):
+    with gzip.open(bed_file, 'rt') as f:
+        return sorted([line.strip().split('\t')[:4] for line in f if line.startswith('chr')])
+
+def test_import(datadir):
+    test_files = [snap.datasets.pbmc500(downsample=True), str(datadir.join('test_clean.tsv.gz'))]
+
+    for fl in test_files:
+        data = snap.pp.import_data(
+            fl,
+            chrom_sizes=snap.genome.hg38,
+            min_num_fragments=0,
+            sorted_by_barcode=False,
+        )
+
+        data.obs['group'] = '1'
+        snap.ex.export_fragments(data, groupby="group", suffix='.bed.gz')
+
+        assert read_bed("1.bed.gz") == read_bed(fl)

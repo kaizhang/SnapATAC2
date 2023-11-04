@@ -9,13 +9,12 @@ use pyo3::{
 };
 use numpy::{Element, PyReadonlyArrayDyn, PyReadonlyArray, Ix1, Ix2, PyArray, IntoPyArray};
 use snapatac2_core::preprocessing::{Transcript, read_transcripts_from_gff, read_transcripts_from_gtf};
-use snapatac2_core::utils::similarity;
+use snapatac2_core::utils;
 
 use bed_utils::{bed, bed::GenomicRange, bed::BED};
 use std::io::BufReader;
-use std::{str::FromStr, fs::File};
-use std::path::{Path, PathBuf};
-use flate2::read::MultiGzDecoder;
+use std::str::FromStr;
+use std::path::PathBuf;
 use linreg::lin_reg_imprecise;
 use linfa::{DatasetBase, traits::{Fit, Predict}};
 use linfa_clustering::KMeans;
@@ -57,10 +56,10 @@ pub(crate) fn jaccard_similarity<'py>(
     macro_rules! with_csr {
         ($mat:expr) => {
             match other {
-                None => Ok(similarity::jaccard($mat, weights_).into_pyarray(py)),
+                None => Ok(utils::similarity::jaccard($mat, weights_).into_pyarray(py)),
                 Some(mat2) => {
                     macro_rules! xxx {
-                        ($m:expr) => { Ok(similarity::jaccard2($mat, $m, weights_).into_pyarray(py)) };
+                        ($m:expr) => { Ok(utils::similarity::jaccard2($mat, $m, weights_).into_pyarray(py)) };
                     }
                     let shape: Vec<usize> = mat2.getattr("shape")?.extract()?;
                     with_sparsity_pattern!(
@@ -89,13 +88,13 @@ fn to_sparsity_pattern<'py, I>(
     indptr_: &'py PyReadonlyArray<I, Ix1>,
     indices_: &'py PyReadonlyArray<I, Ix1>,
     n: usize
-) -> PyResult<similarity::BorrowedSparsityPattern<'py, I>>
+) -> PyResult<utils::similarity::BorrowedSparsityPattern<'py, I>>
 where
     I: Element,
 {
     let indptr = indptr_.as_slice().unwrap();
     let indices = indices_.as_slice().unwrap();
-    Ok(similarity::BorrowedSparsityPattern::new(indptr, indices, n))
+    Ok(utils::similarity::BorrowedSparsityPattern::new(indptr, indices, n))
 }
 
 #[pyfunction]
@@ -110,9 +109,9 @@ pub(crate) fn cosine_similarity<'py>(
         Some(ref ws) => Some(ws.as_slice().unwrap()),
     };
     match other {
-        None => Ok(similarity::cosine(csr_to_rust(mat)?, weights_).into_pyarray(py)),
+        None => Ok(utils::similarity::cosine(csr_to_rust(mat)?, weights_).into_pyarray(py)),
         Some(mat2) => Ok(
-            similarity::cosine2(
+            utils::similarity::cosine2(
                 csr_to_rust(mat)?,
                 csr_to_rust(mat2)?,
                 weights_,
@@ -131,12 +130,12 @@ pub(crate) fn pearson<'py>(
         "float32" => {
             let mat_ = mat.extract::<PyReadonlyArray<f32, Ix2>>()?.to_owned_array();
             let other_ = other.extract::<PyReadonlyArray<f32, Ix2>>()?.to_owned_array();
-            Ok(similarity::pearson2(mat_, other_).into_pyarray(py).to_object(py))
+            Ok(utils::similarity::pearson2(mat_, other_).into_pyarray(py).to_object(py))
         },
         "float64" => {
             let mat_ = mat.extract::<PyReadonlyArray<f64, Ix2>>()?.to_owned_array();
             let other_ = other.extract::<PyReadonlyArray<f64, Ix2>>()?.to_owned_array();
-            Ok(similarity::pearson2(mat_, other_).into_pyarray(py).to_object(py))
+            Ok(utils::similarity::pearson2(mat_, other_).into_pyarray(py).to_object(py))
         },
         ty => panic!("Cannot compute correlation for type {}", ty),
     }
@@ -154,11 +153,11 @@ pub(crate) fn spearman<'py>(
             match other.getattr("dtype")?.getattr("name")?.extract()? {
                 "float32" => {
                     let other_ = other.extract::<PyReadonlyArray<f32, Ix2>>()?.to_owned_array();
-                    Ok(similarity::spearman2(mat_, other_).into_pyarray(py).to_object(py))
+                    Ok(utils::similarity::spearman2(mat_, other_).into_pyarray(py).to_object(py))
                 },
                 "float64" => {
                     let other_ = other.extract::<PyReadonlyArray<f64, Ix2>>()?.to_owned_array();
-                    Ok(similarity::spearman2(mat_, other_).into_pyarray(py).to_object(py))
+                    Ok(utils::similarity::spearman2(mat_, other_).into_pyarray(py).to_object(py))
                 },
                 ty => panic!("Cannot compute correlation for type {}", ty),
             }
@@ -168,11 +167,11 @@ pub(crate) fn spearman<'py>(
             match other.getattr("dtype")?.getattr("name")?.extract()? {
                 "float32" => {
                     let other_ = other.extract::<PyReadonlyArray<f32, Ix2>>()?.to_owned_array();
-                    Ok(similarity::spearman2(mat_, other_).into_pyarray(py).to_object(py))
+                    Ok(utils::similarity::spearman2(mat_, other_).into_pyarray(py).to_object(py))
                 },
                 "float64" => {
                     let other_ = other.extract::<PyReadonlyArray<f64, Ix2>>()?.to_owned_array();
-                    Ok(similarity::spearman2(mat_, other_).into_pyarray(py).to_object(py))
+                    Ok(utils::similarity::spearman2(mat_, other_).into_pyarray(py).to_object(py))
                 },
                 ty => panic!("Cannot compute correlation for type {}", ty),
             }
@@ -229,13 +228,13 @@ pub(crate) fn jm_regress(
 /// Returns a list of strings
 #[pyfunction]
 pub(crate) fn read_regions(file: PathBuf) -> Vec<String> {
-    let mut reader = bed::io::Reader::new(open_file(file), None);
+    let mut reader = bed::io::Reader::new(utils::open_file_for_read(file), None);
     reader.records::<GenomicRange>().map(|x| x.unwrap().pretty_show()).collect()
 }
 
 #[pyfunction]
 pub(crate) fn intersect_bed<'py>(py: Python<'py>, regions: &'py PyAny, bed_file: &str) -> PyResult<Vec<bool>> {
-    let bed_tree: bed::tree::BedTree<()> = bed::io::Reader::new(open_file(bed_file), None)
+    let bed_tree: bed::tree::BedTree<()> = bed::io::Reader::new(utils::open_file_for_read(bed_file), None)
         .into_records().map(|x: Result<BED<3>, _>| (x.unwrap(), ())).collect();
     let res = PyIterator::from_object(py, regions)?
         .map(|x| bed_tree.is_overlapped(&GenomicRange::from_str(x.unwrap().extract().unwrap()).unwrap()))
@@ -258,39 +257,6 @@ pub(crate) fn kmeans<'py>(
     Ok(model.predict(observations).targets.into_pyarray(py))
 }
 
-/// Open a file, possibly compressed. Supports gzip and zstd.
-pub(crate) fn open_file<P: AsRef<Path>>(file: P) -> Box<dyn std::io::Read> {
-    match detect_compression(file.as_ref()) {
-        Compression::Gzip => Box::new(MultiGzDecoder::new(File::open(file.as_ref()).unwrap())),
-        Compression::Zstd => {
-            let r = zstd::stream::read::Decoder::new(File::open(file.as_ref()).unwrap()).unwrap();
-            Box::new(r)
-        },
-        Compression::None => Box::new(File::open(file.as_ref()).unwrap()),
-    }
-}
-
-enum Compression {
-    Gzip,
-    Zstd,
-    None,
-}
-
-/// Determine the file compression type. Supports gzip and zstd.
-fn detect_compression<P: AsRef<Path>>(file: P) -> Compression {
-    if MultiGzDecoder::new(File::open(file.as_ref()).unwrap()).header().is_some() {
-        Compression::Gzip
-    } else if let Some(ext) = file.as_ref().extension() {
-        if ext == "zst" {
-            Compression::Zstd
-        } else {
-            Compression::None
-        }
-    } else {
-        Compression::None
-    }
-}
-
 pub fn read_transcripts<P: AsRef<std::path::Path>>(file_path: P) -> Vec<Transcript> {
     let path = if file_path.as_ref().extension().unwrap() == "gz" {
         file_path.as_ref().file_stem().unwrap().as_ref()
@@ -298,11 +264,11 @@ pub fn read_transcripts<P: AsRef<std::path::Path>>(file_path: P) -> Vec<Transcri
         file_path.as_ref()
     };
     if path.extension().unwrap() == "gff" {
-        read_transcripts_from_gff(BufReader::new(open_file(file_path))).unwrap()
+        read_transcripts_from_gff(BufReader::new(utils::open_file_for_read(file_path))).unwrap()
     } else if path.extension().unwrap() == "gtf" {
-        read_transcripts_from_gtf(BufReader::new(open_file(file_path))).unwrap()
+        read_transcripts_from_gtf(BufReader::new(utils::open_file_for_read(file_path))).unwrap()
     } else {
-        read_transcripts_from_gff(BufReader::new(open_file(file_path.as_ref())))
-            .unwrap_or_else(|_| read_transcripts_from_gtf(BufReader::new(open_file(file_path))).unwrap())
+        read_transcripts_from_gff(BufReader::new(utils::open_file_for_read(file_path.as_ref())))
+            .unwrap_or_else(|_| read_transcripts_from_gtf(BufReader::new(utils::open_file_for_read(file_path))).unwrap())
     }
 }
