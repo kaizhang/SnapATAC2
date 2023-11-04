@@ -52,7 +52,7 @@ def tsse(
     AAATGAGAGTCCCGCA-1    33.264463
     Name: tsse, dtype: float64
     """
-    gene_anno = gene_anno.fetch_annotations() if isinstance(gene_anno, Genome) else gene_anno
+    gene_anno = gene_anno.annotation if isinstance(gene_anno, Genome) else gene_anno
  
     if isinstance(adata, list):
         result = snapatac2._utils.anndata_par(

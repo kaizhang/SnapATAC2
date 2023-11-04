@@ -76,7 +76,7 @@ def init_network_from_annotation(
         regulatory domains.
     """
     if isinstance(anno_file, Genome):
-        anno_file = anno_file.fetch_annotations()
+        anno_file = anno_file.annotation
         
     region_added = {}
     graph = rx.PyDiGraph()
@@ -252,7 +252,7 @@ def add_tf_binding(
 
     regions = [(i, network[i].id) for i in network.node_indices() if network[i].type == "region"]
     logging.info("Fetching {} sequences ...".format(len(regions)))
-    genome = genome_fasta.fetch_fasta() if isinstance(genome_fasta, Genome) else str(genome_fasta)
+    genome = genome_fasta.fasta if isinstance(genome_fasta, Genome) else str(genome_fasta)
     genome = Fasta(genome, one_based_attributes=False)
     sequences = [fetch_seq(genome, region) for _, region in regions]
 

@@ -61,7 +61,7 @@ def motif_enrichment(
     region_to_idx = dict(map(lambda x: (x[1], x[0]), enumerate(all_regions)))
 
     logging.info("Fetching {} sequences ...".format(len(all_regions)))
-    genome = genome_fasta.fetch_fasta() if isinstance(genome_fasta, Genome) else str(genome_fasta)
+    genome = genome_fasta.fasta if isinstance(genome_fasta, Genome) else str(genome_fasta)
     genome = Fasta(genome, one_based_attributes=False)
     sequences = [fetch_seq(genome, region) for region in all_regions]
 

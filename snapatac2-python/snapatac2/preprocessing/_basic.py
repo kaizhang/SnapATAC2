@@ -594,7 +594,7 @@ def make_gene_matrix(
         obs: 'n_fragment', 'frac_dup', 'frac_mito'
     """
     if isinstance(gene_anno, Genome):
-        gene_anno = gene_anno.fetch_annotations()
+        gene_anno = gene_anno.annotation
 
     if inplace:
         internal.mk_gene_matrix(adata, gene_anno, chunk_size, use_x, id_type, None)

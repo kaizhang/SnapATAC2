@@ -47,7 +47,7 @@ setup(
         "igraph>=0.10.3",
         "pynndescent",
         "pyarrow",
-        "pyfaidx",
+        "pyfaidx>=0.7.0, <0.8.0",
         "rustworkx",
         "scipy>=1.4, <2.0.0",
         "scikit-learn>=1.0, <2.0.0",

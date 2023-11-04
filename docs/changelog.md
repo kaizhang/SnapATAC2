@@ -5,6 +5,7 @@
 ### Features:
 
 - Support anndata v0.10.
+- Make it easier to build custom genome objects.
 
 ### Bugs fixed:
 

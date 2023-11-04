@@ -11,8 +11,8 @@ in the SnapATAC2 package.
     You can change the data cache directory by setting the `SNAP_DATA_DIR` environmental
     variable.
 
-Genome
-~~~~~~
+Genomes
+~~~~~~~
 
 .. autosummary::
     :toctree: _autosummary
