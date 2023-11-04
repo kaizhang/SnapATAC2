@@ -7,7 +7,7 @@ from pathlib import Path
 from natsort import natsorted
 from collections import defaultdict
 import pytest
-from hypothesis import given, example, settings, HealthCheck, strategies as st
+from hypothesis import given, settings, HealthCheck, strategies as st
 from hypothesis.extra.numpy import *
 from scipy.sparse import csr_matrix
 import gzip
@@ -136,7 +136,7 @@ def test_import(datadir):
             sorted_by_barcode=False,
         )
 
-        data.obs['group'] = '1'
-        snap.ex.export_fragments(data, groupby="group", suffix='.bed.gz')
+        data.obs['group'] = 'test_import'
+        outputs = snap.ex.export_fragments(data, groupby="group", out_dir=str(datadir), suffix='.bed.gz')
 
-        assert read_bed("1.bed.gz") == read_bed(fl)
+        assert read_bed(list(outputs.values())[0]) == read_bed(fl)

@@ -28,6 +28,7 @@ def make_fragment_file(
     chunk_size: int = 50000000,
     compression: Literal["gzip", "zstandard"] | None = None,
     compression_level: int | None = None,
+    tempdir: Path | None = None,
 ) -> internal.PyFlagStat:
     """
     Convert a BAM file to a fragment file.
@@ -87,6 +88,9 @@ def make_fragment_file(
     compression_level
         Compression level. 1-9 for gzip, 1-22 for zstandard.
         If `None`, it is set to 6 for gzip and 3 for zstandard.
+    tempdir
+        Location to store temporary files. If `None`, system temporary directory
+        will be used.
 
     Returns
     -------
@@ -110,7 +114,8 @@ def make_fragment_file(
 
     return internal.make_fragment_file(
         bam_file, output_file, is_paired, shift_left, shift_right, chunk_size,
-        barcode_tag, barcode_regex, umi_tag, umi_regex, min_mapq, compression, compression_level,
+        barcode_tag, barcode_regex, umi_tag, umi_regex, min_mapq,
+        compression, compression_level, tempdir,
     )
 
 def import_data(

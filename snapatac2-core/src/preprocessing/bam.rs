@@ -42,7 +42,7 @@ use crate::utils::{open_file_for_write, Compression};
 ///     result in faster sorting and greater memory usage.
 /// * `compression` - Compression algorithm to use for the output file. Valid values are `gzip` and `zstandard`.
 /// * `compression_level` - Compression level to use for the output file. Valid values are 0-9 for `gzip` and 1-22 for `zstandard`.
-pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>>(
+pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path>>(
     bam_file: P1,
     output_file: P2,
     is_paired: bool,
@@ -56,10 +56,17 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>>(
     chunk_size: usize,
     compression: Option<Compression>,
     compression_level: Option<u32>,
+    temp_dir: Option<P3>,
 ) -> Result<FlagStat> {
-    let tmp_dir = Builder::new()
-        .tempdir_in("./")
-        .expect("failed to create tmperorary directory");
+    let temp_dir = if let Some(tmp) = temp_dir {
+        Builder::new()
+            .tempdir_in(tmp)
+            .expect("failed to create tmperorary directory")
+    } else {
+        Builder::new()
+            .tempdir()
+            .expect("failed to create tmperorary directory")
+    };
 
     if barcode_regex.is_some() && barcode_tag.is_some() {
         bail!("Can only set barcode_tag or barcode_regex but not both");
@@ -99,7 +106,7 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>>(
         &barcode,
         umi.as_ref(),
         is_paired,
-        tmp_dir.path().to_path_buf(),
+        temp_dir.path().to_path_buf(),
         chunk_size,
     )
     .into_fragments(&header)
