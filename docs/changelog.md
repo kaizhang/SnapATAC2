@@ -6,6 +6,8 @@
 
 - Support anndata v0.10.
 - Make it easier to build custom genome objects.
+- Add `ex.export_coverage` to export coverage tracks as bedGraph or bigWig files.
+  This deprecates `ex.export_bigwig`.
 
 ### Bugs fixed:
 

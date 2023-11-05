@@ -3,6 +3,7 @@ pub use mark_duplicates::{filter_bam, group_bam_by_barcode, BarcodeLocation, Fla
 
 use bed_utils::bed::BEDLike;
 use noodles::{bam, sam::record::data::field::Tag};
+use indicatif::{style::ProgressStyle, ProgressBar, ProgressDrawTarget, ProgressIterator};
 use regex::Regex;
 use anyhow::{Result, bail};
 use std::{io::Write, path::Path};
@@ -94,6 +95,13 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path>>(
 
     let mut output = open_file_for_write(output_file, compression, compression_level)?;
 
+    let spinner = ProgressBar::with_draw_target(None, ProgressDrawTarget::stderr_with_hz(1))
+        .with_style(
+            ProgressStyle::with_template(
+                "{spinner} Wrote {human_pos} fragments in {elapsed} ({per_sec}) ...",
+            )
+            .unwrap(),
+        );
     let mut flagstat = FlagStat::default();
     let filtered_records = filter_bam(
         reader.lazy_records().map(|x| x.unwrap()),
@@ -110,6 +118,7 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path>>(
         chunk_size,
     )
     .into_fragments(&header)
+    .progress_with(spinner)
     .for_each(|mut rec| {
         if rec.strand().is_none() {
             let new_start = rec.start().saturating_add_signed(shift_left);

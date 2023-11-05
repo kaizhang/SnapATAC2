@@ -7,4 +7,4 @@ Exporting: `ex`
     :toctree: _autosummary
 
     ex.export_fragments
-    ex.export_bigwig
+    ex.export_coverage
