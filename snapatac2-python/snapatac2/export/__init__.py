@@ -2,7 +2,6 @@ from __future__ import annotations
 from typing_extensions import Literal
 
 from pathlib import Path
-import numpy as np
 
 import snapatac2._snapatac2 as internal
 
@@ -48,6 +47,10 @@ def export_fragments(
     dict[str, str]
         A dictionary contains `(groupname, filename)` pairs. The file names are
         formatted as `{prefix}{groupname}{suffix}`.
+
+    See Also
+    --------
+    export_coverage
     """
     if isinstance(groupby, str):
         groupby = adata.obs[groupby]
@@ -81,7 +84,7 @@ def export_coverage(
     max_frag_length: int | None = 2000,
     out_dir: Path = "./",
     prefix: str = "",
-    suffix: str = ".bedgraph.zst",
+    suffix: str = ".bw",
     output_format: Literal["bedgraph", "bigwig"] | None = None,
     compression: Literal["gzip", "zstandard"] | None = None,
     compression_level: int | None = None,
@@ -142,6 +145,41 @@ def export_coverage(
     dict[str, str]
         A dictionary contains `(groupname, filename)` pairs. The file names are
         formatted as `{prefix}{groupname}{suffix}`.
+
+    See Also
+    --------
+    export_fragments
+
+    Examples
+    --------
+    >>> import snapatac2 as snap
+    >>> data = snap.read(snap.datasets.pbmc5k(type="annotated_h5ad"), backed='r')
+    >>> snap.ex.export_coverage(data, groupby='cell_type', suffix='.bedgraph.zst')
+    {'cDC': './cDC.bedgraph.zst',
+     'Memory B': './Memory B.bedgraph.zst',
+     'CD4 Naive': './CD4 Naive.bedgraph.zst',
+     'pDC': './pDC.bedgraph.zst',
+     'CD8 Naive': './CD8 Naive.bedgraph.zst',
+     'CD8 Memory': './CD8 Memory.bedgraph.zst',
+     'CD14 Mono': './CD14 Mono.bedgraph.zst',
+     'Naive B': './Naive B.bedgraph.zst',
+     'NK': './NK.bedgraph.zst',
+     'CD4 Memory': './CD4 Memory.bedgraph.zst',
+     'CD16 Mono': './CD16 Mono.bedgraph.zst',
+     'MAIT': './MAIT.bedgraph.zst'}
+    >>> snap.ex.export_coverage(data, groupby='cell_type', suffix='.bw')
+    {'Naive B': './Naive B.bw',
+     'CD4 Memory': './CD4 Memory.bw',
+     'CD16 Mono': './CD16 Mono.bw',
+     'CD8 Naive': './CD8 Naive.bw',
+     'pDC': './pDC.bw',
+     'CD8 Memory': './CD8 Memory.bw',
+     'NK': './NK.bw',
+     'Memory B': './Memory B.bw',
+     'CD14 Mono': './CD14 Mono.bw',
+     'MAIT': './MAIT.bw',
+     'CD4 Naive': './CD4 Naive.bw',
+     'cDC': './cDC.bw'}
     """
     if isinstance(groupby, str):
         groupby = adata.obs[groupby]
