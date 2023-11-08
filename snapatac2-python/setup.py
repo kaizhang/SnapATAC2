@@ -17,7 +17,7 @@ setup(
     long_description_content_type='text/markdown',
     url='https://kzhang.org/SnapATAC2/', 
     author='Kai Zhang',
-    author_email='kai@kzhang.org',
+    author_email='zhangkai33@westlake.edu.cn',
     license='MIT',
     version=VERSION['__version__'],
     rust_extensions=[
