@@ -350,6 +350,8 @@ def add_tile_matrix(
     inplace: bool = True,
     chunk_size: int = 500,
     exclude_chroms: list[str] | str | None = ["chrM", "chrY", "M", "Y"],
+    min_frag_size: int | None = None,
+    max_frag_size: int | None = None,
     file: Path | None = None,
     backend: Literal['hdf5'] = 'hdf5',
     n_jobs: int = 8,
@@ -376,6 +378,10 @@ def add_tile_matrix(
         Increasing the chunk_size speeds up I/O but uses more memory.
     exclude_chroms
         A list of chromosomes to exclude.
+    min_frag_size
+        Minimum fragment size to include.
+    max_frag_size
+        Maximum fragment size to include.
     file
         File name of the output file used to store the result. If provided, result will
         be saved to a backed AnnData, otherwise an in-memory AnnData is used.
@@ -420,7 +426,7 @@ def add_tile_matrix(
                 n_jobs=n_jobs,
             )
         else:
-            internal.mk_tile_matrix(adata, bin_size, chunk_size, exclude_chroms, None)
+            internal.mk_tile_matrix(adata, bin_size, chunk_size, exclude_chroms, min_frag_size, max_frag_size, None)
     else:
         if file is None:
             if adata.isbacked:
@@ -429,7 +435,7 @@ def add_tile_matrix(
                 out = AnnData(obs=adata.obs[:])
         else:
             out = internal.AnnData(filename=file, backend=backend, obs=adata.obs[:])
-        internal.mk_tile_matrix(adata, bin_size, chunk_size, exclude_chroms, out)
+        internal.mk_tile_matrix(adata, bin_size, chunk_size, exclude_chroms, min_frag_size, max_frag_size, out)
         return out
 
 def make_peak_matrix(
@@ -442,6 +448,8 @@ def make_peak_matrix(
     peak_file: Path | None = None,
     chunk_size: int = 500,
     use_x: bool = False,
+    min_frag_size: int | None = None,
+    max_frag_size: int | None = None,
 ) -> internal.AnnData:
     """Generate cell by peak count matrix.
 
@@ -475,6 +483,10 @@ def make_peak_matrix(
     use_x
         If True, use the matrix stored in `.X` as raw counts.
         Otherwise the `.obsm['insertion']` is used.
+    min_frag_size
+        Minimum fragment size to include.
+    max_frag_size
+        Maximum fragment size to include.
 
     Returns
     -------
@@ -529,7 +541,7 @@ def make_peak_matrix(
                 out = AnnData(obs=adata.obs[:])
         else:
             out = internal.AnnData(filename=file, backend=backend, obs=adata.obs[:])
-        internal.mk_peak_matrix(adata, peaks, chunk_size, use_x, out)
+        internal.mk_peak_matrix(adata, peaks, chunk_size, use_x, min_frag_size, max_frag_size, out)
         return out
 
 def make_gene_matrix(
@@ -542,6 +554,8 @@ def make_gene_matrix(
     chunk_size: int = 500,
     use_x: bool = False,
     id_type: Literal['gene', 'transcript'] = "gene",
+    min_frag_size: int | None = None,
+    max_frag_size: int | None = None,
 ) -> internal.AnnData:
     """Generate cell by gene activity matrix.
 
@@ -571,6 +585,10 @@ def make_gene_matrix(
         Otherwise the `.obsm['insertion']` is used.
     id_type
         "gene" or "transcript".
+    min_frag_size
+        Minimum fragment size to include.
+    max_frag_size
+        Maximum fragment size to include.
 
     Returns
     -------
@@ -597,7 +615,7 @@ def make_gene_matrix(
         gene_anno = gene_anno.annotation
 
     if inplace:
-        internal.mk_gene_matrix(adata, gene_anno, chunk_size, use_x, id_type, None)
+        internal.mk_gene_matrix(adata, gene_anno, chunk_size, use_x, id_type, min_frag_size, max_frag_size, None)
     else:
         if file is None:
             if adata.isbacked:
@@ -606,7 +624,7 @@ def make_gene_matrix(
                 out = AnnData(obs=adata.obs[:])
         else:
             out = internal.AnnData(filename=file, backend=backend, obs=adata.obs[:])
-        internal.mk_gene_matrix(adata, gene_anno, chunk_size, use_x, id_type, out)
+        internal.mk_gene_matrix(adata, gene_anno, chunk_size, use_x, id_type, min_frag_size, max_frag_size, out)
         return out
 
 def filter_cells(

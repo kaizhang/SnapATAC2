@@ -372,24 +372,18 @@ fn _export_tags<D: SnapData, P: AsRef<std::path::Path>>(
     let style = ProgressStyle::with_template(
         "[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})",
     )?;
-    data.get_count_iter(1000)?
-        .into_raw_groups(|x| keys[x])
+    let mut counts = data.get_count_iter(1000)?;
+    if let Some(max_size) = max_frag_size {
+        counts = counts.max_fragment_size(max_size);
+    }
+    counts.into_fragment_groups(|x| keys[x])
         .progress_with_style(style)
-        .try_for_each(|vals| {
-            vals.into_iter().par_bridge().try_for_each(|(i, beds)| {
-                if let Some((_, fl)) = files.get(&i) {
-                    let mut fl = fl.lock().unwrap();
-                    beds.into_iter().try_for_each(|bed| {
-                        if bed.strand().is_some() || max_frag_size.map_or(true, |s| s >= bed.len())
-                        {
-                            writeln!(fl, "{}", bed)?;
-                        }
-                        anyhow::Ok(())
-                    })?;
-                }
-                anyhow::Ok(())
-            })
-        })?;
+        .for_each(|vals| vals.into_iter().par_bridge().for_each(|(i, beds)| {
+            if let Some((_, fl)) = files.get(&i) {
+                let mut fl = fl.lock().unwrap();
+                beds.into_iter().for_each(|bed| writeln!(fl, "{}", bed).unwrap());
+            }
+        }));
     let mut result = HashMap::new();
     files.into_iter().for_each(|((a, _), (filename, _))| {
         result

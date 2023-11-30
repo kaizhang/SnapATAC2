@@ -42,6 +42,8 @@ pub trait Exporter: SnapData {
         barcodes: Option<&Vec<&str>>,
         group_by: &Vec<&str>,
         selections: Option<HashSet<&str>>,
+        min_fragment_length: Option<u64>,
+        max_fragment_length: Option<u64>,
         dir: P,
         prefix: &str,
         suffix:&str,
@@ -62,7 +64,15 @@ pub trait Exporter: SnapData {
         }).collect::<Result<HashMap<_, _>>>()?;
 
         let style = ProgressStyle::with_template("[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})")?;
-        self.get_count_iter(1000)?.into_raw()
+        let mut counts = self.get_count_iter(1000)?;
+        if let Some(min_len) = min_fragment_length {
+            counts = counts.min_fragment_size(min_len);
+        }
+        if let Some(max_len) = max_fragment_length {
+            counts = counts.max_fragment_size(max_len);
+        }
+
+        counts.into_fragments()
             .map(move |(vals, start, _)| {
                 let mut ordered = HashMap::new();
                 vals.into_iter().enumerate().for_each(|(i, xs)| {
@@ -101,8 +111,8 @@ pub trait Exporter: SnapData {
         blacklist_regions: Option<&BedTree<()>>,
         normalization: Option<Normalization>,
         ignore_for_norm: Option<&HashSet<&str>>,
-        min_frag_length: Option<u64>,
-        max_frag_length: Option<u64>,
+        min_fragment_length: Option<u64>,
+        max_fragment_length: Option<u64>,
         dir: P,
         prefix: &str,
         suffix:&str,
@@ -128,9 +138,9 @@ pub trait Exporter: SnapData {
 
         info!("Exporting fragments...");
         let fragment_files = self.export_fragments(
-            None, group_by, selections, temp_dir.path(), "", "", Some(Compression::Gzip), Some(1)
+            None, group_by, selections, min_fragment_length, max_fragment_length,
+            temp_dir.path(), "", "", Some(Compression::Gzip), Some(1),
         )?;
-
 
         let chrom_sizes = self.read_chrom_sizes()?;
         info!("Creating coverage files...");
@@ -157,8 +167,6 @@ pub trait Exporter: SnapData {
                     blacklist_regions,
                     normalization,
                     ignore_for_norm,
-                    min_frag_length,
-                    max_frag_length,
                 );
 
                 match format {
@@ -222,8 +230,6 @@ impl std::str::FromStr for Normalization {
 /// * `blacklist_regions` - Blacklist regions to be ignored.
 /// * `normalization` - Normalization method.
 /// * `ignore_for_norm` - Chromosomes to be ignored for normalization.
-/// * `min_frag_length` - Minimum fragment length to be considered. No effect on single-end data.
-/// * `max_frag_length` - Maximum fragment length to be considered. No effect on single-end data.
 fn create_bedgraph_from_fragments<I>(
     fragments: I,
     chrom_sizes: &ChromSizes,
@@ -231,8 +237,6 @@ fn create_bedgraph_from_fragments<I>(
     blacklist_regions: Option<&BedTree<()>>,
     normalization: Option<Normalization>,
     ignore_for_norm: Option<&HashSet<&str>>,
-    min_frag_length: Option<u64>,
-    max_frag_length: Option<u64>,
 ) -> Vec<BedGraph<f32>>
 where
     I: Iterator<Item = Fragment>,
@@ -244,9 +248,7 @@ where
     fragments.for_each(|frag| {
         let not_in_blacklist = blacklist_regions.map_or(true, |bl| !bl.is_overlapped(&frag));
         let is_single = frag.strand().is_some();
-        let not_too_short = min_frag_length.map_or(true, |x| frag.len() >= x);
-        let not_too_long = max_frag_length.map_or(true, |x| frag.len() <= x);
-        if not_in_blacklist && (is_single || (not_too_short && not_too_long)) {
+        if not_in_blacklist && is_single {
             if ignore_for_norm.map_or(true, |x| !x.contains(frag.chrom())) {
                 total_count += 1.0;
             }

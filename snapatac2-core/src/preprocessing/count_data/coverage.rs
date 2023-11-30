@@ -8,32 +8,39 @@ use num::traits::{FromPrimitive, One, Zero, SaturatingAdd};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::{collections::{BTreeMap, HashSet}, ops::AddAssign};
 
-pub enum CoverageType {
+pub enum FragmentType {
     FragmentSingle(CsrNonCanonical<i32>),
     FragmentPaired(CsrNonCanonical<u32>),
 }
 
-/// `GenomeCoverage` represents a genome's base-resolution coverage.
-/// It stores the coverage as an iterator of tuples, each containing a
+/// The `GenomeCount` struct is used to count the number of reads that overlap
+/// for a given list of genomic features (such as genes, exons, ChIP-Seq peaks, or the like).
+/// To minimize read length bias, it counts only the 5' end of each read.
+/// It stores the counts as an iterator of tuples, each containing a
 /// compressed sparse row matrix, a start index, and an end index.
-/// It also keeps track of the resolution and excluded chromosomes.
-pub struct GenomeCoverage<I> {
+/// The output count matrix can be configured to have a fixed bin size and
+/// to exclude certain chromosomes.
+pub struct GenomeCount<I> {
     index: GenomeBaseIndex,
-    coverage: I,
+    fragments: I,
     resolution: usize,
     exclude_chroms: HashSet<String>,
+    min_fragment_size: Option<u64>,
+    max_fragment_size: Option<u64>,
 }
 
-impl<I> GenomeCoverage<I>
+impl<I> GenomeCount<I>
 where
-    I: ExactSizeIterator<Item = (CoverageType, usize, usize)>,
+    I: ExactSizeIterator<Item = (FragmentType, usize, usize)>,
 {
-    pub fn new(chrom_sizes: ChromSizes, coverage: I) -> Self {
+    pub fn new(chrom_sizes: ChromSizes, fragments: I) -> Self {
         Self {
             index: GenomeBaseIndex::new(&chrom_sizes),
-            coverage,
+            fragments,
             resolution: 1,
             exclude_chroms: HashSet::new(),
+            min_fragment_size: None,
+            max_fragment_size: None,
         }
     }
 
@@ -55,12 +62,13 @@ where
         }
     }
 
-    /// Set the resolution of the coverage matrix.
+    /// Set the bin size of the output coverage.
     pub fn with_resolution(mut self, s: usize) -> Self {
         self.resolution = s;
         self
     }
 
+    /// Exclude certain chromosomes from the output coverage.
     pub fn exclude(mut self, chroms: &[&str]) -> Self {
         self.exclude_chroms = chroms
             .iter()
@@ -70,60 +78,76 @@ where
         self
     }
 
+    /// Set the minimum fragment size.
+    pub fn min_fragment_size(mut self, size: u64) -> Self {
+        self.min_fragment_size = Some(size);
+        self
+    }
+
+    /// Set the maximum fragment size.
+    pub fn max_fragment_size(mut self, size: u64) -> Self {
+        self.max_fragment_size = Some(size);
+        self
+    }
+
     /// Return an iterator of raw fragments.
-    pub fn into_raw(self) -> impl ExactSizeIterator<Item = (Vec<Vec<Fragment>>, usize, usize)> {
+    pub fn into_fragments(self) -> impl ExactSizeIterator<Item = (Vec<Vec<Fragment>>, usize, usize)> {
         let index = self.index;
-        self.coverage.map(move |(raw_mat, a, b)| {
+        self.fragments.map(move |(raw_mat, a, b)| {
             let beds = match raw_mat {
-                CoverageType::FragmentSingle(mat) => {
+                FragmentType::FragmentSingle(mat) => {
                     let row_offsets = mat.row_offsets();
                     let col_indices = mat.col_indices();
                     let values = mat.values();
                     (0..(row_offsets.len() - 1)).into_par_iter().map(|i| {
                         let row_start = row_offsets[i];
                         let row_end = row_offsets[i + 1];
-                        (row_start..row_end).map(|j| {
-                            let size = values[j];
-                            let (chrom, pos) = index.get_position(col_indices[j]);
-                            if size > 0 {
-                                Fragment {
-                                    chrom: chrom.to_string(),
-                                    start: pos,
-                                    end: pos + size as u64,
-                                    barcode: None,
-                                    count: 1,
-                                    strand: Some(Strand::Forward),
-                                }
+                        (row_start..row_end).flat_map(|j| {
+                            let (chrom, start) = index.get_position(col_indices[j]);
+                            if self.exclude_chroms.contains(chrom) {
+                                None
                             } else {
-                                Fragment {
-                                    chrom: chrom.to_string(),
-                                    start: pos + 1 - size.abs() as u64,
-                                    end: pos + 1,
-                                    barcode: None,
-                                    count: 1,
-                                    strand: Some(Strand::Reverse),
+                                let size = values[j];
+                                let barcode = None;
+                                let count = 1;
+                                let end;
+                                let strand;
+                                if size > 0 {
+                                    end = start + size as u64;
+                                    strand = Some(Strand::Forward);
+                                } else {
+                                    end = start + 1;
+                                    strand = Some(Strand::Reverse);
                                 }
+                                Some(Fragment { chrom: chrom.to_string(), start, end, barcode, count, strand })
                             }
                         }).collect()
                     }).collect()
                 },
-                CoverageType::FragmentPaired(mat) => {
+                FragmentType::FragmentPaired(mat) => {
                     let row_offsets = mat.row_offsets();
                     let col_indices = mat.col_indices();
                     let values = mat.values();
                     (0..(row_offsets.len() - 1)).into_par_iter().map(|i| {
                         let row_start = row_offsets[i];
                         let row_end = row_offsets[i + 1];
-                        (row_start..row_end).map(|j| {
-                            let size = values[j];
+                        (row_start..row_end).flat_map(|j| {
+                            let size = values[j] as u64;
                             let (chrom, start) = index.get_position(col_indices[j]);
-                            Fragment {
-                                chrom: chrom.to_string(),
-                                start,
-                                end: start + size as u64,
-                                barcode: None,
-                                count: 1,
-                                strand: None,
+                            if self.exclude_chroms.contains(chrom)
+                                || self.min_fragment_size.map_or(false, |x| size < x)
+                                || self.max_fragment_size.map_or(false, |x| size > x)
+                            {
+                                None
+                            } else {
+                                Some(Fragment {
+                                    chrom: chrom.to_string(),
+                                    start,
+                                    end: start + size,
+                                    barcode: None,
+                                    count: 1,
+                                    strand: None,
+                                })
                             }
                         }).collect()
                     }).collect()
@@ -136,12 +160,12 @@ where
     /// Return an iterator of raw fragments grouped by a key function.
     /// The key function takes the index of current cell as the input and
     /// returns a key for grouping.
-    pub fn into_raw_groups<F, K>(self, key: F) -> impl ExactSizeIterator<Item = HashMap<K, Vec<Fragment>>>
+    pub fn into_fragment_groups<F, K>(self, key: F) -> impl ExactSizeIterator<Item = HashMap<K, Vec<Fragment>>>
     where
         F: Fn(usize) -> K,
         K: Eq + PartialEq + std::hash::Hash,
     {
-        self.into_raw().map(move |(vals, start, _)| {
+        self.into_fragments().map(move |(vals, start, _)| {
             let mut ordered = HashMap::new();
             vals.into_iter().enumerate().for_each(|(i, xs)| {
                 let k = key(start + i);
@@ -155,15 +179,15 @@ where
     }
 
     /// Output the raw coverage matrix.
-    pub fn into_values<T>(self) -> impl ExactSizeIterator<Item = (CsrMatrix<T>, usize, usize)>
+    pub fn into_counts<T>(self) -> impl ExactSizeIterator<Item = (CsrMatrix<T>, usize, usize)>
     where
         T: Zero + One + FromPrimitive + SaturatingAdd + Send + Sync,
     {
         let index = self.get_gindex();
         let ori_index = self.index;
-        self.coverage.map(move |(raw_mat, i, j)| {
+        self.fragments.map(move |(raw_mat, i, j)| {
             let new_mat = match raw_mat {
-                CoverageType::FragmentSingle(mat) => {
+                FragmentType::FragmentSingle(mat) => {
                     let row_offsets = mat.row_offsets();
                     let col_indices = mat.col_indices();
                     let n = j - i;
@@ -190,7 +214,7 @@ where
                     let (r, c, offset, ind, data) = to_csr_data(vec, index.len());
                     CsrMatrix::try_from_csr_data(r,c,offset,ind, data).unwrap()
                 },
-                CoverageType::FragmentPaired(mat) => {
+                FragmentType::FragmentPaired(mat) => {
                     let row_offsets = mat.row_offsets();
                     let col_indices = mat.col_indices();
                     let values = mat.values();
@@ -203,9 +227,11 @@ where
                             let row_end = row_offsets[row + 1];
                             for k in row_start..row_end {
                                 let (chrom, start)= ori_index.get_position(col_indices[k]);
-                                let end = start + values[k] as u64 - 1;
-                                if self.exclude_chroms.is_empty()
-                                    || !self.exclude_chroms.contains(chrom)
+                                let frag_size = values[k] as u64;
+                                let end = start + frag_size - 1;
+                                if !self.exclude_chroms.contains(chrom)
+                                    && self.min_fragment_size.map_or(true, |x| frag_size >= x)
+                                    && self.max_fragment_size.map_or(true, |x| frag_size <= x)
                                 {
                                     [start, end].into_iter().for_each(|pos| {
                                         let i = index.get_position_rev(chrom, pos);
@@ -226,7 +252,7 @@ where
     }
 
     /// Aggregate the coverage by a feature counter.
-    pub fn aggregate_by<C, T>(
+    pub fn aggregate_counts_by<C, T>(
         self,
         mut counter: C,
     ) -> impl ExactSizeIterator<Item = (CsrMatrix<T>, usize, usize)>
@@ -234,12 +260,9 @@ where
         C: FeatureCounter<Value = T> + Clone + Sync,
         T: Send,
     {
-        if !self.exclude_chroms.is_empty() {
-            todo!("Implement exclude_chroms")
-        }
         let n_col = counter.num_features();
         counter.reset();
-        self.into_raw().map(move |(data, i, j)| {
+        self.into_fragments().map(move |(data, i, j)| {
             let vec = data
                 .into_par_iter()
                 .map(|beds| {

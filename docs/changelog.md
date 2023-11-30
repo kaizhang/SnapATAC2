@@ -8,6 +8,9 @@
 - Make it easier to build custom genome objects.
 - Add `ex.export_coverage` to export coverage tracks as bedGraph or bigWig files.
   This deprecates `ex.export_bigwig`.
+- Implement #192: filtering fragments by size before quantification. This adds
+  `min_frag_size` and `max_frag_size` parameters to `pp.add_tile_matrix`,
+  `pp.make_peak_matrix`, and `pp.make_gene_matrix`.
 
 ### Bugs fixed:
 

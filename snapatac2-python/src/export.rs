@@ -19,13 +19,15 @@ pub fn export_fragments(
     prefix: &str,
     suffix: &str,
     selections: Option<HashSet<&str>>,
+    min_frag_length: Option<u64>,
+    max_frag_length: Option<u64>,
     compression: Option<&str>,
     compression_level: Option<u32>,
 ) -> Result<HashMap<String, PathBuf>> {
     macro_rules! run {
         ($data:expr) => {
             $data.export_fragments(
-                Some(&barcodes), &group_by, selections, dir, prefix, suffix,
+                Some(&barcodes), &group_by, selections, min_frag_length, max_frag_length, dir, prefix, suffix,
                 compression.map(|x| utils::Compression::from_str(x).unwrap()), compression_level
             )
         }

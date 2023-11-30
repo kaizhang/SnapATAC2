@@ -182,6 +182,8 @@ pub(crate) fn import_contacts(
 pub(crate) fn mk_tile_matrix(
     anndata: AnnDataLike, bin_size: usize, chunk_size: usize, 
     exclude_chroms: Option<Vec<&str>>,
+    min_fragment_size: Option<u64>,
+    max_fragment_size: Option<u64>,
     out: Option<AnnDataLike>
 ) -> Result<()>
 {
@@ -195,6 +197,8 @@ pub(crate) fn mk_tile_matrix(
                             bin_size,
                             chunk_size,
                             exclude_chroms.as_ref().map(|x| x.as_slice()),
+                            min_fragment_size,
+                            max_fragment_size,
                             Some($out_data)
                         )?
                     };
@@ -206,6 +210,8 @@ pub(crate) fn mk_tile_matrix(
                     bin_size,
                     chunk_size,
                     exclude_chroms.as_ref().map(|x| x.as_slice()),
+                    min_fragment_size,
+                    max_fragment_size,
                     None::<&PyAnnData>
                 )?;
             }
@@ -222,6 +228,8 @@ pub(crate) fn mk_peak_matrix(
     peaks: &PyAny,
     chunk_size: usize,
     use_x: bool,
+    min_fragment_size: Option<u64>,
+    max_fragment_size: Option<u64>,
     out: Option<AnnDataLike>,
 ) -> Result<()>
 {
@@ -233,12 +241,14 @@ pub(crate) fn mk_peak_matrix(
             if let Some(out) = out {
                 macro_rules! run2 {
                     ($out_data:expr) => {
-                        preprocessing::create_peak_matrix($data, peaks, chunk_size, Some($out_data), use_x)?
+                        preprocessing::create_peak_matrix($data, peaks, chunk_size,
+                            min_fragment_size, max_fragment_size, Some($out_data), use_x)?
                     };
                 }
                 crate::with_anndata!(&out, run2);
             } else {
-                preprocessing::create_peak_matrix($data, peaks, chunk_size, None::<&PyAnnData>, use_x)?;
+                preprocessing::create_peak_matrix($data, peaks, chunk_size,
+                    min_fragment_size, max_fragment_size, None::<&PyAnnData>, use_x)?;
             }
         }
     }
@@ -253,6 +263,8 @@ pub(crate) fn mk_gene_matrix(
     chunk_size: usize,
     use_x: bool,
     id_type: &str,
+    min_fragment_size: Option<u64>,
+    max_fragment_size: Option<u64>,
     out: Option<AnnDataLike>,
 ) -> Result<()>
 {
@@ -262,12 +274,14 @@ pub(crate) fn mk_gene_matrix(
             if let Some(out) = out {
                 macro_rules! run2 {
                     ($out_data:expr) => {
-                        preprocessing::create_gene_matrix($data, transcripts, id_type, chunk_size, Some($out_data), use_x)?
+                        preprocessing::create_gene_matrix($data, transcripts, id_type, chunk_size,
+                            min_fragment_size, max_fragment_size, Some($out_data), use_x)?
                     };
                 }
                 crate::with_anndata!(&out, run2);
             } else {
-                preprocessing::create_gene_matrix($data, transcripts, id_type, chunk_size, None::<&PyAnnData>, use_x)?;
+                preprocessing::create_gene_matrix($data, transcripts, id_type, chunk_size,
+                    min_fragment_size, max_fragment_size, None::<&PyAnnData>, use_x)?;
             }
         }
     }

@@ -10,6 +10,8 @@ def export_fragments(
     groupby: str | list[str],
     selections: list[str] | None = None,
     ids: str | list[str] | None = None,
+    min_frag_length: int | None = None,
+    max_frag_length: int | None = 2000,
     out_dir: Path = "./",
     prefix: str = "",
     suffix: str = ".bed.zst",
@@ -30,6 +32,10 @@ def export_fragments(
         Export only the selected groups.
     ids
         Cell ids add to the bed records. If `None`, `.obs_names` is used.
+    min_frag_length
+        Minimum fragment length to be included in the computation.
+    max_frag_length
+        Maximum fragment length to be included in the computation.
     out_dir
         Directory for saving the outputs.
     prefix
@@ -69,7 +75,8 @@ def export_fragments(
             compression = "zstandard"
 
     return internal.export_fragments(
-        adata, list(ids), list(groupby), out_dir, prefix, suffix, selections, compression, compression_level,
+        adata, list(ids), list(groupby), out_dir, prefix, suffix, selections, 
+        min_frag_length, max_frag_length, compression, compression_level,
     )
 
 def export_coverage(
