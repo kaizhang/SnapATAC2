@@ -47,6 +47,28 @@ def anndata_ipar(inputs, func, n_jobs=4):
         
         return result
 
+def get_file_format(suffix):
+    suffix = suffix.lower()
+    _suffix = suffix
+
+    if suffix.endswith(".gz"):
+        compression = "gzip"
+        _suffix = suffix[:-3]
+    elif suffix.endswith(".zst"):
+        compression = "zstandard"
+        _suffix = suffix[:-4]
+    else:
+        compression = None
+    
+    if suffix.endswith(".bw") or suffix.endswith(".bigwig"):
+        format = "bigwig"
+    elif _suffix.endswith(".bedgraph") or _suffix.endswith(".bg") or _suffix.endswith(".bdg"):
+        format = "bedgraph"
+    else:
+        format = None
+    
+    return format, compression
+
 def get_igraph_from_adjacency(adj):
     """Get igraph graph from adjacency matrix."""
     import igraph as ig

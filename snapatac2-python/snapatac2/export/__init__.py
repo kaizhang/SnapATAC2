@@ -4,6 +4,7 @@ from typing_extensions import Literal
 from pathlib import Path
 
 import snapatac2._snapatac2 as internal
+from snapatac2._utils import get_file_format
 
 def export_fragments(
     adata: internal.AnnData | internal.AnnDataSet,
@@ -11,7 +12,7 @@ def export_fragments(
     selections: list[str] | None = None,
     ids: str | list[str] | None = None,
     min_frag_length: int | None = None,
-    max_frag_length: int | None = 2000,
+    max_frag_length: int | None = None,
     out_dir: Path = "./",
     prefix: str = "",
     suffix: str = ".bed.zst",
@@ -69,10 +70,7 @@ def export_fragments(
         ids = adata.obs[ids]
 
     if compression is None:
-        if suffix.endswith(".gz"):
-            compression = "gzip"
-        elif suffix.endswith(".zst"):
-            compression = "zstandard"
+        _, compression = get_file_format(suffix)
 
     return internal.export_fragments(
         adata, list(ids), list(groupby), out_dir, prefix, suffix, selections, 
@@ -193,22 +191,12 @@ def export_coverage(
     if selections is not None:
         selections = set(selections)
     
-    _suffix = suffix
-    if compression is None:
-        if suffix.endswith(".gz"):
-            compression = "gzip"
-            _suffix = suffix[:-3]
-        elif suffix.endswith(".zst"):
-            compression = "zstandard"
-            _suffix = suffix[:-4]
-    
     if output_format is None:
-        if suffix.endswith(".bw") or suffix.endswith(".bigwig"):
-            output_format = "bigwig"
-        elif _suffix.endswith(".bedgraph") or _suffix.endswith(".bg") or _suffix.endswith(".bdg"):
-            output_format = "bedgraph"
-        else:
-            raise ValueError("Cannot infer the output format from the suffix.")
+        output_format, inferred_compression = get_file_format(suffix)
+        if output_format is None:
+            raise ValueError("Output format cannot be inferred from suffix.")
+        if compression is None:
+            compression = inferred_compression
 
     n_jobs = None if n_jobs <= 0 else n_jobs
     return internal.export_coverage(

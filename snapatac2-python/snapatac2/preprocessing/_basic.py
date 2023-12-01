@@ -107,10 +107,7 @@ def make_fragment_file(
         raise ValueError("Only one of barcode_tag or barcode_regex can be set.")
 
     if compression is None:
-        if output_file.endswith(".gz"):
-            compression = "gzip"
-        elif output_file.endswith(".zst"):
-            compression = "zstandard"
+        _, compression = snapatac2._utils.get_file_format(output_file)
 
     return internal.make_fragment_file(
         bam_file, output_file, is_paired, shift_left, shift_right, chunk_size,
