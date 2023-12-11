@@ -39,3 +39,4 @@ jobs:
     uses: kaizhang/SnapATAC2/.github/workflows/wheels.yml@main
     with:
       wheel: 'true'
+      nightly: 'true'
