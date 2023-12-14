@@ -165,7 +165,7 @@ def spectral(
         `weighted_by_sd` is set to True, as long as it is large enough, e.g. 30.
     features
         Boolean index mask. True means that the feature is kept.
-        False means the feature is removed.
+        False means the feature is removed. If `features=None`, all features are used.
     random_state
         Seed of the random state generator
     sample_size
@@ -184,6 +184,9 @@ def spectral(
         Whether to weight the result eigenvectors by the square root of eigenvalues.
         This parameter is turned on by default. When it is turned on, mannully selecting
         the number of components is usually not necessary.
+    feature_weights
+        Feature weights used in the distance metric. If None, the inverse document
+        frequency (IDF) is used.
     inplace
         Whether to store the result in the anndata object.
 

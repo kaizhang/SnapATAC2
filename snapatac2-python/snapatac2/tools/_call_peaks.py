@@ -62,10 +62,6 @@ def macs3(
     blacklist
         Path to the blacklist file in BED format. If provided, regions in the blacklist will be
         removed.
-    out_dir
-        If provided, raw peak files from each group will be saved in the directory.
-        Otherwise, they will be stored in a temporary directory which will be removed
-        afterwards.
     key_added
         `.uns` key under which to add the peak information.
     tempdir
