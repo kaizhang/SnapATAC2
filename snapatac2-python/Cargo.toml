@@ -13,12 +13,12 @@ keywords = ["single-cell", "biology"]
 [dependencies]
 snapatac2-core = { path = "../snapatac2-core" }
 #snapatac2-core = { git = "https://github.com/kaizhang/SnapATAC2.git", rev = "b526e4907a01c46821716545622394518348a2ac" }
-anndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "f7b0945370bff815107a2b7094b47e7c96488274" }
-anndata-hdf5 = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "f7b0945370bff815107a2b7094b47e7c96488274" }
-pyanndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "f7b0945370bff815107a2b7094b47e7c96488274" }
+anndata = "0.2"
+anndata-hdf5 = "0.1"
+pyanndata = "0.2"
 extsort = "0.4"
 anyhow = "1.0"
-bed-utils = { git = "https://github.com/kaizhang/bed-utils.git", rev = "15f67dc094d1946f1b110b0ff5b496439405fc09" }
+bed-utils = "0.1"
 flate2 = "1.0"
 itertools = "0.11"
 indicatif = "0.17"
@@ -26,12 +26,12 @@ linreg = "0.2"
 log = "0.4"
 linfa = "0.6"
 linfa-clustering = "0.6"
-noodles = { version = "0.53", features = ["bam", "sam"] }
-numpy = "0.19.0"
+noodles = { version = "0.60", features = ["bam", "sam"] }
+numpy = "0.20.0"
 nalgebra-sparse = "0.9"
 nalgebra = "0.32"
 ndarray = "0.15"
-polars = { version = "0.32", features = ["ndarray", "dtype-categorical"] }
+polars = { version = "0.35", features = ["ndarray", "dtype-categorical"] }
 pyo3-log = "0.8"
 rand_isaac = "0.3"
 rand_core = "0.6"
@@ -45,7 +45,7 @@ zstd = { version = "0.13", features = ["zstdmt"] }
 tikv-jemallocator = {version = "0.5", features = ["disable_initial_exec_tls"]}
 
 [dependencies.pyo3]
-version = "0.19.2"
+version = "0.20.0"
 features = ["extension-module", "anyhow"]
 
 [lib]

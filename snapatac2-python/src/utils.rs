@@ -233,10 +233,10 @@ pub(crate) fn read_regions(file: PathBuf) -> Vec<String> {
 }
 
 #[pyfunction]
-pub(crate) fn intersect_bed<'py>(py: Python<'py>, regions: &'py PyAny, bed_file: &str) -> PyResult<Vec<bool>> {
+pub(crate) fn intersect_bed<'py>(regions: &'py PyAny, bed_file: &str) -> PyResult<Vec<bool>> {
     let bed_tree: bed::tree::BedTree<()> = bed::io::Reader::new(utils::open_file_for_read(bed_file), None)
         .into_records().map(|x: Result<BED<3>, _>| (x.unwrap(), ())).collect();
-    let res = PyIterator::from_object(py, regions)?
+    let res = PyIterator::from_object(regions)?
         .map(|x| bed_tree.is_overlapped(&GenomicRange::from_str(x.unwrap().extract().unwrap()).unwrap()))
         .collect();
     Ok(res)

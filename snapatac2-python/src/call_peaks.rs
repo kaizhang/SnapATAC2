@@ -5,7 +5,6 @@ use anyhow::Context;
 use bed_utils::bed::{NarrowPeak, Strand};
 use indicatif::{ProgressIterator, ProgressStyle};
 use itertools::Itertools;
-use polars::prelude::TakeRandom;
 use snapatac2_core::{
     preprocessing::{Fragment, SnapData},
     utils::{clip_peak, merge_peaks, open_file_for_write},
