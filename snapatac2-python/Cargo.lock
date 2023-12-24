@@ -2053,7 +2053,7 @@ dependencies = [
  "num-complex",
  "num-integer",
  "num-traits",
- "pyo3 0.20.0",
+ "pyo3",
  "rustc-hash",
 ]
 
@@ -2595,22 +2595,10 @@ dependencies = [
  "polars",
  "polars-arrow",
  "polars-core",
- "pyo3 0.20.0",
+ "pyo3",
  "rand",
  "rayon",
  "thiserror",
-]
-
-[[package]]
-name = "pyo3"
-version = "0.14.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "35100f9347670a566a67aa623369293703322bb9db77d99d7df7313b575ae0c8"
-dependencies = [
- "cfg-if",
- "libc",
- "parking_lot 0.11.2",
- "pyo3-build-config 0.14.5",
 ]
 
 [[package]]
@@ -2626,19 +2614,10 @@ dependencies = [
  "libc",
  "memoffset",
  "parking_lot 0.12.1",
- "pyo3-build-config 0.20.0",
+ "pyo3-build-config",
  "pyo3-ffi",
  "pyo3-macros",
  "unindent",
-]
-
-[[package]]
-name = "pyo3-build-config"
-version = "0.14.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d12961738cacbd7f91b7c43bc25cfeeaa2698ad07a04b3be0aa88b950865738f"
-dependencies = [
- "once_cell",
 ]
 
 [[package]]
@@ -2658,18 +2637,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "214929900fd25e6604661ed9cf349727c8920d47deff196c4e28165a6ef2a96b"
 dependencies = [
  "libc",
- "pyo3-build-config 0.20.0",
+ "pyo3-build-config",
 ]
 
 [[package]]
 name = "pyo3-log"
-version = "0.8.3"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f47b0777feb17f61eea78667d61103758b243a871edc09a7786500a50467b605"
+checksum = "4c10808ee7250403bedb24bc30c32493e93875fef7ba3e4292226fe924f398bd"
 dependencies = [
  "arc-swap",
  "log",
- "pyo3 0.14.5",
+ "pyo3",
 ]
 
 [[package]]
@@ -3131,7 +3110,7 @@ dependencies = [
  "numpy",
  "polars",
  "pyanndata",
- "pyo3 0.20.0",
+ "pyo3",
  "pyo3-log",
  "rand",
  "rand_core",

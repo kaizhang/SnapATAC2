@@ -32,7 +32,7 @@ nalgebra-sparse = "0.9"
 nalgebra = "0.32"
 ndarray = "0.15"
 polars = { version = "0.35", features = ["ndarray", "dtype-categorical"] }
-pyo3-log = "0.8"
+pyo3-log = "0.9"
 rand_isaac = "0.3"
 rand_core = "0.6"
 rand = "0.8"
