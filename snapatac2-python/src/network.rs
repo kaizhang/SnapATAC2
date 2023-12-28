@@ -23,7 +23,7 @@ pub(crate) fn link_region_to_gene(
 ) -> HashMap<(String, String), Vec<(String, String, u64)>>
 {
     let promoters = Promoters::new(
-        read_transcripts(annot_fl).into_iter()
+        read_transcripts(annot_fl, &Default::default()).into_iter()
             .filter(|x| if coding_gene_only { x.is_coding.unwrap_or(true) } else { true })
             .collect(),
         upstream,

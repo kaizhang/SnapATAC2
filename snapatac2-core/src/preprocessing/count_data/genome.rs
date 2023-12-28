@@ -20,7 +20,7 @@
 //! genomic feature counts in Rust.
 use noodles::{core::Position, gff, gff::record::Strand, gtf};
 use bed_utils::bed::tree::GenomeRegions;
-use anyhow::Result;
+use anyhow::{Result, bail};
 use std::{collections::{BTreeMap, HashMap}, fmt::Debug, io::BufRead};
 use indexmap::map::IndexMap;
 use bed_utils::bed::{GenomicRange, BEDLike, tree::SparseCoverage};
@@ -49,90 +49,84 @@ pub struct Transcript {
     pub strand: Strand,
 }
 
-impl TryFrom<gtf::Record> for Transcript {
-    type Error = anyhow::Error;
+pub struct TranscriptParserOptions {
+    pub transcript_name_key: String,
+    pub transcript_id_key: String,
+    pub gene_name_key: String,
+    pub gene_id_key: String,
+}
 
-    fn try_from(record: gtf::Record) -> Result<Self, Self::Error> {
-        if record.ty() != "transcript" {
-            return Err(anyhow::anyhow!("record is not a transcript"));
+impl<'a> Default for TranscriptParserOptions {
+    fn default() -> Self {
+        Self {
+            transcript_name_key: "transcript_name".to_string(),
+            transcript_id_key: "transcript_id".to_string(),
+            gene_name_key: "gene_name".to_string(),
+            gene_id_key: "gene_id".to_string(),
         }
-
-        let err_msg =
-            |x: &str| -> String { format!("failed to find '{}' in record: {}", x, record) };
-
-        let left = record.start();
-        let right = record.end();
-        let attributes: HashMap<&str, &str> = record
-            .attributes()
-            .iter()
-            .map(|x| (x.key(), x.value()))
-            .collect();
-        Ok(Transcript {
-            transcript_name: attributes.get("transcript_name").map(|x| x.to_string()),
-            transcript_id: attributes
-                .get("transcript_id")
-                .expect(&err_msg("transcript_id"))
-                .to_string(),
-            gene_name: attributes
-                .get("gene_name")
-                .expect(&err_msg("gene_name"))
-                .to_string(),
-            gene_id: attributes
-                .get("gene_id")
-                .expect(&err_msg("gene_id"))
-                .to_string(),
-            is_coding: attributes
-                .get("transcript_type")
-                .map(|x| *x == "protein_coding"),
-            chrom: record.reference_sequence_name().to_string(),
-            left,
-            right,
-            strand: match record.strand() {
-                None => Strand::None,
-                Some(gtf::record::Strand::Forward) => Strand::Forward,
-                Some(gtf::record::Strand::Reverse) => Strand::Reverse,
-            },
-        })
     }
 }
 
-impl TryFrom<gff::Record> for Transcript {
-    type Error = anyhow::Error;
-
-    fn try_from(record: gff::Record) -> Result<Self, Self::Error> {
-        if record.ty() != "transcript" {
-            return Err(anyhow::anyhow!("record is not a transcript"));
-        }
-
-        let err_msg =
-            |x: &str| -> String { format!("failed to find '{}' in record: {}", x, record) };
-
-        let left = record.start();
-        let right = record.end();
-        let attributes = record.attributes();
-        Ok(Transcript {
-            transcript_name: attributes.get("transcript_name").map(|x| x.to_string()),
-            transcript_id: attributes
-                .get("transcript_id")
-                .expect(&err_msg("transcript_id"))
-                .to_string(),
-            gene_name: attributes
-                .get("gene_name")
-                .expect(&err_msg("gene_name"))
-                .to_string(),
-            gene_id: attributes
-                .get("gene_id")
-                .expect(&err_msg("gene_id"))
-                .to_string(),
-            is_coding: attributes
-                .get("transcript_type")
-                .map(|x| x.as_string() == Some("protein_coding")),
-            chrom: record.reference_sequence_name().to_string(),
-            left,
-            right,
-            strand: record.strand(),
-        })
+fn from_gtf(record: gtf::Record, options: &TranscriptParserOptions) -> Result<Transcript> {
+    if record.ty() != "transcript" {
+        bail!("record is not a transcript");
     }
+
+    let left = record.start();
+    let right = record.end();
+    let attributes: HashMap<&str, &str> = record
+        .attributes()
+        .iter()
+        .map(|x| (x.key(), x.value()))
+        .collect();
+    let get_attr = |key: &str| -> String { 
+        attributes.get(key).expect(&format!("failed to find '{}' in record: {}", key, record)) .to_string()
+    };
+
+    Ok(Transcript {
+        transcript_name: attributes.get(options.transcript_name_key.as_str()).map(|x| x.to_string()),
+        transcript_id: get_attr(options.transcript_id_key.as_str()),
+        gene_name: get_attr(options.gene_name_key.as_str()),
+        gene_id: get_attr(options.gene_id_key.as_str()),
+        is_coding: attributes
+            .get("transcript_type")
+            .map(|x| *x == "protein_coding"),
+        chrom: record.reference_sequence_name().to_string(),
+        left,
+        right,
+        strand: match record.strand() {
+            None => Strand::None,
+            Some(gtf::record::Strand::Forward) => Strand::Forward,
+            Some(gtf::record::Strand::Reverse) => Strand::Reverse,
+        },
+    })
+}
+
+fn from_gff(record: gff::Record, options: &TranscriptParserOptions) -> Result<Transcript> {
+    if record.ty() != "transcript" {
+        bail!("record is not a transcript");
+    }
+
+    let left = record.start();
+    let right = record.end();
+    let attributes = record.attributes();
+    let get_attr = |key: &str| -> String { 
+        attributes.get(key).expect(&format!("failed to find '{}' in record: {}", key, record)) .to_string()
+    };
+
+    Ok(Transcript {
+        transcript_name: attributes.get(options.transcript_name_key.as_str()).map(|x| x.to_string()),
+        transcript_id: get_attr(options.transcript_id_key.as_str()),
+        gene_name: get_attr(options.gene_name_key.as_str()),
+        gene_id: get_attr(options.gene_id_key.as_str()),
+        is_coding: attributes
+            .get("transcript_type")
+            .map(|x| x.as_string() == Some("protein_coding")),
+        chrom: record.reference_sequence_name().to_string(),
+        left,
+        right,
+        strand: record.strand(),
+    })
 }
 
 impl Transcript {
@@ -147,28 +141,28 @@ impl Transcript {
     }
 }
 
-pub fn read_transcripts_from_gtf<R>(input: R) -> Result<Vec<Transcript>>
+pub fn read_transcripts_from_gtf<R>(input: R, options: &TranscriptParserOptions) -> Result<Vec<Transcript>>
 where
     R: BufRead,
 {
     gtf::Reader::new(input)
         .records()
         .try_fold(Vec::new(), |mut acc, rec| {
-            if let Ok(transcript) = rec?.try_into() {
+            if let Ok(transcript) = from_gtf(rec?, options) {
                 acc.push(transcript);
             }
             Ok(acc)
         })
 }
 
-pub fn read_transcripts_from_gff<R>(input: R) -> Result<Vec<Transcript>>
+pub fn read_transcripts_from_gff<R>(input: R, options: &TranscriptParserOptions) -> Result<Vec<Transcript>>
 where
     R: BufRead,
 {
     gff::Reader::new(input)
         .records()
         .try_fold(Vec::new(), |mut acc, rec| {
-            if let Ok(transcript) = rec?.try_into() {
+            if let Ok(transcript) = from_gff(rec?, options) {
                 acc.push(transcript);
             }
             Ok(acc)
@@ -824,11 +818,11 @@ mod tests {
             strand: Strand::Forward,
         };
         assert_eq!(
-            read_transcripts_from_gff(gff.as_bytes()).unwrap()[0],
+            read_transcripts_from_gff(gff.as_bytes(), &Default::default()).unwrap()[0],
             expected
         );
         assert_eq!(
-            read_transcripts_from_gtf(gtf.as_bytes()).unwrap()[0],
+            read_transcripts_from_gtf(gtf.as_bytes(), &Default::default()).unwrap()[0],
             expected
         );
     }

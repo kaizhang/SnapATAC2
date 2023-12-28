@@ -8,6 +8,7 @@ use pyo3::{
     PyResult, Python,
 };
 use numpy::{Element, PyReadonlyArrayDyn, PyReadonlyArray, Ix1, Ix2, PyArray, IntoPyArray};
+use snapatac2_core::preprocessing::count_data::TranscriptParserOptions;
 use snapatac2_core::preprocessing::{Transcript, read_transcripts_from_gff, read_transcripts_from_gtf};
 use snapatac2_core::utils;
 
@@ -257,18 +258,18 @@ pub(crate) fn kmeans<'py>(
     Ok(model.predict(observations).targets.into_pyarray(py))
 }
 
-pub fn read_transcripts<P: AsRef<std::path::Path>>(file_path: P) -> Vec<Transcript> {
+pub fn read_transcripts<P: AsRef<std::path::Path>>(file_path: P, options: &TranscriptParserOptions) -> Vec<Transcript> {
     let path = if file_path.as_ref().extension().unwrap() == "gz" {
         file_path.as_ref().file_stem().unwrap().as_ref()
     } else {
         file_path.as_ref()
     };
     if path.extension().unwrap() == "gff" {
-        read_transcripts_from_gff(BufReader::new(utils::open_file_for_read(file_path))).unwrap()
+        read_transcripts_from_gff(BufReader::new(utils::open_file_for_read(file_path)), options).unwrap()
     } else if path.extension().unwrap() == "gtf" {
-        read_transcripts_from_gtf(BufReader::new(utils::open_file_for_read(file_path))).unwrap()
+        read_transcripts_from_gtf(BufReader::new(utils::open_file_for_read(file_path)), options).unwrap()
     } else {
-        read_transcripts_from_gff(BufReader::new(utils::open_file_for_read(file_path.as_ref())))
-            .unwrap_or_else(|_| read_transcripts_from_gtf(BufReader::new(utils::open_file_for_read(file_path))).unwrap())
+        read_transcripts_from_gff(BufReader::new(utils::open_file_for_read(file_path.as_ref())), options)
+            .unwrap_or_else(|_| read_transcripts_from_gtf(BufReader::new(utils::open_file_for_read(file_path)), options).unwrap())
     }
 }

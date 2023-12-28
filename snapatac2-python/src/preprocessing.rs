@@ -2,6 +2,7 @@ use crate::utils::*;
 
 use anndata::Backend;
 use anndata_hdf5::H5;
+use snapatac2_core::preprocessing::count_data::TranscriptParserOptions;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::{str::FromStr, collections::BTreeMap, ops::Deref, collections::HashSet};
@@ -263,12 +264,22 @@ pub(crate) fn mk_gene_matrix(
     chunk_size: usize,
     use_x: bool,
     id_type: &str,
+    transcript_name_key: String,
+    transcript_id_key: String,
+    gene_name_key: String,
+    gene_id_key: String,
     min_fragment_size: Option<u64>,
     max_fragment_size: Option<u64>,
     out: Option<AnnDataLike>,
 ) -> Result<()>
 {
-    let transcripts = read_transcripts(gff_file);
+    let options = TranscriptParserOptions {
+        transcript_name_key,
+        transcript_id_key,
+        gene_name_key,
+        gene_id_key,
+    };
+    let transcripts = read_transcripts(gff_file, &options);
     macro_rules! run {
         ($data:expr) => {
             if let Some(out) = out {

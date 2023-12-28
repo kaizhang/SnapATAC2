@@ -551,6 +551,10 @@ def make_gene_matrix(
     chunk_size: int = 500,
     use_x: bool = False,
     id_type: Literal['gene', 'transcript'] = "gene",
+    transcript_name_key: str = "transcript_name",
+    transcript_id_key: str = "transcript_id",
+    gene_name_key: str = "gene_name",
+    gene_id_key: str = "gene_id",
     min_frag_size: int | None = None,
     max_frag_size: int | None = None,
 ) -> internal.AnnData:
@@ -582,6 +586,14 @@ def make_gene_matrix(
         Otherwise the `.obsm['insertion']` is used.
     id_type
         "gene" or "transcript".
+    transcript_name_key
+        The key of the transcript name in the gene annotation file.
+    transcript_id_key
+        The key of the transcript id in the gene annotation file.
+    gene_name_key
+        The key of the gene name in the gene annotation file.
+    gene_id_key
+        The key of the gene id in the gene annotation file.
     min_frag_size
         Minimum fragment size to include.
     max_frag_size
@@ -612,7 +624,9 @@ def make_gene_matrix(
         gene_anno = gene_anno.annotation
 
     if inplace:
-        internal.mk_gene_matrix(adata, gene_anno, chunk_size, use_x, id_type, min_frag_size, max_frag_size, None)
+        internal.mk_gene_matrix(adata, gene_anno, chunk_size, use_x, id_type,
+            transcript_name_key, transcript_id_key, gene_name_key, gene_id_key,
+            min_frag_size, max_frag_size, None)
     else:
         if file is None:
             if adata.isbacked:
@@ -621,7 +635,9 @@ def make_gene_matrix(
                 out = AnnData(obs=adata.obs[:])
         else:
             out = internal.AnnData(filename=file, backend=backend, obs=adata.obs[:])
-        internal.mk_gene_matrix(adata, gene_anno, chunk_size, use_x, id_type, min_frag_size, max_frag_size, out)
+        internal.mk_gene_matrix(adata, gene_anno, chunk_size, use_x, id_type,
+            transcript_name_key, transcript_id_key, gene_name_key, gene_id_key,
+            min_frag_size, max_frag_size, out)
         return out
 
 def filter_cells(
