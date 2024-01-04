@@ -20,6 +20,7 @@ AnnData IO
 
     read
     read_mtx
+    read_10x_mtx
     read_dataset
     AnnData.write
     AnnData.subset

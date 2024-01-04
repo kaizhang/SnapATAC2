@@ -166,8 +166,17 @@ def merge_peaks(
 ) -> 'polars.DataFrame':
     """Merge peaks from different groups.
 
-    Merge peaks from different groups. This function is typically used to merge
+    Merge peaks from different groups. It is typically used to merge
     results from :func:`~snapatac2.tools.macs3`.
+
+    This function initially expands the summits of identified peaks by `half_width`
+    on both sides. Following this expansion, it addresses the issue of overlapping
+    peaks through an iterative process. The procedure begins by prioritizing the
+    most significant peak, determined by the smallest p-value. This peak is retained,
+    and any peak that overlaps with it is excluded. Subsequently, the same method
+    is applied to the next most significant peak. This iteration continues until
+    all peaks have been evaluated, resulting in a final list of non-overlapping
+    peaks, each with a fixed width determined by the initial extension.
 
     Parameters
     ----------
