@@ -28,7 +28,7 @@ print(f'Building documentation for SnapATAC2 {release} (short version: {version}
 # -- Project information -----------------------------------------------------
 
 project = 'SnapATAC2'
-copyright = '2022-2023, Kai Zhang'
+copyright = '2022-2024, Kai Zhang'
 author = 'Kai Zhang'
 
 # -- General configuration ---------------------------------------------------

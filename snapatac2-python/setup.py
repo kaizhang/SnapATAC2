@@ -53,10 +53,9 @@ setup(
         "scikit-learn>=1.0, <2.0.0",
         "tqdm>=4.62",
         "typing_extensions",
-        "umap-learn>=0.5.0",
     ],
     extras_require={
-        'extra': ['scanorama>=1.7.3', 'harmonypy>=0.0.9', 'xgboost>=1.4'],
+        'extra': ['scanorama>=1.7.3', 'harmonypy>=0.0.9', 'xgboost>=1.4', 'umap-learn>=0.5.0'],
         'recommend': ['scanpy>=1.9', 'scvi-tools>=1.0'],
         'all': ['snapatac2[extra]', 'snapatac2[recommend]']
     }

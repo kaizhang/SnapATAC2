@@ -1,6 +1,6 @@
 # Release Notes
 
-## Development version (unreleased)
+## Release 2.5.2 (released Jan 4, 2024)
 
 ### Features:
 
