@@ -3089,7 +3089,7 @@ dependencies = [
 
 [[package]]
 name = "snapatac2"
-version = "2.5.0"
+version = "2.5.2"
 dependencies = [
  "anndata",
  "anndata-hdf5",
@@ -3126,6 +3126,7 @@ dependencies = [
 [[package]]
 name = "snapatac2-core"
 version = "2.0.0"
+source = "git+https://github.com/kaizhang/SnapATAC2.git?rev=31203757e474f2e78496c1d986235739e207709d#31203757e474f2e78496c1d986235739e207709d"
 dependencies = [
  "anndata",
  "anyhow",

@@ -45,7 +45,6 @@ setup(
         "polars>=0.18.15, <0.20.0",
         "pooch>=1.6.0, <2.0.0",
         "igraph>=0.10.3",
-        "pynndescent",
         "pyarrow",
         "pyfaidx>=0.7.0, <0.8.0",
         "rustworkx",
