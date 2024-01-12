@@ -14,9 +14,9 @@ SnapATAC2 is a flexible, versatile, and scalable single-cell omics analysis fram
 How to cite
 -----------
 
-Kai Zhang, Nathan Zemke, Ethan Armand, Bing Ren.
-SnapATAC2: a fast, scalable and versatile tool for single-cell omics analysis.
-bioRxiv 2023.09.11.557221; doi: https://doi.org/10.1101/2023.09.11.557221
+Zhang, K., Zemke, N. R., Armand, E. J. & Ren, B. (2024).
+A fast, scalable and versatile tool for analysis of single-cell omics data.
+Nature Methods, 1–11. https://doi.org/10.1038/s41592-023-02139-9
 
 .. toctree::
    :maxdepth: 3

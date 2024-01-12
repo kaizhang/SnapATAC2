@@ -54,7 +54,8 @@ def macs3(
     selections
         Call peaks for the selected groups only.
     nolambda
-        Whether to use the `--nolambda` option in MACS.
+        If True, macs3 will use the background lambda as local lambda.
+        This means macs3 will not consider the local bias at peak candidate regions.
     shift
         The shift size in MACS.
     extsize
@@ -99,28 +100,30 @@ def macs3(
 
     logging.info("Exporting fragments...")
     fragments = _snapatac2.export_tags(adata, tempdir, groupby, replicate, max_frag_size, selections)
-    
+
+    # General options
     options = type('MACS3_OPT', (), {})()
     options.info = lambda _: None
     options.debug = lambda _: None
     options.warn = logging.warn
-    options.log_pvalue = None
-    options.PE_MODE = False
-    options.maxgap = 30
-    options.minlen = 50
-    options.shift = shift
-    options.gsize = adata.uns['reference_sequences']['reference_seq_length'].sum()
-    options.nolambda = nolambda
-    options.smalllocal = 1000
-    options.largelocal = 10000
-    options.store_bdg = False
     options.name = "MACS3"
     options.bdg_treat = 't'
     options.bdg_control = 'c'
-    options.do_SPMR = False
     options.cutoff_analysis = False
     options.cutoff_analysis_file = 'a'
+    options.store_bdg = False
+    options.do_SPMR = False
     options.trackline = False
+    options.log_pvalue = None
+    options.PE_MODE = False
+
+    options.gsize = adata.uns['reference_sequences']['reference_seq_length'].sum()    # Estimated genome size
+    options.maxgap = 30    # The maximum allowed gap between two nearby regions to be merged
+    options.minlen = 50    # The minimum length of a called peak
+    options.shift = shift
+    options.nolambda = nolambda
+    options.smalllocal = 1000
+    options.largelocal = 10000
     options.call_summits = True
     options.broad = False
     options.fecutoff = 1.0
