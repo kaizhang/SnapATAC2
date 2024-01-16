@@ -3,7 +3,7 @@ SnapATAC2: A Python/Rust package for single-cell epigenomics analysis
 
 ![PyPI](https://img.shields.io/pypi/v/snapatac2)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/snapatac2)
-![Continuous integration](https://github.com/kaizhang/SnapATAC2/workflows/Continuous%20integration/badge.svg)
+![Continuous integration](https://github.com/kaizhang/SnapATAC2/workflows/test-python-package/badge.svg)
 ![GitHub Repo stars](https://img.shields.io/github/stars/kaizhang/SnapATAC2?style=social)
 
 SnapATAC2 is a flexible, versatile, and scalable single-cell omics analysis framework, featuring:

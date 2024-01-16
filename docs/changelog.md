@@ -7,6 +7,10 @@
 - Add `count_frag_as_reads` argument to `pp.make_tile_matrix`, `pp.make_peak_matrix`,
   and `pp.make_gene_matrix`.
 
+### Bugs fixed:
+
+- Fix: `ex.export_coverage` generates empty files in v2.5.2.
+
 ## Release 2.5.2 (released Jan 4, 2024)
 
 ### Features:

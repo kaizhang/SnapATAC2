@@ -204,17 +204,3 @@ def export_coverage(
         blacklist, normalization, ignore_for_norm, min_frag_length,
         max_frag_length, compression, compression_level, tempdir, n_jobs,
     )
-
-def export_bigwig(
-    adata: internal.AnnData | internal.AnnDataSet,
-    groupby: str | list[str],
-    selections: list[str] | None = None,
-    resolution: int = 1,
-    out_dir: Path = "./",
-    prefix: str = "",
-    suffix: str = ".bw",
-) -> dict[str, str]:
-    import warnings
-    warnings.warn("Use `ex.export_coverage` instead.", DeprecationWarning)
-    return export_coverage(adata, groupby=groupby, selections=selections, resolution=resolution,
-        out_dir=out_dir, prefix=prefix, suffix=suffix, output_format="bigwig")

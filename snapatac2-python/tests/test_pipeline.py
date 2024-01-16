@@ -45,7 +45,7 @@ def pipeline(data):
 
     snap.pp.make_gene_matrix(data, gene_anno=snap.genome.hg38)
 
-    snap.ex.export_fragments(data, groupby="leiden")
+    snap.ex.export_coverage(data, groupby="leiden")
 
 def test_backed(tmp_path):
     fragment_file = snap.datasets.pbmc500(downsample=True)
