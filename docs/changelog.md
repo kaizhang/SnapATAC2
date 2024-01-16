@@ -1,6 +1,6 @@
 # Release Notes
 
-## Development version (unreleased)
+## Release 2.5.3 (released Jan 16, 2024)
 
 ### Features:
 
