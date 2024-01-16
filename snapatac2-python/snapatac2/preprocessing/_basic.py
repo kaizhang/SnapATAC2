@@ -349,6 +349,7 @@ def add_tile_matrix(
     exclude_chroms: list[str] | str | None = ["chrM", "chrY", "M", "Y"],
     min_frag_size: int | None = None,
     max_frag_size: int | None = None,
+    count_frag_as_reads: bool = True,
     file: Path | None = None,
     backend: Literal['hdf5'] = 'hdf5',
     n_jobs: int = 8,
@@ -379,6 +380,9 @@ def add_tile_matrix(
         Minimum fragment size to include.
     max_frag_size
         Maximum fragment size to include.
+    count_frag_as_reads
+        Whether to count fragments as reads. If `True`, each fragment is converted
+        to two points representing both ends of the fragment.
     file
         File name of the output file used to store the result. If provided, result will
         be saved to a backed AnnData, otherwise an in-memory AnnData is used.
@@ -419,11 +423,11 @@ def add_tile_matrix(
         if isinstance(adata, list):
             snapatac2._utils.anndata_par(
                 adata,
-                lambda x: internal.mk_tile_matrix(x, bin_size, chunk_size, exclude_chroms, None),
+                lambda x: internal.mk_tile_matrix(x, bin_size, chunk_size, count_frag_as_reads, exclude_chroms, None),
                 n_jobs=n_jobs,
             )
         else:
-            internal.mk_tile_matrix(adata, bin_size, chunk_size, exclude_chroms, min_frag_size, max_frag_size, None)
+            internal.mk_tile_matrix(adata, bin_size, chunk_size, count_frag_as_reads, exclude_chroms, min_frag_size, max_frag_size, None)
     else:
         if file is None:
             if adata.isbacked:
@@ -432,7 +436,7 @@ def add_tile_matrix(
                 out = AnnData(obs=adata.obs[:])
         else:
             out = internal.AnnData(filename=file, backend=backend, obs=adata.obs[:])
-        internal.mk_tile_matrix(adata, bin_size, chunk_size, exclude_chroms, min_frag_size, max_frag_size, out)
+        internal.mk_tile_matrix(adata, bin_size, chunk_size, count_frag_as_reads, exclude_chroms, min_frag_size, max_frag_size, out)
         return out
 
 def make_peak_matrix(
@@ -447,6 +451,7 @@ def make_peak_matrix(
     use_x: bool = False,
     min_frag_size: int | None = None,
     max_frag_size: int | None = None,
+    count_frag_as_reads: bool = True,
 ) -> internal.AnnData:
     """Generate cell by peak count matrix.
 
@@ -484,6 +489,9 @@ def make_peak_matrix(
         Minimum fragment size to include.
     max_frag_size
         Maximum fragment size to include.
+    count_frag_as_reads
+        Whether to count fragments as reads. If `True`, each fragment is converted
+        to two points representing both ends of the fragment.
 
     Returns
     -------
@@ -529,17 +537,16 @@ def make_peak_matrix(
                 peaks = [line.strip() for line in f]
 
     if inplace:
-        internal.mk_peak_matrix(adata, peaks, chunk_size, use_x, None)
-    else:
-        if file is None:
-            if adata.isbacked:
-                out = AnnData(obs=adata.obs[:].to_pandas())
-            else:
-                out = AnnData(obs=adata.obs[:])
+        out = None
+    elif file is None:
+        if adata.isbacked:
+            out = AnnData(obs=adata.obs[:].to_pandas())
         else:
-            out = internal.AnnData(filename=file, backend=backend, obs=adata.obs[:])
-        internal.mk_peak_matrix(adata, peaks, chunk_size, use_x, min_frag_size, max_frag_size, out)
-        return out
+            out = AnnData(obs=adata.obs[:])
+    else:
+        out = internal.AnnData(filename=file, backend=backend, obs=adata.obs[:])
+    internal.mk_peak_matrix(adata, peaks, chunk_size, use_x, count_frag_as_reads, min_frag_size, max_frag_size, out)
+    return out
 
 def make_gene_matrix(
     adata: internal.AnnData | internal.AnnDataSet,
@@ -557,6 +564,7 @@ def make_gene_matrix(
     gene_id_key: str = "gene_id",
     min_frag_size: int | None = None,
     max_frag_size: int | None = None,
+    count_frag_as_reads: bool = True,
 ) -> internal.AnnData:
     """Generate cell by gene activity matrix.
 
@@ -598,6 +606,9 @@ def make_gene_matrix(
         Minimum fragment size to include.
     max_frag_size
         Maximum fragment size to include.
+    count_frag_as_reads
+        Whether to count fragments as reads. If `True`, each fragment is converted
+        to two points representing both ends of the fragment.
 
     Returns
     -------
@@ -624,21 +635,18 @@ def make_gene_matrix(
         gene_anno = gene_anno.annotation
 
     if inplace:
-        internal.mk_gene_matrix(adata, gene_anno, chunk_size, use_x, id_type,
-            transcript_name_key, transcript_id_key, gene_name_key, gene_id_key,
-            min_frag_size, max_frag_size, None)
-    else:
-        if file is None:
-            if adata.isbacked:
-                out = AnnData(obs=adata.obs[:].to_pandas())
-            else:
-                out = AnnData(obs=adata.obs[:])
+        out = None
+    elif file is None:
+        if adata.isbacked:
+            out = AnnData(obs=adata.obs[:].to_pandas())
         else:
-            out = internal.AnnData(filename=file, backend=backend, obs=adata.obs[:])
-        internal.mk_gene_matrix(adata, gene_anno, chunk_size, use_x, id_type,
-            transcript_name_key, transcript_id_key, gene_name_key, gene_id_key,
-            min_frag_size, max_frag_size, out)
-        return out
+            out = AnnData(obs=adata.obs[:])
+    else:
+        out = internal.AnnData(filename=file, backend=backend, obs=adata.obs[:])
+    internal.mk_gene_matrix(adata, gene_anno, chunk_size, use_x, id_type,
+        transcript_name_key, transcript_id_key, gene_name_key, gene_id_key,
+        count_frag_as_reads, min_frag_size, max_frag_size, out)
+    return out
 
 def filter_cells(
     data: internal.AnnData | list[internal.AnnData],

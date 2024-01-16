@@ -27,6 +27,7 @@ pub struct GenomeCount<I> {
     exclude_chroms: HashSet<String>,
     min_fragment_size: Option<u64>,
     max_fragment_size: Option<u64>,
+    count_fragment_as_reads: bool,
 }
 
 impl<I> GenomeCount<I>
@@ -41,6 +42,7 @@ where
             exclude_chroms: HashSet::new(),
             min_fragment_size: None,
             max_fragment_size: None,
+            count_fragment_as_reads: false,
         }
     }
 
@@ -65,6 +67,13 @@ where
     /// Set the bin size of the output coverage.
     pub fn with_resolution(mut self, s: usize) -> Self {
         self.resolution = s;
+        self
+    }
+
+    /// Set whether to treat one fragment as two reads, each corresponding to
+    /// the one end of the fragment.
+    pub fn count_fragment_as_reads(mut self, as_reads: bool) -> Self {
+        self.count_fragment_as_reads = as_reads;
         self
     }
 
@@ -226,18 +235,27 @@ where
                             let row_start = row_offsets[row];
                             let row_end = row_offsets[row + 1];
                             for k in row_start..row_end {
-                                let (chrom, start)= ori_index.get_position(col_indices[k]);
+                                let (chrom, start) = ori_index.get_position(col_indices[k]);
                                 let frag_size = values[k] as u64;
                                 let end = start + frag_size - 1;
                                 if !self.exclude_chroms.contains(chrom)
                                     && self.min_fragment_size.map_or(true, |x| frag_size >= x)
                                     && self.max_fragment_size.map_or(true, |x| frag_size <= x)
                                 {
-                                    [start, end].into_iter().for_each(|pos| {
-                                        let i = index.get_position_rev(chrom, pos);
-                                        let entry = count.entry(i).or_insert(Zero::zero());
-                                        *entry = entry.saturating_add(&One::one());
-                                    });
+                                    if self.count_fragment_as_reads {
+                                        [start, end].into_iter().for_each(|pos| {
+                                            let i = index.get_position_rev(chrom, pos);
+                                            let entry = count.entry(i).or_insert(Zero::zero());
+                                            *entry = entry.saturating_add(&One::one());
+                                        });
+                                    } else {
+                                        let start_ = index.get_position_rev(chrom, start);
+                                        let end_ = index.get_position_rev(chrom, end);
+                                        (start_..=end_).into_iter().for_each(|i| {
+                                            let entry = count.entry(i).or_insert(Zero::zero());
+                                            *entry = entry.saturating_add(&One::one());
+                                        });
+                                    }
                                 }
                             }
                             count.into_iter().collect::<Vec<_>>()
@@ -262,6 +280,7 @@ where
     {
         let n_col = counter.num_features();
         counter.reset();
+        let as_reads = self.count_fragment_as_reads;
         self.into_fragments().map(move |(data, i, j)| {
             let vec = data
                 .into_par_iter()
@@ -279,7 +298,7 @@ where
                                 x.set_start(end - 1);
                                 coverage.insert(&x, 1);
                             },
-                            None => {
+                            None => if as_reads {
                                 coverage.insert(
                                     &GenomicRange::new(x.chrom(), x.start(), x.start() + 1),
                                     1,
@@ -288,6 +307,11 @@ where
                                     &GenomicRange::new(x.chrom(), x.end() - 1, x.end()),
                                     1,
                                 );
+                            } else {
+                                coverage.insert(
+                                    &GenomicRange::new(x.chrom(), x.start(), x.end()),
+                                    1,
+                                )
                             },
                         }
                     });
