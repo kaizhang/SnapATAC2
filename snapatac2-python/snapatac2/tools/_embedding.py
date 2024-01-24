@@ -104,7 +104,9 @@ def umap(
     if use_dims is not None:
         data = data[:, :use_dims] if isinstance(use_dims, int) else data[:, use_dims]
 
-    umap = UMAP(random_state=random_state, n_components=n_comps).fit_transform(data)
+    umap = UMAP(random_state=random_state,
+                n_components=n_comps,
+                **kwargs).fit_transform(data)
     if inplace:
         adata.obsm["X_" + key_added] = umap
     else:
