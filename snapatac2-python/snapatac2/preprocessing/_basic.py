@@ -46,6 +46,9 @@ def make_fragment_file(
 
     Note
     ----
+    When using `barcode_regex` or `umi_regex`, the regex must contain exactly one capturing group
+    (Parentheses group the regex between them) that matches the barcodes or UMIs.
+    Writting the correct regex is tricky. You can test your regex online at https://regex101.com/.
     BAM files produced by the 10X Genomics Cell Ranger pipeline are not supported,
     as they contain invalid BAM headers. Specifically, Cell Ranger ATAC <= 2.0 produces BAM
     files with no @VN tag in the header, and Cell Ranger ATAC >= 2.1 produces BAM files
@@ -66,7 +69,7 @@ def make_fragment_file(
         Extract barcodes from read names of BAM records using regular expressions.
         Reguler expressions should contain exactly one capturing group 
         (Parentheses group the regex between them) that matches
-        the barcodes. For example, `barcode_regex="(..:..:..:..):\w+$"`
+        the barcodes. For example, `barcode_regex="(..:..:..:..):\\w+$"`
         extracts `bd:69:Y6:10` from
         `A01535:24:HW2MMDSX2:2:1359:8513:3458:bd:69:Y6:10:TGATAGGTTG`.
     umi_tag
@@ -732,7 +735,6 @@ def _find_most_accessible_features(
     idx = idx[n_lower:n-n_upper]
     return idx[::-1][:total_features]
  
- 
 def select_features(
     adata: internal.AnnData | internal.AnnDataSet | list[internal.AnnData],
     n_features: int = 500000,
@@ -746,12 +748,15 @@ def select_features(
     verbose: bool = True,
 ) -> np.ndarray | list[np.ndarray] | None:
     """
-    Perform feature selection.
+    Perform feature selection by selecting the most accessibile features across
+    all cells unless `max_iter` > 1.
 
     Note
     ----
     This function does not perform the actual subsetting. The feature mask is used by
     various functions to generate submatrices on the fly.
+    Features that are zero in all cells will be always removed regardless of the
+    filtering criteria.
     For more discussion about feature selection, see: https://github.com/kaizhang/SnapATAC2/discussions/116.
 
     Parameters

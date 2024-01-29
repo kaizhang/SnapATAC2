@@ -76,6 +76,7 @@ def knn(
         distances = np.ravel(distances[:, :n_neighbors]) 
         indptr = np.arange(0, distances.size + 1, n_neighbors)
         adj = csr_matrix((distances, indices, indptr), shape=(n, n))
+        adj.sort_indices()
     elif method == 'kdtree':
         adj = internal.nearest_neighbour_graph(data, n_neighbors)
     else:

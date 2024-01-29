@@ -1,5 +1,11 @@
 # Release Notes
 
+## Development version (unreleased)
+
+### Bugs fixed:
+
+- Fix: #221: 'pp.knn' with 'method=pynndescent' invalid csr matrix.
+
 ## Release 2.5.3 (released Jan 16, 2024)
 
 ### Features:
