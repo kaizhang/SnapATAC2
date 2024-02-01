@@ -15,7 +15,7 @@ snapatac2-core = { path = "../snapatac2-core" }
 #snapatac2-core = { git = "https://github.com/kaizhang/SnapATAC2.git", rev = "ab502b5ed67492d3428fb01b3f4ab7cee6b32566" }
 anndata = "0.2"
 anndata-hdf5 = "0.1"
-pyanndata = "0.2"
+pyanndata = "0.2.2"
 extsort = "0.4"
 anyhow = "1.0"
 bed-utils = "0.1"
@@ -45,7 +45,7 @@ zstd = { version = "0.13", features = ["zstdmt"] }
 tikv-jemallocator = {version = "0.5", features = ["disable_initial_exec_tls"]}
 
 [dependencies.pyo3]
-version = "0.20.0"
+version = "0.20.2"
 features = ["extension-module", "anyhow"]
 
 [lib]

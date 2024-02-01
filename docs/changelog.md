@@ -5,6 +5,7 @@
 ### Bugs fixed:
 
 - Fix: #221: 'pp.knn' with 'method=pynndescent' invalid csr matrix.
+- Fix: #226: Backed AnnData does not support numpy string array. 
 
 ## Release 2.5.3 (released Jan 16, 2024)
 
