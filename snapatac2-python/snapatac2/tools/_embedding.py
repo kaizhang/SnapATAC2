@@ -32,7 +32,7 @@ def umap2(
         Random seed.
     inplace
         Whether to store the result in the anndata object.
-
+    
     Returns
     -------
     np.ndarray | None
@@ -68,6 +68,7 @@ def umap(
     key_added: str = 'umap',
     random_state: int = 0,
     inplace: bool = True,
+    **kwargs
 ) -> np.ndarray | None:
     """
     Parameters
@@ -86,6 +87,8 @@ def umap(
         Random seed.
     inplace
         Whether to store the result in the anndata object.
+    **kwargs
+        Other parameters defined in umap.UMAP
 
     Returns
     -------
@@ -101,7 +104,9 @@ def umap(
     if use_dims is not None:
         data = data[:, :use_dims] if isinstance(use_dims, int) else data[:, use_dims]
 
-    umap = UMAP(random_state=random_state, n_components=n_comps).fit_transform(data)
+    umap = UMAP(random_state=random_state,
+                n_components=n_comps,
+                **kwargs).fit_transform(data)
     if inplace:
         adata.obsm["X_" + key_added] = umap
     else:
