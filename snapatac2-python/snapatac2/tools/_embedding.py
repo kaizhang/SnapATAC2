@@ -148,18 +148,28 @@ def spectral(
     
     Note
     ----
-    Determining the appropriate number of components is crucial when performing
-    downstream analyses to ensure optimal clustering outcomes. Utilizing components
-    that are either uninformative or irrelevant can compromise the quality of the results.
-    By default, this function adopts a strategy where all eigenvectors are weighted
-    according to the square root of their corresponding eigenvalues, rather than
-    implementing a strict cutoff threshold. This method generally provides satisfactory
-    results, circumventing the necessity for manual specification of component numbers.
-    However, it's important to note that there might be exceptional cases with
-    certain datasets where deviating from this default setting could yield better
-    outcomes. In such scenarios, you can disable the automatic weighting by
-    setting `weighted_by_sd=False`. Subsequently, you will need to manually determine
-    and select the number of components to use for your specific analysis.
+    - Determining the appropriate number of components is crucial when performing
+      downstream analyses to ensure optimal clustering outcomes. Utilizing components
+      that are either uninformative or irrelevant can compromise the quality of the results.
+      By default, this function adopts a strategy where all eigenvectors are weighted
+      according to the square root of their corresponding eigenvalues, rather than
+      implementing a strict cutoff threshold. This method generally provides satisfactory
+      results, circumventing the necessity for manual specification of component numbers.
+      However, it's important to note that there might be exceptional cases with
+      certain datasets where deviating from this default setting could yield better
+      outcomes. In such scenarios, you can disable the automatic weighting by
+      setting `weighted_by_sd=False`. Subsequently, you will need to manually determine
+      and select the number of components to use for your specific analysis.
+    - This funciton may not always return the exact number of eigenvectors requested.
+      This function computes lower-dimensional embeddings by performing the
+      eigen-decomposition of the normalized graph Laplacian matrix, where all
+      eigenvalues should be non-negative. However, the method used to calculate
+      eigenvectors, specifically `scipy.sparse.linalg.eigsh`, may not perform
+      optimally for small eigenvalues. This occasionally leads to the function
+      outputting negative eigenvalues at the lower spectrum. To address this issue,
+      a post-processing step is introduced to eliminate these erroneous eigenvalues
+      when `weighted_by_sd=True` (which is the default setting). This step
+      typically has minimal impact, as the affected eigenvalues are generally very small.
 
     Parameters
     ----------
