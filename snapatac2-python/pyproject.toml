@@ -1,2 +1,61 @@
 [build-system]
-requires = ["setuptools", "wheel", "setuptools-rust"]
+requires = ["maturin>=1.4,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "python"
+module-name = "snapatac2._snapatac2"
+
+[project]
+name = "snapatac2"
+authors = [
+    {name = "Kai Zhang", email = "zhangkai33@westlake.edu.cn"}
+]
+maintainers = [
+    {name = "Kai Zhang", email = "zhangkai33@westlake.edu.cn"}
+]
+description = "SnapATAC2: Single-cell epigenomics analysis pipeline"
+readme = "README.md"
+license = {file = "LICENSE"}
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "License :: OSI Approved :: MIT License",
+]
+requires-python = ">=3.8, <3.13"
+dynamic = ["version"]
+
+dependencies = [
+    'anndata >= 0.8.0, < 0.11.0',
+    'kaleido',
+    'multiprocess',
+    'MACS3 >= 3.0, < 3.1',
+    'natsort', 
+    'numpy >= 1.16.0, < 2.0.0',
+    'pandas >= 1.0, < 2.1.2',
+    'plotly >= 5.6.0',
+    'polars >= 0.18.15, < 0.20.0',
+    'pooch >= 1.6.0, < 2.0.0',
+    'igraph >= 0.10.3',
+    'pyarrow',
+    'pyfaidx >= 0.7.0, < 0.8.0',
+    'rustworkx',
+    'scipy >= 1.4, < 2.0.0',
+    'scikit-learn >= 1.0, < 2.0.0',
+    'tqdm >= 4.62',
+    'typing_extensions',
+]
+
+[project.urls]
+Homepage = "https://kzhang.org/SnapATAC2/index.html"
+Documentation = "https://kzhang.org/SnapATAC2/index.html"
+Repository = "https://kzhang.org/SnapATAC2/"
+Issues = "https://github.com/kaizhang/SnapATAC2/issues"
+Changelog = "https://kzhang.org/SnapATAC2/version/dev/changelog.html"
+
+[project.optional-dependencies]
+extra = ["scanorama>=1.7.3", "harmonypy>=0.0.9", "xgboost>=1.4", "umap-learn>=0.5.0"]
+recommend = ["scanpy>=1.9", "scvi-tools>=1.0"]
+all = ["snapatac2[extra]", "snapatac2[recommend]"]

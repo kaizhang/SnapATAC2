@@ -5,6 +5,7 @@ build
 *.ipynb
 *.bw
 *.gz
+*.so
 
 # Rust
 target

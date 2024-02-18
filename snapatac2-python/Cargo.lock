@@ -3089,7 +3089,7 @@ dependencies = [
 
 [[package]]
 name = "snapatac2"
-version = "2.5.2"
+version = "2.5.4-dev1"
 dependencies = [
  "anndata",
  "anndata-hdf5",

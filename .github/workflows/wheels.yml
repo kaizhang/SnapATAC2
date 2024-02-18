@@ -71,17 +71,16 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install setuptools and setuptools-rust
-        run: |
-          python -m pip install --upgrade wheel setuptools setuptools-rust
+      - name: Install maturin
+        run: pip install maturin
 
       - name: Build sdist
-        run: python setup.py sdist
+        run: maturin sdist
         working-directory: snapatac2-python
 
       - uses: actions/upload-artifact@v3
         with:
-          path: snapatac2-python/dist/*.tar.gz
+          path: snapatac2-python/target/wheels/*.tar.gz
 
   publish:
     needs: [build_wheels, make_sdist]

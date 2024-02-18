@@ -1,6 +1,6 @@
 [package]
 name = "snapatac2"
-version = "2.5.2"
+version = "2.5.4-dev1"
 edition = "2021"
 authors = ["Kai Zhang <kai@kzhang.org>"]
 description = "Rust APIs"
@@ -49,5 +49,5 @@ version = "0.20.2"
 features = ["extension-module", "anyhow"]
 
 [lib]
-name = "_snapatac2"
+name = "snapatac2"
 crate-type = ["cdylib"]
