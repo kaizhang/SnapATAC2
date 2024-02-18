@@ -12,7 +12,6 @@ from snapatac2._snapatac2 import (
 
 import importlib.metadata
 __version__ = importlib.metadata.version("snapatac2")
-del importlib.metadata
 
 import sys
 sys.modules.update({f'{__name__}.{m}': globals()[m] for m in ['pp', 'tl', 'pl', 'ex']})
