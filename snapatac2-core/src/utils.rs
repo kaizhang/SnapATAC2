@@ -38,8 +38,11 @@ where
 }
 
 pub fn clip_peak(mut peak: NarrowPeak, chrom_sizes: &crate::preprocessing::count_data::ChromSizes) -> NarrowPeak {
+    let chr = peak.chrom();
     let new_start = peak.start().max(0);
-    let new_end = peak.end().min(chrom_sizes.get(peak.chrom()).unwrap());
+    let new_end = peak.end().min(
+        chrom_sizes.get(chr).expect(&format!("Size missing for chromosome: {}", chr))
+    );
     peak.set_start(new_start);
     peak.set_end(new_end);
     peak.peak = (new_start + peak.peak).min(new_end) - new_start;

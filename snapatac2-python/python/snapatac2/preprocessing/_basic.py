@@ -171,16 +171,16 @@ def import_data(
     Note
     ----
     - This function accepts both single-end and paired-end reads. 
-    If the records in the fragment file contain 6 columns with the last column
-    representing the strand of the fragment, the fragments are considered single-ended.
-    Otherwise, the fragments are considered paired-ended.
+      If the records in the fragment file contain 6 columns with the last column
+      representing the strand of the fragment, the fragments are considered single-ended.
+      Otherwise, the fragments are considered paired-ended.
     - When `file` is not `None`, this function uses constant memory regardless of
-    the size of the input file.
+      the size of the input file.
     - When `sorted_by_barcode` is `False`, this function will sort the fragment file
-    first, during which temporary files will be created in `tempdir`. The size of
-    temporary files is proportional to the number of records in the fragment file.
-    For large fragment files, it is recommended to set `tempdir` to a location with
-    sufficient space in order to avoid running out of disk space.
+      first, during which temporary files will be created in `tempdir`. The size of
+      temporary files is proportional to the number of records in the fragment file.
+      For large fragment files, it is recommended to set `tempdir` to a location with
+      sufficient space in order to avoid running out of disk space.
 
     Parameters
     ----------
