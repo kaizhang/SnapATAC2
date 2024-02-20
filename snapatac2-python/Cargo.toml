@@ -1,6 +1,6 @@
 [package]
 name = "snapatac2"
-version = "2.5.4-dev1"
+version = "2.5.4-dev2"
 edition = "2021"
 authors = ["Kai Zhang <kai@kzhang.org>"]
 description = "Rust APIs"
@@ -19,13 +19,13 @@ extsort = "0.4"
 anyhow = "1.0"
 bed-utils = "0.1"
 flate2 = "1.0"
-itertools = "0.11"
+itertools = "0.12"
 indicatif = "0.17"
 linreg = "0.2"
 log = "0.4"
 linfa = "0.6"
 linfa-clustering = "0.6"
-noodles = { version = "0.60", features = ["bam", "sam"] }
+noodles = { version = "0.64", features = ["bam", "sam"] }
 numpy = "0.20.0"
 nalgebra-sparse = "0.9"
 nalgebra = "0.32"

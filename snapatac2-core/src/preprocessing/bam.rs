@@ -2,7 +2,7 @@ mod mark_duplicates;
 pub use mark_duplicates::{filter_bam, group_bam_by_barcode, BarcodeLocation, FlagStat};
 
 use bed_utils::bed::BEDLike;
-use noodles::{bam, sam::record::data::field::Tag};
+use noodles::{bam, sam::alignment::record::data::field::Tag};
 use indicatif::{style::ProgressStyle, ProgressBar, ProgressDrawTarget, ProgressIterator};
 use regex::Regex;
 use anyhow::{Result, bail};
@@ -90,7 +90,7 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path>>(
         },
     };
 
-    let mut reader = bam::reader::Builder::default().build_from_path(bam_file)?;
+    let mut reader = bam::io::reader::Builder::default().build_from_path(bam_file)?;
     let header = reader.read_header()?;
 
     let mut output = open_file_for_write(output_file, compression, compression_level)?;
@@ -104,7 +104,7 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path>>(
         );
     let mut flagstat = FlagStat::default();
     let filtered_records = filter_bam(
-        reader.lazy_records().map(|x| x.unwrap()),
+        reader.records().map(Result::unwrap),
         is_paired,
         mapq,
         &mut flagstat,

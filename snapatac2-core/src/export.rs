@@ -12,8 +12,7 @@ use bed_utils::bed::{
     BEDLike, BedGraph, merge_sorted_bed_with, GenomicRange, io,
     tree::{GenomeRegions, SparseBinnedCoverage, BedTree}
 };
-use bigtools::{bbi::bigwigwrite::BigWigWrite, bed::bedparser::BedParser};
-use futures::executor::ThreadPool;
+use bigtools::{BigWigWrite, bed::bedparser::BedParser};
 use indicatif::{ProgressIterator, style::ProgressStyle, ParallelProgressIterator};
 use tempfile::Builder;
 
@@ -296,11 +295,12 @@ fn create_bigwig_from_bedgraph<P: AsRef<Path>>(
     });
 
     // write to bigwig file
-    BigWigWrite::create_file(filename.as_ref().to_str().unwrap().to_string()).write(
+    let bw_writer = BigWigWrite::create_file(filename.as_ref().to_str().unwrap().to_string());
+    bw_writer.write(
         chrom_sizes.into_iter().map(|(k, v)| (k.to_string(), *v as u32)).collect(),
-        bigtools::bbi::bedchromdata::BedParserStreamingIterator::new(
+        bigtools::bedchromdata::BedParserStreamingIterator::new(
             BedParser::wrap_iter(bedgraph.into_iter().map(|x| {
-                let val = bigtools::bbi::Value {
+                let val = bigtools::Value {
                     start: x.start() as u32,
                     end: x.end() as u32,
                     value: x.value,
@@ -310,7 +310,7 @@ fn create_bigwig_from_bedgraph<P: AsRef<Path>>(
             })),
             false,
         ),
-        ThreadPool::new().unwrap(),
+        tokio::runtime::Runtime::new().unwrap(),
     ).unwrap();
     Ok(())
 }

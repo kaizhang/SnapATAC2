@@ -19,10 +19,10 @@
 // but not at the 3' end.
 
 use noodles::{
-    bam::lazy::Record,
+    bam::Record,
     sam::{
+        alignment::record::{Cigar, Flags, data::field::{Tag, Value}, cigar::op::Kind},
         Header,
-        record::{Cigar, Data, Flags, cigar::op::Kind, data::field::{Tag, Value}, mapping_quality},
     },
 };
 use bed_utils::bed::{BEDLike, Strand};
@@ -76,14 +76,14 @@ pub enum BarcodeLocation {
 impl BarcodeLocation {
     pub fn extract(&self, rec: &Record) -> Result<String> {
         match self {
-            BarcodeLocation::InData(tag) => match Data::try_from(rec.data())?
-                .get(tag).ok_or(anyhow!("No data: {}", tag))?
+            BarcodeLocation::InData(tag) => match rec.data()
+                .get(tag).ok_or(anyhow!("No data: {}", std::str::from_utf8(tag.as_ref())?))??
                 {
                     Value::String(barcode) => Ok(barcode.to_string()),
                     _ => bail!("Not a String"),
                 },
             BarcodeLocation::Regex(re) => {
-                let read_name = rec.read_name().context("No read name")?;
+                let read_name = rec.name().context("No read name")?;
                 let read_name = std::str::from_utf8(read_name.as_bytes())?;
                 let mat = re.captures(read_name)
                     .and_then(|x| x.get(1))
@@ -119,21 +119,29 @@ impl AlignmentInfo {
         barcode_loc: &BarcodeLocation,
         umi_loc: Option<&BarcodeLocation>,
     ) -> Result<Self> {
-        let cigar = Cigar::try_from(rec.cigar())?;
+        let cigar = rec.cigar();
         let start: usize = rec.alignment_start().unwrap().unwrap().try_into()?;
         let alignment_start: u32 = start.try_into()?;
-        let alignment_span: u32 = cigar.alignment_span().try_into()?;
+        let alignment_span: u32 = cigar.alignment_span()?.try_into()?;
         let alignment_end = alignment_start + alignment_span - 1;
-        let clipped_start: u32 = cigar.iter()
-            .take_while(|op| op.kind() == Kind::HardClip || op.kind() == Kind::SoftClip)
-            .map(|x| x.len() as u32).sum();
-        let clipped_end: u32 = cigar.iter().rev()
-            .take_while(|op| op.kind() == Kind::HardClip || op.kind() == Kind::SoftClip)
-            .map(|x| x.len() as u32).sum();
-
+        let clip_groups = cigar.iter().map(Result::unwrap).group_by(|op| {
+            let kind = op.kind();
+            kind == Kind::HardClip || kind == Kind::SoftClip
+        });
+        let mut clips = clip_groups.into_iter();
+        let clipped_start: u32 = clips.next().map_or(0, |(is_clip, x)| if is_clip {
+            x.map(|x| x.len() as u32).sum()
+        } else {
+            0
+        });
+        let clipped_end: u32 = clips.last().map_or(0, |(is_clip, x)| if is_clip {
+            x.map(|x| x.len() as u32).sum()
+        } else {
+            0
+        });
         Ok(Self {
-            name: std::str::from_utf8(rec.read_name().context("no read name")?.as_bytes())?.to_string(),
-            reference_sequence_id: rec.reference_sequence_id()?.context("no reference sequence id")?.try_into()?,
+            name: std::str::from_utf8(rec.name().context("no read name")?.as_bytes())?.to_string(),
+            reference_sequence_id: rec.reference_sequence_id().context("no reference sequence id")??.try_into()?,
             flags: rec.flags().bits(),
             alignment_start,
             alignment_end,
@@ -333,13 +341,15 @@ impl FlagStat {
                         self.singleton += 1;
                     } else {
                         self.mate_mapped += 1;
+                        let rec_id = record.mate_reference_sequence_id().unwrap().unwrap(); 
+                        let mat_id = record.reference_sequence_id().unwrap().unwrap(); 
 
-                        if record.mate_reference_sequence_id().unwrap() != record.reference_sequence_id().unwrap() {
+                        if mat_id != rec_id {
                             self.mate_reference_sequence_id_mismatch += 1;
 
                             let mapq = record
                                 .mapping_quality()
-                                .map_or(mapping_quality::MISSING, |x| x.get());
+                                .map_or(255, |x| x.get());
 
                             if mapq >= 5 {
                                 self.mate_reference_sequence_id_mismatch_hq += 1;
@@ -376,7 +386,7 @@ where
             (!is_paired || flag.is_properly_aligned());
         let flag_pass = !flag.intersects(flag_failed);
         let mapq_pass = mapq_filter.map_or(true, |min_q| {
-            let q = r.mapping_quality().map_or(mapping_quality::MISSING, |x| x.get());
+            let q = r.mapping_quality().map_or(255, |x| x.get());
             q >= min_q
         });
         is_properly_aligned && flag_pass && mapq_pass
@@ -463,7 +473,7 @@ where
                 (rec2_5p, rec1_5p)
             };
             Some(Fragment {
-                chrom: header.reference_sequences().get_index(ref_id1).unwrap().0.as_str().to_string(),
+                chrom: header.reference_sequences().get_index(ref_id1).unwrap().0.to_string(),
                 start: start as u64 - 1,
                 end: end as u64,
                 barcode: Some(rec1.barcode.as_ref().unwrap().clone()),
@@ -477,7 +487,7 @@ where
         rm_dup_single(reads).map(move |(r, c)| {
             let ref_id: usize = r.reference_sequence_id.try_into().unwrap();
             Fragment {
-                chrom: header.reference_sequences().get_index(ref_id).unwrap().0.as_str().to_string(),
+                chrom: header.reference_sequences().get_index(ref_id).unwrap().0.to_string(),
                 start: r.alignment_start as u64 - 1,
                 end: r.alignment_end as u64,
                 barcode: Some(r.barcode.as_ref().unwrap().clone()),
