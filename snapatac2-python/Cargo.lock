@@ -62,9 +62,9 @@ dependencies = [
 
 [[package]]
 name = "anndata"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdb52442dd598545232f1b2d0ea4a094dd440557e0723787cfb25e45ac90f070"
+checksum = "d14d2501ccf9cd025e9d004a41139c934f1443e9bd3953e129a3b01916dc52bf"
 dependencies = [
  "anyhow",
  "flate2",
@@ -3174,7 +3174,7 @@ dependencies = [
 
 [[package]]
 name = "snapatac2"
-version = "2.5.4-dev2"
+version = "2.5.4-dev3"
 dependencies = [
  "anndata",
  "anndata-hdf5",
