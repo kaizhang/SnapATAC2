@@ -3,6 +3,7 @@ use crate::utils::*;
 use anndata::Backend;
 use anndata_hdf5::H5;
 use snapatac2_core::preprocessing::count_data::TranscriptParserOptions;
+use snapatac2_core::preprocessing::count_data::CountingStrategy;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::{str::FromStr, collections::BTreeMap, ops::Deref, collections::HashSet};
@@ -178,10 +179,21 @@ pub(crate) fn import_contacts(
 } 
 
 
+fn parse_strategy(strategy: &str) -> CountingStrategy {
+    match strategy {
+        "insertion" => CountingStrategy::Insertion,
+        "fragment" => CountingStrategy::Fragment,
+        "paired-insertion" => CountingStrategy::PIC,
+        _ => panic!("Counting strategy must be one of 'insertion', 'fragment', or 'paired-insertion'"),
+    }
+}
 
 #[pyfunction]
 pub(crate) fn mk_tile_matrix(
-    anndata: AnnDataLike, bin_size: usize, chunk_size: usize, count_frag_as_reads: bool,
+    anndata: AnnDataLike,
+    bin_size: usize,
+    chunk_size: usize,
+    strategy: &str,
     exclude_chroms: Option<Vec<&str>>,
     min_fragment_size: Option<u64>,
     max_fragment_size: Option<u64>,
@@ -200,7 +212,7 @@ pub(crate) fn mk_tile_matrix(
                             exclude_chroms.as_ref().map(|x| x.as_slice()),
                             min_fragment_size,
                             max_fragment_size,
-                            count_frag_as_reads,
+                            parse_strategy(strategy),
                             Some($out_data)
                         )?
                     };
@@ -214,7 +226,7 @@ pub(crate) fn mk_tile_matrix(
                     exclude_chroms.as_ref().map(|x| x.as_slice()),
                     min_fragment_size,
                     max_fragment_size,
-                    count_frag_as_reads,
+                    parse_strategy(strategy),
                     None::<&PyAnnData>
                 )?;
             }
@@ -231,7 +243,7 @@ pub(crate) fn mk_peak_matrix(
     peaks: &PyAny,
     chunk_size: usize,
     use_x: bool,
-    count_frag_as_reads: bool,
+    strategy: &str,
     min_fragment_size: Option<u64>,
     max_fragment_size: Option<u64>,
     out: Option<AnnDataLike>,
@@ -239,19 +251,20 @@ pub(crate) fn mk_peak_matrix(
 {
     let peaks = peaks.iter()?
         .map(|x| GenomicRange::from_str(x.unwrap().extract().unwrap()).unwrap());
+    let strategy = parse_strategy(strategy);
 
     macro_rules! run {
         ($data:expr) => {
             if let Some(out) = out {
                 macro_rules! run2 {
                     ($out_data:expr) => {
-                        preprocessing::create_peak_matrix($data, peaks, chunk_size, count_frag_as_reads,
+                        preprocessing::create_peak_matrix($data, peaks, chunk_size, strategy,
                             min_fragment_size, max_fragment_size, Some($out_data), use_x)?
                     };
                 }
                 crate::with_anndata!(&out, run2);
             } else {
-                preprocessing::create_peak_matrix($data, peaks, chunk_size, count_frag_as_reads,
+                preprocessing::create_peak_matrix($data, peaks, chunk_size, strategy,
                     min_fragment_size, max_fragment_size, None::<&PyAnnData>, use_x)?;
             }
         }
@@ -271,7 +284,7 @@ pub(crate) fn mk_gene_matrix(
     transcript_id_key: String,
     gene_name_key: String,
     gene_id_key: String,
-    count_frag_as_reads: bool,
+    strategy: &str,
     min_fragment_size: Option<u64>,
     max_fragment_size: Option<u64>,
     out: Option<AnnDataLike>,
@@ -284,18 +297,19 @@ pub(crate) fn mk_gene_matrix(
         gene_id_key,
     };
     let transcripts = read_transcripts(gff_file, &options);
+    let strategy = parse_strategy(strategy);
     macro_rules! run {
         ($data:expr) => {
             if let Some(out) = out {
                 macro_rules! run2 {
                     ($out_data:expr) => {
-                        preprocessing::create_gene_matrix($data, transcripts, id_type, chunk_size, count_frag_as_reads,
+                        preprocessing::create_gene_matrix($data, transcripts, id_type, chunk_size, strategy,
                             min_fragment_size, max_fragment_size, Some($out_data), use_x)?
                     };
                 }
                 crate::with_anndata!(&out, run2);
             } else {
-                preprocessing::create_gene_matrix($data, transcripts, id_type, chunk_size, count_frag_as_reads,
+                preprocessing::create_gene_matrix($data, transcripts, id_type, chunk_size, strategy,
                     min_fragment_size, max_fragment_size, None::<&PyAnnData>, use_x)?;
             }
         }

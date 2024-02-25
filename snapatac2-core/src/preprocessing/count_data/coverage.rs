@@ -13,9 +13,18 @@ pub enum FragmentType {
     FragmentPaired(CsrNonCanonical<u32>),
 }
 
+/// The `CountingStrategy` enum represents different counting strategies.
+/// It is used to count the number of fragments that overlap for a given list of genomic features.
+/// Three counting strategies are supported: Insertion, Fragment, and Paired-Insertion Counting (PIC).
+#[derive(Clone, Copy, Debug)]
+pub enum CountingStrategy {
+    Insertion, // Insertion based counting
+    Fragment,  // Fragment based counting
+    PIC,       // Paired-Insertion Counting (PIC)
+}
+
 /// The `GenomeCount` struct is used to count the number of reads that overlap
 /// for a given list of genomic features (such as genes, exons, ChIP-Seq peaks, or the like).
-/// To minimize read length bias, it counts only the 5' end of each read.
 /// It stores the counts as an iterator of tuples, each containing a
 /// compressed sparse row matrix, a start index, and an end index.
 /// The output count matrix can be configured to have a fixed bin size and
@@ -27,7 +36,7 @@ pub struct GenomeCount<I> {
     exclude_chroms: HashSet<String>,
     min_fragment_size: Option<u64>,
     max_fragment_size: Option<u64>,
-    count_fragment_as_reads: bool,
+    counting_strategy: CountingStrategy,
 }
 
 impl<I> GenomeCount<I>
@@ -42,7 +51,7 @@ where
             exclude_chroms: HashSet::new(),
             min_fragment_size: None,
             max_fragment_size: None,
-            count_fragment_as_reads: false,
+            counting_strategy: CountingStrategy::Insertion,
         }
     }
 
@@ -70,13 +79,6 @@ where
         self
     }
 
-    /// Set whether to treat one fragment as two reads, each corresponding to
-    /// the one end of the fragment.
-    pub fn count_fragment_as_reads(mut self, as_reads: bool) -> Self {
-        self.count_fragment_as_reads = as_reads;
-        self
-    }
-
     /// Exclude certain chromosomes from the output coverage.
     pub fn exclude(mut self, chroms: &[&str]) -> Self {
         self.exclude_chroms = chroms
@@ -96,6 +98,11 @@ where
     /// Set the maximum fragment size.
     pub fn max_fragment_size(mut self, size: u64) -> Self {
         self.max_fragment_size = Some(size);
+        self
+    }
+
+    pub fn set_counting_strategy(mut self, counting_strategy: CountingStrategy) -> Self {
+        self.counting_strategy = counting_strategy;
         self
     }
 
@@ -242,19 +249,33 @@ where
                                     && self.min_fragment_size.map_or(true, |x| frag_size >= x)
                                     && self.max_fragment_size.map_or(true, |x| frag_size <= x)
                                 {
-                                    if self.count_fragment_as_reads {
-                                        [start, end].into_iter().for_each(|pos| {
-                                            let i = index.get_position_rev(chrom, pos);
-                                            let entry = count.entry(i).or_insert(Zero::zero());
-                                            *entry = entry.saturating_add(&One::one());
-                                        });
-                                    } else {
-                                        let start_ = index.get_position_rev(chrom, start);
-                                        let end_ = index.get_position_rev(chrom, end);
-                                        (start_..=end_).into_iter().for_each(|i| {
-                                            let entry = count.entry(i).or_insert(Zero::zero());
-                                            *entry = entry.saturating_add(&One::one());
-                                        });
+                                    let start_ = index.get_position_rev(chrom, start);
+                                    let end_ = index.get_position_rev(chrom, end);
+                                    match self.counting_strategy {
+                                        CountingStrategy::Insertion => {
+                                            [start_, end_].into_iter().for_each(|i| {
+                                                count.entry(i)
+                                                    .and_modify(|x| { *x = x.saturating_add(&One::one()) })
+                                                    .or_insert(One::one());
+                                            });
+                                        },
+                                        CountingStrategy::Fragment => {
+                                            (start_..=end_).into_iter().for_each(|i| {
+                                                count.entry(i)
+                                                    .and_modify(|x| { *x = x.saturating_add(&One::one()) })
+                                                    .or_insert(One::one());
+                                            });
+                                        },
+                                        CountingStrategy::PIC => {
+                                            count.entry(start_)
+                                                .and_modify(|x| { *x = x.saturating_add(&One::one()) })
+                                                .or_insert(One::one());
+                                            if start_ != end_ {
+                                                count.entry(end_)
+                                                    .and_modify(|x| { *x = x.saturating_add(&One::one()) })
+                                                    .or_insert(One::one());
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -280,40 +301,14 @@ where
     {
         let n_col = counter.num_features();
         counter.reset();
-        let as_reads = self.count_fragment_as_reads;
+        let strategy = self.counting_strategy;
         self.into_fragments().map(move |(data, i, j)| {
             let vec = data
                 .into_par_iter()
                 .map(|beds| {
                     let mut coverage = counter.clone();
-                    beds.into_iter().for_each(|mut x| {
-                        match x.strand() {
-                            Some(Strand::Forward) => {
-                                let start = x.start();
-                                x.set_end(start + 1);
-                                coverage.insert(&x, 1);
-                            },
-                            Some(Strand::Reverse) => {
-                                let end = x.end();
-                                x.set_start(end - 1);
-                                coverage.insert(&x, 1);
-                            },
-                            None => if as_reads {
-                                coverage.insert(
-                                    &GenomicRange::new(x.chrom(), x.start(), x.start() + 1),
-                                    1,
-                                );
-                                coverage.insert(
-                                    &GenomicRange::new(x.chrom(), x.end() - 1, x.end()),
-                                    1,
-                                );
-                            } else {
-                                coverage.insert(
-                                    &GenomicRange::new(x.chrom(), x.start(), x.end()),
-                                    1,
-                                )
-                            },
-                        }
+                    beds.into_iter().for_each(|fragment| {
+                        coverage.insert_fragment(&fragment, &strategy);
                     });
                     coverage.get_counts()
                 })
@@ -324,7 +319,7 @@ where
     }
 }
 
-pub fn fragments_to_insertions(
+pub fn _fragments_to_insertions(
     fragments: CsrNonCanonical<i32>,
 ) -> CsrMatrix<u8> {
     let nrows = fragments.nrows();

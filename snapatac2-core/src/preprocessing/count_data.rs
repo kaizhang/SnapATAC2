@@ -5,7 +5,7 @@ mod matrix;
 
 pub use crate::preprocessing::qc;
 pub use import::{import_fragments, import_contacts};
-pub use coverage::{GenomeCount, ContactMap, FragmentType, fragments_to_insertions};
+pub use coverage::{GenomeCount, ContactMap, FragmentType, CountingStrategy};
 pub use genome::{
     TranscriptParserOptions, Transcript, Promoters, FeatureCounter, TranscriptCount, GeneCount,
     read_transcripts_from_gff, read_transcripts_from_gtf,

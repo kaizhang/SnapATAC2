@@ -246,7 +246,6 @@ where
     let mut total_count = 0.0;
     fragments.for_each(|frag| {
         let not_in_blacklist = blacklist_regions.map_or(true, |bl| !bl.is_overlapped(&frag));
-        let is_single = frag.strand().is_some();
         if not_in_blacklist {
             if ignore_for_norm.map_or(true, |x| !x.contains(frag.chrom())) {
                 total_count += 1.0;

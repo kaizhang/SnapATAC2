@@ -24,3 +24,7 @@ References
 .. [Meuleman20] Meuleman *et al.* (2020),
     *Index and biological spectrum of human DNase I hypersensitive sites*,
     `Nature <https://doi.org/10.1038/s41586-020-2559-3>`__.
+
+.. [Miao24] Miao *et al.* (2024),
+    *Uniform quantification of single-nucleusATAC-seq data with Paired-InsertionCounting (PIC) and a model-based insertionrate estimator*,
+    `Nature Methods <https://doi.org/10.1038/s41592-023-02103-7>`__.

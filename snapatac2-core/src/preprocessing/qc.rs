@@ -33,7 +33,7 @@ impl Sortable for Fragment {
 }
 
 impl Fragment {
-    pub fn to_reads(&self) -> SmallVec<[GenomicRange; 2]> {
+    pub fn to_insertions(&self) -> SmallVec<[GenomicRange; 2]> {
         match self.strand {
             None => smallvec![
                 GenomicRange::new(self.chrom.clone(), self.start, self.start + 1),
@@ -46,6 +46,10 @@ impl Fragment {
                 GenomicRange::new(self.chrom.clone(), self.end - 1, self.end)
             ],
         }
+    }
+
+    pub fn is_single(&self) -> bool {
+        self.strand.is_some()
     }
 }
 
@@ -356,7 +360,7 @@ where
             let mut sum = 0.0;
             let mut counts = vec![0.0; k];
             fragments
-                .into_iter().flat_map(|fragment| fragment.to_reads())
+                .into_iter().flat_map(|fragment| fragment.to_insertions())
                 .for_each(|read| {
                     sum += 1.0;
                     regions.iter().enumerate().for_each(|(i, r)|

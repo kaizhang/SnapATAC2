@@ -3,13 +3,13 @@ use crate::preprocessing::count_data::{
     FeatureCounter, TranscriptCount, GeneCount,
     Promoters, Transcript,
 };
+use super::coverage::CountingStrategy;
 
 use anndata::{AnnDataOp, AxisArraysOp};
 use indicatif::{ProgressIterator, ProgressStyle};
 use polars::prelude::{NamedFrom, DataFrame, Series};
 use anyhow::Result;
 use bed_utils::bed::{BEDLike, tree::{GenomeRegions, SparseCoverage}};
-
 
 /// Create cell by bin matrix.
 /// 
@@ -30,7 +30,7 @@ pub fn create_tile_matrix<A, B>(
     exclude_chroms: Option<&[&str]>,
     min_fragment_size: Option<u64>,
     max_fragment_size: Option<u64>,
-    count_frag_as_reads: bool,
+    counting_strategy: CountingStrategy,
     out: Option<&B>,
     ) -> Result<()>
 where
@@ -58,7 +58,7 @@ where
         let mut counts = adata
             .get_count_iter(chunk_size)?
             .with_resolution(bin_size)
-            .count_fragment_as_reads(count_frag_as_reads);
+            .set_counting_strategy(counting_strategy);
 
         if let Some(exclude_chroms) = exclude_chroms {
             counts = counts.exclude(exclude_chroms);
@@ -88,7 +88,7 @@ pub fn create_peak_matrix<A, I, D, B>(
     adata: &A,
     peaks: I,
     chunk_size: usize,
-    count_frag_as_reads: bool,
+    counting_strategy: CountingStrategy,
     min_fragment_size: Option<u64>,
     max_fragment_size: Option<u64>,
     out: Option<&B>,
@@ -110,7 +110,7 @@ where
         Box::new(adata.read_chrom_values(chunk_size)?
             .aggregate_by(counter).map(|x| x.0))
     } else {
-        let mut counts = adata.get_count_iter(chunk_size)?.count_fragment_as_reads(count_frag_as_reads);
+        let mut counts = adata.get_count_iter(chunk_size)?.set_counting_strategy(counting_strategy);
         if let Some(min_fragment_size) = min_fragment_size {
             counts = counts.min_fragment_size(min_fragment_size);
         }
@@ -135,7 +135,7 @@ pub fn create_gene_matrix<A, B>(
     transcripts: Vec<Transcript>,
     id_type: &str, 
     chunk_size: usize,
-    count_frag_as_reads: bool,
+    counting_strategy: CountingStrategy,
     min_fragment_size: Option<u64>,
     max_fragment_size: Option<u64>,
     out: Option<&B>,
@@ -155,7 +155,7 @@ where
                 Box::new(adata.read_chrom_values(chunk_size)?
                     .aggregate_by(transcript_counter).map(|x| x.0))
             } else {
-                let mut counts = adata.get_count_iter(chunk_size)?.count_fragment_as_reads(count_frag_as_reads);
+                let mut counts = adata.get_count_iter(chunk_size)?.set_counting_strategy(counting_strategy);
                 if let Some(min_fragment_size) = min_fragment_size {
                     counts = counts.min_fragment_size(min_fragment_size);
                 }
@@ -182,7 +182,7 @@ where
                 Box::new(adata.read_chrom_values(chunk_size)?
                     .aggregate_by(gene_counter).map(|x| x.0))
             } else {
-                let mut counts = adata.get_count_iter(chunk_size)?.count_fragment_as_reads(count_frag_as_reads);
+                let mut counts = adata.get_count_iter(chunk_size)?.set_counting_strategy(counting_strategy);
                 if let Some(min_fragment_size) = min_fragment_size {
                     counts = counts.min_fragment_size(min_fragment_size);
                 }

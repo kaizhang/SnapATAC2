@@ -2,11 +2,16 @@
 
 ## Development version (unreleased)
 
+### Features:
+  - Add a argument `counting_strategy` to `pp.add_tile_matrix`, `pp.make_peak_matrix`, and `pp.make_gene_matrix`, which allows one to use different strategies
+  (insertion-based, fragment-based, or paired insertion counting) to compute feature counts.
+
 ### Bugs fixed:
 
 - Fix: #221: 'pp.knn' with 'method=pynndescent' invalid csr matrix.
 - Fix: #226: Backed AnnData does not support numpy string array. 
 - Fix: #232: `tempdir` is not respected in `tl.macs3`.
+- Other minor bug fixes.
 
 ## Release 2.5.3 (released Jan 16, 2024)
 

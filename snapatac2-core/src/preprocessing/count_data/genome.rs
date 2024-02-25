@@ -35,6 +35,8 @@ use polars::prelude::{NamedFrom, Series};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::ops::Range;
 
+use super::{qc::Fragment, CountingStrategy};
+
 /// Position is 1-based.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Transcript {
@@ -225,6 +227,9 @@ pub trait FeatureCounter {
     /// Updates the counter according to the given region and count.
     fn insert<B: BEDLike, N: ToPrimitive + Copy>(&mut self, tag: &B, count: N);
 
+    /// Updates the counter according to the given fragment
+    fn insert_fragment(&mut self, tag: &Fragment, strategy: &CountingStrategy);
+
     /// Returns a vector of feature ids.
     fn get_feature_ids(&self) -> Vec<String>;
 
@@ -244,6 +249,32 @@ impl<D: BEDLike> FeatureCounter for SparseCoverage<'_, D, u32> {
 
     fn insert<B: BEDLike, N: ToPrimitive + Copy>(&mut self, tag: &B, count: N) {
         self.insert(tag, <u32 as NumCast>::from(count).unwrap());
+    }
+
+    fn insert_fragment(&mut self, tag: &Fragment, strategy: &CountingStrategy) {
+        if tag.is_single() {
+            tag.to_insertions().iter().for_each(|x| {
+                self.insert(x, 1);
+            });
+        } else {
+            match strategy {
+                CountingStrategy::Fragment => {
+                    self.insert(tag, 1);
+                },
+                CountingStrategy::Insertion => {
+                    tag.to_insertions().iter().for_each(|x| {
+                        self.insert(x, 1);
+                    });
+                },
+                CountingStrategy::PIC => {
+                    tag.to_insertions().into_iter()
+                        .flat_map(|x| self.get_index(&x))
+                        .unique().collect::<Vec<_>>().into_iter().for_each(|i| {
+                            self.insert_at_index::<u32>(i, 1);
+                        });
+                }
+            }
+        }
     }
 
     fn get_feature_ids(&self) -> Vec<String> {
@@ -317,6 +348,10 @@ impl FeatureCounter for TranscriptCount<'_> {
         self.counter.insert(tag, <u32 as NumCast>::from(count).unwrap());
     }
 
+    fn insert_fragment(&mut self, tag: &Fragment, strategy: &CountingStrategy) {
+        self.counter.insert_fragment(tag, strategy);
+    }
+
     fn get_feature_ids(&self) -> Vec<String> {
         self.promoters.transcripts.iter().map(|x| x.transcript_id.clone()).collect()
     }
@@ -333,6 +368,10 @@ impl FeatureCounter for GeneCount<'_> {
 
     fn insert<B: BEDLike, N: ToPrimitive + Copy>(&mut self, tag: &B, count: N) {
         self.counter.insert(tag, <u32 as NumCast>::from(count).unwrap());
+    }
+
+    fn insert_fragment(&mut self, tag: &Fragment, strategy: &CountingStrategy) {
+        self.counter.insert_fragment(tag, strategy);
     }
 
     fn get_feature_ids(&self) -> Vec<String> {
