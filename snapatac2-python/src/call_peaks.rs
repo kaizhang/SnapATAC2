@@ -18,8 +18,8 @@ use polars::{
     prelude::{DataFrame, NamedFrom},
     series::Series,
 };
-use pyanndata::data::PyDataFrame;
 use pyo3::prelude::*;
+use pyo3_polars::PyDataFrame;
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use std::collections::HashSet;
 use std::io::Write;
@@ -62,7 +62,7 @@ pub fn py_merge_peaks<'py>(
         });
         Series::new(key.as_str(), values)
     });
-    Ok(DataFrame::new(std::iter::once(peaks_str).chain(iter).collect())?.into())
+    Ok(PyDataFrame(DataFrame::new(std::iter::once(peaks_str).chain(iter).collect())?))
 }
 
 #[pyfunction]
@@ -92,7 +92,7 @@ pub fn find_reproducible_peaks<'py>(
         .into_iter()
         .filter(|x| replicates.iter().all(|y| y.is_overlapped(x)))
         .collect();
-    Ok(narrow_peak_to_dataframe(peaks)?.into())
+    Ok(PyDataFrame(narrow_peak_to_dataframe(peaks)?))
 }
 
 #[pyfunction]
@@ -115,19 +115,19 @@ pub fn fetch_peaks<'py>(
                 .into_iter()
                 .filter(|x| !black.is_overlapped(x))
                 .collect::<Vec<_>>();
-            Ok((key, narrow_peak_to_dataframe(ps).unwrap().into()))
+            Ok((key, PyDataFrame(narrow_peak_to_dataframe(ps).unwrap())))
         })
         .collect::<Result<_>>()
 }
 
 /// Convert dataframe to narrowpeak
 fn dataframe_to_narrow_peaks(df: &DataFrame) -> Result<Vec<NarrowPeak>> {
-    let chroms = df.column("chrom").unwrap().utf8()?;
+    let chroms = df.column("chrom").unwrap().str()?;
     let starts = df.column("start").unwrap().u64()?;
     let ends = df.column("end").unwrap().u64()?;
-    let names = df.column("name").unwrap().utf8()?;
+    let names = df.column("name").unwrap().str()?;
     let scores = df.column("score").unwrap().u16()?;
-    let strands = df.column("strand").unwrap().utf8()?;
+    let strands = df.column("strand").unwrap().str()?;
     let signal_values = df.column("signal_value").unwrap().f64()?;
     let p_values = df.column("p_value").unwrap().f64()?;
     let q_values = df.column("q_value").unwrap().f64()?;

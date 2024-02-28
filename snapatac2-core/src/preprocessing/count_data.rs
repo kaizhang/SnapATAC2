@@ -36,7 +36,7 @@ pub trait SnapData: AnnDataOp {
             .uns()
             .get_item::<DataFrame>("reference_sequences")?
             .context("key 'reference_sequences' is not present in the '.uns'")?;
-        let chrs = df.column("reference_seq_name").unwrap().utf8()?;
+        let chrs = df.column("reference_seq_name").unwrap().str()?;
         let chr_sizes = df.column("reference_seq_length").unwrap().u64()?;
         let res = chrs.into_iter().flatten().map(|x| x.to_string())
             .zip(chr_sizes.into_iter().flatten()).collect();

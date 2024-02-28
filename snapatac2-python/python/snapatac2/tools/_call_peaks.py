@@ -197,7 +197,10 @@ def merge_peaks(
     --------
     macs3
     """
+    import pandas as pd
+    import polars as pl
     chrom_sizes = chrom_sizes.chrom_sizes if isinstance(chrom_sizes, Genome) else chrom_sizes
+    peaks = { k: pl.from_pandas(v) if isinstance(v, pd.DataFrame) else v for k, v in peaks.items()}
     return _snapatac2.py_merge_peaks(peaks, chrom_sizes, half_width)
 
 def _par_map(mapper, args, nprocs):

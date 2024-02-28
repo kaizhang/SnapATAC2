@@ -2,7 +2,7 @@ use crate::preprocessing::{count_data::genome::{FeatureCounter, GenomeBaseIndex,
 
 use std::collections::HashMap;
 use anndata::data::{utils::to_csr_data, CsrNonCanonical};
-use bed_utils::bed::{BEDLike, Strand, GenomicRange};
+use bed_utils::bed::{BEDLike, Strand};
 use nalgebra_sparse::{CsrMatrix, pattern::SparsityPattern};
 use num::traits::{FromPrimitive, One, Zero, SaturatingAdd};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
