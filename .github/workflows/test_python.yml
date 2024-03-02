@@ -21,7 +21,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo pip install --upgrade pip
-        pip install --user coverage pytest hypothesis wheel
+        pip install --user coverage pytest hypothesis==6.72.4 wheel
 
     - name: Build wheel files
       run: |

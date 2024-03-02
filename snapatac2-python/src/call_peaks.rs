@@ -258,7 +258,9 @@ pub fn create_fwtrack_obj<'py>(
     let replicates = files
         .into_iter()
         .map(|fl| {
-            let fwt = macs.getattr("FWTrack")?.call1((100000,))?;
+            let kwargs = pyo3::types::PyDict::new(py);
+            kwargs.set_item("buffer_size", 100000)?;
+            let fwt = macs.getattr("FWTrack")?.call((), Some(kwargs))?;
             let reader = utils::open_file_for_read(&fl);
             bed_utils::bed::io::Reader::new(reader, None)
                 .into_records::<Fragment>()

@@ -18,6 +18,7 @@ def macs3(
     nolambda: bool = False,
     shift: int = -100,
     extsize: int = 200,
+    min_len: int | None = None,
     blacklist: Path | None = None,
     key_added: str = 'macs3',
     tempdir: Path | None = None,
@@ -60,6 +61,8 @@ def macs3(
         The shift size in MACS.
     extsize
         The extension size in MACS.
+    min_len
+        The minimum length of a called peak. If None, it is set to `extsize`.
     blacklist
         Path to the blacklist file in BED format. If provided, regions in the blacklist will be
         removed.
@@ -110,7 +113,7 @@ def macs3(
 
     options.gsize = adata.uns['reference_sequences']['reference_seq_length'].sum()    # Estimated genome size
     options.maxgap = 30    # The maximum allowed gap between two nearby regions to be merged
-    options.minlen = 50    # The minimum length of a called peak
+    options.minlen = extsize if min_len is None else min_len
     options.shift = shift
     options.nolambda = nolambda
     options.smalllocal = 1000

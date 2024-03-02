@@ -11,6 +11,8 @@
 - Fix: #221: 'pp.knn' with 'method=pynndescent' invalid csr matrix.
 - Fix: #226: Backed AnnData does not support numpy string array. 
 - Fix: #232: `tempdir` is not respected in `tl.macs3`.
+- Fix: #242: Change default value of `min_len` to `extsize` in `tl.macs3`, in order to be
+  consistent with the `macs3` command line tool.
 - Other minor bug fixes.
 
 ## Release 2.5.3 (released Jan 16, 2024)

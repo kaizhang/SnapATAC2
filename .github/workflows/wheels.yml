@@ -31,7 +31,7 @@ jobs:
        CIBW_ENVIRONMENT: 'PATH="$PATH:$HOME/.cargo/bin"'
        CIBW_SKIP: "pp* *-win32 *-musllinux*"
        CIBW_BUILD: ${{ matrix.python_version }}
-       CIBW_TEST_REQUIRES: pytest hypothesis
+       CIBW_TEST_REQUIRES: pytest hypothesis==6.72.4
        CIBW_TEST_COMMAND: "pytest {project}/snapatac2-python/tests"
 
     steps:
