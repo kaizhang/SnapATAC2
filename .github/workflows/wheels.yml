@@ -104,7 +104,7 @@ jobs:
         path: dist
 
     - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@v1.8.5
+      uses: pypa/gh-action-pypi-publish@v1.8.14
       if: startsWith(github.ref, 'refs/tags')
       with:
         user: __token__
