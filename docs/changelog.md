@@ -1,17 +1,18 @@
 # Release Notes
 
-## Development version (unreleased)
+## Release 2.6.0 (released March 9, 2024)
 
 ### Features:
   - Add a argument `counting_strategy` to `pp.add_tile_matrix`, `pp.make_peak_matrix`, and `pp.make_gene_matrix`, which allows one to use different strategies
   (insertion-based, fragment-based, or paired insertion counting) to compute feature counts.
+  - Fix #233: Add Apple silicon wheel files.
 
 ### Bugs fixed:
 
-- Fix: #221: 'pp.knn' with 'method=pynndescent' invalid csr matrix.
-- Fix: #226: Backed AnnData does not support numpy string array. 
-- Fix: #232: `tempdir` is not respected in `tl.macs3`.
-- Fix: #242: Change default value of `min_len` to `extsize` in `tl.macs3`, in order to be
+- Fix #221: 'pp.knn' with 'method=pynndescent' invalid csr matrix.
+- Fix #226: Backed AnnData does not support numpy string array. 
+- Fix #232: `tempdir` is not respected in `tl.macs3`.
+- Fix #242: Change default value of `min_len` to `extsize` in `tl.macs3`, in order to be
   consistent with the `macs3` command line tool.
 - Other minor bug fixes.
 
