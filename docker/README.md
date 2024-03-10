@@ -55,7 +55,7 @@ This guide assumes you are building with `docker build` terminal commands
 
 1. Once the image has been built, you can run it with:
 
-`docker run --interactive --tty --rm --env LOCAL_USER_ID=`id -u $USER` --publish 8888:8888 --volume <path_to_local_machine_notebooks>:/notebooks --volume <path_where_you_want_data_saved>:/data snapatac2:v2.6.0-recommend-interactive-py3.11`
+```docker run --interactive --tty --rm --env LOCAL_USER_ID=`id -u $USER` --publish 8888:8888 --volume <path_to_local_machine_notebooks>:/notebooks --volume <path_where_you_want_data_saved>:/data snapatac2:v2.6.0-recommend-interactive-py3.11```
 
 2. You can then navigate in your browser to the `http://127.0.0.1:8888/lab?token=<jupyter-lab-token>` link to access Jupyter Lab
 
@@ -69,7 +69,7 @@ This guide assumes you are building with `docker build` terminal commands
 
 1. Similar to the above except you should add `--platform linux/amd64` to the `docker run` command like so:
 
-`docker run --platform linux/amd64 --interactive --tty --rm --env LOCAL_USER_ID=`id -u $USER` --publish 8888:8888 --volume <path_to_local_machine_notebooks>:/notebooks --volume <path_where_you_want_data_saved>:/data snapatac2:v2.6.0-recommend-interactive-py3.11`
+```docker run --platform linux/amd64 --interactive --tty --rm --env LOCAL_USER_ID=`id -u $USER` --publish 8888:8888 --volume <path_to_local_machine_notebooks>:/notebooks --volume <path_where_you_want_data_saved>:/data snapatac2:v2.6.0-recommend-interactive-py3.11```
 
 ### Run Instructions for `snapatac2:v2.6.0-recommend-interactive-py3.11` Image on Windows [EXPERIMENTAL]
 
