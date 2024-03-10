@@ -43,7 +43,9 @@ This guide assumes you are building with `docker build` terminal commands
 > Depending on the version of BASE_PYTHON_IMAGE and SNAP_ATAC_VERSION, the
 > resulting images are *NOT* guaranteed to be well-tested or even functional!
 
-### Run Instructions for `snapatac2:v2.6.0-recommend-interactive-py3.11` Image
+## Running SnapATAC2 Docker Images
+
+### Run Instructions for `snapatac2:v2.6.0-recommend-interactive-py3.11` Image on Linux/MacOS (amd64)
 
 > [!WARNING]
 > If you want the recommended image to make use of CUDA (GPU) functionality, you will need to separately install the Nvidia container toolkit.
@@ -51,11 +53,37 @@ This guide assumes you are building with `docker build` terminal commands
 > When invoking the `docker run` command you will also need to provide the `--gpus` arg.
 > You can read more about how to do this in the [official Docker documentation](https://docs.docker.com/config/containers/resource_constraints/#gpu).
 
-Once the image has been built, you can run it with:
+1. Once the image has been built, you can run it with:
 
 `docker run --interactive --tty --rm --env LOCAL_USER_ID=`id -u $USER` --publish 8888:8888 --volume <path_to_local_machine_notebooks>:/notebooks --volume <path_where_you_want_data_saved>:/data snapatac2:v2.6.0-recommend-interactive-py3.11`
 
-You can then navigate in your browser to the `http://127.0.0.1:8888/lab?token=<jupyter-lab-token>` link to access Jupyter Lab
+2. You can then navigate in your browser to the `http://127.0.0.1:8888/lab?token=<jupyter-lab-token>` link to access Jupyter Lab
 
 > [!NOTE]
 > You can learn more about the `docker run` command options from the [official Docker documentation](https://docs.docker.com/engine/reference/commandline/run/#usage)
+
+### Run Instructions for `snapatac2:v2.6.0-recommend-interactive-py3.11` Image on MacOS (arm64) [UNTESTED, EXPERIMENTAL]
+
+> [!WARNING]
+> This section is COMPLETELY UNTESTED so no guarantees that it will work at all
+
+1. Similar to the above except you should add `--platform linux/amd64` to the `docker run` command like so:
+
+`docker run --platform linux/amd64 --interactive --tty --rm --env LOCAL_USER_ID=`id -u $USER` --publish 8888:8888 --volume <path_to_local_machine_notebooks>:/notebooks --volume <path_where_you_want_data_saved>:/data snapatac2:v2.6.0-recommend-interactive-py3.11`
+
+### Run Instructions for `snapatac2:v2.6.0-recommend-interactive-py3.11` Image on Windows [EXPERIMENTAL]
+
+1. Install Docker Desktop for Windows: https://docs.docker.com/desktop/install/windows-install/
+2. Start up Docker Desktop for Windows
+3. Look for the snapatac2 image that you want to run and `pull` it
+4. Go back to the main images menu and 'run' the image
+
+<img src="docker-windows-tutorial-0.png" width=25% height=25%>
+5. Before clicking `run` open up the `optional settings` and fill in the following:
+
+<img src="docker-windows-tutorial-1.png" width=25% height=25%>
+6. A new container should be spun up and you should see in the `logs` section the following:
+
+<img src="docker-windows-tutorial-2.png" width=25% height=25%>
+7. Pasting the url in the `logs` section into your browser should let you access Jupyter Lab
+
