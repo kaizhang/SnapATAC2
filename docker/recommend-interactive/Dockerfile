@@ -1,7 +1,7 @@
-# Example build command: `DOCKER_BUILDKIT=1 docker build --tag snapatac2:2.5.1-recommend-interactive-py3.11 .`
+# Example build command: `DOCKER_BUILDKIT=1 docker build --tag snapatac2:2.6.0-recommend-interactive-py3.11 .`
 # Use a 2-step build so our final image doesn't include bulky compile tools
 ARG BASE_PYTHON_IMAGE=python:3.11-slim
-ARG SNAP_ATAC_VERSION=v2.5.1
+ARG SNAP_ATAC_VERSION=v2.6.0
 FROM ${BASE_PYTHON_IMAGE} AS builder-image
 
 # https://docs.docker.com/engine/reference/builder/#understand-how-arg-and-from-interact
@@ -32,6 +32,15 @@ FROM ${BASE_PYTHON_IMAGE}
 # https://docs.docker.com/engine/reference/builder/#scope
 ARG SNAP_ATAC_VERSION
 
+# Install gosu to gracefully step-down from root in a Docker context
+# https://github.com/tianon/gosu/tree/master
+RUN set -eux; \
+	apt-get update; \
+	apt-get install -y gosu; \
+	rm -rf /var/lib/apt/lists/*; \
+    # verify that the binary works
+	gosu nobody true
+
 # Mount our first stage builder-image *temporarily* and install from the compiled .whl files
 RUN --mount=type=bind,from=builder-image,source=/python-wheel-dir,target=/python-wheel-dir \
     python3 -m pip install \
@@ -39,9 +48,15 @@ RUN --mount=type=bind,from=builder-image,source=/python-wheel-dir,target=/python
         "snapatac2[recommend]==${SNAP_ATAC_VERSION}" \
         jupyterlab
 
-RUN useradd --create-home --shell /bin/bash jupyter
-USER jupyter
-EXPOSE 8888
+# Use entrypoint that helps us step-down from root
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
-WORKDIR /home/jupyter/notebooks
-ENTRYPOINT ["jupyter", "lab", "--notebook-dir=/home/jupyter/notebooks", "--ip=0.0.0.0", "--port=8888", "--no-browser"]
+# Setup SnapATAC2 data download directory
+RUN mkdir -p /data
+ENV SNAP_DATA_DIR=/data
+
+WORKDIR /notebooks
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+EXPOSE 8888
+CMD ["jupyter", "lab", "--notebook-dir=/notebooks", "--ip=0.0.0.0", "--port=8888", "--no-browser"]
