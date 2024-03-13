@@ -62,9 +62,9 @@ dependencies = [
 
 [[package]]
 name = "anndata"
-version = "0.3.1"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f1697ee6fea7f88ee27fb9c229e1794877e4cfc8583465a92f29df92e516ec9"
+checksum = "02958ada4a05b3b68abb3d60ab7a72576b8ff518573d5c88647606f824335538"
 dependencies = [
  "anyhow",
  "flate2",
@@ -2623,9 +2623,9 @@ dependencies = [
 
 [[package]]
 name = "pyanndata"
-version = "0.3.1"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d10b056db3c5f1b9824615e47552a6dfe5c51331734526fa408329411c122eb7"
+checksum = "efbae630c991b958a0b50114f123d2d5987ed71a6e154f726a992b1b47455e27"
 dependencies = [
  "anndata",
  "anndata-hdf5",
@@ -3179,7 +3179,7 @@ dependencies = [
 
 [[package]]
 name = "snapatac2"
-version = "2.6.0"
+version = "2.6.1-dev0"
 dependencies = [
  "anndata",
  "anndata-hdf5",

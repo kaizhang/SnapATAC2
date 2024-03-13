@@ -1,5 +1,18 @@
 # Release Notes
 
+## Nightly version
+
+### Features:
+  - Add the argument `inplace` to AnnData `subset` function. As a result, if you
+    want to perform out-of-place subset, you need to set `inplace=False` explicitly.
+    Before you just need to set the `out` parameter. The benefit of this change
+    is that you can save the subset in memory by setting `out=None, inplace=False`,
+    which cannot be achieved before.
+
+### Bugs fixed:
+  - Fix #252: `tl.spectral` does not raise an error when the input matrix is in
+    compressed column format, whereas it should expect a compressed sparse row format.
+
 ## Release 2.6.0 (released March 9, 2024)
 
 ### Features:
