@@ -223,7 +223,7 @@ def regions(
     return render_plot(fig, width, height, interactive, show, out_file)
 
 def umap(
-    adata: AnnData,
+    adata: AnnData | np.ndarray,
     color: str | np.ndarray | None = None,
     use_rep: str = "X_umap",
     marker_size: float = None,
@@ -262,16 +262,15 @@ def umap(
     """
     from natsort import index_natsorted
 
-    embedding = adata.obsm[use_rep] 
-
+    embedding = adata.obsm[use_rep] if is_anndata(adata) else adata
     if isinstance(color, str):
         groups = adata.obs[color].to_numpy()
     else:
         groups = color
         color = "color"
     
-    if sample_size is not None and adata.shape[0] > sample_size:
-        idx = np.random.choice(adata.shape[0], sample_size, replace=False)
+    if sample_size is not None and embedding.shape[0] > sample_size:
+        idx = np.random.choice(embedding.shape[0], sample_size, replace=False)
         embedding = embedding[idx, :]
         if groups is not None: groups = groups[idx]
 

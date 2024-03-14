@@ -110,8 +110,8 @@ impl DNAMotif {
                 b'C' | b'c' => (self.probability[cur_pos][1] / bg.0[1]).ln(),
                 b'G' | b'g' => (self.probability[cur_pos][2] / bg.0[2]).ln(),
                 b'T' | b't' => (self.probability[cur_pos][3] / bg.0[3]).ln(),
-                b'N' => 0.0,
-                _ => panic!("invalid nucleotide: {}", seq[cur_pos + start]),
+                b'N' | b'n' => 0.0,
+                _ => panic!("invalid nucleotide: {}", String::from_utf8(vec![seq[cur_pos + start]]).unwrap()),
             };
             cur_match += sc;
             let cur_best = cur_match + remain_best[cur_pos];

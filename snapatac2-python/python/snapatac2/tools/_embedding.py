@@ -66,7 +66,7 @@ def umap(
     use_dims: int | list[int] | None = None,
     use_rep: str = "X_spectral",
     key_added: str = 'umap',
-    random_state: int = 0,
+    random_state: int | None = 0,
     inplace: bool = True,
     **kwargs
 ) -> np.ndarray | None:
@@ -99,7 +99,11 @@ def umap(
     """
     from umap import UMAP
 
-    data = adata.obsm[use_rep] if is_anndata(adata) else adata
+    if is_anndata(adata):
+        data = adata.obsm[use_rep]
+    else:
+        data = adata
+        inplace = False
 
     if use_dims is not None:
         data = data[:, :use_dims] if isinstance(use_dims, int) else data[:, use_dims]
