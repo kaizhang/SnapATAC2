@@ -1,0 +1,6 @@
+﻿snapatac2.tl.add\_regr\_scores
+==============================
+
+.. currentmodule:: snapatac2.tl
+
+.. autofunction:: add_regr_scores

@@ -1,0 +1,6 @@
+﻿snapatac2.read\_10x\_mtx
+========================
+
+.. currentmodule:: snapatac2
+
+.. autofunction:: read_10x_mtx

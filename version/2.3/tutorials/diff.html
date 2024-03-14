@@ -1,0 +1,1508 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>Identify differentially accessible regions &#8212; SnapATAC2 2.3.1 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=e353d410970836974a52" rel="stylesheet" />
+<link href="../_static/styles/bootstrap.css?digest=e353d410970836974a52" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=e353d410970836974a52" rel="stylesheet" />
+
+  
+  <link href="../_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=e353d410970836974a52" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/nbsphinx-code-cells.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/custom.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=e353d410970836974a52" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=e353d410970836974a52" />
+
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/sphinx_highlight.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'tutorials/diff';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/kaizhang/SnapATAC2/main/docs/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '2.3';
+        </script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Multi-sample Pipeline: analyzing snATAC-seq data of human colon samples" href="integration.html" />
+    <link rel="prev" title="Annotating cell clusters by integrating single-cell RNA-seq data" href="annotation.html" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ZX9JB19KRP"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-ZX9JB19KRP');
+</script>
+
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+  
+    <nav class="bd-header navbar navbar-expand-lg bd-navbar">
+<div class="bd-header__inner bd-page-width">
+  <label class="sidebar-toggle primary-toggle" for="__primary">
+    <span class="fa-solid fa-bars"></span>
+  </label>
+  
+  <div class="navbar-header-items__start">
+    
+      <div class="navbar-item">
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    <p class="title logo__title">SnapATAC2 2.3.1 documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item"><nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../install.html">
+                        Installation
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="index.html">
+                        Tutorials
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../reference/index.html">
+                        API reference
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../develop.html">
+                        Development
+                      </a>
+                    </li>
+                
+
+                <li class="nav-item">
+                  <a class="nav-link nav-external" href="https://kzhang.org/epigenomics-analysis/">
+                    Learn
+                  </a>
+                </li>
+                
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+  </button>
+`);
+</script>
+        </div>
+      
+      
+        <div class="navbar-item">
+<script>
+document.write(`
+  <div class="version-switcher__container dropdown">
+    <button type="button" class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle" data-bs-toggle="dropdown">
+      2.3  <!-- this text may get changed later by javascript -->
+      <span class="caret"></span>
+    </button>
+    <div class="version-switcher__menu dropdown-menu list-group-flush py-0">
+    <!-- dropdown will be populated by javascript on page load -->
+    </div>
+  </div>
+`);
+</script></div>
+      
+        <div class="navbar-item">
+<script>
+document.write(`
+  <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+  </button>
+`);
+</script></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links navbar-nav"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/kaizhang/SnapATAC2" title="GitHub" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github"></i></span>
+            <label class="sr-only">GitHub</label></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+  </button>
+`);
+</script>
+    </div>
+  
+
+  
+    <label class="sidebar-toggle secondary-toggle" for="__secondary">
+      <span class="fa-solid fa-outdent"></span>
+    </label>
+  
+</div>
+
+    </nav>
+  
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          <div class="navbar-item"><nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../install.html">
+                        Installation
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="index.html">
+                        Tutorials
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../reference/index.html">
+                        API reference
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../develop.html">
+                        Development
+                      </a>
+                    </li>
+                
+
+                <li class="nav-item">
+                  <a class="nav-link nav-external" href="https://kzhang.org/epigenomics-analysis/">
+                    Learn
+                  </a>
+                </li>
+                
+  </ul>
+</nav></div>
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+<script>
+document.write(`
+  <div class="version-switcher__container dropdown">
+    <button type="button" class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle" data-bs-toggle="dropdown">
+      2.3  <!-- this text may get changed later by javascript -->
+      <span class="caret"></span>
+    </button>
+    <div class="version-switcher__menu dropdown-menu list-group-flush py-0">
+    <!-- dropdown will be populated by javascript on page load -->
+    </div>
+  </div>
+`);
+</script></div>
+        
+          <div class="navbar-item">
+<script>
+document.write(`
+  <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+  </button>
+`);
+</script></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links navbar-nav"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/kaizhang/SnapATAC2" title="GitHub" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github"></i></span>
+            <label class="sr-only">GitHub</label></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item"><nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="pbmc.html">Standard pipeline: analyzing 5K PBMC dataset from 10X genomics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="annotation.html">Annotating cell clusters by integrating single-cell RNA-seq data</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Identify differentially accessible regions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integration.html">Multi-sample Pipeline: analyzing snATAC-seq data of human colon samples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modality.html">Multi-modality pipeline: analyzing single-cell multiome data (ATAC + Gene Expression)</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumbs">
+  <ul class="bd-breadcrumbs" role="navigation" aria-label="Breadcrumb">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">Tutorials</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page">Identify differentially accessible regions</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article" role="main">
+                  
+  <section id="Identify-differentially-accessible-regions">
+<h1>Identify differentially accessible regions<a class="headerlink" href="#Identify-differentially-accessible-regions" title="Permalink to this heading">#</a></h1>
+<p>This tutorial assumes you have read the <a class="reference external" href="https://kzhang.org/SnapATAC2/tutorials/pbmc.html">Standard Pipeline</a> tutorial and have finished preprocessing, clustering and cell annotations.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import snapatac2 as snap
+import numpy as np
+import polars as pl
+
+snap.__version__
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+&#39;2.3.0.dev4&#39;
+</pre></div></div>
+</div>
+<p>First let’s load the previously processed h5ad file.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>data = snap.read(snap.datasets.pbmc5k(type=&quot;annotated_h5ad&quot;))
+data
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+Updating file &#39;atac_pbmc_5k_annotated.h5ad&#39; from &#39;https://osf.io/download/rvwhf/&#39; to &#39;/home/kaizhang/.cache/snapatac2&#39;.
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+AnnData object with n_obs x n_vars = 4436 x 6062095 backed at &#39;/home/kaizhang/.cache/snapatac2/atac_pbmc_5k_annotated.h5ad&#39;
+    obs: &#39;tsse&#39;, &#39;n_fragment&#39;, &#39;frac_dup&#39;, &#39;frac_mito&#39;, &#39;doublet_probability&#39;, &#39;doublet_score&#39;, &#39;leiden&#39;, &#39;cell_type&#39;
+    var: &#39;count&#39;, &#39;selected&#39;
+    uns: &#39;spectral_eigenvalue&#39;, &#39;cell_type_colors&#39;, &#39;reference_sequences&#39;, &#39;leiden_colors&#39;, &#39;scrublet_sim_doublet_score&#39;
+    obsm: &#39;X_spectral&#39;, &#39;X_umap&#39;, &#39;insertion&#39;
+    obsp: &#39;distances&#39;
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>snap.pl.umap(data, color=&#39;cell_type&#39;, width=700, interactive=False)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/tutorials_diff_4_0.png" src="../_images/tutorials_diff_4_0.png" />
+</div>
+</div>
+<section id="Peak-calling-at-the-cluster-level">
+<h2>Peak calling at the cluster-level<a class="headerlink" href="#Peak-calling-at-the-cluster-level" title="Permalink to this heading">#</a></h2>
+<p>An important goal of single-cell ATAC-seq analysis is to identify genomic regions that are enriched with TN5 insertions, or “open chromatin” regions. Using <code class="docutils literal notranslate"><span class="pre">snap.tl.call_peaks</span></code>, we can easily identify open chromatin regions in different cell populations stratified by provided group information.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%time
+snap.tl.call_peaks(data, groupby=&#39;cell_type&#39;)
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+2023-04-13 14:49:04 - INFO - Exporting data...
+2023-04-13 14:54:33 - INFO - Calling peaks for 11 groups ...
+2023-04-13 15:09:47 - INFO - Merging peaks...
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+CPU times: user 5min 50s, sys: 11.6 s, total: 6min 2s
+Wall time: 20min 45s
+</pre></div></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">snap.tl.call_peaks</span></code> first calls peaks for individual groups and then merges overlapping peaks to create a list of fix-width non-overlapping peaks. The intermediate results are discarded by default but can be saved using the <code class="docutils literal notranslate"><span class="pre">out_dir</span></code> parameter.</p>
+<p>Results of peak calling are stored in <code class="docutils literal notranslate"><span class="pre">data.uns['peaks']</span></code> as a dataframe. Rows are merged peaks, and columns are cell clusters. Boolean values in the dataframe indicate whether a peak is present in a given cell cluster.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>data.uns[&#39;peaks&#39;].head()
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style>
+.pl-dataframe > thead > tr > th {
+  text-align: right;
+}
+</style>
+
+<table border="1" class="dataframe pl-dataframe">
+<small>shape: (5, 12)</small>
+<thead>
+<tr>
+<th>
+Peaks
+</th>
+<th>
+CD4 Naive
+</th>
+<th>
+CD8 Naive
+</th>
+<th>
+Naive/Intermediate B
+</th>
+<th>
+CD8 TEM
+</th>
+<th>
+CD4 TCM
+</th>
+<th>
+CD14 Mono
+</th>
+<th>
+MAIT
+</th>
+<th>
+Memory B
+</th>
+<th>
+CD16 Mono
+</th>
+<th>
+NK
+</th>
+<th>
+DC
+</th>
+</tr>
+<tr>
+<td>
+str
+</td>
+<td>
+bool
+</td>
+<td>
+bool
+</td>
+<td>
+bool
+</td>
+<td>
+bool
+</td>
+<td>
+bool
+</td>
+<td>
+bool
+</td>
+<td>
+bool
+</td>
+<td>
+bool
+</td>
+<td>
+bool
+</td>
+<td>
+bool
+</td>
+<td>
+bool
+</td>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+&quot;chr1:180653-18...
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+true
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+true
+</td>
+<td>
+false
+</td>
+</tr>
+<tr>
+<td>
+&quot;chr1:191594-19...
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+true
+</td>
+<td>
+false
+</td>
+<td>
+true
+</td>
+<td>
+true
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+true
+</td>
+<td>
+false
+</td>
+</tr>
+<tr>
+<td>
+&quot;chr1:267749-26...
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+true
+</td>
+<td>
+true
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+true
+</td>
+</tr>
+<tr>
+<td>
+&quot;chr1:280500-28...
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+true
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+</tr>
+<tr>
+<td>
+&quot;chr1:585944-58...
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+true
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+</tr>
+</tbody>
+</table>
+</div></div>
+</div>
+<p>Now, with the peak list, we can create a cell by peak matrix by <code class="docutils literal notranslate"><span class="pre">snap.pp.make_peak_matrix</span></code>.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%time
+peak_mat = snap.pp.make_peak_matrix(data, file=&quot;peak_matrix.h5ad&quot;)
+peak_mat
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+CPU times: user 1min 22s, sys: 1.43 s, total: 1min 24s
+Wall time: 12.7 s
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+AnnData object with n_obs x n_vars = 4436 x 250241 backed at &#39;peak_matrix.h5ad&#39;
+    obs: &#39;tsse&#39;, &#39;n_fragment&#39;, &#39;frac_dup&#39;, &#39;frac_mito&#39;, &#39;doublet_probability&#39;, &#39;doublet_score&#39;, &#39;leiden&#39;, &#39;cell_type&#39;
+</pre></div></div>
+</div>
+</section>
+<section id="Finding-marker-regions">
+<h2>Finding marker regions<a class="headerlink" href="#Finding-marker-regions" title="Permalink to this heading">#</a></h2>
+<p>In this section, we are going to use a quick-and-dirty method to identify marker regions for each cell type. The <code class="docutils literal notranslate"><span class="pre">tl.marker_regions</span></code> function aggregates signal across cells and utilizes z-scores to identify specifically enriched peaks.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%time
+marker_peaks = snap.tl.marker_regions(peak_mat, groupby=&#39;cell_type&#39;, pvalue=0.01)
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+/projects/ps-renlab2/kai/dev/snapatac2/snapatac2-python/snapatac2/tools/_misc.py:82: FutureWarning:
+
+X.dtype being converted to np.float32 from float64. In the next version of anndata (0.9) conversion will not be automatic. Pass dtype explicitly to avoid this warning. Pass `AnnData(X, dtype=X.dtype, ...)` to get the future behavour.
+
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+CPU times: user 6.56 s, sys: 499 ms, total: 7.06 s
+Wall time: 7.05 s
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>snap.pl.regions(peak_mat, groupby=&#39;cell_type&#39;, peaks=marker_peaks, interactive=False)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/tutorials_diff_13_0.png" src="../_images/tutorials_diff_13_0.png" />
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%time
+motifs = snap.tl.motif_enrichment(
+    motifs=snap.datasets.cis_bp(unique=True),
+    regions=marker_peaks,
+    genome_fasta=snap.genome.hg38,
+)
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+2023-04-13 15:10:19 - INFO - Fetching 58945 sequences ...
+2023-04-13 15:10:21 - INFO - Computing enrichment ...
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 1165/1165 [05:42&lt;00:00,  3.40it/s]
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+CPU times: user 2h 3min 58s, sys: 17.1 s, total: 2h 4min 15s
+Wall time: 6min 24s
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>snap.pl.motif_enrichment(motifs, max_fdr=0.0001, height=1600, interactive=False)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/tutorials_diff_15_0.png" src="../_images/tutorials_diff_15_0.png" />
+</div>
+</div>
+</section>
+<section id="Regression-based-differential-test">
+<h2>Regression-based differential test<a class="headerlink" href="#Regression-based-differential-test" title="Permalink to this heading">#</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">tl.marker_regions</span></code> above does not consider the variations across cells. To fully utilize the single-cell information, we can apply regression-based differential test method. First, Let’s select the peaks that are either present in naive B cells or memory B cells.</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>group1 = &quot;Naive/Intermediate B&quot;
+group2 = &quot;Memory B&quot;
+naive_B = data.obs[&#39;cell_type&#39;] == group1
+memory_B = data.obs[&#39;cell_type&#39;] == group2
+peaks_selected = np.logical_or(
+    data.uns[&quot;peaks&quot;][group1].to_numpy(),
+    data.uns[&quot;peaks&quot;][group2].to_numpy(),
+)
+</pre></div>
+</div>
+</div>
+<p>Perform differential test using <code class="docutils literal notranslate"><span class="pre">tl.diff_test</span></code>.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%time
+diff_peaks = snap.tl.diff_test(
+    peak_mat,
+    cell_group1=naive_B,
+    cell_group2=memory_B,
+    features=peaks_selected,
+)
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+2023-04-13 15:16:48 - INFO - Input contains 107629 features, now perform filtering with &#39;min_log_fc = 0.25&#39; and &#39;min_pct = 0.05&#39; ...
+2023-04-13 15:17:02 - INFO - Testing 33352 features ...
+100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 33352/33352 [05:01&lt;00:00, 110.59it/s]
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+CPU times: user 5min 16s, sys: 2.17 s, total: 5min 18s
+Wall time: 5min 18s
+</pre></div></div>
+</div>
+<p>Filter the results based on adjusted p-value or FDR.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>diff_peaks = diff_peaks.filter(pl.col(&#39;adjusted p-value&#39;) &lt; 0.01)
+diff_peaks.head()
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style>
+.pl-dataframe > thead > tr > th {
+  text-align: right;
+}
+</style>
+
+<table border="1" class="dataframe pl-dataframe">
+<small>shape: (5, 4)</small>
+<thead>
+<tr>
+<th>
+feature name
+</th>
+<th>
+log2(fold_change)
+</th>
+<th>
+p-value
+</th>
+<th>
+adjusted p-value
+</th>
+</tr>
+<tr>
+<td>
+str
+</td>
+<td>
+f64
+</td>
+<td>
+f64
+</td>
+<td>
+f64
+</td>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+&quot;chr17:3558489-...
+</td>
+<td>
+6.417912
+</td>
+<td>
+1.0078e-30
+</td>
+<td>
+3.3612e-26
+</td>
+</tr>
+<tr>
+<td>
+&quot;chr5:156402576...
+</td>
+<td>
+4.204133
+</td>
+<td>
+4.0689e-23
+</td>
+<td>
+6.7853e-19
+</td>
+</tr>
+<tr>
+<td>
+&quot;chr6:52497600-...
+</td>
+<td>
+5.489535
+</td>
+<td>
+8.6097e-23
+</td>
+<td>
+9.5717e-19
+</td>
+</tr>
+<tr>
+<td>
+&quot;chr4:155758703...
+</td>
+<td>
+-3.053255
+</td>
+<td>
+3.1618e-21
+</td>
+<td>
+2.6363e-17
+</td>
+</tr>
+<tr>
+<td>
+&quot;chr1:15949531-...
+</td>
+<td>
+4.236554
+</td>
+<td>
+4.2257e-20
+</td>
+<td>
+2.8187e-16
+</td>
+</tr>
+</tbody>
+</table>
+</div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>snap.pl.regions(
+    peak_mat,
+    groupby = &#39;cell_type&#39;,
+    peaks = {
+        group1: diff_peaks.filter(pl.col(&quot;log2(fold_change)&quot;) &gt; 0)[&#39;feature name&#39;].to_numpy(),
+        group2: diff_peaks.filter(pl.col(&quot;log2(fold_change)&quot;) &lt; 0)[&#39;feature name&#39;].to_numpy(),
+    },
+    interactive = False,
+)
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+/projects/ps-renlab2/kai/dev/snapatac2/snapatac2-python/snapatac2/tools/_misc.py:82: FutureWarning:
+
+X.dtype being converted to np.float32 from float64. In the next version of anndata (0.9) conversion will not be automatic. Pass dtype explicitly to avoid this warning. Pass `AnnData(X, dtype=X.dtype, ...)` to get the future behavour.
+
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/tutorials_diff_22_1.png" src="../_images/tutorials_diff_22_1.png" />
+</div>
+</div>
+<p>In the next example we are going to identify peaks that are accessible in memory B cells but not in the rest of cells. One way of doing this is to select random cells from each cluster to form the background, and then perform test between memory B cells and the background.</p>
+<p>Here we randomly select 50 cells from other cell clusters, and set the <code class="docutils literal notranslate"><span class="pre">direction</span> <span class="pre">=</span> <span class="pre">&quot;positive&quot;</span></code> because we are interested in peaks that are more accessible in memory B cells.</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>barcodes = np.array(data.obs_names)
+background = []
+for i in np.unique(data.obs[&#39;leiden&#39;]):
+    if i != group2:
+        cells = np.random.choice(
+            barcodes[data.obs[&#39;leiden&#39;] == i],
+            size = 50,
+            replace = False,
+        )
+        background.append(cells)
+background = np.concatenate(background)
+</pre></div>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>diff_peaks = snap.tl.diff_test(
+    peak_mat,
+    cell_group1 = memory_B,
+    cell_group2 = background,
+    features = data.uns[&quot;peaks&quot;][group2].to_numpy(),
+    direction = &quot;positive&quot;,
+)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+2023-04-13 15:22:14 - INFO - Input contains 83417 features, now perform filtering with &#39;min_log_fc = 0.25&#39; and &#39;min_pct = 0.05&#39; ...
+2023-04-13 15:22:25 - INFO - Testing 18700 features ...
+100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 18700/18700 [03:11&lt;00:00, 97.69it/s]
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>diff_peaks = diff_peaks.filter(pl.col(&#39;adjusted p-value&#39;) &lt; 0.01)
+diff_peaks.head()
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style>
+.pl-dataframe > thead > tr > th {
+  text-align: right;
+}
+</style>
+
+<table border="1" class="dataframe pl-dataframe">
+<small>shape: (5, 4)</small>
+<thead>
+<tr>
+<th>
+feature name
+</th>
+<th>
+log2(fold_change)
+</th>
+<th>
+p-value
+</th>
+<th>
+adjusted p-value
+</th>
+</tr>
+<tr>
+<td>
+str
+</td>
+<td>
+f64
+</td>
+<td>
+f64
+</td>
+<td>
+f64
+</td>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+&quot;chr14:10581787...
+</td>
+<td>
+3.274067
+</td>
+<td>
+2.5671e-57
+</td>
+<td>
+4.8004e-53
+</td>
+</tr>
+<tr>
+<td>
+&quot;chr11:95715788...
+</td>
+<td>
+3.520904
+</td>
+<td>
+7.1180e-55
+</td>
+<td>
+6.6553e-51
+</td>
+</tr>
+<tr>
+<td>
+&quot;chr9:37409048-...
+</td>
+<td>
+2.972516
+</td>
+<td>
+3.6258e-51
+</td>
+<td>
+2.2601e-47
+</td>
+</tr>
+<tr>
+<td>
+&quot;chr22:41936117...
+</td>
+<td>
+3.113602
+</td>
+<td>
+1.7278e-49
+</td>
+<td>
+8.0775e-46
+</td>
+</tr>
+<tr>
+<td>
+&quot;chr16:88045815...
+</td>
+<td>
+2.417225
+</td>
+<td>
+5.1147e-49
+</td>
+<td>
+1.7541e-45
+</td>
+</tr>
+</tbody>
+</table>
+</div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>snap.pl.regions(
+    peak_mat,
+    groupby = &#39;cell_type&#39;,
+    peaks = {
+        group2: diff_peaks[&#39;feature name&#39;].to_numpy(),
+    },
+    interactive = False,
+)
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+/projects/ps-renlab2/kai/dev/snapatac2/snapatac2-python/snapatac2/tools/_misc.py:82: FutureWarning:
+
+X.dtype being converted to np.float32 from float64. In the next version of anndata (0.9) conversion will not be automatic. Pass dtype explicitly to avoid this warning. Pass `AnnData(X, dtype=X.dtype, ...)` to get the future behavour.
+
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/tutorials_diff_27_1.png" src="../_images/tutorials_diff_27_1.png" />
+</div>
+</div>
+</section>
+<section id="To-Be-Continued-...">
+<h2>To Be Continued …<a class="headerlink" href="#To-Be-Continued-..." title="Permalink to this heading">#</a></h2>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>
+</pre></div>
+</div>
+</div>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+                <footer class="bd-footer-article">
+                  
+<div class="footer-article-items footer-article__inner">
+  
+    <div class="footer-article-item"><!-- Previous / next buttons -->
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="annotation.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Annotating cell clusters by integrating single-cell RNA-seq data</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="integration.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Multi-sample Pipeline: analyzing snATAC-seq data of human colon samples</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div></div>
+  
+</div>
+
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#Peak-calling-at-the-cluster-level">Peak calling at the cluster-level</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#Finding-marker-regions">Finding marker regions</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#Regression-based-differential-test">Regression-based differential test</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#To-Be-Continued-...">To Be Continued …</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=e353d410970836974a52"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=e353d410970836974a52"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+  <p class="copyright">
+    
+      © Copyright 2022-2023, Kai Zhang.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item"><p class="theme-version">
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.13.3.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
