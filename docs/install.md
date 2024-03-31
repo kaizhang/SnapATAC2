@@ -77,11 +77,4 @@ For certain features, however, additional optional dependencies are necessary:
 - scanorama: For the `snapatac2.pp.scanorama_integrate` function.
 - xgboot: For network structure inference.
 
-To install these optional dependencies, use `pip install snapatac2[extra]`.
-
-For downstream analysis, some helpful but not mandatory packages, such as scanpy and scvi-tools, are available.
-They can be installed with `pip install snapatac2[recommend]`.
-
-To obtain all optional dependencies at once, use `pip install snapatac2[all]`.
-
-Note that the detailed dependencies of SnapATAC2 can be found in the [setup.py](https://github.com/kaizhang/SnapATAC2/blob/main/snapatac2-python/setup.py).
+To install these optional dependencies, use `pip install snapatac2[recommend]`.

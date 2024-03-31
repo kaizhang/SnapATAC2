@@ -1,12 +1,8 @@
 # From https://docs.github.com/en/actions/publishing-packages/publishing-docker-images
-
 name: Build, Test, and Publish Docker images
 
-# Trigger on *publish* of a release
-# See: https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#release
 on:
-  release:
-    types: [published]
+  push
 
 jobs:
   matrixed-docker-build-test-publish:
