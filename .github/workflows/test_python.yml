@@ -44,7 +44,7 @@ jobs:
         path: ./wheel_files/snapatac2*.whl
 
 
-    - name: TEST docker
-      uses: kaizhang/SnapATAC2/.github/workflows/docker.yml@main
-      with:
-        verison: '2.6.0'
+  test_docker:
+    uses: kaizhang/SnapATAC2/.github/workflows/docker.yml@main
+    with:
+      verison: '2.6.0'
