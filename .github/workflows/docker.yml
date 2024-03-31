@@ -1,8 +1,12 @@
 # From https://docs.github.com/en/actions/publishing-packages/publishing-docker-images
-name: Build, Test, and Publish Docker images
+name: Build Docker images
 
 on:
-  push
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
 
 jobs:
   matrixed-docker-build-test-publish:
@@ -10,13 +14,7 @@ jobs:
     strategy:
       matrix:
         base-docker-image: ["python:3.11-slim"]
-        snap-atac-flavor: ["default", "recommend-interactive"]
     steps:
-      # This will get the version of SnapATAC2 by looking at the the name of the tag for the github release
-      # For `on release publish` workflows `github.ref` will be the release tag created (e.g. refs/tags/<tag_name>)
-      # See: https://docs.github.com/en/actions/learn-github-actions/contexts#github-context
-      - name: Get SnapATAC version
-        run: echo "SNAP_ATAC_VERSION=$(echo ${{ github.ref }} | cut -d "/" -f 3)" >> $GITHUB_ENV
       # This makes some assumptions about `base-docker-image` name format so be sure to test this out if
       # things change. For `python:3.11-slim` this should result in `PY_VER_ABBRV=py3.11` beings saved to $GITHUB_ENV
       # See: https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#setting-an-environment-variable
@@ -24,11 +22,11 @@ jobs:
         run: echo "PY_VER_ABBRV=py$(echo ${{ matrix.base-docker-image }} | cut -d ":" -f 2 | cut -d "-" -f 1)" >> $GITHUB_ENV
       # Should result in something like: `IMAGE_TAG=2.5.1-default-py3.11` or `IMAGE_TAG=2.5.1-recommend-interactive-py3.11`
       - name: Create Docker image tag
-        run: echo "IMAGE_TAG=${{ env.SNAP_ATAC_VERSION }}-${{ matrix.snap-atac-flavor }}-${PY_VER_ABBRV}" >> $GITHUB_ENV
+        run: echo "IMAGE_TAG=${{ inputs.version }}-${PY_VER_ABBRV}" >> $GITHUB_ENV
       # Check environment variables were set properly
       - name: Check ENV variables
         run: |
-          echo "SNAP_ATAC_VERSION: ${{ env.SNAP_ATAC_VERSION }}"
+          echo "SNAP_ATAC_VERSION: ${{ inputs.version }}"
           echo "PY_VER_ABBRV: ${{ env.PY_VER_ABBRV }}"
           echo "IMAGE_TAG: ${{ env.IMAGE_TAG }}"
       # https://github.com/actions/checkout
@@ -47,10 +45,10 @@ jobs:
       - name: Build Dockerfile
         uses: docker/build-push-action@v5
         with:
-          context: docker/${{ matrix.snap-atac-flavor }}
+          context: docker/recommend-interactive
           build-args: |
             BASE_PYTHON_IMAGE=${{ matrix.base-docker-image }}
-            SNAP_ATAC_VERSION=${{ env.SNAP_ATAC_VERSION }}
+            SNAP_ATAC_VERSION=${{ inputs.version }}
           load: true
           tags: snapatac2:TEST-${{ env.IMAGE_TAG }}
           cache-from: type=gha
@@ -75,11 +73,11 @@ jobs:
       - name: Push to Docker Hub
         uses: docker/build-push-action@v5
         with:
-          context: docker/${{ matrix.snap-atac-flavor }}
+          context: docker/recommend-interactive
           platforms: linux/amd64
           build-args: |
             BASE_PYTHON_IMAGE=${{ matrix.base-docker-image }}
-            SNAP_ATAC_VERSION=${{ env.SNAP_ATAC_VERSION }}
+            SNAP_ATAC_VERSION=${{ inputs.version }}
           push: true
           tags: snapatac2:${{ env.IMAGE_TAG }}
           cache-from: type=gha
