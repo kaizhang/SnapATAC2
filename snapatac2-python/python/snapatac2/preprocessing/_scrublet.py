@@ -255,7 +255,7 @@ def scrub_doublets_core(
     del count_matrix_sim
     gc.collect()
     _, evecs = spectral(
-        AnnData(X=merged_matrix, dtype=merged_matrix.dtype),
+        AnnData(X=merged_matrix),
         features=None,
         n_comps=n_comps,
         inplace=False,

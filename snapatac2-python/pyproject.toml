@@ -57,6 +57,6 @@ Changelog = "https://kzhang.org/SnapATAC2/version/dev/changelog.html"
 
 [project.optional-dependencies]
 extra = ["scanorama>=1.7.3", "harmonypy>=0.0.9", "xgboost>=1.4", "umap-learn>=0.5.0"]
-recommend = ["scanpy[skmisc]>=1.9", "scvi-tools>=1.0"]
+recommend = ["scanpy[scanorama, skmisc, magic, harmony]>=1.9", "scvi-tools>=1.0"]
 all = ["snapatac2[extra]", "snapatac2[recommend]"]
 test = ["pytest", "hypothesis==6.72.4"]
