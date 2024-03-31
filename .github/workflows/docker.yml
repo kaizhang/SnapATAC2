@@ -45,7 +45,7 @@ jobs:
       - name: Build Dockerfile
         uses: docker/build-push-action@v5
         with:
-          context: docker/recommend-interactive
+          context: docker/default
           build-args: |
             BASE_PYTHON_IMAGE=${{ matrix.base-docker-image }}
             SNAP_ATAC_VERSION=${{ inputs.version }}
@@ -73,7 +73,7 @@ jobs:
       - name: Push to Docker Hub
         uses: docker/build-push-action@v5
         with:
-          context: docker/recommend-interactive
+          context: docker/default
           platforms: linux/amd64
           build-args: |
             BASE_PYTHON_IMAGE=${{ matrix.base-docker-image }}
