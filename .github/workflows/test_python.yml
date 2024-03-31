@@ -3,8 +3,10 @@ name: test-python-package
 on: [push, pull_request]
 
 jobs:
-  build_and_test:
+  build-and-test:
     runs-on: ubuntu-latest
+    outputs:
+      VERSION_NUMBER: ${{ steps.get-version.outputs.VERSION_NUMBER }}
     steps:
     - name: Checkout code
       uses: nschloe/action-cached-lfs-checkout@v1
@@ -34,6 +36,13 @@ jobs:
         pip install --user ${GITHUB_WORKSPACE}/wheel_files/*.whl
         coverage run -m pytest ${GITHUB_WORKSPACE}/snapatac2-python/tests
 
+    - name: Get SnapATAC2 version
+      id: get-version
+      run: |
+        VERSION_NUMBER=$(python -c "import snapatac2;print(snapatac2.__version__)")
+        echo $VERSION_NUMBER
+        echo "VERSION=$VERSION_NUMBER" >> $GITHUB_ENV
+
     - name: Upload Coverage to Codecov
       uses: codecov/codecov-action@v3
 
@@ -42,3 +51,15 @@ jobs:
       with:
         name: wheel-files
         path: ./wheel_files/snapatac2*.whl
+
+  build-wheel:
+    if: ${{ startsWith(github.ref, 'refs/tags/') || contains(github.event.head_commit.message, 'wheel') }}
+    uses: kaizhang/SnapATAC2/.github/workflows/wheels.yml@main
+    with:
+      wheel: 'true'
+
+  test_docker:
+    needs: build-and-test
+    uses: kaizhang/SnapATAC2/.github/workflows/docker.yml@main
+    with:
+      version: ${{ needs.build-and-test.outputs.VERSION_NUMBER }}
