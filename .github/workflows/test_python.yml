@@ -47,4 +47,4 @@ jobs:
   test_docker:
     uses: kaizhang/SnapATAC2/.github/workflows/docker.yml@main
     with:
-      verison: '2.6.0'
+      version: '2.6.0'
