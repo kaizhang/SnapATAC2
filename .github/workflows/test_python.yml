@@ -8,49 +8,53 @@ jobs:
       VERSION: ${{ steps.get-version.outputs.VERSION }}
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: nschloe/action-cached-lfs-checkout@v1
+      # https://github.com/nschloe/action-cached-lfs-checkout
+      # TODO: This action uses an older (slower) version of actions/checkout@v3
+      #       try to update this as soon as maintainer releases new version
+      - name: Checkout repository
+        uses: nschloe/action-cached-lfs-checkout@v1
 
-    - uses: actions/setup-python@v4
-      name: Install Python
-      with:
-          python-version: '3.10'
+      - name: Install Python
+        uses: actions/setup-python@v4
+        with:
+            python-version: '3.10'
 
-    - uses: ./.github/actions/setup-rust
-      with:
-        cache: true
+      - name: Setup Rust toolchain (local action)
+        uses: ./.github/actions/setup-rust
+        with:
+          cache: true
 
-    - name: Install dependencies
-      run: |
-        sudo pip install --upgrade pip
-        pip install --user coverage pytest hypothesis==6.72.4 wheel
+      - name: Install dependencies
+        run: |
+          sudo pip install --upgrade pip
+          pip install --user coverage pytest hypothesis==6.72.4 wheel
 
-    - name: Build wheel files
-      run: |
-        cd ${GITHUB_WORKSPACE}/snapatac2-python
-        mkdir ${GITHUB_WORKSPACE}/wheel_files
-        pip wheel . --wheel-dir ${GITHUB_WORKSPACE}/wheel_files
+      - name: Build wheel files
+        run: |
+          cd ${GITHUB_WORKSPACE}/snapatac2-python
+          mkdir ${GITHUB_WORKSPACE}/wheel_files
+          pip wheel . --wheel-dir ${GITHUB_WORKSPACE}/wheel_files
 
-    - name: Test Python package
-      run: |
-        pip install --user ${GITHUB_WORKSPACE}/wheel_files/*.whl
-        coverage run -m pytest ${GITHUB_WORKSPACE}/snapatac2-python/tests
+      - name: Test Python package
+        run: |
+          pip install --user ${GITHUB_WORKSPACE}/wheel_files/*.whl
+          coverage run -m pytest ${GITHUB_WORKSPACE}/snapatac2-python/tests
 
-    - name: Get SnapATAC2 version
-      id: get-version
-      run: |
-        VERSION_NUMBER=$(python -c "import snapatac2;print(snapatac2.__version__)")
-        echo $VERSION_NUMBER
-        echo "VERSION=$VERSION_NUMBER" >> $GITHUB_OUTPUT
+      - name: Get SnapATAC2 version
+        id: get-version
+        run: |
+          VERSION_NUMBER=$(python -c "import snapatac2;print(snapatac2.__version__)")
+          echo $VERSION_NUMBER
+          echo "VERSION=$VERSION_NUMBER" >> $GITHUB_OUTPUT
 
-    - name: Upload Coverage to Codecov
-      uses: codecov/codecov-action@v3
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v3
 
-    - name: Upload wheel files as artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: wheel-files
-        path: ./wheel_files/snapatac2*.whl
+      - name: Upload wheel files as artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheel-files
+          path: ./wheel_files/snapatac2*.whl
 
   build-wheel:
     if: ${{ startsWith(github.ref, 'refs/tags/') || contains(github.event.head_commit.message, '[wheel]') }}
@@ -71,5 +75,5 @@ jobs:
         with:
           snapatac2-version: ${{ needs.build-and-test.outputs.VERSION }}
           python-version: 3.11
-          username: ${{ secrets.dockerhub_username }}
-          password: ${{ secrets.dockerhub_token }}
+          dockerhub_username: ${{ secrets.dockerhub_username }}
+          dockerhub_token: ${{ secrets.dockerhub_token }}

@@ -1,5 +1,5 @@
-name: 'Build Docker images'
-description: 'Build Docker images'
+name: 'Build and push Docker images'
+description: 'Builds and pushes Docker images to Dockerhub'
 
 inputs:
   snapatac2-version:
@@ -12,9 +12,9 @@ inputs:
   flavor:
     required: false
     default: "default"
-  username:
+  dockerhub_username:
     required: true
-  password:
+  dockerhub_token:
     required: true
 
 runs:
@@ -25,10 +25,11 @@ runs:
       run: echo "IMAGE_TAG=${{ inputs.snapatac2-version }}-${{ inputs.flavor }}-py${{ inputs.python-version }}" >> $GITHUB_ENV
       shell: bash
 
+    # https://github.com/nschloe/action-cached-lfs-checkout
+    # TODO: This action uses an older (slower) version of actions/checkout@v3
+    #       try to update this as soon as maintainer releases new version
     - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        lfs: true
+      uses: nschloe/action-cached-lfs-checkout@v1
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
@@ -67,8 +68,8 @@ runs:
     - name: Login to Docker Hub
       uses: docker/login-action@v3
       with:
-        username: ${{ inputs.username }}
-        password: ${{ inputs.password }}
+        username: ${{ inputs.dockerhub_username }}
+        password: ${{ inputs.dockerhub_token }}
 
     # Uses cached result from first build
     - name: Push to Docker Hub
