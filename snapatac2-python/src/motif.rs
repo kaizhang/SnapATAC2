@@ -1,4 +1,4 @@
-use pyo3::prelude::*;
+use pyo3::{prelude::*, pybacked::PyBackedStr};
 use numpy::{Ix2, PyReadonlyArray};
 use std::fs::File;
 use std::path::Path;
@@ -18,7 +18,7 @@ impl PyDNAMotif {
     #[new]
     fn new<'py>(
         id: &str,
-        matrix: &'py PyAny,
+        matrix: Bound<'py, PyAny>,
     ) -> Self {
         let pwm: PyReadonlyArray<f64, Ix2> = matrix.extract().unwrap();
         let motif = motif::DNAMotif {
@@ -91,12 +91,12 @@ impl PyDNAMotifScanner {
     }
 
     #[pyo3(signature = (seqs, pvalue=1e-5, rc=true))]
-    fn exists(&self, seqs: Vec<&str>, pvalue: f64, rc: bool) -> Vec<bool> {
-        seqs.into_par_iter().map(|x| self.exist(x, pvalue, rc)).collect()
+    fn exists(&self, seqs: Vec<PyBackedStr>, pvalue: f64, rc: bool) -> Vec<bool> {
+        seqs.into_par_iter().map(|x| self.exist(x.as_ref(), pvalue, rc)).collect()
     }
 
     #[pyo3(signature = (seqs, pvalue=1e-5))]
-    fn with_background(&self, seqs: Vec<&str>, pvalue: f64) -> PyDNAMotifTest {
+    fn with_background(&self, seqs: Vec<PyBackedStr>, pvalue: f64) -> PyDNAMotifTest {
         let n = seqs.len();
         PyDNAMotifTest {
             scanner: self.clone(),
@@ -133,7 +133,7 @@ impl PyDNAMotifTest {
     #[getter]
     fn name(&self) -> Option<String> { self.scanner.name() }
 
-    fn test(&self, seqs: Vec<&str>) -> (f64, f64) {
+    fn test(&self, seqs: Vec<PyBackedStr>) -> (f64, f64) {
         let n = seqs.len().try_into().unwrap();
         let occurrence: u64 = seqs.into_par_iter()
             .filter(|x| self.scanner.exist(x, self.pvalue, true)).count()

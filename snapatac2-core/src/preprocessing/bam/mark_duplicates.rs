@@ -333,7 +333,7 @@ impl FlagStat {
                 }
 
                 if !flags.is_unmapped() {
-                    if flags.is_properly_aligned() {
+                    if flags.is_properly_segmented() {
                         self.proper_pair += 1;
                     }
 
@@ -383,7 +383,7 @@ where
         flagstat.update(r);
         let flag = r.flags();
         let is_properly_aligned = !flag.is_supplementary() &&
-            (!is_paired || flag.is_properly_aligned());
+            (!is_paired || flag.is_properly_segmented());
         let flag_pass = !flag.intersects(flag_failed);
         let mapq_pass = mapq_filter.map_or(true, |min_q| {
             let q = r.mapping_quality().map_or(255, |x| x.get());

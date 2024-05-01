@@ -7,7 +7,7 @@ use pyo3::{
     types::PyIterator,
     PyResult, Python,
 };
-use numpy::{Element, PyReadonlyArrayDyn, PyReadonlyArray, Ix1, Ix2, PyArray, IntoPyArray};
+use numpy::{Element, PyReadonlyArrayDyn, PyReadonlyArray, Ix1, Ix2, PyArray, IntoPyArray, PyArrayMethods};
 use snapatac2_core::preprocessing::count_data::TranscriptParserOptions;
 use snapatac2_core::preprocessing::{Transcript, read_transcripts_from_gff, read_transcripts_from_gtf};
 use snapatac2_core::utils;
@@ -45,10 +45,10 @@ macro_rules! with_sparsity_pattern {
 #[pyfunction]
 pub(crate) fn jaccard_similarity<'py>(
     py: Python<'py>,
-    mat: &'py PyAny,
-    other: Option<&'py PyAny>,
+    mat: &Bound<'py, PyAny>,
+    other: Option<&Bound<'py, PyAny>>,
     weights: Option<PyReadonlyArray<f64, Ix1>>,
-) -> PyResult<&'py PyArray<f64, Ix2>> {
+) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
     let weights_ = match weights {
         None => None,
         Some(ref ws) => Some(ws.as_slice().unwrap()),
@@ -57,10 +57,10 @@ pub(crate) fn jaccard_similarity<'py>(
     macro_rules! with_csr {
         ($mat:expr) => {
             match other {
-                None => Ok(utils::similarity::jaccard($mat, weights_).into_pyarray(py)),
+                None => Ok(utils::similarity::jaccard($mat, weights_).into_pyarray_bound(py)),
                 Some(mat2) => {
                     macro_rules! xxx {
-                        ($m:expr) => { Ok(utils::similarity::jaccard2($mat, $m, weights_).into_pyarray(py)) };
+                        ($m:expr) => { Ok(utils::similarity::jaccard2($mat, $m, weights_).into_pyarray_bound(py)) };
                     }
                     let shape: Vec<usize> = mat2.getattr("shape")?.extract()?;
                     with_sparsity_pattern!(
@@ -101,22 +101,22 @@ where
 #[pyfunction]
 pub(crate) fn cosine_similarity<'py>(
     py: Python<'py>,
-    mat: &'py PyAny,
-    other: Option<&'py PyAny>,
+    mat: &Bound<'py, PyAny>,
+    other: Option<&Bound<'py, PyAny>>,
     weights: Option<PyReadonlyArray<f64, Ix1>>,
-) -> PyResult<&'py PyArray<f64, Ix2>> {
+) -> PyResult<Bound<'py, PyArray<f64, Ix2>>> {
     let weights_ = match weights {
         None => None,
         Some(ref ws) => Some(ws.as_slice().unwrap()),
     };
     match other {
-        None => Ok(utils::similarity::cosine(csr_to_rust(mat)?, weights_).into_pyarray(py)),
+        None => Ok(utils::similarity::cosine(csr_to_rust(mat)?, weights_).into_pyarray_bound(py)),
         Some(mat2) => Ok(
             utils::similarity::cosine2(
                 csr_to_rust(mat)?,
                 csr_to_rust(mat2)?,
                 weights_,
-            ).into_pyarray(py)
+            ).into_pyarray_bound(py)
         ),
     }
 }
@@ -124,19 +124,19 @@ pub(crate) fn cosine_similarity<'py>(
 #[pyfunction]
 pub(crate) fn pearson<'py>(
     py: Python<'py>,
-    mat: &'py PyAny,
-    other: &'py PyAny,
+    mat: &Bound<'py, PyAny>,
+    other: &Bound<'py, PyAny>,
 ) -> PyResult<PyObject> {
     match mat.getattr("dtype")?.getattr("name")?.extract()? {
         "float32" => {
             let mat_ = mat.extract::<PyReadonlyArray<f32, Ix2>>()?.to_owned_array();
             let other_ = other.extract::<PyReadonlyArray<f32, Ix2>>()?.to_owned_array();
-            Ok(utils::similarity::pearson2(mat_, other_).into_pyarray(py).to_object(py))
+            Ok(utils::similarity::pearson2(mat_, other_).into_pyarray_bound(py).to_object(py))
         },
         "float64" => {
             let mat_ = mat.extract::<PyReadonlyArray<f64, Ix2>>()?.to_owned_array();
             let other_ = other.extract::<PyReadonlyArray<f64, Ix2>>()?.to_owned_array();
-            Ok(utils::similarity::pearson2(mat_, other_).into_pyarray(py).to_object(py))
+            Ok(utils::similarity::pearson2(mat_, other_).into_pyarray_bound(py).to_object(py))
         },
         ty => panic!("Cannot compute correlation for type {}", ty),
     }
@@ -145,8 +145,8 @@ pub(crate) fn pearson<'py>(
 #[pyfunction]
 pub(crate) fn spearman<'py>(
     py: Python<'py>,
-    mat: &'py PyAny,
-    other: &'py PyAny,
+    mat: &Bound<'py, PyAny>,
+    other: &Bound<'py, PyAny>,
 ) -> PyResult<PyObject> {
     match mat.getattr("dtype")?.getattr("name")?.extract()? {
         "float32" => {
@@ -154,11 +154,11 @@ pub(crate) fn spearman<'py>(
             match other.getattr("dtype")?.getattr("name")?.extract()? {
                 "float32" => {
                     let other_ = other.extract::<PyReadonlyArray<f32, Ix2>>()?.to_owned_array();
-                    Ok(utils::similarity::spearman2(mat_, other_).into_pyarray(py).to_object(py))
+                    Ok(utils::similarity::spearman2(mat_, other_).into_pyarray_bound(py).to_object(py))
                 },
                 "float64" => {
                     let other_ = other.extract::<PyReadonlyArray<f64, Ix2>>()?.to_owned_array();
-                    Ok(utils::similarity::spearman2(mat_, other_).into_pyarray(py).to_object(py))
+                    Ok(utils::similarity::spearman2(mat_, other_).into_pyarray_bound(py).to_object(py))
                 },
                 ty => panic!("Cannot compute correlation for type {}", ty),
             }
@@ -168,11 +168,11 @@ pub(crate) fn spearman<'py>(
             match other.getattr("dtype")?.getattr("name")?.extract()? {
                 "float32" => {
                     let other_ = other.extract::<PyReadonlyArray<f32, Ix2>>()?.to_owned_array();
-                    Ok(utils::similarity::spearman2(mat_, other_).into_pyarray(py).to_object(py))
+                    Ok(utils::similarity::spearman2(mat_, other_).into_pyarray_bound(py).to_object(py))
                 },
                 "float64" => {
                     let other_ = other.extract::<PyReadonlyArray<f64, Ix2>>()?.to_owned_array();
-                    Ok(utils::similarity::spearman2(mat_, other_).into_pyarray(py).to_object(py))
+                    Ok(utils::similarity::spearman2(mat_, other_).into_pyarray_bound(py).to_object(py))
                 },
                 ty => panic!("Cannot compute correlation for type {}", ty),
             }
@@ -181,17 +181,17 @@ pub(crate) fn spearman<'py>(
     }
 }
 
-fn csr_to_rust<'py>(csr: &'py PyAny) -> PyResult<CsrMatrix<f64>> {
+fn csr_to_rust<'py>(csr: &Bound<'py, PyAny>) -> PyResult<CsrMatrix<f64>> {
     let shape: Vec<usize> = csr.getattr("shape")?.extract()?;
-    let indices = cast_pyarray(csr.getattr("indices")?)?;
-    let indptr = cast_pyarray(csr.getattr("indptr")?)?;
-    let data = cast_pyarray(csr.getattr("data")?)?;
+    let indices = cast_pyarray(&csr.getattr("indices")?)?;
+    let indptr = cast_pyarray(&csr.getattr("indptr")?)?;
+    let data = cast_pyarray(&csr.getattr("data")?)?;
     Ok(CsrMatrix::try_from_csr_data(
         shape[0], shape[1], indptr, indices, data,
     ).unwrap())
 }
 
-fn cast_pyarray<'py, T: Element>(arr: &'py PyAny) -> PyResult<Vec<T>> {
+fn cast_pyarray<'py, T: Element>(arr: &Bound<'py, PyAny>) -> PyResult<Vec<T>> {
     let vec = match arr.getattr("dtype")?.getattr("name")?.extract()? {
         "uint32" => arr.extract::<PyReadonlyArrayDyn<u32>>()?.cast(false)?.to_vec().unwrap(),
         "int32" => arr.extract::<PyReadonlyArrayDyn<i32>>()?.cast(false)?.to_vec().unwrap(),
@@ -206,7 +206,7 @@ fn cast_pyarray<'py, T: Element>(arr: &'py PyAny) -> PyResult<Vec<T>> {
 
 /// Simple linear regression
 #[pyfunction]
-pub(crate) fn simple_lin_reg(py_iter: &PyIterator) -> PyResult<(f64, f64)> {
+pub(crate) fn simple_lin_reg(py_iter: Bound<'_, PyIterator>) -> PyResult<(f64, f64)> {
     Ok(lin_reg_imprecise(py_iter.map(|x| x.unwrap().extract().unwrap())).unwrap())
 }
 
@@ -234,10 +234,10 @@ pub(crate) fn read_regions(file: PathBuf) -> Vec<String> {
 }
 
 #[pyfunction]
-pub(crate) fn intersect_bed<'py>(regions: &'py PyAny, bed_file: &str) -> PyResult<Vec<bool>> {
+pub(crate) fn intersect_bed<'py>(regions: Bound<'py, PyAny>, bed_file: &str) -> PyResult<Vec<bool>> {
     let bed_tree: bed::tree::BedTree<()> = bed::io::Reader::new(utils::open_file_for_read(bed_file), None)
         .into_records().map(|x: Result<BED<3>, _>| (x.unwrap(), ())).collect();
-    let res = PyIterator::from_object(regions)?
+    let res = PyIterator::from_bound_object(&regions)?
         .map(|x| bed_tree.is_overlapped(&GenomicRange::from_str(x.unwrap().extract().unwrap()).unwrap()))
         .collect();
     Ok(res)
@@ -248,14 +248,14 @@ pub(crate) fn kmeans<'py>(
     py: Python<'py>,
     n_clusters: usize,
     observations_: PyReadonlyArray<'_, f64, Ix2>,
-) -> PyResult<&'py PyArray<usize, Ix1>> {
+) -> PyResult<Bound<'py, PyArray<usize, Ix1>>> {
     let seed = 42;
     let rng: Isaac64Rng = SeedableRng::seed_from_u64(seed);
     let observations = DatasetBase::from(observations_.as_array());
     let model = KMeans::params_with_rng(n_clusters, rng)
         .fit(&observations)
         .expect("KMeans fitted");
-    Ok(model.predict(observations).targets.into_pyarray(py))
+    Ok(model.predict(observations).targets.into_pyarray_bound(py))
 }
 
 pub fn read_transcripts<P: AsRef<std::path::Path>>(file_path: P, options: &TranscriptParserOptions) -> Vec<Transcript> {

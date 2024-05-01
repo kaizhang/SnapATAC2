@@ -1,5 +1,6 @@
 use crate::utils::*;
 
+use pyo3::{prelude::*, pybacked::PyBackedStr};
 use anndata::Backend;
 use anndata_hdf5::H5;
 use snapatac2_core::preprocessing::count_data::TranscriptParserOptions;
@@ -7,7 +8,6 @@ use snapatac2_core::preprocessing::count_data::CountingStrategy;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::{str::FromStr, collections::BTreeMap, ops::Deref, collections::HashSet};
-use pyo3::prelude::*;
 use bed_utils::{bed, bed::GenomicRange};
 use pyanndata::PyAnnData;
 use anyhow::Result;
@@ -72,7 +72,7 @@ pub(crate) fn make_fragment_file(
 pub(crate) fn import_fragments(
     anndata: AnnDataLike,
     fragment_file: PathBuf,
-    chrom_size: BTreeMap<&str, u64>,
+    chrom_size: BTreeMap<String, u64>,
     mitochondrial_dna: Vec<String>,
     min_num_fragment: u64,
     fragment_is_sorted_by_name: bool,
@@ -142,7 +142,7 @@ fn shift_fragment(fragment: &mut Fragment, shift_left: i64, shift_right: i64) {
 pub(crate) fn import_contacts(
     anndata: AnnDataLike,
     contact_file: PathBuf,
-    chrom_size: BTreeMap<&str, u64>,
+    chrom_size: BTreeMap<String, u64>,
     fragment_is_sorted_by_name: bool,
     chunk_size: usize,
     tempdir: Option<PathBuf>,
@@ -194,12 +194,14 @@ pub(crate) fn mk_tile_matrix(
     bin_size: usize,
     chunk_size: usize,
     strategy: &str,
-    exclude_chroms: Option<Vec<&str>>,
+    exclude_chroms: Option<Vec<PyBackedStr>>,
     min_fragment_size: Option<u64>,
     max_fragment_size: Option<u64>,
     out: Option<AnnDataLike>
 ) -> Result<()>
 {
+    let exclude_chroms = exclude_chroms.as_ref()
+        .map(|s| s.iter().map(|x| x.as_ref()).collect::<Vec<_>>());
     macro_rules! run {
         ($data:expr) => {
             if let Some(out) = out {
@@ -240,7 +242,7 @@ pub(crate) fn mk_tile_matrix(
 #[pyfunction]
 pub(crate) fn mk_peak_matrix(
     anndata: AnnDataLike,
-    peaks: &PyAny,
+    peaks: Bound<'_, PyAny>,
     chunk_size: usize,
     use_x: bool,
     strategy: &str,
@@ -339,7 +341,7 @@ pub(crate) fn tss_enrichment(
 #[pyfunction]
 pub(crate) fn add_frip(
     anndata: AnnDataLike,
-    regions: BTreeMap<String, Vec<&str>>,
+    regions: BTreeMap<String, Vec<String>>,
 ) -> Result<BTreeMap<String, Vec<f64>>>
 {
     let trees: Vec<_> = regions.values().map(|x|

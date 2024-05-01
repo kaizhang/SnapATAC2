@@ -23,11 +23,11 @@ use std::ops::Deref;
 pub(crate) fn spectral_embedding<'py>(
     py: Python<'py>,
     anndata: AnnDataLike,
-    selected_features: &PyAny,
+    selected_features: &Bound<'_, PyAny>,
     n_components: usize,
     random_state: i64,
     feature_weights: Option<Vec<f64>>,
-) -> Result<(&'py PyArray1<f64>, &'py PyArray2<f64>)> {
+) -> Result<(Bound<'py, PyArray1<f64>>, Bound<'py, PyArray2<f64>>)> {
     macro_rules! run {
         ($data:expr) => {{
             let slice = pyanndata::data::to_select_elem(selected_features, $data.n_vars())?;
@@ -46,8 +46,8 @@ pub(crate) fn spectral_embedding<'py>(
     let (evals, evecs) = crate::with_anndata!(&anndata, run)?;
 
     Ok((
-        PyArray1::from_owned_array(py, evals),
-        PyArray2::from_owned_array(py, evecs),
+        PyArray1::from_owned_array_bound(py, evals),
+        PyArray2::from_owned_array_bound(py, evecs),
     ))
 }
 
@@ -55,13 +55,13 @@ pub(crate) fn spectral_embedding<'py>(
 pub(crate) fn spectral_embedding_nystrom<'py>(
     py: Python<'py>,
     anndata: AnnDataLike,
-    selected_features: &PyAny,
+    selected_features: &Bound<'_, PyAny>,
     n_components: usize,
     sample_size: usize,
     weighted_by_degree: bool,
     chunk_size: usize,
     feature_weights: Option<Vec<f64>>,
-) -> Result<(&'py PyArray1<f64>, &'py PyArray2<f64>)> {
+) -> Result<(Bound<'py, PyArray1<f64>>, Bound<'py, PyArray2<f64>>)> {
     macro_rules! run {
         ($data:expr) => {{
             let selected_features =
@@ -115,8 +115,8 @@ pub(crate) fn spectral_embedding_nystrom<'py>(
 
     let (evals, evecs) = crate::with_anndata!(&anndata, run)?;
     Ok((
-        PyArray1::from_owned_array(py, evals),
-        PyArray2::from_owned_array(py, evecs),
+        PyArray1::from_owned_array_bound(py, evals),
+        PyArray2::from_owned_array_bound(py, evecs),
     ))
 }
 
@@ -145,7 +145,7 @@ fn spectral_mf(
 
     // Compute eigenvalues and eigenvectors
     let (v, u) = Python::with_gil(|py| {
-        let fun: Py<PyAny> = PyModule::from_code(
+        let fun: Py<PyAny> = PyModule::from_code_bound(
             py,
             "def eigen(X, D, k, seed):
                 from scipy.sparse.linalg import LinearOperator, eigsh
@@ -168,7 +168,7 @@ fn spectral_mf(
         .into();
         let args = (
             PyArrayData::from(ArrayData::from(input)),
-            PyArray1::from_iter(py, degree_inv.into_iter().copied()),
+            PyArray1::from_iter_bound(py, degree_inv.into_iter().copied()),
             n_components,
             random_state,
         );
@@ -204,11 +204,11 @@ where
         .axis_iter_mut(Axis(1))
         .zip(evals.iter())
         .for_each(|(mut col, v)| col *= v.recip());
-    let evecs_py = PyArray2::from_array(py, evecs);
-    let evals_py = PyArray1::from_array(py, evals);
+    let evecs_py = PyArray2::from_array_bound(py, evecs);
+    let evals_py = PyArray1::from_array_bound(py, evals);
     let seed_matrix_py = PyArrayData::from(ArrayData::from(seed_matrix)).into_py(py);
 
-    let nystrom_py: Py<PyAny> = PyModule::from_code(
+    let nystrom_py: Py<PyAny> = PyModule::from_code_bound(
         py,
         "def nystrom(seed, sample, evecs, evals):
             import numpy as np
@@ -234,8 +234,8 @@ where
             let args = (
                 &seed_matrix_py,
                 PyArrayData::from(ArrayData::from(sample)),
-                evecs_py,
-                evals_py,
+                &evecs_py,
+                &evals_py,
             );
             nystrom_py
                 .call1(py, args)
@@ -380,11 +380,11 @@ fn hstack(m1: CsrMatrix<f64>, m2: CsrMatrix<f64>) -> CsrMatrix<f64> {
 pub(crate) fn multi_spectral_embedding<'py>(
     py: Python<'py>,
     anndata: Vec<AnnDataLike>,
-    selected_features: Vec<&PyAny>,
+    selected_features: Vec<Bound<'_, PyAny>>,
     weights: Vec<f64>,
     n_components: usize,
     random_state: i64,
-) -> Result<(&'py PyArray1<f64>, &'py PyArray2<f64>)> {
+) -> Result<(Bound<'py, PyArray1<f64>>, Bound<'py, PyArray2<f64>>)> {
     info!("Compute normalized views...");
     let mats = anndata
         .into_iter()
@@ -392,7 +392,7 @@ pub(crate) fn multi_spectral_embedding<'py>(
         .map(|(a, s)| {
             macro_rules! get_mat {
                 ($data:expr) => {{
-                    let slice = pyanndata::data::to_select_elem(s, $data.n_vars())
+                    let slice = pyanndata::data::to_select_elem(&s, $data.n_vars())
                         .expect("Invalid feature selection");
                     let mut mat: CsrMatrix<f64> =
                         $data.x().slice_axis(1, slice).unwrap().expect("X is None");
@@ -432,14 +432,14 @@ pub(crate) fn multi_spectral_embedding<'py>(
     info!("Compute embedding...");
     let (evals, evecs, _) = spectral_mf(mat, n_components, random_state)?;
     Ok((
-        PyArray1::from_owned_array(py, evals),
-        PyArray2::from_owned_array(py, evecs),
+        PyArray1::from_owned_array_bound(py, evals),
+        PyArray2::from_owned_array_bound(py, evecs),
     ))
 }
 
 fn frobenius_norm(x: &CsrMatrix<f64>) -> f64 {
     let sum: f64 = Python::with_gil(|py| {
-        let fun: Py<PyAny> = PyModule::from_code(
+        let fun: Py<PyAny> = PyModule::from_code_bound(
             py,
             "def f(X):
                 import numpy as np

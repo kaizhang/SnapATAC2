@@ -18,7 +18,7 @@ use polars::{
     prelude::{DataFrame, NamedFrom},
     series::Series,
 };
-use pyo3::prelude::*;
+use pyo3::{prelude::*, pybacked::PyBackedStr};
 use pyo3_polars::PyDataFrame;
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use std::collections::HashSet;
@@ -67,8 +67,8 @@ pub fn py_merge_peaks<'py>(
 
 #[pyfunction]
 pub fn find_reproducible_peaks<'py>(
-    peaks: &'py PyAny,
-    replicates: Vec<&'py PyAny>,
+    peaks: &Bound<'py, PyAny>,
+    replicates: Vec<Bound<'py, PyAny>>,
     blacklist: Option<PathBuf>,
 ) -> Result<PyDataFrame> {
     let black: BedTree<_> = if let Some(black) = blacklist {
@@ -86,7 +86,7 @@ pub fn find_reproducible_peaks<'py>(
         .collect::<Vec<_>>();
     let replicates = replicates
         .into_iter()
-        .map(|x| BedTree::from_iter(get_peaks(x).unwrap().into_iter().map(|x| (x, ()))))
+        .map(|x| BedTree::from_iter(get_peaks(&x).unwrap().into_iter().map(|x| (x, ()))))
         .collect::<Vec<_>>();
     let peaks: Vec<_> = peaks
         .into_iter()
@@ -97,7 +97,7 @@ pub fn find_reproducible_peaks<'py>(
 
 #[pyfunction]
 pub fn fetch_peaks<'py>(
-    peaks: HashMap<String, &'py PyAny>,
+    peaks: HashMap<String, Bound<'py, PyAny>>,
     blacklist: Option<PathBuf>,
 ) -> Result<HashMap<String, PyDataFrame>> {
     let black: BedTree<_> = if let Some(black) = blacklist {
@@ -111,7 +111,7 @@ pub fn fetch_peaks<'py>(
     peaks
         .into_iter()
         .map(|(key, peaks)| {
-            let ps = get_peaks(peaks)?
+            let ps = get_peaks(&peaks)?
                 .into_iter()
                 .filter(|x| !black.is_overlapped(x))
                 .collect::<Vec<_>>();
@@ -209,7 +209,7 @@ fn narrow_peak_to_dataframe<I: IntoIterator<Item = NarrowPeak>>(
     Ok(df)
 }
 
-fn get_peaks<'py>(peak_io_obj: &'py PyAny) -> Result<Vec<NarrowPeak>> {
+fn get_peaks<'py>(peak_io_obj: &Bound<'py, PyAny>) -> Result<Vec<NarrowPeak>> {
     peak_io_obj
         .getattr("peaks")?
         .downcast::<pyo3::types::PyDict>()
@@ -251,21 +251,20 @@ fn get_peaks<'py>(peak_io_obj: &'py PyAny) -> Result<Vec<NarrowPeak>> {
 pub fn create_fwtrack_obj<'py>(
     py: Python<'py>,
     files: Vec<PathBuf>,
-) -> Result<(&'py PyAny, Vec<&'py PyAny>)> {
-    let macs = py.import("MACS3.Signal.FixWidthTrack")?;
+) -> Result<(Bound<'py, PyAny>, Vec<Bound<'py, PyAny>>)> {
+    let macs = py.import_bound("MACS3.Signal.FixWidthTrack")?;
     let merged = macs.getattr("FWTrack")?.call1((1000000,))?;
     let has_replicate = files.len() > 1;
     let replicates = files
         .into_iter()
         .map(|fl| {
-            let kwargs = pyo3::types::PyDict::new(py);
+            let kwargs = pyo3::types::PyDict::new_bound(py);
             kwargs.set_item("buffer_size", 100000)?;
-            let fwt = macs.getattr("FWTrack")?.call((), Some(kwargs))?;
+            let fwt = macs.getattr("FWTrack")?.call((), Some(&kwargs))?;
             let reader = utils::open_file_for_read(&fl);
             bed_utils::bed::io::Reader::new(reader, None)
                 .into_records::<Fragment>()
                 .try_for_each(|x| {
-                    let _pool = unsafe { py.new_pool() }; // This is necessary to release memory of objects created in the loop
                     let x = x?;
                     let chr = x.chrom().as_bytes();
                     match x.strand() {
@@ -300,7 +299,7 @@ pub fn create_fwtrack_obj<'py>(
         merged.call_method0("finalize")?;
         Ok((merged, replicates))
     } else {
-        Ok((replicates[0], Vec::new()))
+        Ok((replicates.into_iter().next().unwrap(), Vec::new()))
     }
 }
 
@@ -308,10 +307,10 @@ pub fn create_fwtrack_obj<'py>(
 pub fn export_tags(
     anndata: AnnDataLike,
     dir: PathBuf,
-    group_by: Vec<&str>,
-    replicates: Option<Vec<&str>>,
+    group_by: Vec<PyBackedStr>,
+    replicates: Option<Vec<PyBackedStr>>,
     max_frag_size: Option<u64>,
-    selections: Option<HashSet<&str>>,
+    selections: Option<HashSet<String>>,
 ) -> Result<HashMap<String, Vec<PathBuf>>> {
     macro_rules! run {
         ($data:expr) => {
@@ -332,10 +331,10 @@ pub fn export_tags(
 fn _export_tags<D: SnapData, P: AsRef<std::path::Path>>(
     data: &D,
     dir: P,
-    group_by: &Vec<&str>,
-    replicates: Option<&Vec<&str>>,
+    group_by: &Vec<PyBackedStr>,
+    replicates: Option<&Vec<PyBackedStr>>,
     max_frag_size: Option<u64>,
-    selections: Option<HashSet<&str>>,
+    selections: Option<HashSet<String>>,
 ) -> Result<HashMap<String, Vec<PathBuf>>> {
     // Get keys
     ensure!(data.n_obs() == group_by.len(), "lengths differ");
@@ -343,9 +342,9 @@ fn _export_tags<D: SnapData, P: AsRef<std::path::Path>>(
         Some(rep) => group_by
             .iter()
             .zip(rep.iter())
-            .map(|(x, y)| (*x, *y))
+            .map(|(x, y)| (x.as_ref(), y.as_ref()))
             .collect(),
-        None => group_by.iter().map(|x| (*x, "")).collect(),
+        None => group_by.iter().map(|x| (x.as_ref(), "")).collect(),
     };
     let mut unique_keys: HashSet<(&str, &str)> = keys.iter().cloned().unique().collect();
 

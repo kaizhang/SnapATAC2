@@ -7,7 +7,7 @@ mod network;
 mod motif;
 mod knn;
 
-use pyo3::{prelude::*, PyResult, Python};
+use pyo3::{prelude::*, PyResult};
 use pyanndata;
 
 #[cfg(not(target_env = "msvc"))]
@@ -18,7 +18,7 @@ use tikv_jemallocator::Jemalloc;
 static GLOBAL: Jemalloc = Jemalloc;
 
 #[pymodule]
-fn _snapatac2(_py: Python, m: &PyModule) -> PyResult<()> {
+fn _snapatac2(m: &Bound<'_, PyModule>) -> PyResult<()> {
     pyo3_log::init();
 
     // AnnData related functions

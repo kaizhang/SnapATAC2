@@ -182,6 +182,18 @@ def import_data(
       For large fragment files, it is recommended to set `tempdir` to a location with
       sufficient space in order to avoid running out of disk space.
 
+    Warning
+    -------
+    When the input to the function is a list of files, it employs multiprocessing
+    to process these files concurrently. In this case, however, it is crucial to
+    safeguard the entry point of the program by encapsulating the function call
+    within `if __name__ == '__main__':`. This condition ensures that the module
+    is being run as the main program and not being loaded as a module from
+    another script. Without this protection, each subprocess might attempt to
+    spawn its own subprocesses, leading to a cascade of process spawns—a situation
+    that can cause the program to hang or crash due to infinite recursion.
+    You don't need to do this in Jupyter notebook as it automatically does that.
+
     Parameters
     ----------
     fragment_file

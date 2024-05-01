@@ -1,10 +1,10 @@
 use crate::utils::AnnDataLike;
 use snapatac2_core::{export::{Exporter, Normalization, CoverageOutputFormat}, utils};
 
+use pyo3::{prelude::*, pybacked::PyBackedStr};
 use std::ops::Deref;
 use anndata::Backend;
 use anndata_hdf5::H5;
-use pyo3::prelude::*;
 use std::{collections::{HashSet, HashMap}, path::PathBuf};
 use anyhow::Result;
 use bed_utils::bed::{GenomicRange, io::Reader, tree::BedTree};
@@ -13,17 +13,21 @@ use std::str::FromStr;
 #[pyfunction]
 pub fn export_fragments(
     anndata: AnnDataLike,
-    barcodes: Vec<&str>,
-    group_by: Vec<&str>,
+    barcodes: Vec<PyBackedStr>,
+    group_by: Vec<PyBackedStr>,
     dir: PathBuf,
     prefix: &str,
     suffix: &str,
-    selections: Option<HashSet<&str>>,
+    selections: Option<HashSet<PyBackedStr>>,
     min_frag_length: Option<u64>,
     max_frag_length: Option<u64>,
     compression: Option<&str>,
     compression_level: Option<u32>,
 ) -> Result<HashMap<String, PathBuf>> {
+    let barcodes = barcodes.iter().map(|x| x.as_ref()).collect();
+    let group_by = group_by.iter().map(|x| x.as_ref()).collect();
+    let selections = selections.as_ref()
+        .map(|s| s.iter().map(|x| x.as_ref()).collect());
     macro_rules! run {
         ($data:expr) => {
             $data.export_fragments(
@@ -38,16 +42,16 @@ pub fn export_fragments(
 #[pyfunction]
 pub fn export_coverage(
     anndata: AnnDataLike,
-    group_by: Vec<&str>,
+    group_by: Vec<PyBackedStr>,
     resolution: usize,
     dir: PathBuf,
     prefix: &str,
     suffix:&str,
     output_format: &str,
-    selections: Option<HashSet<&str>>,
+    selections: Option<HashSet<PyBackedStr>>,
     blacklist: Option<PathBuf>,
     normalization: Option<&str>,
-    ignore_for_norm: Option<HashSet<&str>>,
+    ignore_for_norm: Option<HashSet<PyBackedStr>>,
     min_frag_length: Option<u64>,
     max_frag_length: Option<u64>,
     compression: Option<&str>,
@@ -55,6 +59,12 @@ pub fn export_coverage(
     temp_dir: Option<PathBuf>,
     num_threads: Option<usize>,
 ) -> Result<HashMap<String, PathBuf>> {
+    let group_by = group_by.iter().map(|x| x.as_ref()).collect();
+    let selections = selections.as_ref()
+        .map(|s| s.iter().map(|x| x.as_ref()).collect());
+    let ignore_for_norm = ignore_for_norm.as_ref()
+        .map(|s| s.iter().map(|x| x.as_ref()).collect());
+
     let black: Option<BedTree<()>> = blacklist.map(|black| {
         Reader::new(utils::open_file_for_read(black), None)
             .into_records::<GenomicRange>()
