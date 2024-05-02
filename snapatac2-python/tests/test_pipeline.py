@@ -13,11 +13,17 @@ def test_exclude():
     data1 = snap.pp.import_data(
         fragment_file,
         chrom_sizes={chr: size for chr, size in snap.genome.hg38.chrom_sizes.items() if chr not in ["chr1", "chr10"]},
-        sorted_by_barcode=False
+        sorted_by_barcode=False,
+        min_num_fragments=0,
     )
     snap.pp.add_tile_matrix(data1, exclude_chroms=None)
 
-    data2 = snap.pp.import_data(fragment_file, chrom_sizes=snap.genome.hg38, sorted_by_barcode=False)
+    data2 = snap.pp.import_data(
+        fragment_file,
+        chrom_sizes=snap.genome.hg38,
+        sorted_by_barcode=False,
+        min_num_fragments=0,
+    )
     snap.pp.add_tile_matrix(data2, exclude_chroms=["chr1", "chr10"])
 
     np.testing.assert_array_equal(data1.X.data, data2.X.data)
