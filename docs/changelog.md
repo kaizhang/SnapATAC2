@@ -2,7 +2,10 @@
 
 ## Nightly version
 
+## Release 2.6.1 (released May 2, 2024)
+
 ### Features:
+
   - Add the argument `inplace` to AnnData `subset` function. As a result, if you
     want to perform out-of-place subset, you need to set `inplace=False` explicitly.
     Before you just need to set the `out` parameter. The benefit of this change
@@ -11,6 +14,7 @@
   - Use only the unique TSSs instead of all TSSs read from the GTF file in `metrics.tsse` calculation.
 
 ### Bugs fixed:
+
   - Fix #252: `tl.spectral` does not raise an error when the input matrix is in
     compressed column format, whereas it should expect a compressed sparse row format.
   - Fix a bug in `pp.import_data` which produces incorrect duplication rates when
@@ -19,6 +23,7 @@
 ## Release 2.6.0 (released March 9, 2024)
 
 ### Features:
+
   - Add a argument `counting_strategy` to `pp.add_tile_matrix`, `pp.make_peak_matrix`, and `pp.make_gene_matrix`, which allows one to use different strategies
   (insertion-based, fragment-based, or paired insertion counting) to compute feature counts.
   - Fix #233: Add Apple silicon wheel files.
