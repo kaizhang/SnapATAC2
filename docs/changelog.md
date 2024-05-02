@@ -8,6 +8,7 @@
     Before you just need to set the `out` parameter. The benefit of this change
     is that you can save the subset in memory by setting `out=None, inplace=False`,
     which cannot be achieved before.
+  - Use only the unique TSSs instead of all TSSs read from the GTF file in `metrics.tsse` calculation.
 
 ### Bugs fixed:
   - Fix #252: `tl.spectral` does not raise an error when the input matrix is in

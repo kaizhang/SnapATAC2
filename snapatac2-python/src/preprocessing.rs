@@ -1,5 +1,6 @@
 use crate::utils::*;
 
+use itertools::Itertools;
 use pyo3::{prelude::*, pybacked::PyBackedStr};
 use anndata::Backend;
 use anndata_hdf5::H5;
@@ -328,7 +329,8 @@ pub(crate) fn tss_enrichment(
     gtf_file: PathBuf,
 ) -> Result<Vec<f64>>
 {
-    let promoters = preprocessing::make_promoter_map(preprocessing::read_tss(utils::open_file_for_read(gtf_file)));
+    let tss = preprocessing::read_tss(utils::open_file_for_read(gtf_file)).unique();
+    let promoters = preprocessing::make_promoter_map(tss);
 
     macro_rules! run {
         ($data:expr) => {
