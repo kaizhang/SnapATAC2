@@ -1,6 +1,6 @@
 [package]
 name = "snapatac2"
-version = "2.6.1-dev0"
+version = "2.6.1"
 edition = "2021"
 authors = ["Kai Zhang <kai@kzhang.org>"]
 description = "Rust APIs"
