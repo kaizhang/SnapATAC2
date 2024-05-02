@@ -25,7 +25,7 @@ jobs:
       run: |
         sudo apt-get install -y pandoc jq
         sudo pip install --upgrade pip
-        pip install --user sphinx==7.* pydata-sphinx-theme==0.14.* pandoc nbsphinx \
+        pip install --user sphinx==7.* pydata-sphinx-theme==0.15.* pandoc nbsphinx \
           Pygments==2.16.* sphinx-autodoc-typehints myst-parser \
           markupsafe==2.1.* sphinx-plotly-directive
 

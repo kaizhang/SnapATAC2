@@ -72,9 +72,10 @@ def make_fragment_file(
         Extract barcodes from read names of BAM records using regular expressions.
         Reguler expressions should contain exactly one capturing group 
         (Parentheses group the regex between them) that matches
-        the barcodes. For example, `barcode_regex="(..:..:..:..):\\w+$"`
+        the barcodes. For example, `barcode_regex="(..:..:..:..):\\\\w+$"`
         extracts `bd:69:Y6:10` from
         `A01535:24:HW2MMDSX2:2:1359:8513:3458:bd:69:Y6:10:TGATAGGTTG`.
+        You can test your regex on this website: https://regex101.com/.
     umi_tag
         Extract UMI from TAG fields of BAM records.
     umi_regex
