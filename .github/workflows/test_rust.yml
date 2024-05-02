@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
-      uses: nschloe/action-cached-lfs-checkout@v1
+      uses: actions/checkout@v4
 
     - uses: ./.github/actions/setup-rust
       with:

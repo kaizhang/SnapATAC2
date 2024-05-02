@@ -47,26 +47,42 @@ jobs:
       uses: codecov/codecov-action@v3
 
     - name: Upload wheel files as artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: wheel-files
         path: ./wheel_files/snapatac2*.whl
 
   build-wheel:
+    needs: build-and-test
     if: ${{ startsWith(github.ref, 'refs/tags/') || contains(github.event.head_commit.message, '[wheel]') }}
     uses: kaizhang/SnapATAC2/.github/workflows/wheels.yml@main
-    with:
-      wheel: 'true'
 
-  build-docker:
-    needs: [build-and-test, build-wheel]
-    if: ${{ startsWith(github.ref, 'refs/tags/') || contains(github.event.head_commit.message, '[docker]') }}
+  publish:
+    needs: build-wheel
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    if: ${{ startsWith(github.ref, 'refs/tags') }}
     steps:
-      - name: Docker
-        uses: ./.github/actions/build-docker-image
-        with:
-          snapatac2-version: ${{ needs.build-and-test.outputs.VERSION }}
-          python-version: 3.11
-          username: ${{ secrets.dockerhub_username }}
-          password: ${{ secrets.dockerhub_token }}
+    - name: Download wheel files
+      uses: actions/download-artifact@v4
+      with:
+        path: dist
+        pattern: snapatac2-*
+        merge-multiple: true
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@v1.8.14
+
+#  build-docker:
+#    needs: [build-and-test, build-wheel]
+#    if: ${{ startsWith(github.ref, 'refs/tags/') || contains(github.event.head_commit.message, '[docker]') }}
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Docker
+#        uses: ./.github/actions/build-docker-image
+#        with:
+#          snapatac2-version: ${{ needs.build-and-test.outputs.VERSION }}
+#          python-version: 3.11
+#          username: ${{ secrets.dockerhub_username }}
+#          password: ${{ secrets.dockerhub_token }}
