@@ -141,9 +141,9 @@ where
     let mut qc = FragmentSummary::new(mitochrondrial_dna);
     let mut values = Vec::new();
     fragments.into_iter().for_each(|f| {
-        qc.update(&f);
         let chrom = &f.chrom;
         if genome_index.contain_chrom(chrom) {
+            qc.update(&f);
             let start = f.start as i64;
             let end = f.end as i64;
             let size = end - start;

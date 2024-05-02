@@ -13,6 +13,8 @@
 ### Bugs fixed:
   - Fix #252: `tl.spectral` does not raise an error when the input matrix is in
     compressed column format, whereas it should expect a compressed sparse row format.
+  - Fix a bug in `pp.import_data` which produces incorrect duplication rates when
+    the input data contains mitochondrial reads.
 
 ## Release 2.6.0 (released March 9, 2024)
 

@@ -181,6 +181,8 @@ def import_data(
       temporary files is proportional to the number of records in the fragment file.
       For large fragment files, it is recommended to set `tempdir` to a location with
       sufficient space in order to avoid running out of disk space.
+    - The QC metrics are computed only for reads that are included by the `whitelist`
+      or `chrom_sizes`.
 
     Warning
     -------

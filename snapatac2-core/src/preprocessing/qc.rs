@@ -199,10 +199,10 @@ impl<'a> FragmentSummary<'a> {
     }
 
     pub(crate) fn update(&mut self, fragment: &Fragment) {
+        self.num_total_fragment += fragment.count as u64;
         if self.mitochondrial_dna.contains(fragment.chrom.as_str()) {
             self.num_mitochondrial += 1;
         } else {
-            self.num_total_fragment += fragment.count as u64;
             self.num_unique_fragment += 1;
         }
     }
