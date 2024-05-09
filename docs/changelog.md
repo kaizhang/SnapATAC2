@@ -2,6 +2,11 @@
 
 ## Nightly version
 
+### Features:
+
+  - Add the argument `exclude_chroms` to `metrics.tsse` to exclude certains chromosomes
+    from TSSe calculation. The default is "chrM".
+
 ## Release 2.6.1 (released May 2, 2024)
 
 ### Features:

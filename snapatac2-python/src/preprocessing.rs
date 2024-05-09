@@ -327,9 +327,16 @@ pub(crate) fn mk_gene_matrix(
 pub(crate) fn tss_enrichment(
     anndata: AnnDataLike,
     gtf_file: PathBuf,
+    exclude_chroms: Option<Vec<String>>,
 ) -> Result<Vec<f64>>
 {
-    let tss = preprocessing::read_tss(utils::open_file_for_read(gtf_file)).unique();
+    let exclude_chroms = match exclude_chroms {
+        Some(chrs) => chrs.into_iter().collect(),
+        None => HashSet::new(), 
+    };
+    let tss = preprocessing::read_tss(utils::open_file_for_read(gtf_file))
+        .unique()
+        .filter(|(chr, _, _)| !exclude_chroms.contains(chr));
     let promoters = preprocessing::make_promoter_map(tss);
 
     macro_rules! run {

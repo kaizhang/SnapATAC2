@@ -11,6 +11,7 @@ def tsse(
     adata: internal.AnnData | list[internal.AnnData],
     gene_anno: Genome | Path,
     *,
+    exclude_chroms: list[str] | str | None = ["chrM", "M"],
     inplace: bool = True,
     n_jobs: int = 8,
 ) -> np.ndarray | list[np.ndarray] | None:
@@ -27,6 +28,8 @@ def tsse(
         In this case, the function will be applied to each AnnData object in parallel.
     gene_anno
         A :class:`~snapatac2.Genome` object or a GTF/GFF file containing the gene annotation.
+    exclude_chroms
+        A list of chromosomes to exclude.
     inplace
         Whether to add the results to `adata.obs` or return it as a dictionary.
     n_jobs
@@ -57,11 +60,11 @@ def tsse(
     if isinstance(adata, list):
         result = snapatac2._utils.anndata_par(
             adata,
-            lambda x: tsse(x, gene_anno, inplace=inplace),
+            lambda x: tsse(x, gene_anno, exclude_chroms=exclude_chroms, inplace=inplace),
             n_jobs=n_jobs,
         )
     else:
-        result = np.array(internal.tss_enrichment(adata, gene_anno))
+        result = np.array(internal.tss_enrichment(adata, gene_anno, exclude_chroms))
         if inplace:
             adata.obs["tsse"] = result
     if inplace:
