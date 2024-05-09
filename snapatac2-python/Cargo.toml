@@ -1,6 +1,6 @@
 [package]
 name = "snapatac2"
-version = "2.6.2-dev0"
+version = "2.6.2"
 edition = "2021"
 authors = ["Kai Zhang <kai@kzhang.org>"]
 description = "Rust APIs"
@@ -15,9 +15,9 @@ snapatac2-core = { path = "../snapatac2-core" }
 anndata = "0.3.3"
 anndata-hdf5 = "0.2"
 pyanndata = "0.3.3"
-extsort = "0.4"
+extsort = "0.5"
 anyhow = "1.0"
-bed-utils = "0.2"
+bed-utils = "0.3"
 flate2 = "1.0"
 itertools = "0.12"
 indicatif = "0.17"

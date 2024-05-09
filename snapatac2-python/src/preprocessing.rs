@@ -109,7 +109,7 @@ pub(crate) fn import_fragments(
             f
     });
     let sorted_fragments: Box<dyn Iterator<Item = Fragment>> = if !fragment_is_sorted_by_name {
-        Box::new(bed::sort_bed_by_key(fragments, |x| x.barcode.clone(), tempdir))
+        Box::new(bed::sort_bed_by_key(fragments, |x| x.barcode.clone(), tempdir).map(|x| x.unwrap()))
     } else {
         Box::new(fragments)
     };
@@ -164,6 +164,7 @@ pub(crate) fn import_contacts(
             .with_sort_dir(tmp.path().to_path_buf())
             .with_parallel_sort()
             .sort_by_key(contacts, |x| x.barcode.clone()).unwrap()
+            .map(|x| x.unwrap())
         )
     } else {
         Box::new(contacts)

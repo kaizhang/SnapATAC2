@@ -253,15 +253,15 @@ checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
 
 [[package]]
 name = "bed-utils"
-version = "0.2.1"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c43420179bf4e3f57335f50092361dcc4229b8ccb79cb7c7bfe71aa1f5b8c105"
+checksum = "f55747ca3b14034422f4a0fb4741ebb21d94c8a383f95fa44d138c1c1b05ae76"
 dependencies = [
  "bincode",
  "bio",
  "extsort",
  "indexmap 2.2.3",
- "itertools 0.8.2",
+ "itertools 0.12.1",
  "lexical",
  "num",
  "num-traits",
@@ -306,9 +306,9 @@ dependencies = [
 
 [[package]]
 name = "bio"
-version = "1.5.0"
+version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25dccfc5babf5a4f505ab5bdda0e18d4b5fc1600c222677c54992203632cbdf5"
+checksum = "7a72cb93babf08c85b375c2938ac678cc637936b3ebb72266d433cec2577f6c2"
 dependencies = [
  "anyhow",
  "approx 0.5.1",
@@ -321,7 +321,6 @@ dependencies = [
  "editdistancek",
  "enum-map",
  "fxhash",
- "getset",
  "itertools 0.11.0",
  "itertools-num",
  "lazy_static",
@@ -857,9 +856,9 @@ checksum = "b90ca2580b73ab6a1f724b76ca11ab632df820fd6040c336200d2c1df7b3c82c"
 
 [[package]]
 name = "extsort"
-version = "0.4.2"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffc5bb6fbca3c5ce6a51f6857eab8c35c898b2fbcb62ff1b728243dd19ec0c9f"
+checksum = "b55aeea941ed0cc991b26e54270a58fa2611708804d4b4f8a3f4c974ad161b2a"
 dependencies = [
  "rayon",
  "skeptic",
@@ -1038,18 +1037,6 @@ dependencies = [
  "libc",
  "wasi",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "getset"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e45727250e75cc04ff2846a66397da8ef2b3db8e40e0cef4df67950a07621eb9"
-dependencies = [
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
 ]
 
 [[package]]
@@ -1290,15 +1277,6 @@ name = "inventory"
 version = "0.3.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f958d3d68f4167080a18141e10381e7634563984a537f2a49a30fd8e53ac5767"
-
-[[package]]
-name = "itertools"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f56a2d0bc861f9165be4eb3442afd3c236d8a98afd426f65d92324ae1091a484"
-dependencies = [
- "either",
-]
 
 [[package]]
 name = "itertools"
@@ -2621,30 +2599,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b40af805b3121feab8a3c29f04d8ad262fa8e0561883e7653e024ae4479e6de"
 
 [[package]]
-name = "proc-macro-error"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da25490ff9892aab3fcf7c36f08cfb902dd3e71ca0f9f9517bea02a73a5ce38c"
-dependencies = [
- "proc-macro-error-attr",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
- "version_check",
-]
-
-[[package]]
-name = "proc-macro-error-attr"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1be40180e52ecc98ad80b184934baf3d0d29f979574e439af5a55274b35f869"
-dependencies = [
- "proc-macro2",
- "quote",
- "version_check",
-]
-
-[[package]]
 name = "proc-macro2"
 version = "1.0.78"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3266,7 +3220,7 @@ dependencies = [
 
 [[package]]
 name = "snapatac2"
-version = "2.6.2-dev0"
+version = "2.6.2"
 dependencies = [
  "anndata",
  "anndata-hdf5",

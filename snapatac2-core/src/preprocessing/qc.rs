@@ -3,7 +3,7 @@ use anndata::data::CsrNonCanonical;
 use bed_utils::bed::{GenomicRange, BEDLike, tree::BedTree, ParseError, Strand};
 use anyhow::Result;
 use serde::{Serialize, Deserialize};
-use extsort::sorter::Sortable;
+use extsort::Sortable;
 use bincode;
 use smallvec::{SmallVec, smallvec};
 
@@ -22,13 +22,16 @@ pub struct Fragment {
 }
 
 impl Sortable for Fragment {
-    fn encode<W: std::io::Write>(&self, writer: &mut W) {
-        bincode::serialize_into(writer, self)
-            .unwrap_or_else(|e| panic!("Failed to serialize fragment: {}", e));
+    fn encode<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        bincode::serialize_into(writer, self).map_err(|e| 
+            std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
+        )
     }
 
-    fn decode<R: std::io::Read>(reader: &mut R) -> Option<Self> {
-        bincode::deserialize_from(reader).ok()
+    fn decode<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
+        bincode::deserialize_from(reader).map_err(|e|
+            std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
+        )
     }
 }
 
@@ -141,13 +144,16 @@ pub struct Contact {
 }
 
 impl Sortable for Contact {
-    fn encode<W: std::io::Write>(&self, writer: &mut W) {
-        bincode::serialize_into(writer, self)
-            .unwrap_or_else(|e| panic!("Failed to serialize fragment: {}", e));
+    fn encode<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        bincode::serialize_into(writer, self).map_err(|e|
+            std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
+        )
     }
 
-    fn decode<R: std::io::Read>(reader: &mut R) -> Option<Self> {
-        bincode::deserialize_from(reader).ok()
+    fn decode<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
+        bincode::deserialize_from(reader).map_err(|e|
+            std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
+        )
     }
 }
 

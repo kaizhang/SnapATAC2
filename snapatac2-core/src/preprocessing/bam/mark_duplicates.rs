@@ -28,7 +28,7 @@ use noodles::{
 use bed_utils::bed::{BEDLike, Strand};
 use std::collections::HashMap;
 use itertools::Itertools;
-use extsort::{sorter::Sortable, ExternalSorter};
+use extsort::{Sortable, ExternalSorter};
 use bincode;
 use log::warn;
 use rayon::prelude::ParallelSliceMut;
@@ -165,12 +165,16 @@ impl AlignmentInfo {
 }
 
 impl Sortable for AlignmentInfo {
-    fn encode<W: std::io::Write>(&self, writer: &mut W) {
-        bincode::serialize_into(writer, self).unwrap();
+    fn encode<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        bincode::serialize_into(writer, self).map_err(|e|
+            std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
+        )
     }
 
-    fn decode<R: std::io::Read>(reader: &mut R) -> Option<Self> {
-        bincode::deserialize_from(reader).ok()
+    fn decode<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
+        bincode::deserialize_from(reader).map_err(|e|
+            std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
+        )
     }
 }
 
@@ -420,6 +424,7 @@ where
                 .then_with(|| a.unclipped_start.cmp(&b.unclipped_start))
                 .then_with(|| a.unclipped_end.cmp(&b.unclipped_end))
             ).unwrap()
+            .map(|x| x.unwrap())
     }
 
     RecordGroups {
