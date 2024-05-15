@@ -82,7 +82,7 @@ def test_make_fragment(datadir, tmp_path):
     bam = str(datadir.join('test.bam'))
     bed = str(datadir.join('test.bed.gz'))
     output = str(tmp_path) + "/out.bed.gz"
-    snap.pp.make_fragment_file(bam, output, True, barcode_regex="(^[ATCG]+):")
+    snap.pp.make_fragment_file(bam, output, True, barcode_regex="(^[ATCG]+):", chunk_size=5000)
 
     with gzip.open(bed, 'rt') as fl:
         expected = sorted(fl.readlines())

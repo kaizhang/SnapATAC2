@@ -10,6 +10,7 @@ use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::{str::FromStr, collections::BTreeMap, ops::Deref, collections::HashSet};
 use bed_utils::{bed, bed::GenomicRange};
+use bed_utils::extsort::ExternalSorterBuilder;
 use pyanndata::PyAnnData;
 use anyhow::Result;
 
@@ -103,15 +104,25 @@ pub(crate) fn import_fragments(
     };
     let chrom_sizes = chrom_size.into_iter().collect();
     let fragments = bed::io::Reader::new(utils::open_file_for_read(&fragment_file), Some("#".to_string()))
-        .into_records::<Fragment>().map(|x| {
-            let mut f = x.unwrap();
+        .into_records::<Fragment>().map(|x| x.map(|mut f| {
             shift_fragment(&mut f, shift_left, shift_right);
             f
-    });
+    }));
     let sorted_fragments: Box<dyn Iterator<Item = Fragment>> = if !fragment_is_sorted_by_name {
-        Box::new(bed::sort_bed_by_key(fragments, |x| x.barcode.clone(), tempdir).map(|x| x.unwrap()))
+        let mut sorter = ExternalSorterBuilder::new()
+            .with_chunk_size(50000000)
+            .with_compression(2);
+        if let Some(tmp) = tempdir {
+            sorter = sorter.with_tmp_dir(tmp);
+        }
+        Box::new(sorter
+            .build().unwrap()
+            .sort_by(fragments, |a, b| a.barcode.cmp(&b.barcode))
+            .unwrap()
+            .map(Result::unwrap)
+        )
     } else {
-        Box::new(fragments)
+        Box::new(fragments.map(Result::unwrap))
     };
 
     macro_rules! run {
@@ -152,22 +163,22 @@ pub(crate) fn import_contacts(
     let chrom_sizes = chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect();
 
     let contacts = BufReader::new(utils::open_file_for_read(&contact_file)).lines()
-        .map(|x| Contact::from_str(&x.unwrap()).unwrap());
+        .map(|r| r.map(|x| Contact::from_str(&x).unwrap()));
     let sorted_contacts: Box<dyn Iterator<Item = Contact>> = if !fragment_is_sorted_by_name {
-        let tmp = if let Some(dir) = tempdir {
-            tempfile::Builder::new().tempdir_in(dir)
-        } else {
-            tempfile::tempdir()
-        }.expect("failed to create tmperorary directory");
-        Box::new(extsort::ExternalSorter::new()
-            .with_segment_size(50000000)
-            .with_sort_dir(tmp.path().to_path_buf())
-            .with_parallel_sort()
-            .sort_by_key(contacts, |x| x.barcode.clone()).unwrap()
-            .map(|x| x.unwrap())
+        let mut sorter = ExternalSorterBuilder::new()
+            .with_chunk_size(50000000)
+            .with_compression(2);
+        if let Some(tmp) = tempdir {
+            sorter = sorter.with_tmp_dir(tmp);
+        }
+        Box::new(sorter
+            .build().unwrap()
+            .sort_by(contacts, |a, b| a.barcode.cmp(&b.barcode))
+            .unwrap()
+            .map(Result::unwrap)
         )
     } else {
-        Box::new(contacts)
+        Box::new(contacts.map(Result::unwrap))
     };
 
     macro_rules! run {

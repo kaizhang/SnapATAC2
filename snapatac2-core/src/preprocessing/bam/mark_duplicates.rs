@@ -26,10 +26,9 @@ use noodles::{
     },
 };
 use bed_utils::bed::{BEDLike, Strand};
+use bed_utils::extsort::ExternalSorterBuilder;
 use std::collections::HashMap;
 use itertools::Itertools;
-use extsort::{Sortable, ExternalSorter};
-use bincode;
 use log::warn;
 use rayon::prelude::ParallelSliceMut;
 use serde::{Serialize, Deserialize};
@@ -163,21 +162,6 @@ impl AlignmentInfo {
         }
     }
 }
-
-impl Sortable for AlignmentInfo {
-    fn encode<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        bincode::serialize_into(writer, self).map_err(|e|
-            std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
-        )
-    }
-
-    fn decode<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
-        bincode::deserialize_from(reader).map_err(|e|
-            std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
-        )
-    }
-}
-
 
 /// Reads are considered duplicates if and only if they have the same fingerprint.
 #[derive(Eq, PartialEq, Debug, Hash)]
@@ -398,12 +382,12 @@ where
 }
 
 /// Sort and group BAM
-pub fn group_bam_by_barcode<'a, I>(
+pub fn group_bam_by_barcode<'a, I, P>(
     reads: I,
     barcode_loc: &'a BarcodeLocation,
     umi_loc: Option<&'a BarcodeLocation>,
     is_paired: bool,
-    sort_dir: std::path::PathBuf,
+    temp_dir: Option<P>,
     chunk_size: usize,
 ) -> RecordGroups< 
     impl Iterator<Item = AlignmentInfo> + 'a,
@@ -411,31 +395,25 @@ pub fn group_bam_by_barcode<'a, I>(
 >
 where
     I: Iterator<Item = Record> + 'a,
+    P: AsRef<std::path::Path>,
 {
-    fn sort_rec<I>(reads: I, tmp_dir: std::path::PathBuf, chunk: usize) -> impl Iterator<Item = AlignmentInfo>
-    where
-        I: Iterator<Item = AlignmentInfo>,
-    {
-        ExternalSorter::new()
-            .with_segment_size(chunk)
-            .with_sort_dir(tmp_dir)
-            .with_parallel_sort()
-            .sort_by(reads, |a, b| a.barcode.cmp(&b.barcode)
-                .then_with(|| a.unclipped_start.cmp(&b.unclipped_start))
-                .then_with(|| a.unclipped_end.cmp(&b.unclipped_end))
-            ).unwrap()
-            .map(|x| x.unwrap())
+    let mut sorter = ExternalSorterBuilder::new()
+        .with_chunk_size(chunk_size)
+        .with_compression(2);
+    if let Some(tmp) = temp_dir {
+        sorter = sorter.with_tmp_dir(tmp);
     }
+    let input = reads.map(move |x| AlignmentInfo::new(&x, barcode_loc, umi_loc).unwrap())
+        .filter(|x| x.barcode.is_some());
+    let groups = sorter.build().unwrap()
+        .sort_by(input.map(|x| std::io::Result::Ok(x)), |a, b| a.barcode.cmp(&b.barcode)
+            .then_with(|| a.unclipped_start.cmp(&b.unclipped_start))
+            .then_with(|| a.unclipped_end.cmp(&b.unclipped_end))
+        ).unwrap()
+        .map(|x| x.unwrap())
+        .group_by(|x| x.barcode.as_ref().unwrap().clone());
 
-    RecordGroups {
-        is_paired,
-        groups: sort_rec(
-            reads.map(move |x| AlignmentInfo::new(&x, barcode_loc, umi_loc).unwrap())
-                .filter(|x| x.barcode.is_some()),
-            sort_dir,
-            chunk_size,
-        ).group_by(|x| x.barcode.as_ref().unwrap().clone()),
-    }
+    RecordGroups {is_paired, groups}
 }
 
 pub struct RecordGroups<I, F>

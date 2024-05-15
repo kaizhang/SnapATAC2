@@ -2,6 +2,14 @@
 
 ## Nightly version
 
+## Release 2.6.3 (released May 15, 2024)
+
+### Bugs fixed:
+
+  - Fixed external sorter issues in version 2.6.2.
+
+## Release 2.6.2 (released May 9, 2024)
+
 ### Features:
 
   - Add the argument `exclude_chroms` to `metrics.tsse` to exclude certains chromosomes

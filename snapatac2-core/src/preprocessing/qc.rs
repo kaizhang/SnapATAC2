@@ -3,8 +3,6 @@ use anndata::data::CsrNonCanonical;
 use bed_utils::bed::{GenomicRange, BEDLike, tree::BedTree, ParseError, Strand};
 use anyhow::Result;
 use serde::{Serialize, Deserialize};
-use extsort::Sortable;
-use bincode;
 use smallvec::{SmallVec, smallvec};
 
 pub type CellBarcode = String;
@@ -19,20 +17,6 @@ pub struct Fragment {
     pub barcode: Option<CellBarcode>,
     pub count: u32,
     pub strand: Option<Strand>,
-}
-
-impl Sortable for Fragment {
-    fn encode<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        bincode::serialize_into(writer, self).map_err(|e| 
-            std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
-        )
-    }
-
-    fn decode<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
-        bincode::deserialize_from(reader).map_err(|e|
-            std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
-        )
-    }
 }
 
 impl Fragment {
@@ -141,20 +125,6 @@ pub struct Contact {
     pub start2: u64,
     pub barcode: CellBarcode,
     pub count: u32,
-}
-
-impl Sortable for Contact {
-    fn encode<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        bincode::serialize_into(writer, self).map_err(|e|
-            std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
-        )
-    }
-
-    fn decode<R: std::io::Read>(reader: &mut R) -> std::io::Result<Self> {
-        bincode::deserialize_from(reader).map_err(|e|
-            std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
-        )
-    }
 }
 
 impl std::str::FromStr for Contact {

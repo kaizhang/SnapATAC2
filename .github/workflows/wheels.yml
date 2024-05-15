@@ -9,7 +9,6 @@ jobs:
   build_wheels:
     name: Wheel on ${{ matrix.os }} for ${{ matrix.python_version }}
     runs-on: ${{ matrix.os }}
-    if: ${{ startsWith(github.ref, 'refs/tags/') || contains(github.event.head_commit.message, 'wheel') || inputs.wheel }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-11, macos-14]

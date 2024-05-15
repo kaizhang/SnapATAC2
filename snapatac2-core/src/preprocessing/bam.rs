@@ -7,7 +7,6 @@ use indicatif::{style::ProgressStyle, ProgressBar, ProgressDrawTarget, ProgressI
 use regex::Regex;
 use anyhow::{Result, bail};
 use std::{io::Write, path::Path};
-use tempfile::Builder;
 
 use crate::utils::{open_file_for_write, Compression};
 
@@ -59,16 +58,6 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path>>(
     compression_level: Option<u32>,
     temp_dir: Option<P3>,
 ) -> Result<FlagStat> {
-    let temp_dir = if let Some(tmp) = temp_dir {
-        Builder::new()
-            .tempdir_in(tmp)
-            .expect("failed to create tmperorary directory")
-    } else {
-        Builder::new()
-            .tempdir()
-            .expect("failed to create tmperorary directory")
-    };
-
     if barcode_regex.is_some() && barcode_tag.is_some() {
         bail!("Can only set barcode_tag or barcode_regex but not both");
     }
@@ -114,7 +103,7 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path>>(
         &barcode,
         umi.as_ref(),
         is_paired,
-        temp_dir.path().to_path_buf(),
+        temp_dir,
         chunk_size,
     )
     .into_fragments(&header)

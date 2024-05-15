@@ -13,9 +13,7 @@ keywords = ["single-cell", "biology"]
 anndata = "0.3.3"
 anyhow = "1.0"
 bigtools = { version = "0.4", features = ["read", "write"] }
-bincode = "1.3"
-bed-utils = "0.3"
-extsort = "0.5"
+bed-utils = "0.4.1"
 flate2 = "1.0"
 tokio = "1.34"
 hora = "0.1"
