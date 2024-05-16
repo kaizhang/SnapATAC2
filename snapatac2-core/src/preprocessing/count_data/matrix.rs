@@ -134,6 +134,9 @@ pub fn create_gene_matrix<A, B>(
     adata: &A,
     transcripts: Vec<Transcript>,
     id_type: &str, 
+    upstream: u64,
+    downstream: u64,
+    include_gene_body: bool,
     chunk_size: usize,
     counting_strategy: CountingStrategy,
     min_fragment_size: Option<u64>,
@@ -145,7 +148,7 @@ where
     A: SnapData,
     B: AnnDataOp,
 {
-    let promoters = Promoters::new(transcripts, 2000, 0, true);
+    let promoters = Promoters::new(transcripts, upstream, downstream, include_gene_body);
     let transcript_counter: TranscriptCount<'_> = TranscriptCount::new(&promoters);
     match id_type {
         "transcript" => {

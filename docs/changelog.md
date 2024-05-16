@@ -2,6 +2,11 @@
 
 ## Nightly version
 
+### Features:
+
+  - Implement #304: Add some flexibility to `pp.make_gene_matrix` by allowing the user to change
+    upstream and downstream distances for TSS calculation.
+
 ## Release 2.6.3 (released May 15, 2024)
 
 ### Bugs fixed:

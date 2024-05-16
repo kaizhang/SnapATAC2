@@ -295,6 +295,9 @@ pub(crate) fn mk_gene_matrix(
     chunk_size: usize,
     use_x: bool,
     id_type: &str,
+    upstream: u64,
+    downstream: u64,
+    include_gene_body: bool,
     transcript_name_key: String,
     transcript_id_key: String,
     gene_name_key: String,
@@ -318,13 +321,15 @@ pub(crate) fn mk_gene_matrix(
             if let Some(out) = out {
                 macro_rules! run2 {
                     ($out_data:expr) => {
-                        preprocessing::create_gene_matrix($data, transcripts, id_type, chunk_size, strategy,
+                        preprocessing::create_gene_matrix($data, transcripts, id_type,
+                            upstream, downstream, include_gene_body, chunk_size, strategy,
                             min_fragment_size, max_fragment_size, Some($out_data), use_x)?
                     };
                 }
                 crate::with_anndata!(&out, run2);
             } else {
-                preprocessing::create_gene_matrix($data, transcripts, id_type, chunk_size, strategy,
+                preprocessing::create_gene_matrix($data, transcripts, id_type,
+                    upstream, downstream, include_gene_body, chunk_size, strategy,
                     min_fragment_size, max_fragment_size, None::<&PyAnnData>, use_x)?;
             }
         }

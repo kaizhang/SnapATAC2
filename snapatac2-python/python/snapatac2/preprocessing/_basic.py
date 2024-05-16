@@ -600,6 +600,9 @@ def make_gene_matrix(
     chunk_size: int = 500,
     use_x: bool = False,
     id_type: Literal['gene', 'transcript'] = "gene",
+    upstream: int = 2000,
+    downstream: int = 0,
+    include_gene_body: bool = True,
     transcript_name_key: str = "transcript_name",
     transcript_id_key: str = "transcript_id",
     gene_name_key: str = "gene_name",
@@ -610,10 +613,13 @@ def make_gene_matrix(
 ) -> internal.AnnData:
     """Generate cell by gene activity matrix.
 
-    Generate cell by gene activity matrix by counting the TN5 insertions in gene
-    body regions. The result will be stored in a new file and a new AnnData object
+    Generate cell by gene activity matrix by counting the TN5 insertions in each gene's
+    regulatory domain. The regulatory domain is initially defined as the TSS or the
+    whole gene body (if `include_gene_body=True`). We then extends this domain
+    by `upstream` and `downstream` base pairs on both sides.
+      
+    The result will be stored in a new file and a new AnnData object
     will be created.
-
     :func:`~snapatac2.pp.import_data` must be ran first in order to use this function.
 
     Parameters
@@ -636,6 +642,13 @@ def make_gene_matrix(
         Otherwise the `.obsm['insertion']` is used.
     id_type
         "gene" or "transcript".
+    upstream
+        The number of base pairs upstream of the regulatory domain.
+    downstream
+        The number of base pairs downstream of the regulatory domain.
+    include_gene_body
+        Whether to include the gene body in the regulatory domain. If False, the
+        TSS is used as the regulatory domain.
     transcript_name_key
         The key of the transcript name in the gene annotation file.
     transcript_id_key
@@ -679,6 +692,7 @@ def make_gene_matrix(
     >>> print(gene_mat)
     AnnData object with n_obs × n_vars = 585 × 60606
         obs: 'n_fragment', 'frac_dup', 'frac_mito'
+    >>> gene_mat = snap.pp.make_gene_matrix(data, gene_anno=snap.genome.hg38, upstream=1000, downstream=1000, include_gene_body=False)
     """
     if isinstance(gene_anno, Genome):
         gene_anno = gene_anno.annotation
@@ -693,6 +707,7 @@ def make_gene_matrix(
     else:
         out = internal.AnnData(filename=file, backend=backend, obs=adata.obs[:])
     internal.mk_gene_matrix(adata, gene_anno, chunk_size, use_x, id_type,
+        upstream, downstream, include_gene_body,
         transcript_name_key, transcript_id_key, gene_name_key, gene_id_key,
         counting_strategy, min_frag_size, max_frag_size, out)
     return out
