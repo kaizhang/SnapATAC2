@@ -5,7 +5,7 @@ use crate::preprocessing::count_data::{
 };
 use super::coverage::CountingStrategy;
 
-use anndata::{AnnDataOp, AxisArraysOp};
+use anndata::{data::DataFrameIndex, AnnDataOp};
 use indicatif::{ProgressIterator, ProgressStyle};
 use polars::prelude::{NamedFrom, DataFrame, Series};
 use anyhow::Result;
@@ -41,45 +41,33 @@ where
         "[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})"
     ).unwrap();
 
-    if adata.obsm().keys().contains(&"contact".into()) {
-        let data_iter = adata
-            .contact_count_iter(chunk_size)?
-            .with_resolution(bin_size)
-            .into_values::<u32>().map(|x| x.0).progress_with_style(style);
-        if let Some(adata_out) =  out {
-            adata_out.set_x_from_iter(data_iter)?;
-            adata_out.set_obs_names(adata.obs_names())?;
-            adata_out.set_var_names(adata_out.n_vars().into())?;
-        } else {
-            adata.set_x_from_iter(data_iter)?;
-            adata.set_var_names(adata.n_vars().into())?;
-        }
+    let mut counts = adata
+        .get_count_iter(chunk_size)?
+        .with_resolution(bin_size)
+        .set_counting_strategy(counting_strategy);
+
+    if let Some(exclude_chroms) = exclude_chroms {
+        counts = counts.exclude(exclude_chroms);
+    }
+    if let Some(min_fragment_size) = min_fragment_size {
+        counts = counts.min_fragment_size(min_fragment_size);
+    }
+    if let Some(max_fragment_size) = max_fragment_size {
+        counts = counts.max_fragment_size(max_fragment_size);
+    }
+
+    let feature_names: DataFrameIndex = counts.get_gindex().to_index().into();
+    let n_feat = feature_names.len();
+    let data_iter = counts.into_counts::<u32>().map(|x| x.0).progress_with_style(style);
+    if let Some(adata_out) =  out {
+        adata_out.set_n_vars(n_feat)?;
+        adata_out.set_x_from_iter(data_iter)?;
+        adata_out.set_obs_names(adata.obs_names())?;
+        adata_out.set_var_names(feature_names)?;
     } else {
-        let mut counts = adata
-            .get_count_iter(chunk_size)?
-            .with_resolution(bin_size)
-            .set_counting_strategy(counting_strategy);
-
-        if let Some(exclude_chroms) = exclude_chroms {
-            counts = counts.exclude(exclude_chroms);
-        }
-        if let Some(min_fragment_size) = min_fragment_size {
-            counts = counts.min_fragment_size(min_fragment_size);
-        }
-        if let Some(max_fragment_size) = max_fragment_size {
-            counts = counts.max_fragment_size(max_fragment_size);
-        }
-
-        let feature_names = counts.get_gindex().to_index().into();
-        let data_iter = counts.into_counts::<u32>().map(|x| x.0).progress_with_style(style);
-        if let Some(adata_out) =  out {
-            adata_out.set_x_from_iter(data_iter)?;
-            adata_out.set_obs_names(adata.obs_names())?;
-            adata_out.set_var_names(feature_names)?;
-        } else {
-            adata.set_x_from_iter(data_iter)?;
-            adata.set_var_names(feature_names)?;
-        }
+        adata.set_n_vars(n_feat)?;
+        adata.set_x_from_iter(data_iter)?;
+        adata.set_var_names(feature_names)?;
     }
     Ok(())
 }
@@ -119,11 +107,14 @@ where
         }
         Box::new(counts.aggregate_counts_by(counter).map(|x| x.0))
     };
+    let n_feat = feature_names.len();
     if let Some(adata_out) =  out {
+        adata_out.set_n_vars(n_feat)?;
         adata_out.set_x_from_iter(data.progress_with_style(style))?;
         adata_out.set_obs_names(adata.obs_names())?;
         adata_out.set_var_names(feature_names.into())?;
     } else {
+        adata.set_n_vars(n_feat)?;
         adata.set_x_from_iter(data.progress_with_style(style))?;
         adata.set_var_names(feature_names.into())?;
     }

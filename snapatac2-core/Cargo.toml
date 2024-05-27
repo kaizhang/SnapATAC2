@@ -1,6 +1,6 @@
 [package]
 name = "snapatac2-core"
-version = "2.0.0"
+version = "2.0.1"
 edition = "2021"
 authors = ["Kai Zhang <zhangkai33@westlake.edu.cn>"]
 description = "Rust APIs"
@@ -10,7 +10,7 @@ homepage = "https://github.com/"
 keywords = ["single-cell", "biology"]
 
 [dependencies]
-anndata = "0.3.3"
+anndata = "0.4.1"
 anyhow = "1.0"
 bigtools = { version = "0.4", features = ["read", "write"] }
 bed-utils = "0.4.1"
@@ -25,9 +25,9 @@ lexical = "6.1"
 log = "0.4"
 ndarray = { version = "0.15", features = ["rayon"] }
 num = "0.4"
-noodles = { version = "0.70", features = ["core", "bam", "sam", "gff", "gtf"] }
+noodles = { version = "0.74", features = ["core", "bam", "sam", "gff", "gtf"] }
 nalgebra-sparse = "0.9"
-polars = { version = "0.39", features = ["ndarray", "dtype-categorical"] }
+polars = { version = "0.40", features = ["ndarray", "dtype-categorical"] }
 rayon = "1.10"
 regex = "1.6"
 serde = "1.0"

@@ -37,11 +37,9 @@ impl<'py> AnnDataOp for PyAnnData<'py> {
     type X = memory::ArrayElem<'py>;
     type ElemCollectionRef<'a> = memory::ElemCollection<'a> where Self: 'a;
     type AxisArraysRef<'a> = memory::AxisArrays<'a> where Self: 'a;
-
     fn x(&self) -> Self::X {
         self.0.x()
     }
-
     fn set_x_from_iter<I, D>(&self, iter: I) -> Result<()>
     where
         I: Iterator<Item = D>,
@@ -49,77 +47,60 @@ impl<'py> AnnDataOp for PyAnnData<'py> {
     {
         self.0.set_x_from_iter(iter)
     }
-
     fn set_x<D: WriteArrayData + Into<ArrayData> + HasShape>(&self, data: D) -> Result<()> {
         self.0.set_x(data)
     }
-
-    /// Delete the 'X' element.
     fn del_x(&self) -> Result<()> {
         self.0.del_x()
     }
-
-    /// Return the number of observations (rows).
     fn n_obs(&self) -> usize {
         self.0.n_obs()
     }
-    /// Return the number of variables (columns).
     fn n_vars(&self) -> usize {
         self.0.n_vars()
     }
-
-    /// Return the names of observations.
+    fn set_n_obs(&self, n: usize) -> Result<()> {
+        self.0.set_n_obs(n)
+    }
+    fn set_n_vars(&self, n: usize) -> Result<()> {
+        self.0.set_n_vars(n)
+    }
     fn obs_names(&self) -> DataFrameIndex {
         self.0.obs_names()
     }
-    /// Return the names of variables.
     fn var_names(&self) -> DataFrameIndex {
         self.0.var_names()
     }
-
-    /// Chagne the names of observations.
     fn set_obs_names(&self, index: DataFrameIndex) -> Result<()> {
         self.0.set_obs_names(index)
     }
-    /// Chagne the names of variables.
     fn set_var_names(&self, index: DataFrameIndex) -> Result<()> {
         self.0.set_var_names(index)
     }
-
     fn obs_ix<'a, I: IntoIterator<Item = &'a str>>(&self, names: I) -> Result<Vec<usize>> {
         self.0.obs_ix(names)
     }
     fn var_ix<'a, I: IntoIterator<Item = &'a str>>(&self, names: I) -> Result<Vec<usize>> {
         self.0.var_ix(names)
     }
-
     fn read_obs(&self) -> Result<DataFrame> {
         self.0.read_obs()
     }
     fn read_var(&self) -> Result<DataFrame> {
         self.0.read_var()
     }
-
-    /// Change the observation annotations.
     fn set_obs(&self, obs: DataFrame) -> Result<()> {
         self.0.set_obs(obs)
     }
-
-    /// Change the variable annotations.
     fn set_var(&self, var: DataFrame) -> Result<()> {
         self.0.set_var(var)
     }
-
-    /// Delete the observation annotations.
     fn del_obs(&self) -> Result<()> {
         self.0.del_obs()
     }
-
-    /// Delete the variable annotations.
     fn del_var(&self) -> Result<()> {
         self.0.del_var()
     }
-
     fn uns(&self) -> Self::ElemCollectionRef<'_> {
         self.0.uns()
     }
@@ -135,7 +116,6 @@ impl<'py> AnnDataOp for PyAnnData<'py> {
     fn varp(&self) -> Self::AxisArraysRef<'_> {
         self.0.varp()
     }
-
     fn del_uns(&self) -> Result<()> {
         self.0.del_uns()
     }
@@ -151,7 +131,6 @@ impl<'py> AnnDataOp for PyAnnData<'py> {
     fn del_varp(&self) -> Result<()> {
         self.0.del_varp()
     }
-
     fn layers(&self) -> Self::AxisArraysRef<'_> {
         self.0.layers()
     }
