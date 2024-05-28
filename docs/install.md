@@ -35,9 +35,9 @@ The nightly build is the build from the latest source codes, which includes the
 latest features, enhancements, and bug fixes that haven't been released. 
 The nightly build can be unstable and include some untested features.
 
-You need to download the appropriate
-{download}`wheel file <https://github.com/kaizhang/SnapATAC2/releases/tag/nightly>`
-for your platform and use `pip install` to install it.
+The [nightly release](https://github.com/kaizhang/SnapATAC2/releases/tag/nightly) page
+contains wheel files for the nightly build.
+Please download the corresponding wheel file for your platform and use `pip install` to install it.
 For example, if you are using a Linux system with Python 3.8, you can use the following command to install it:
 
 ```
