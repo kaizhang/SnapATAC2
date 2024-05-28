@@ -1,0 +1,6 @@
+snapatac2.AnnData.obs\_ix
+=========================
+
+.. currentmodule:: snapatac2
+
+.. automethod:: AnnData.obs_ix

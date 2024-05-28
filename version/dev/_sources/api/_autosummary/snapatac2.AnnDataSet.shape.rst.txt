@@ -1,0 +1,6 @@
+snapatac2.AnnDataSet.shape
+==========================
+
+.. currentmodule:: snapatac2
+
+.. autoattribute:: AnnDataSet.shape

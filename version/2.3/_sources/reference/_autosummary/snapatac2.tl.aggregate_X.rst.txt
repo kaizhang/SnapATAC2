@@ -1,0 +1,6 @@
+﻿snapatac2.tl.aggregate\_X
+=========================
+
+.. currentmodule:: snapatac2.tl
+
+.. autofunction:: aggregate_X

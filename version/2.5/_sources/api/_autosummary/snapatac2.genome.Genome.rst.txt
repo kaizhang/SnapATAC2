@@ -1,0 +1,29 @@
+﻿snapatac2.genome.Genome
+=======================
+
+.. currentmodule:: snapatac2.genome
+
+.. autoclass:: Genome
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: .
+   
+      ~snapatac2.genome.Genome.annotation
+      ~snapatac2.genome.Genome.chrom_sizes
+      ~snapatac2.genome.Genome.fasta
+   
+   
+
+   
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: .
+   
+   
+   
