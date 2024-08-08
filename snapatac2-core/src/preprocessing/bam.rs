@@ -1,5 +1,5 @@
 mod mark_duplicates;
-pub use mark_duplicates::{filter_bam, group_bam_by_barcode, BarcodeLocation, FlagStat};
+pub use mark_duplicates::{filter_bam, group_bam_by_barcode, BarcodeLocation, FlagStat, LibraryQC};
 
 use bed_utils::bed::BEDLike;
 use noodles::{bam, sam::alignment::record::data::field::Tag};
@@ -57,7 +57,7 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path>>(
     compression: Option<Compression>,
     compression_level: Option<u32>,
     temp_dir: Option<P3>,
-) -> Result<FlagStat> {
+) -> Result<LibraryQC> {
     if barcode_regex.is_some() && barcode_tag.is_some() {
         bail!("Can only set barcode_tag or barcode_regex but not both");
     }
@@ -87,39 +87,50 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path>>(
     let spinner = ProgressBar::with_draw_target(None, ProgressDrawTarget::stderr_with_hz(1))
         .with_style(
             ProgressStyle::with_template(
-                "{spinner} Wrote {human_pos} fragments in {elapsed} ({per_sec}) ...",
+                "{spinner} Wrote {human_pos} barcodes in {elapsed} ({per_sec}) ...",
             )
             .unwrap(),
         );
-    let mut flagstat = FlagStat::default();
+    let mut library_qc = LibraryQC::default();
+    let mut num_pcr_duplicates = 0;
+    let mut num_uniques = 0;
+    let mut num_barcodes = 0;
     let filtered_records = filter_bam(
         reader.records().map(Result::unwrap),
         is_paired,
+        &barcode,
+        umi.as_ref(),
         mapq,
-        &mut flagstat,
+        &mut library_qc,
     );
     group_bam_by_barcode(
         filtered_records,
-        &barcode,
-        umi.as_ref(),
         is_paired,
         temp_dir,
         chunk_size,
     )
     .into_fragments(&header)
     .progress_with(spinner)
-    .for_each(|mut rec| {
-        if rec.strand().is_none() {
-            let new_start = rec.start().saturating_add_signed(shift_left);
-            let new_end = rec.end().saturating_add_signed(shift_right);
-            if new_start < new_end {
-                rec.set_start(new_start);
-                rec.set_end(new_end);
+    .for_each(|barcode| {
+        num_barcodes += 1;
+        barcode.into_iter().for_each(|mut rec| {
+            num_pcr_duplicates += rec.count as u64 - 1;
+            num_uniques += 1;
+            if rec.strand().is_none() {
+                let new_start = rec.start().saturating_add_signed(shift_left);
+                let new_end = rec.end().saturating_add_signed(shift_right);
+                if new_start < new_end {
+                    rec.set_start(new_start);
+                    rec.set_end(new_end);
+                    writeln!(output, "{}", rec).unwrap();
+                }
+            } else {
                 writeln!(output, "{}", rec).unwrap();
             }
-        } else {
-            writeln!(output, "{}", rec).unwrap();
-        }
+        });
     });
-    Ok(flagstat)
+    library_qc.num_pcr_duplicates = num_pcr_duplicates;
+    library_qc.num_uniques = num_uniques;
+    library_qc.num_barcodes = num_barcodes;
+    Ok(library_qc)
 }

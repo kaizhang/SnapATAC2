@@ -238,11 +238,31 @@ pub fn read_tss<R: Read>(file: R) -> impl Iterator<Item = (String, u64, bool)> {
     })
 }
 
+pub struct TssRegions {
+    pub promoters: BedTree<bool>,
+    pub tss: BedTree<bool>,
+    pub size: u64,
+}
 
-pub fn make_promoter_map<I: Iterator<Item = (String, u64, bool)>>(iter: I) -> BedTree<bool> {
+impl TssRegions {
+    pub fn new<I: IntoIterator<Item = (String, u64, bool)>>(iter: I, half_window_size: u64) -> Self {
+        let values: Vec<_> = iter.into_iter().collect();
+        let tss = values.iter().map( |(chr, x, is_fwd)| {
+            let b = GenomicRange::new(chr, *x as u64, *x as u64 + 1);
+            (b, *is_fwd)
+        }).collect();
+        let promoters = values.into_iter().map( |(chr, tss, is_fwd)| {
+            let b = GenomicRange::new(chr, tss.saturating_sub(half_window_size), tss + half_window_size + 1);
+            (b, is_fwd)
+        }).collect();
+        Self { promoters, tss, size: 2 * half_window_size }
+    }
+}
+
+pub fn make_promoter_map<I: Iterator<Item = (String, u64, bool)>>(iter: I, half_window_size: u64) -> BedTree<bool> {
     iter
         .map( |(chr, tss, is_fwd)| {
-            let b = GenomicRange::new(chr, tss.saturating_sub(2000), tss + 2001);
+            let b = GenomicRange::new(chr, tss.saturating_sub(half_window_size), tss + half_window_size + 1);
             (b, is_fwd)
         }).collect()
 }
@@ -258,6 +278,78 @@ where
         *barcodes.entry(key).or_insert(0) += 1;
     });
     barcodes
+}
+
+pub(crate) struct TSSe<'a> {
+    promoters: &'a TssRegions,
+    counts: Vec<u64>,
+    n_overlapping: u64,
+    n_total: u64,
+}
+
+impl<'a> TSSe<'a> {
+    pub fn new(promoters: &'a TssRegions) -> Self {
+        Self { counts: vec![0; promoters.size as usize + 1], n_overlapping: 0, n_total: 0, promoters }
+    }
+
+    pub fn reset(mut self) -> Self {
+        self.counts.fill(0);
+        self.n_overlapping = 0;
+        self.n_total = 0;
+        self
+    }
+
+    pub fn add(&mut self, bed: &Fragment) {
+        fn find_pos(tss: &mut TSSe, ins: &GenomicRange) {
+            tss.promoters.promoters.find(ins).map(|(entry, data)| {
+                let pos: u64 =
+                    if *data {
+                        ins.start() - entry.start()
+                    } else {
+                        tss.promoters.size as u64 - (entry.end() - 1 - ins.start())
+                    };
+                pos as usize
+            }).for_each(|pos| tss.counts[pos] += 1);
+        }
+
+        self.n_total += 1;
+        if self.promoters.tss.is_overlapped(bed) {
+            self.n_overlapping += 1;
+        }
+        match bed.strand {
+            None => {
+                let p1 = GenomicRange::new(bed.chrom(), bed.start(), bed.start() + 1);
+                let p2 = GenomicRange::new(bed.chrom(), bed.end() - 1, bed.end());
+                find_pos(self, &p1);
+                find_pos(self, &p2);
+            },
+            Some(Strand::Forward) => {
+                let p = GenomicRange::new(bed.chrom(), bed.start(), bed.start() + 1);
+                find_pos(self, &p);
+            },
+            Some(Strand::Reverse) => {
+                let p = GenomicRange::new(bed.chrom(), bed.end() - 1, bed.end());
+                find_pos(self, &p);
+            },
+        }
+    }
+
+    pub fn add_from(&mut self, tsse: &TSSe) {
+        self.n_overlapping += tsse.n_overlapping;
+        self.n_total += tsse.n_total;
+        self.counts.iter_mut().zip(tsse.counts.iter()).for_each(|(a, b)| *a += b);
+    }
+
+    pub fn result(&self) -> (f64, f64) {
+        let counts = &self.counts;
+        let bg_count: f64 =
+            ( counts[ .. 100].iter().sum::<u64>() +
+            counts[3901 .. 4001].iter().sum::<u64>() ) as f64 /
+            200.0 + 0.1;
+        let tss_enrichment = moving_average(5, &counts)
+            .max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap().div(bg_count);
+        (tss_enrichment, self.n_overlapping as f64 / self.n_total as f64)
+    }
 }
 
 pub fn tss_enrichment<I>(fragments: I, promoter: &BedTree<bool>) -> f64

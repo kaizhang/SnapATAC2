@@ -22,7 +22,7 @@ use polars::frame::DataFrame;
 use nalgebra_sparse::CsrMatrix;
 use anyhow::{Result, Context, bail};
 use num::integer::div_ceil;
-use std::str::FromStr;
+use std::{str::FromStr, sync::{Arc, Mutex}};
 
 /// The `SnapData` trait represents an interface for reading and
 /// manipulating single-cell assay data. It extends the `AnnDataOp` trait,
@@ -71,12 +71,18 @@ pub trait SnapData: AnnDataOp {
     /// QC metrics for the data.
 
     /// Compute TSS enrichment.
-    fn tss_enrichment(&self, promoter: &BedTree<bool>) -> Result<Vec<f64>> {
-        Ok(self.get_count_iter(2000)?.into_fragments().flat_map(|(fragments, _, _)| {
-            fragments.into_par_iter()
-                .map(|x| qc::tss_enrichment(x.into_iter(), promoter))
-                .collect::<Vec<_>>()
-        }).collect())
+    fn tss_enrichment(&self, promoter: &qc::TssRegions) -> Result<(Vec<f64>, (f64, f64))> {
+        let library_tsse = Arc::new(Mutex::new(qc::TSSe::new(promoter)));
+        let scores = self.get_count_iter(2000)?.into_fragments().flat_map(|(list_of_fragments, _, _)| {
+            list_of_fragments.into_par_iter().map(|fragments| {
+                let mut tsse = qc::TSSe::new(promoter);
+                fragments.into_iter().for_each(|x| tsse.add(&x));
+                library_tsse.lock().unwrap().add_from(&tsse);
+                tsse.result().0
+            }).collect::<Vec<_>>()
+        }).collect();
+        let tsse = library_tsse.lock().unwrap().result();
+        Ok((scores, tsse))
     }
 
     /// Compute the fragment size distribution.

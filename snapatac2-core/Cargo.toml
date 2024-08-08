@@ -10,7 +10,7 @@ homepage = "https://github.com/"
 keywords = ["single-cell", "biology"]
 
 [dependencies]
-anndata = "0.4.1"
+anndata = "0.4.2"
 anyhow = "1.0"
 bigtools = { version = "0.4", features = ["read", "write"] }
 bed-utils = "0.4.1"

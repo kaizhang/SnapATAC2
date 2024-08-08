@@ -6,6 +6,7 @@ use anndata::Backend;
 use anndata_hdf5::H5;
 use snapatac2_core::preprocessing::count_data::TranscriptParserOptions;
 use snapatac2_core::preprocessing::count_data::CountingStrategy;
+use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::{str::FromStr, collections::BTreeMap, ops::Deref, collections::HashSet};
@@ -15,24 +16,9 @@ use pyanndata::PyAnnData;
 use anyhow::Result;
 
 use snapatac2_core::{
-    preprocessing::{Fragment, Contact, FlagStat, SnapData},
+    preprocessing::{Fragment, Contact, SnapData},
     preprocessing, utils,
 };
-
-#[pyclass]
-pub(crate) struct PyFlagStat(FlagStat);
-
-#[pymethods]
-impl PyFlagStat {
-    #[getter]
-    fn num_reads(&self) -> u64 { self.0.read }
-
-    fn __repr__(&self) -> String {
-        format!("{:?}", self.0)
-    }
-
-    fn __str__(&self) -> String { self.__repr__() }
-}
 
 #[pyfunction]
 pub(crate) fn make_fragment_file(
@@ -50,7 +36,7 @@ pub(crate) fn make_fragment_file(
     compression: Option<&str>,
     compression_level: Option<u32>,
     temp_dir: Option<PathBuf>,
-) -> Result<PyFlagStat>
+) -> Result<HashMap<String, f64>>
 {
     fn parse_tag(tag: &str) -> [u8; 2] {
         let tag_b = tag.as_bytes();
@@ -67,7 +53,7 @@ pub(crate) fn make_fragment_file(
         shift_left, shift_right, mapq, chunk_size,
         compression.map(|x| utils::Compression::from_str(x).unwrap()), compression_level, temp_dir,
     )?;
-    Ok(PyFlagStat(stat))
+    Ok(stat.report())
 }
 
 #[pyfunction]
@@ -345,7 +331,7 @@ pub(crate) fn tss_enrichment(
     anndata: AnnDataLike,
     gtf_file: PathBuf,
     exclude_chroms: Option<Vec<String>>,
-) -> Result<Vec<f64>>
+) -> Result<(Vec<f64>, (f64, f64))>
 {
     let exclude_chroms = match exclude_chroms {
         Some(chrs) => chrs.into_iter().collect(),
@@ -354,7 +340,7 @@ pub(crate) fn tss_enrichment(
     let tss = preprocessing::read_tss(utils::open_file_for_read(gtf_file))
         .unique()
         .filter(|(chr, _, _)| !exclude_chroms.contains(chr));
-    let promoters = preprocessing::make_promoter_map(tss);
+    let promoters = preprocessing::TssRegions::new(tss, 2000);
 
     macro_rules! run {
         ($data:expr) => {

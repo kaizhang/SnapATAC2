@@ -115,8 +115,8 @@ pub struct AlignmentInfo {
 impl AlignmentInfo {
     fn new(
         rec: &Record,
-        barcode_loc: &BarcodeLocation,
-        umi_loc: Option<&BarcodeLocation>,
+        barcode: Option<String>,
+        umi: Option<String>,
     ) -> Result<Self> {
         let cigar = rec.cigar();
         let start: usize = rec.alignment_start().unwrap().unwrap().try_into()?;
@@ -147,8 +147,8 @@ impl AlignmentInfo {
             unclipped_start: alignment_start - clipped_start,
             unclipped_end: alignment_end + clipped_end,
             sum_of_qual_scores: sum_of_qual_score(rec),
-            barcode: barcode_loc.extract(rec).ok(),
-            umi: umi_loc.and_then(|x| x.extract(rec).ok()),
+            barcode,
+            umi,
         })
     }
 
@@ -259,6 +259,57 @@ impl FingerPrint {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct LibraryQC {
+    pub all_reads_flagstat: FlagStat,
+    pub barcoded_reads_flagstat: FlagStat,
+    pub num_pcr_duplicates: u64,
+    pub num_uniques: u64,
+    pub num_barcodes: u64,
+}
+
+impl LibraryQC {
+    /// Report the quality control metrics.
+    /// The metrics are:
+    /// - Sequenced_reads: number of reads in the input BAM file.
+    /// - Sequenced_read_pairs: number of read pairs in the input BAM file.
+    /// - Fraction_duplicates: Fraction of high-quality read pairs that are deemed
+    ///                        to be PCR duplicates. This metric is a measure of
+    ///                        sequencing saturation and is a function of library
+    ///                        complexity and sequencing depth. More specifically,
+    ///                        this is the fraction of high-quality fragments with a
+    ///                        valid barcode that align to the same genomic position
+    ///                        as another read pair in the library.
+    /// - Fraction_unmapped_reads: Fraction of sequenced reads that have
+    ///                            a valid barcode but could not be mapped to the genome.
+    /// - Fraction_unmapped_read_pairs: Fraction of sequenced read pairs that have
+    ///                                 a valid barcode but could not be mapped to the genome.
+    /// - Raw_reads_per_cell: Total number of reads divided by the number of cell barcodes.
+    /// - Raw_read_pairs_per_cell: Total number of read pairs divided by the number of cell barcodes.
+    /// - Fraction_reads_in_cell: fraction of reads that are associated with a cell barcode.
+    /// - Fraction_read_pairs_in_cell: fraction of read pairs that are associated with a cell barcode.
+    pub fn report(&self) -> HashMap<String, f64> {
+        let mut result = HashMap::new();
+        let flagstat_all = &self.all_reads_flagstat;
+        let flagstat_barcoded = &self.barcoded_reads_flagstat;
+        let num_reads = flagstat_all.read as f64;
+        let num_pairs = flagstat_all.read_1.min(flagstat_all.read_2) as f64;
+        let num_barcoded_reads = flagstat_barcoded.read as f64;
+        let num_barcoded_pairs = flagstat_barcoded.read_1.min(flagstat_barcoded.read_2) as f64;
+        let mapped_pairs = flagstat_barcoded.proper_pair as f64 / 2.0;
+        result.insert("Sequenced_reads".to_string(), num_reads);
+        result.insert("Sequenced_read_pairs".to_string(), num_pairs);
+        result.insert("Fraction_duplicates".to_string(), self.num_pcr_duplicates as f64 / (self.num_uniques + self.num_pcr_duplicates) as f64);
+        result.insert("Fraction_unmapped_reads".to_string(), (num_barcoded_reads - flagstat_barcoded.mapped as f64) / num_barcoded_reads);
+        result.insert("Fraction_unmapped_read_pairs".to_string(), 1.0 - mapped_pairs / num_barcoded_pairs);
+        result.insert("Raw_reads_per_cell".to_string(), num_reads / self.num_barcodes as f64);
+        result.insert("Raw_read_pairs_per_cell".to_string(), num_pairs / self.num_barcodes as f64);
+        result.insert("Fraction_reads_in_cell".to_string(), num_barcoded_reads / num_reads);
+        result.insert("Fraction_read_pairs_in_cell".to_string(), num_barcoded_pairs / num_pairs);
+        result
+    }
+}
+
 /// BAM record statistics.
 #[derive(Debug, Default)]
 pub struct FlagStat {
@@ -271,6 +322,7 @@ pub struct FlagStat {
     pub mapped: u64,
     pub primary_mapped: u64,
     pub paired: u64,
+    pub paired_hq: u64,
     pub read_1: u64,
     pub read_2: u64,
     pub proper_pair: u64,
@@ -281,7 +333,7 @@ pub struct FlagStat {
 }
 
 impl FlagStat {
-    pub fn update(&mut self, record: &Record) {
+    pub fn update(&mut self, record: &Record, is_hq: bool) {
         let flags = record.flags();
 
         self.read += 1;
@@ -311,6 +363,9 @@ impl FlagStat {
 
             if flags.is_segmented() {
                 self.paired += 1;
+                if is_hq {
+                    self.paired_hq += 1;
+                }
 
                 if flags.is_first_segment() {
                     self.read_1 += 1;
@@ -334,12 +389,7 @@ impl FlagStat {
 
                         if mat_id != rec_id {
                             self.mate_reference_sequence_id_mismatch += 1;
-
-                            let mapq = record
-                                .mapping_quality()
-                                .map_or(255, |x| x.get());
-
-                            if mapq >= 5 {
+                            if is_hq {
                                 self.mate_reference_sequence_id_mismatch_hq += 1;
                             }
                         }
@@ -354,9 +404,11 @@ impl FlagStat {
 pub fn filter_bam<'a, I>(
     reads: I,
     is_paired: bool,
+    barcode_loc: &'a BarcodeLocation,
+    umi_loc: Option<&'a BarcodeLocation>,
     mapq_filter: Option<u8>,
-    flagstat: &'a mut FlagStat,
-) -> impl Iterator<Item = Record> + 'a
+    qc: &'a mut LibraryQC,
+) -> impl Iterator<Item = AlignmentInfo> + 'a
 where
     I: Iterator<Item = Record> + 'a,
 {
@@ -367,34 +419,41 @@ where
     //   - read fails platform/vendor quality checks
     //   - read is PCR or optical duplicate
     let flag_failed = Flags::from_bits(1804).unwrap();
-    reads.filter(move |r| {
-        flagstat.update(r);
+    reads.filter_map(move |r| {
+        let is_hq = mapq_filter.map_or(true, |min_q| {
+            let q = r.mapping_quality().map_or(255, |x| x.get());
+            q >= min_q
+        });
+        qc.all_reads_flagstat.update(&r, is_hq);
+
+        let barcode = barcode_loc.extract(&r).ok();
+        let umi = umi_loc.and_then(|x| x.extract(&r).ok());
+        if barcode.is_some() {
+            qc.barcoded_reads_flagstat.update(&r, is_hq);
+        }
+
         let flag = r.flags();
         let is_properly_aligned = !flag.is_supplementary() &&
             (!is_paired || flag.is_properly_segmented());
         let flag_pass = !flag.intersects(flag_failed);
-        let mapq_pass = mapq_filter.map_or(true, |min_q| {
-            let q = r.mapping_quality().map_or(255, |x| x.get());
-            q >= min_q
-        });
-        is_properly_aligned && flag_pass && mapq_pass
+        if is_properly_aligned && flag_pass && is_hq && barcode.is_some() {
+            let alignment = AlignmentInfo::new(&r, barcode, umi).unwrap();
+            Some(alignment)
+        } else {
+            None
+        }
     })
 }
 
 /// Sort and group BAM
-pub fn group_bam_by_barcode<'a, I, P>(
+pub fn group_bam_by_barcode<I, P>(
     reads: I,
-    barcode_loc: &'a BarcodeLocation,
-    umi_loc: Option<&'a BarcodeLocation>,
     is_paired: bool,
     temp_dir: Option<P>,
     chunk_size: usize,
-) -> RecordGroups< 
-    impl Iterator<Item = AlignmentInfo> + 'a,
-    impl FnMut(&AlignmentInfo) -> String + 'a
->
+) -> RecordGroups<impl Iterator<Item = AlignmentInfo>, impl FnMut(&AlignmentInfo) -> String>
 where
-    I: Iterator<Item = Record> + 'a,
+    I: Iterator<Item = AlignmentInfo>,
     P: AsRef<std::path::Path>,
 {
     let mut sorter = ExternalSorterBuilder::new()
@@ -403,10 +462,8 @@ where
     if let Some(tmp) = temp_dir {
         sorter = sorter.with_tmp_dir(tmp);
     }
-    let input = reads.map(move |x| AlignmentInfo::new(&x, barcode_loc, umi_loc).unwrap())
-        .filter(|x| x.barcode.is_some());
     let groups = sorter.build().unwrap()
-        .sort_by(input.map(|x| std::io::Result::Ok(x)), |a, b| a.barcode.cmp(&b.barcode)
+        .sort_by(reads.map(|x| std::io::Result::Ok(x)), |a, b| a.barcode.cmp(&b.barcode)
             .then_with(|| a.unclipped_start.cmp(&b.unclipped_start))
             .then_with(|| a.unclipped_end.cmp(&b.unclipped_end))
         ).unwrap()
@@ -430,8 +487,8 @@ where
     I: Iterator<Item = AlignmentInfo>,
     F: FnMut(&AlignmentInfo) -> String,
 {
-    pub fn into_fragments<'a>(&'a self, header: &'a Header) -> impl Iterator<Item = Fragment> + '_ {
-        self.groups.into_iter().flat_map(|(_, rec)| get_unique_fragments(rec, header, self.is_paired))
+    pub fn into_fragments<'a>(&'a self, header: &'a Header) -> impl Iterator<Item = Vec<Fragment>> + '_ {
+        self.groups.into_iter().map(|(_, rec)| get_unique_fragments(rec, header, self.is_paired))
     }
 }
 

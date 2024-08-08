@@ -37,7 +37,6 @@ fn _snapatac2(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(motif::read_motifs, m)?)?;
  
     // Preprocessing related functions
-    m.add_class::<preprocessing::PyFlagStat>().unwrap();
     m.add_function(wrap_pyfunction!(preprocessing::make_fragment_file, m)?)?;
     m.add_function(wrap_pyfunction!(preprocessing::import_fragments, m)?)?;
     m.add_function(wrap_pyfunction!(preprocessing::import_contacts, m)?)?;
