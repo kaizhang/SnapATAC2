@@ -207,7 +207,7 @@ impl ScoreCDF {
             *state += x;
             Some(*state)
         }).enumerate().map(|(i, x)| (getter.get_sc(i), x))
-            .group_by(|x| x.1).into_iter().flat_map(|(_, mut groups)| {
+            .chunk_by(|x| x.1).into_iter().flat_map(|(_, mut groups)| {
                 let a = groups.next().unwrap();
                 match groups.last() {
                     None => vec![a],

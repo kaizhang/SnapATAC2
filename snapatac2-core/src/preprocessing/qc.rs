@@ -292,13 +292,6 @@ impl<'a> TSSe<'a> {
         Self { counts: vec![0; promoters.size as usize + 1], n_overlapping: 0, n_total: 0, promoters }
     }
 
-    pub fn reset(mut self) -> Self {
-        self.counts.fill(0);
-        self.n_overlapping = 0;
-        self.n_total = 0;
-        self
-    }
-
     pub fn add(&mut self, bed: &Fragment) {
         fn find_pos(tss: &mut TSSe, ins: &GenomicRange) {
             tss.promoters.promoters.find(ins).map(|(entry, data)| {

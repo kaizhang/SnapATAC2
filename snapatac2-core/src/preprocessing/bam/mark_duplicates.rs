@@ -82,8 +82,7 @@ impl BarcodeLocation {
                     _ => bail!("Not a String"),
                 },
             BarcodeLocation::Regex(re) => {
-                let read_name = rec.name().context("No read name")?;
-                let read_name = std::str::from_utf8(read_name.as_bytes())?;
+                let read_name = std::str::from_utf8(rec.name().context("No read name")?)?;
                 let mat = re.captures(read_name)
                     .and_then(|x| x.get(1))
                     .ok_or(anyhow!("The regex must contain exactly one capturing group matching the barcode"))?
@@ -123,7 +122,7 @@ impl AlignmentInfo {
         let alignment_start: u32 = start.try_into()?;
         let alignment_span: u32 = cigar.alignment_span()?.try_into()?;
         let alignment_end = alignment_start + alignment_span - 1;
-        let clip_groups = cigar.iter().map(Result::unwrap).group_by(|op| {
+        let clip_groups = cigar.iter().map(Result::unwrap).chunk_by(|op| {
             let kind = op.kind();
             kind == Kind::HardClip || kind == Kind::SoftClip
         });
@@ -139,7 +138,7 @@ impl AlignmentInfo {
             0
         });
         Ok(Self {
-            name: std::str::from_utf8(rec.name().context("no read name")?.as_bytes())?.to_string(),
+            name: std::str::from_utf8(rec.name().context("no read name")?)?.to_string(),
             reference_sequence_id: rec.reference_sequence_id().context("no reference sequence id")??.try_into()?,
             flags: rec.flags().bits(),
             alignment_start,
@@ -468,7 +467,7 @@ where
             .then_with(|| a.unclipped_end.cmp(&b.unclipped_end))
         ).unwrap()
         .map(|x| x.unwrap())
-        .group_by(|x| x.barcode.as_ref().unwrap().clone());
+        .chunk_by(|x| x.barcode.as_ref().unwrap().clone());
 
     RecordGroups {is_paired, groups}
 }
@@ -479,7 +478,7 @@ pub struct RecordGroups<I, F>
         F: FnMut(&AlignmentInfo) -> String,
 {
     is_paired:  bool,
-    groups: itertools::GroupBy<String, I, F>,
+    groups: itertools::ChunkBy<String, I, F>,
 }
 
 impl<I, F> RecordGroups<I, F>

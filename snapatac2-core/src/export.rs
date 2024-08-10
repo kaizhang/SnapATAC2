@@ -12,7 +12,7 @@ use bed_utils::bed::{
     BEDLike, BedGraph, merge_sorted_bed_with, GenomicRange, io,
     tree::{GenomeRegions, SparseBinnedCoverage, BedTree}
 };
-use bigtools::{BigWigWrite, bed::bedparser::BedParser};
+use bigtools::BigWigWrite;
 use indicatif::{ProgressIterator, style::ProgressStyle, ParallelProgressIterator};
 use tempfile::Builder;
 
@@ -264,7 +264,7 @@ where
         
     let groups = counter.get_region_coverage().map(|(region, count)|
         BedGraph::from_bed(&region, count / norm_factor)
-    ).group_by(|x| x.value);
+    ).chunk_by(|x| x.value);
     groups.into_iter().flat_map(|(_, groups)| merge_sorted_bed_with(
         groups,
         |beds| {
@@ -285,7 +285,7 @@ fn create_bigwig_from_bedgraph<P: AsRef<Path>>(
     filename: P,
 ) -> Result<()> {
     // perform clipping to make sure the end of each region is within the range.
-    bedgraph.iter_mut().group_by(|x| x.chrom().to_string()).into_iter().for_each(|(chr, groups)| {
+    bedgraph.iter_mut().chunk_by(|x| x.chrom().to_string()).into_iter().for_each(|(chr, groups)| {
         let size = chrom_sizes.get(&chr).expect(&format!("chromosome not found: {}", chr));
         let bed = groups.last().unwrap();
         if bed.end() > size {
@@ -294,11 +294,12 @@ fn create_bigwig_from_bedgraph<P: AsRef<Path>>(
     });
 
     // write to bigwig file
-    let bw_writer = BigWigWrite::create_file(filename.as_ref().to_str().unwrap().to_string());
-    bw_writer.write(
-        chrom_sizes.into_iter().map(|(k, v)| (k.to_string(), *v as u32)).collect(),
-        bigtools::bedchromdata::BedParserStreamingIterator::new(
-            BedParser::wrap_iter(bedgraph.into_iter().map(|x| {
+    BigWigWrite::create_file(
+        filename.as_ref().to_str().unwrap().to_string(),
+        chrom_sizes.into_iter().map(|(k, v)| (k.to_string(), *v as u32)).collect()
+    )?.write(
+        bigtools::beddata::BedParserStreamingIterator::wrap_iter(
+            bedgraph.into_iter().map(|x| {
                 let val = bigtools::Value {
                     start: x.start() as u32,
                     end: x.end() as u32,
@@ -306,10 +307,10 @@ fn create_bigwig_from_bedgraph<P: AsRef<Path>>(
                 };
                 let res: Result<_, bigtools::bed::bedparser::BedValueError> = Ok((x.chrom().to_string(), val));
                 res
-            })),
+            }),
             false,
         ),
         tokio::runtime::Runtime::new().unwrap(),
-    ).unwrap();
+    )?;
     Ok(())
 }

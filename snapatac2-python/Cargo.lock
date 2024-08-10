@@ -68,7 +68,7 @@ checksum = "0031108bbf0fa6c902d7970c8a4ab3b16aac45d878c754b8c1840e604014886a"
 dependencies = [
  "anyhow",
  "flate2",
- "indexmap 2.2.3",
+ "indexmap 2.3.0",
  "itertools 0.12.1",
  "log",
  "nalgebra-sparse",
@@ -266,7 +266,7 @@ dependencies = [
  "bincode",
  "bio",
  "byteorder",
- "indexmap 2.2.3",
+ "indexmap 2.3.0",
  "itertools 0.12.1",
  "lexical",
  "lz4",
@@ -279,9 +279,9 @@ dependencies = [
 
 [[package]]
 name = "bigtools"
-version = "0.4.2"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e7e3e2801e665559947318628677a989ee986fd6f18ac572e332127e72e27aa"
+checksum = "121b90c45f10e9c355c10fbf93348ea10579cf765ea3e95d583c84a45fdb502f"
 dependencies = [
  "attohttpc",
  "bincode",
@@ -384,6 +384,12 @@ name = "bit-vec"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "349f9b6a179ed607305526ca489b34ad0a41aed5f7980fa90eb03160b69598fb"
+
+[[package]]
+name = "bit-vec"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2c54ff287cfc0a34f38a6b832ea1bd8e448a330b3e40a50859e6488bee07f22"
 
 [[package]]
 name = "bitflags"
@@ -1192,9 +1198,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.2.3"
+version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "233cf39063f058ea2caae4091bf4a3ef70a653afbc026f5c4a4135d114e3c177"
+checksum = "de3fc2e30ba82dd1b3911c8de1ffc143c74a914a14e99514d7637e3099df5ea0"
 dependencies = [
  "equivalent",
  "hashbrown 0.14.3",
@@ -1259,6 +1265,15 @@ name = "itertools"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
 dependencies = [
  "either",
 ]
@@ -1665,7 +1680,7 @@ checksum = "4541eb06dce09c0241ebbaab7102f0a01a0c8994afed2e5d0d66775016e25ac2"
 dependencies = [
  "approx 0.5.1",
  "matrixmultiply",
- "nalgebra-macros 0.2.1",
+ "nalgebra-macros 0.2.2",
  "num-complex",
  "num-rational",
  "num-traits",
@@ -1686,13 +1701,13 @@ dependencies = [
 
 [[package]]
 name = "nalgebra-macros"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91761aed67d03ad966ef783ae962ef9bbaca728d2dd7ceb7939ec110fffad998"
+checksum = "254a5372af8fc138e36684761d3c0cdb758a4410e938babcff1c860ce14ddbfc"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.50",
 ]
 
 [[package]]
@@ -1770,11 +1785,21 @@ version = "0.74.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8903a0299daf4f072f2e601c74c29c861abdfd2427366e727b8d8afbbde8cbcc"
 dependencies = [
- "noodles-bam",
+ "noodles-bam 0.63.0",
+ "noodles-sam 0.60.0",
+]
+
+[[package]]
+name = "noodles"
+version = "0.79.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a67f576cd91c3d6fbc0d47b6817abb511519276380005788d8f69852cbfd621"
+dependencies = [
+ "noodles-bam 0.66.0",
  "noodles-core",
  "noodles-gff",
  "noodles-gtf",
- "noodles-sam",
+ "noodles-sam 0.63.0",
 ]
 
 [[package]]
@@ -1787,11 +1812,27 @@ dependencies = [
  "bstr",
  "byteorder",
  "bytes",
- "indexmap 2.2.3",
- "noodles-bgzf",
+ "indexmap 2.3.0",
+ "noodles-bgzf 0.30.0",
  "noodles-core",
- "noodles-csi",
- "noodles-sam",
+ "noodles-csi 0.35.0",
+ "noodles-sam 0.60.0",
+]
+
+[[package]]
+name = "noodles-bam"
+version = "0.66.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69ab4109074a07e6066cc0ba46db7e1c2ffc8f3e12d1c7aeb9811e6ff37e67c6"
+dependencies = [
+ "bstr",
+ "byteorder",
+ "bytes",
+ "indexmap 2.3.0",
+ "noodles-bgzf 0.32.0",
+ "noodles-core",
+ "noodles-csi 0.37.0",
+ "noodles-sam 0.63.0",
 ]
 
 [[package]]
@@ -1799,6 +1840,18 @@ name = "noodles-bgzf"
 version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13f54d4840fd26ed94103ded9524aa5fdd757255a556f24653d162c0a45c47e8"
+dependencies = [
+ "byteorder",
+ "bytes",
+ "crossbeam-channel",
+ "flate2",
+]
+
+[[package]]
+name = "noodles-bgzf"
+version = "0.32.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b2fba0f4a64cc897d9396d730a0c444d148daed7de31ad5904ecc673178fc9d"
 dependencies = [
  "byteorder",
  "bytes",
@@ -1823,33 +1876,46 @@ checksum = "beb1618ca2aa88662d387197a188686105d6b5e25f6959c52b766276cbfc4620"
 dependencies = [
  "bit-vec 0.6.3",
  "byteorder",
- "indexmap 2.2.3",
- "noodles-bgzf",
+ "indexmap 2.3.0",
+ "noodles-bgzf 0.30.0",
+ "noodles-core",
+]
+
+[[package]]
+name = "noodles-csi"
+version = "0.37.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e4bc8001c54f1d8e47e1ac6041a5f27edc99b68bacea3fade9c89059de285aea"
+dependencies = [
+ "bit-vec 0.7.0",
+ "byteorder",
+ "indexmap 2.3.0",
+ "noodles-bgzf 0.32.0",
  "noodles-core",
 ]
 
 [[package]]
 name = "noodles-gff"
-version = "0.33.0"
+version = "0.35.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "578b6efaf5c3f029720af4c8590e34fd38e214666971d665a52e3566830170d0"
+checksum = "adef59012090b5694b58cad0e4426cd18af404803f942d02e664af607d89ee28"
 dependencies = [
- "indexmap 2.2.3",
- "noodles-bgzf",
+ "indexmap 2.3.0",
+ "noodles-bgzf 0.32.0",
  "noodles-core",
- "noodles-csi",
+ "noodles-csi 0.37.0",
  "percent-encoding",
 ]
 
 [[package]]
 name = "noodles-gtf"
-version = "0.28.0"
+version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "126a4e1149e741808168e36fa38af871139428829d885e1ade46026ac31871c9"
+checksum = "7fd29a4d1bb243412ebd5090d0908c0c797ad3dd7832cc1623175c9c7c9d1a5a"
 dependencies = [
- "noodles-bgzf",
+ "noodles-bgzf 0.32.0",
  "noodles-core",
- "noodles-csi",
+ "noodles-csi 0.37.0",
 ]
 
 [[package]]
@@ -1860,12 +1926,28 @@ checksum = "0ec6452e8ed9f20ef043dce35e09ed58f1c34834cd941e987458a66e8fa66fa0"
 dependencies = [
  "bitflags 2.4.2",
  "bstr",
- "indexmap 2.2.3",
+ "indexmap 2.3.0",
  "lexical-core",
  "memchr",
- "noodles-bgzf",
+ "noodles-bgzf 0.30.0",
  "noodles-core",
- "noodles-csi",
+ "noodles-csi 0.35.0",
+]
+
+[[package]]
+name = "noodles-sam"
+version = "0.63.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "460564b59da27a291616ea9f515e8eda8624a5d64b214423fcf1f1819b05cd78"
+dependencies = [
+ "bitflags 2.4.2",
+ "bstr",
+ "indexmap 2.3.0",
+ "lexical-core",
+ "memchr",
+ "noodles-bgzf 0.32.0",
+ "noodles-core",
+ "noodles-csi 0.37.0",
 ]
 
 [[package]]
@@ -2127,7 +2209,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e1d3afd2628e69da2be385eb6f2fd57c8ac7977ceeff6dc166ff1657b0e386a9"
 dependencies = [
  "fixedbitset",
- "indexmap 2.2.3",
+ "indexmap 2.3.0",
 ]
 
 [[package]]
@@ -2290,7 +2372,7 @@ dependencies = [
  "comfy-table",
  "either",
  "hashbrown 0.14.3",
- "indexmap 2.2.3",
+ "indexmap 2.3.0",
  "ndarray",
  "num-traits",
  "once_cell",
@@ -2412,7 +2494,7 @@ dependencies = [
  "either",
  "hashbrown 0.14.3",
  "hex",
- "indexmap 2.2.3",
+ "indexmap 2.3.0",
  "memchr",
  "num-traits",
  "polars-arrow",
@@ -2560,7 +2642,7 @@ dependencies = [
  "ahash",
  "bytemuck",
  "hashbrown 0.14.3",
- "indexmap 2.2.3",
+ "indexmap 2.3.0",
  "num-traits",
  "once_cell",
  "polars-error",
@@ -2671,9 +2753,9 @@ dependencies = [
 
 [[package]]
 name = "pyo3-log"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2af49834b8d2ecd555177e63b273b708dea75150abc6f5341d0a6e1a9623976c"
+checksum = "3ac84e6eec1159bc2a575c9ae6723baa6ee9d45873e9bebad1e3ad7e8d28a443"
 dependencies = [
  "arc-swap",
  "log",
@@ -3170,7 +3252,7 @@ dependencies = [
  "bed-utils",
  "flate2",
  "indicatif",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "linfa",
  "linfa-clustering",
  "linreg",
@@ -3178,7 +3260,7 @@ dependencies = [
  "nalgebra 0.32.4",
  "nalgebra-sparse",
  "ndarray",
- "noodles",
+ "noodles 0.74.0",
  "numpy",
  "polars",
  "pyanndata",
@@ -3206,15 +3288,15 @@ dependencies = [
  "bigtools",
  "flate2",
  "hora",
- "indexmap 2.2.3",
+ "indexmap 2.3.0",
  "indicatif",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "kdtree 0.7.0",
  "lexical",
  "log",
  "nalgebra-sparse",
  "ndarray",
- "noodles",
+ "noodles 0.79.0",
  "num",
  "polars",
  "rayon",

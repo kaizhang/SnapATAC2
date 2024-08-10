@@ -62,7 +62,7 @@ where
     let mut scanned_barcodes = HashSet::new();
     let frag_grouped= fragments
         .filter(|x| x.len() > 0)
-        .group_by(|x| x.name().unwrap().to_string());
+        .chunk_by(|x| x.name().unwrap().to_string());
     let frag_chunked = frag_grouped
         .into_iter()
         .progress_with(spinner)
@@ -220,7 +220,7 @@ where
     anndata.obsm().add_iter(
         "contact",
         contacts
-            .group_by(|x| x.barcode.clone())
+            .chunk_by(|x| x.barcode.clone())
             .into_iter()
             .progress_with(spinner)
             .chunks(chunk_size)
