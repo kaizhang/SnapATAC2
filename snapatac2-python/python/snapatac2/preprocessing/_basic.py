@@ -103,23 +103,23 @@ def make_fragment_file(
     -------
     dict[str, float]
         A dictionary containing the following metrics:
-        - Sequenced_reads: number of reads in the input BAM file.
-        - Sequenced_read_pairs: number of read pairs in the input BAM file.
-        - Fraction_duplicates: Fraction of high-quality read pairs that are deemed
-                               to be PCR duplicates. This metric is a measure of
-                               sequencing saturation and is a function of library
-                               complexity and sequencing depth. More specifically,
-                               this is the fraction of high-quality fragments with a
-                               valid barcode that align to the same genomic position
-                               as another read pair in the library.
-        - Fraction_unmapped_reads: Fraction of sequenced reads that have
-                                   a valid barcode but could not be mapped to the genome.
-        - Fraction_unmapped_read_pairs: Fraction of sequenced read pairs that have
-                                        a valid barcode but could not be mapped to the genome.
-        - Raw_reads_per_cell: Total number of reads divided by the number of cell barcodes.
-        - Raw_read_pairs_per_cell: Total number of read pairs divided by the number of cell barcodes.
-        - Fraction_reads_in_cell: fraction of reads that are associated with a cell barcode.
-        - Fraction_read_pairs_in_cell: fraction of read pairs that are associated with a cell barcode.
+
+            - "Sequenced_reads": number of reads in the input BAM file.
+            - "Sequenced_read_pairs": number of read pairs in the input BAM file.
+            - "Fraction_duplicates": Fraction of high-quality read pairs that are deemed
+              to be PCR duplicates. This metric is a measure of sequencing
+              saturation and is a function of library complexity and sequencing
+              depth. More specifically, this is the fraction of high-quality
+              fragments with a valid barcode that align to the same genomic
+              position as another read pair in the library.
+            - "Fraction_unmapped_reads": Fraction of sequenced reads that have
+              a valid barcode but could not be mapped to the genome.
+            - "Fraction_unmapped_read_pairs": Fraction of sequenced read pairs that have
+              a valid barcode but could not be mapped to the genome.
+            - "Raw_reads_per_cell": Total number of reads divided by the number of cell barcodes.
+            - "Raw_read_pairs_per_cell": Total number of read pairs divided by the number of cell barcodes.
+            - "Fraction_reads_in_cell": fraction of reads that are associated with a cell barcode.
+            - "Fraction_read_pairs_in_cell": fraction of read pairs that are associated with a cell barcode.
 
     See Also
     --------

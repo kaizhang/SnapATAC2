@@ -31,7 +31,7 @@ polars = { version = "0.40", features = ["ndarray", "dtype-categorical"] }
 rayon = "1.10"
 regex = "1.6"
 serde = "1.0"
-statrs = "0.16"
+statrs = "0.17"
 smallvec = "1.13"
 tempfile = "3.3"
 zstd = { version = "0.13", features = ["zstdmt"] }

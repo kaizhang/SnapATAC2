@@ -2,6 +2,11 @@
 
 ## Nightly version
 
+### Features:
+
+  - Return more QC metrics from `pp.make_fragment_file`.
+  - Also compute library-level TSSe in `metrics.tsse`.
+
 ## Release 2.6.4 (released May 28, 2024)
 
 ### Features:
