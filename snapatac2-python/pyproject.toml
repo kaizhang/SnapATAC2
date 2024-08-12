@@ -24,7 +24,7 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
     "License :: OSI Approved :: MIT License",
 ]
-requires-python = ">=3.8, <3.13"
+requires-python = ">=3.9, <3.13"
 dynamic = ["version"]
 
 dependencies = [

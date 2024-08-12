@@ -35,28 +35,28 @@ def make_fragment_file(
 
     Convert a BAM file to a fragment file by performing the following steps:
 
-        1. Filtering: remove reads that are unmapped, not primary alignment, mapq < 30,
-           fails platform/vendor quality checks, or optical duplicate.
-           For paired-end sequencing, it also removes reads that are not properly aligned.
-        2. Deduplicate: Sort the reads by cell barcodes and remove duplicated reads
-           for each unique cell barcode.
-        3. Output: Convert BAM records to fragments (if paired-end) or single-end reads.
+    1. Filtering: remove reads that are unmapped, not primary alignment, mapq < 30,
+       fails platform/vendor quality checks, or optical duplicate.
+       For paired-end sequencing, it also removes reads that are not properly aligned.
+    2. Deduplicate: Sort the reads by cell barcodes and remove duplicated reads
+       for each unique cell barcode.
+    3. Output: Convert BAM records to fragments (if paired-end) or single-end reads.
 
     The bam file needn't be sorted or filtered.
 
     Note
     ----
     - When using `barcode_regex` or `umi_regex`, the regex must contain exactly one capturing group
-    (Parentheses group the regex between them) that matches the barcodes or UMIs.
-    Writting the correct regex is tricky. You can test your regex online at https://regex101.com/.
-    BAM files produced by the 10X Genomics Cell Ranger pipeline are not supported,
-    as they contain invalid BAM headers. Specifically, Cell Ranger ATAC <= 2.0 produces BAM
-    files with no @VN tag in the header, and Cell Ranger ATAC >= 2.1 produces BAM files
-    with invalid @VN tag in the header.
-    It is recommended to use the fragment files produced by Cell Ranger ATAC instead.
+      (Parentheses group the regex between them) that matches the barcodes or UMIs.
+      Writting the correct regex is tricky. You can test your regex online at https://regex101.com/.
+      BAM files produced by the 10X Genomics Cell Ranger pipeline are not supported,
+      as they contain invalid BAM headers. Specifically, Cell Ranger ATAC <= 2.0 produces BAM
+      files with no @VN tag in the header, and Cell Ranger ATAC >= 2.1 produces BAM files
+      with invalid @VN tag in the header.
+      It is recommended to use the fragment files produced by Cell Ranger ATAC instead.
     - This function generates large temporary files in `tempdir` during sorting.
-    For large files, it is recommended to set `tempdir` to a location with
-    sufficient space in order to avoid running out of disk space.
+      For large files, it is recommended to set `tempdir` to a location with
+      sufficient space in order to avoid running out of disk space.
 
     Parameters
     ----------
@@ -104,22 +104,22 @@ def make_fragment_file(
     dict[str, float]
         A dictionary containing the following metrics:
 
-            - "Sequenced_reads": number of reads in the input BAM file.
-            - "Sequenced_read_pairs": number of read pairs in the input BAM file.
-            - "Fraction_duplicates": Fraction of high-quality read pairs that are deemed
-              to be PCR duplicates. This metric is a measure of sequencing
-              saturation and is a function of library complexity and sequencing
-              depth. More specifically, this is the fraction of high-quality
-              fragments with a valid barcode that align to the same genomic
-              position as another read pair in the library.
-            - "Fraction_unmapped_reads": Fraction of sequenced reads that have
-              a valid barcode but could not be mapped to the genome.
-            - "Fraction_unmapped_read_pairs": Fraction of sequenced read pairs that have
-              a valid barcode but could not be mapped to the genome.
-            - "Raw_reads_per_cell": Total number of reads divided by the number of cell barcodes.
-            - "Raw_read_pairs_per_cell": Total number of read pairs divided by the number of cell barcodes.
-            - "Fraction_reads_in_cell": fraction of reads that are associated with a cell barcode.
-            - "Fraction_read_pairs_in_cell": fraction of read pairs that are associated with a cell barcode.
+        - "Sequenced_reads": number of reads in the input BAM file.
+        - "Sequenced_read_pairs": number of read pairs in the input BAM file.
+        - "Fraction_duplicates": Fraction of high-quality read pairs that are deemed
+          to be PCR duplicates. This metric is a measure of sequencing
+          saturation and is a function of library complexity and sequencing
+          depth. More specifically, this is the fraction of high-quality
+          fragments with a valid barcode that align to the same genomic
+          position as another read pair in the library.
+        - "Fraction_unmapped_reads": Fraction of sequenced reads that have
+          a valid barcode but could not be mapped to the genome.
+        - "Fraction_unmapped_read_pairs": Fraction of sequenced read pairs that have
+          a valid barcode but could not be mapped to the genome.
+        - "Raw_reads_per_cell": Total number of reads divided by the number of cell barcodes.
+        - "Raw_read_pairs_per_cell": Total number of read pairs divided by the number of cell barcodes.
+        - "Fraction_reads_in_cell": fraction of reads that are associated with a cell barcode.
+        - "Fraction_read_pairs_in_cell": fraction of read pairs that are associated with a cell barcode.
 
     See Also
     --------
