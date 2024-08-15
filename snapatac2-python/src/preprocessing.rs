@@ -33,6 +33,7 @@ pub(crate) fn make_fragment_file(
     umi_tag: Option<&str>,
     umi_regex: Option<&str>,
     mapq: Option<u8>,
+    source: Option<&str>,
     compression: Option<&str>,
     compression_level: Option<u32>,
     temp_dir: Option<PathBuf>,
@@ -50,7 +51,7 @@ pub(crate) fn make_fragment_file(
         bam_file, output_file, is_paired,
         barcode_tag.map(|x| parse_tag(x)), barcode_regex,
         umi_tag.map(|x| parse_tag(x)), umi_regex,
-        shift_left, shift_right, mapq, chunk_size,
+        shift_left, shift_right, mapq, chunk_size, source,
         compression.map(|x| utils::Compression::from_str(x).unwrap()), compression_level, temp_dir,
     )?;
     Ok(stat.report())

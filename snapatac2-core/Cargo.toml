@@ -12,6 +12,8 @@ keywords = ["single-cell", "biology"]
 [dependencies]
 anndata = "0.4.2"
 anyhow = "1.0"
+bstr = "1.0"
+byteorder = "1.0"
 bigtools = { version = "0.5", features = ["read", "write"] }
 bed-utils = "0.4.1"
 flate2 = "1.0"
@@ -20,7 +22,7 @@ hora = "0.1"
 kdtree = "0.7"
 itertools = "0.13"
 indexmap = "2.3"
-indicatif = {version = "0.17", features = ["rayon"] }
+indicatif = { version = "0.17", features = ["rayon"] }
 lexical = "6.1"
 log = "0.4"
 ndarray = { version = "0.15", features = ["rayon"] }

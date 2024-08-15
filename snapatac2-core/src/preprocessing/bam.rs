@@ -1,4 +1,5 @@
 mod mark_duplicates;
+mod header;
 pub use mark_duplicates::{filter_bam, group_bam_by_barcode, BarcodeLocation, FlagStat, LibraryQC};
 
 use bed_utils::bed::BEDLike;
@@ -7,6 +8,7 @@ use indicatif::{style::ProgressStyle, ProgressBar, ProgressDrawTarget, ProgressI
 use regex::Regex;
 use anyhow::{Result, bail};
 use std::{io::Write, path::Path};
+use log::warn;
 
 use crate::utils::{open_file_for_write, Compression};
 
@@ -40,8 +42,10 @@ use crate::utils::{open_file_for_write, Compression};
 /// * `shift_right` - Insertion site correction for the right end.
 /// * `chunk_size` - The size of data retained in memory when performing sorting. Larger chunk sizes
 ///     result in faster sorting and greater memory usage.
+/// * `source` - The source of the data, e.g., "10x", used for specific processing.
 /// * `compression` - Compression algorithm to use for the output file. Valid values are `gzip` and `zstandard`.
 /// * `compression_level` - Compression level to use for the output file. Valid values are 0-9 for `gzip` and 1-22 for `zstandard`.
+/// * `temp_dir` - Location for temperary files.
 pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path>>(
     bam_file: P1,
     output_file: P2,
@@ -54,6 +58,7 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path>>(
     shift_right: i64,
     mapq: Option<u8>,
     chunk_size: usize,
+    source: Option<&str>,
     compression: Option<Compression>,
     compression_level: Option<u32>,
     temp_dir: Option<P3>,
@@ -80,7 +85,14 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path>>(
     };
 
     let mut reader = bam::io::reader::Builder::default().build_from_path(bam_file)?;
-    let header = reader.read_header()?;
+
+    let header = match source {
+        Some("10x") => {
+            warn!("The number of PCR duplicates cannot be computed for 10X Genomics BAM files.");
+            header::read_10x_header(reader.get_mut())?
+        },
+        _ => reader.read_header()?,
+    };
 
     let mut output = open_file_for_write(output_file, compression, compression_level)?;
 
