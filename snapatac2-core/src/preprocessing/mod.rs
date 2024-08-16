@@ -7,5 +7,5 @@ pub use count_data::{import_fragments, import_contacts, Promoters, Transcript,
     create_gene_matrix, create_tile_matrix, create_peak_matrix,
     GenomeCount, ContactMap, SnapData,
 };
-pub use bam::{make_fragment_file, FlagStat, LibraryQC};
+pub use bam::{make_fragment_file, FlagStat, BamQC};
 pub use qc::{Fragment, Contact, CellBarcode, read_tss, TssRegions, make_promoter_map, get_barcode_count};

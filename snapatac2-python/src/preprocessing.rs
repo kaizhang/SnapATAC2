@@ -33,6 +33,7 @@ pub(crate) fn make_fragment_file(
     umi_tag: Option<&str>,
     umi_regex: Option<&str>,
     mapq: Option<u8>,
+    mitochondrial_dna: Option<Vec<String>>,
     source: Option<&str>,
     compression: Option<&str>,
     compression_level: Option<u32>,
@@ -47,14 +48,14 @@ pub(crate) fn make_fragment_file(
             panic!("TAG name must contain exactly two characters");
         }
     }
-    let stat = preprocessing::make_fragment_file(
+    let (bam_qc, frag_qc) = preprocessing::make_fragment_file(
         bam_file, output_file, is_paired,
         barcode_tag.map(|x| parse_tag(x)), barcode_regex,
         umi_tag.map(|x| parse_tag(x)), umi_regex,
-        shift_left, shift_right, mapq, chunk_size, source,
+        shift_left, shift_right, mapq, chunk_size, source, mitochondrial_dna.map(|x| x.into_iter().collect()),
         compression.map(|x| utils::Compression::from_str(x).unwrap()), compression_level, temp_dir,
     )?;
-    Ok(stat.report())
+    Ok(bam_qc.report().into_iter().chain(frag_qc.report()).collect())
 }
 
 #[pyfunction]

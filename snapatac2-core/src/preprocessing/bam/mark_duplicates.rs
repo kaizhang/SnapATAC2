@@ -18,24 +18,18 @@
 // if it's a PCR duplicate, it will be guaranteed to be the same at that end
 // but not at the 3' end.
 
-use noodles::{
-    bam::Record,
-    sam::{
-        alignment::record::{Cigar, Flags, data::field::{Tag, Value}, cigar::op::Kind},
-        Header,
-    },
-};
+use noodles::{bam::Record, sam::{alignment::record::data::field::{Tag, Value}, Header}};
 use bed_utils::bed::{BEDLike, Strand};
 use bed_utils::extsort::ExternalSorterBuilder;
 use std::collections::HashMap;
 use itertools::Itertools;
 use log::warn;
 use rayon::prelude::ParallelSliceMut;
-use serde::{Serialize, Deserialize};
 use anyhow::{Result, bail, anyhow, Context};
 use regex::Regex;
 
 use crate::preprocessing::Fragment;
+use crate::preprocessing::bam::flagstat::AlignmentInfo;
 
 // Library type    orientation   Vizualization according to first strand
 // FF_firststrand  matching      3' <==2==----<==1== 5'
@@ -92,72 +86,6 @@ impl BarcodeLocation {
                 }
                 Ok(mat)
             },
-        }
-    }
-}
-
-/// Minimal information about an alignment extracted from the BAM record.
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AlignmentInfo {
-    name: String,
-    reference_sequence_id: u16,
-    flags: u16,
-    alignment_start: u32,
-    alignment_end: u32,
-    unclipped_start: u32,
-    unclipped_end: u32,
-    sum_of_qual_scores: u32,
-    barcode: Option<String>,
-    umi: Option<String>,
-}
-
-impl AlignmentInfo {
-    fn new(
-        rec: &Record,
-        barcode: Option<String>,
-        umi: Option<String>,
-    ) -> Result<Self> {
-        let cigar = rec.cigar();
-        let start: usize = rec.alignment_start().unwrap().unwrap().try_into()?;
-        let alignment_start: u32 = start.try_into()?;
-        let alignment_span: u32 = cigar.alignment_span()?.try_into()?;
-        let alignment_end = alignment_start + alignment_span - 1;
-        let clip_groups = cigar.iter().map(Result::unwrap).chunk_by(|op| {
-            let kind = op.kind();
-            kind == Kind::HardClip || kind == Kind::SoftClip
-        });
-        let mut clips = clip_groups.into_iter();
-        let clipped_start: u32 = clips.next().map_or(0, |(is_clip, x)| if is_clip {
-            x.map(|x| x.len() as u32).sum()
-        } else {
-            0
-        });
-        let clipped_end: u32 = clips.last().map_or(0, |(is_clip, x)| if is_clip {
-            x.map(|x| x.len() as u32).sum()
-        } else {
-            0
-        });
-        Ok(Self {
-            name: std::str::from_utf8(rec.name().context("no read name")?)?.to_string(),
-            reference_sequence_id: rec.reference_sequence_id().context("no reference sequence id")??.try_into()?,
-            flags: rec.flags().bits(),
-            alignment_start,
-            alignment_end,
-            unclipped_start: alignment_start - clipped_start,
-            unclipped_end: alignment_end + clipped_end,
-            sum_of_qual_scores: sum_of_qual_score(rec),
-            barcode,
-            umi,
-        })
-    }
-
-    fn flags(&self) -> Flags { Flags::from_bits_retain(self.flags) }
-
-    fn alignment_5p(&self) -> u32 {
-        if self.flags().is_reverse_complemented() {
-            self.alignment_end
-        } else {
-            self.alignment_start
         }
     }
 }
@@ -256,192 +184,6 @@ impl FingerPrint {
             barcode: this.umi.clone(),
         }
     }
-}
-
-#[derive(Debug, Default)]
-pub struct LibraryQC {
-    pub all_reads_flagstat: FlagStat,
-    pub barcoded_reads_flagstat: FlagStat,
-    pub num_pcr_duplicates: u64,
-    pub num_uniques: u64,
-    pub num_barcodes: u64,
-}
-
-impl LibraryQC {
-    /// Report the quality control metrics.
-    /// The metrics are:
-    /// - Sequenced_reads: number of reads in the input BAM file.
-    /// - Sequenced_read_pairs: number of read pairs in the input BAM file.
-    /// - Fraction_duplicates: Fraction of high-quality read pairs that are deemed
-    ///                        to be PCR duplicates. This metric is a measure of
-    ///                        sequencing saturation and is a function of library
-    ///                        complexity and sequencing depth. More specifically,
-    ///                        this is the fraction of high-quality fragments with a
-    ///                        valid barcode that align to the same genomic position
-    ///                        as another read pair in the library.
-    /// - Fraction_unmapped_reads: Fraction of sequenced reads that have
-    ///                            a valid barcode but could not be mapped to the genome.
-    /// - Fraction_unmapped_read_pairs: Fraction of sequenced read pairs that have
-    ///                                 a valid barcode but could not be mapped to the genome.
-    /// - Raw_reads_per_cell: Total number of reads divided by the number of cell barcodes.
-    /// - Raw_read_pairs_per_cell: Total number of read pairs divided by the number of cell barcodes.
-    /// - Fraction_reads_in_cell: fraction of reads that are associated with a cell barcode.
-    /// - Fraction_read_pairs_in_cell: fraction of read pairs that are associated with a cell barcode.
-    pub fn report(&self) -> HashMap<String, f64> {
-        let mut result = HashMap::new();
-        let flagstat_all = &self.all_reads_flagstat;
-        let flagstat_barcoded = &self.barcoded_reads_flagstat;
-        let num_reads = flagstat_all.read as f64;
-        let num_pairs = flagstat_all.read_1.min(flagstat_all.read_2) as f64;
-        let num_barcoded_reads = flagstat_barcoded.read as f64;
-        let num_barcoded_pairs = flagstat_barcoded.read_1.min(flagstat_barcoded.read_2) as f64;
-        let mapped_pairs = flagstat_barcoded.proper_pair as f64 / 2.0;
-        result.insert("Sequenced_reads".to_string(), num_reads);
-        result.insert("Sequenced_read_pairs".to_string(), num_pairs);
-        result.insert("Fraction_duplicates".to_string(), self.num_pcr_duplicates as f64 / (self.num_uniques + self.num_pcr_duplicates) as f64);
-        result.insert("Fraction_unmapped_reads".to_string(), (num_barcoded_reads - flagstat_barcoded.mapped as f64) / num_barcoded_reads);
-        result.insert("Fraction_unmapped_read_pairs".to_string(), 1.0 - mapped_pairs / num_barcoded_pairs);
-        result.insert("Raw_reads_per_cell".to_string(), num_reads / self.num_barcodes as f64);
-        result.insert("Raw_read_pairs_per_cell".to_string(), num_pairs / self.num_barcodes as f64);
-        result.insert("Fraction_reads_in_cell".to_string(), num_barcoded_reads / num_reads);
-        result.insert("Fraction_read_pairs_in_cell".to_string(), num_barcoded_pairs / num_pairs);
-        result
-    }
-}
-
-/// BAM record statistics.
-#[derive(Debug, Default)]
-pub struct FlagStat {
-    pub read: u64,
-    pub primary: u64,
-    pub secondary: u64,
-    pub supplementary: u64,
-    pub duplicate: u64,
-    pub primary_duplicate: u64,
-    pub mapped: u64,
-    pub primary_mapped: u64,
-    pub paired: u64,
-    pub paired_hq: u64,
-    pub read_1: u64,
-    pub read_2: u64,
-    pub proper_pair: u64,
-    pub mate_mapped: u64,
-    pub singleton: u64,
-    pub mate_reference_sequence_id_mismatch: u64,
-    pub mate_reference_sequence_id_mismatch_hq: u64,
-}
-
-impl FlagStat {
-    pub fn update(&mut self, record: &Record, is_hq: bool) {
-        let flags = record.flags();
-
-        self.read += 1;
-
-        if !flags.is_unmapped() {
-            self.mapped += 1;
-        }
-
-        if flags.is_duplicate() {
-            self.duplicate += 1;
-        }
-
-        if flags.is_secondary() {
-            self.secondary += 1;
-        } else if flags.is_supplementary() {
-            self.supplementary += 1;
-        } else {
-            self.primary += 1;
-
-            if !flags.is_unmapped() {
-                self.primary_mapped += 1;
-            }
-
-            if flags.is_duplicate() {
-                self.primary_duplicate += 1;
-            }
-
-            if flags.is_segmented() {
-                self.paired += 1;
-                if is_hq {
-                    self.paired_hq += 1;
-                }
-
-                if flags.is_first_segment() {
-                    self.read_1 += 1;
-                }
-
-                if flags.is_last_segment() {
-                    self.read_2 += 1;
-                }
-
-                if !flags.is_unmapped() {
-                    if flags.is_properly_segmented() {
-                        self.proper_pair += 1;
-                    }
-
-                    if flags.is_mate_unmapped() {
-                        self.singleton += 1;
-                    } else {
-                        self.mate_mapped += 1;
-                        let rec_id = record.mate_reference_sequence_id().unwrap().unwrap(); 
-                        let mat_id = record.reference_sequence_id().unwrap().unwrap(); 
-
-                        if mat_id != rec_id {
-                            self.mate_reference_sequence_id_mismatch += 1;
-                            if is_hq {
-                                self.mate_reference_sequence_id_mismatch_hq += 1;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-/// Filter Bam records.
-pub fn filter_bam<'a, I>(
-    reads: I,
-    is_paired: bool,
-    barcode_loc: &'a BarcodeLocation,
-    umi_loc: Option<&'a BarcodeLocation>,
-    mapq_filter: Option<u8>,
-    qc: &'a mut LibraryQC,
-) -> impl Iterator<Item = AlignmentInfo> + 'a
-where
-    I: Iterator<Item = Record> + 'a,
-{
-    // flag (1804) meaning:
-    //   - read unmapped
-    //   - mate unmapped
-    //   - not primary alignment
-    //   - read fails platform/vendor quality checks
-    //   - read is PCR or optical duplicate
-    let flag_failed = Flags::from_bits(1804).unwrap();
-    reads.filter_map(move |r| {
-        let is_hq = mapq_filter.map_or(true, |min_q| {
-            let q = r.mapping_quality().map_or(255, |x| x.get());
-            q >= min_q
-        });
-        qc.all_reads_flagstat.update(&r, is_hq);
-
-        let barcode = barcode_loc.extract(&r).ok();
-        let umi = umi_loc.and_then(|x| x.extract(&r).ok());
-        if barcode.is_some() {
-            qc.barcoded_reads_flagstat.update(&r, is_hq);
-        }
-
-        let flag = r.flags();
-        let is_properly_aligned = !flag.is_supplementary() &&
-            (!is_paired || flag.is_properly_segmented());
-        let flag_pass = !flag.intersects(flag_failed);
-        if is_properly_aligned && flag_pass && is_hq && barcode.is_some() {
-            let alignment = AlignmentInfo::new(&r, barcode, umi).unwrap();
-            Some(alignment)
-        } else {
-            None
-        }
-    })
 }
 
 /// Sort and group BAM
@@ -606,10 +348,4 @@ where
     });
     
     result.into_values().map(|x| (x.0, x.2, x.4))
-}
-
-// The sum of all base qualities in the record above 15.
-fn sum_of_qual_score(read: &Record) -> u32 {
-    read.quality_scores().as_ref().iter().map(|x| u8::from(*x) as u32)
-        .filter(|x| *x >= 15).sum()
 }

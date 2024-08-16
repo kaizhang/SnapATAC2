@@ -1,16 +1,68 @@
 mod mark_duplicates;
 mod header;
-pub use mark_duplicates::{filter_bam, group_bam_by_barcode, BarcodeLocation, FlagStat, LibraryQC};
+mod flagstat;
+pub use mark_duplicates::{group_bam_by_barcode, BarcodeLocation};
+pub use flagstat::{filter_bam, FlagStat, BamQC};
 
+use bstr::BString;
 use bed_utils::bed::BEDLike;
 use noodles::{bam, sam::alignment::record::data::field::Tag};
 use indicatif::{style::ProgressStyle, ProgressBar, ProgressDrawTarget, ProgressIterator};
 use regex::Regex;
 use anyhow::{Result, bail};
-use std::{io::Write, path::Path};
+use std::{collections::{HashMap, HashSet}, io::Write, path::Path};
 use log::warn;
 
 use crate::utils::{open_file_for_write, Compression};
+use crate::preprocessing::Fragment;
+
+#[derive(Debug, Clone, Default)]
+pub struct FragmentQC {
+    mitochondrion: Option<HashSet<String>>,
+    num_pcr_duplicates: u64,
+    num_unique_fragments: u64,
+    num_frag_nfr: u64,
+    num_frag_single: u64,
+}
+
+impl FragmentQC {
+    pub fn new(mitochondrion: Option<HashSet<String>>) -> Self {
+        Self {
+            mitochondrion,
+            ..Default::default()
+        }
+    }
+
+    pub fn update(&mut self, fragment: &Fragment) {
+        self.num_pcr_duplicates += fragment.count as u64 - 1;
+        self.num_unique_fragments += 1;
+        let size = fragment.len();
+        if self.mitochondrion.as_ref().map_or(true, |mito| !mito.contains(fragment.chrom())) {
+            if size < 147 {
+                self.num_frag_nfr += 1;
+            } else if size <= 294 {
+                self.num_frag_single += 1;
+            }
+        }
+    }
+
+    /// Report the quality control metrics.
+    /// The metrics are:
+    /// - Fraction_duplicates: Fraction of high-quality read pairs that are deemed
+    ///                        to be PCR duplicates. This metric is a measure of
+    ///                        sequencing saturation and is a function of library
+    ///                        complexity and sequencing depth. More specifically,
+    ///                        this is the fraction of high-quality fragments with a
+    ///                        valid barcode that align to the same genomic position
+    ///                        as another read pair in the library.
+    pub fn report(&self) -> HashMap<String, f64> {
+        let mut result = HashMap::new();
+        result.insert("Fraction_duplicates".to_string(), self.num_pcr_duplicates as f64 / (self.num_unique_fragments + self.num_pcr_duplicates) as f64);
+        result.insert("Fraction_fragment_in_nucleosome_free_region".to_string(), self.num_frag_nfr as f64 / self.num_unique_fragments as f64);
+        result.insert("Fraction_fragment_flanking_single_nucleosome".to_string(), self.num_frag_single as f64 / self.num_unique_fragments as f64);
+        result
+    }
+}
 
 /// Convert a BAM file to a fragment file by performing the following steps:
 ///
@@ -59,10 +111,11 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path>>(
     mapq: Option<u8>,
     chunk_size: usize,
     source: Option<&str>,
+    mitochondrion: Option<HashSet<String>>,
     compression: Option<Compression>,
     compression_level: Option<u32>,
     temp_dir: Option<P3>,
-) -> Result<LibraryQC> {
+) -> Result<(BamQC, FragmentQC)> {
     if barcode_regex.is_some() && barcode_tag.is_some() {
         bail!("Can only set barcode_tag or barcode_regex but not both");
     }
@@ -103,10 +156,12 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path>>(
             )
             .unwrap(),
         );
-    let mut library_qc = LibraryQC::default();
-    let mut num_pcr_duplicates = 0;
-    let mut num_uniques = 0;
-    let mut num_barcodes = 0;
+    let mut fragment_qc = FragmentQC::new(mitochondrion.clone());
+    let mut library_qc = BamQC::new(
+        mitochondrion.map(|mito| mito.into_iter().flat_map(
+            |x| header.reference_sequences().get_index_of(&BString::from(x))).collect()
+        )
+    );
     let filtered_records = filter_bam(
         reader.records().map(Result::unwrap),
         is_paired,
@@ -123,26 +178,15 @@ pub fn make_fragment_file<P1: AsRef<Path>, P2: AsRef<Path>, P3: AsRef<Path>>(
     )
     .into_fragments(&header)
     .progress_with(spinner)
-    .for_each(|barcode| {
-        num_barcodes += 1;
-        barcode.into_iter().for_each(|mut rec| {
-            num_pcr_duplicates += rec.count as u64 - 1;
-            num_uniques += 1;
-            if rec.strand().is_none() {
-                let new_start = rec.start().saturating_add_signed(shift_left);
-                let new_end = rec.end().saturating_add_signed(shift_right);
-                if new_start < new_end {
-                    rec.set_start(new_start);
-                    rec.set_end(new_end);
-                    writeln!(output, "{}", rec).unwrap();
-                }
-            } else {
-                writeln!(output, "{}", rec).unwrap();
-            }
-        });
-    });
-    library_qc.num_pcr_duplicates = num_pcr_duplicates;
-    library_qc.num_uniques = num_uniques;
-    library_qc.num_barcodes = num_barcodes;
-    Ok(library_qc)
+    .for_each(|barcode| barcode.into_iter().for_each(|mut rec| {
+        if rec.strand().is_none() { // perform fragment length correction for paired-end reads
+            rec.set_start(rec.start().saturating_add_signed(shift_left));
+            rec.set_end(rec.end().saturating_add_signed(shift_right));
+        }
+        if rec.len() > 0 {
+            fragment_qc.update(&rec);
+            writeln!(output, "{}", rec).unwrap();
+        }
+    }));
+    Ok((library_qc, fragment_qc))
 }
