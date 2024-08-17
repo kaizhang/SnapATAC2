@@ -102,11 +102,11 @@ def pbmc500(type: Literal["fragment, bam"]="fragment", downsample: bool = False)
     """
     if type == "fragment":
         if downsample:
-            return Path(datasets().fetch("atac_pbmc_500_downsample.tsv.gz"))
+            return Path(datasets().fetch("atac_pbmc_500_downsample.tsv.gz", progressbar=True))
         else:
-            return Path(datasets().fetch("atac_pbmc_500.tsv.gz"))
+            return Path(datasets().fetch("atac_pbmc_500.tsv.gz", progressbar=True))
     elif type == "bam":
-        return Path(datasets().fetch("atac_pbmc_500.bam"))
+        return Path(datasets().fetch("atac_pbmc_500.bam", progressbar=True))
     else:
         raise NameError("type '{}' is not available.".format(type))
 

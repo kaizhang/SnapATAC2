@@ -24,6 +24,8 @@ use anyhow::{Result, Context, bail};
 use num::integer::div_ceil;
 use std::{str::FromStr, sync::{Arc, Mutex}};
 
+use self::qc::TSSe;
+
 /// The `SnapData` trait represents an interface for reading and
 /// manipulating single-cell assay data. It extends the `AnnDataOp` trait,
 /// adding methods for reading chromosome sizes and genome-wide base-resolution coverage.
@@ -71,7 +73,7 @@ pub trait SnapData: AnnDataOp {
     /// QC metrics for the data.
 
     /// Compute TSS enrichment.
-    fn tss_enrichment(&self, promoter: &qc::TssRegions) -> Result<(Vec<f64>, (f64, f64))> {
+    fn tss_enrichment<'a>(&self, promoter: &'a qc::TssRegions) -> Result<(Vec<f64>, TSSe<'a>)> {
         let library_tsse = Arc::new(Mutex::new(qc::TSSe::new(promoter)));
         let scores = self.get_count_iter(2000)?.into_fragments().flat_map(|(list_of_fragments, _, _)| {
             list_of_fragments.into_par_iter().map(|fragments| {
@@ -81,8 +83,7 @@ pub trait SnapData: AnnDataOp {
                 tsse.result().0
             }).collect::<Vec<_>>()
         }).collect();
-        let tsse = library_tsse.lock().unwrap().result();
-        Ok((scores, tsse))
+        Ok((scores, Arc::into_inner(library_tsse).unwrap().into_inner().unwrap()))
     }
 
     /// Compute the fragment size distribution.

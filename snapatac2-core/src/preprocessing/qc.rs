@@ -1,4 +1,4 @@
-use std::{io::{Read, BufRead, BufReader}, ops::Div, collections::{HashMap, HashSet}};
+use std::{io::{Read, BufRead, BufReader}, collections::{HashMap, HashSet}};
 use anndata::data::CsrNonCanonical;
 use bed_utils::bed::{GenomicRange, BEDLike, tree::BedTree, ParseError, Strand};
 use anyhow::Result;
@@ -240,22 +240,23 @@ pub fn read_tss<R: Read>(file: R) -> impl Iterator<Item = (String, u64, bool)> {
 
 pub struct TssRegions {
     pub promoters: BedTree<bool>,
-    pub tss: BedTree<bool>,
-    pub size: u64,
+    window_size: u64,
 }
 
 impl TssRegions {
-    pub fn new<I: IntoIterator<Item = (String, u64, bool)>>(iter: I, half_window_size: u64) -> Self {
-        let values: Vec<_> = iter.into_iter().collect();
-        let tss = values.iter().map( |(chr, x, is_fwd)| {
-            let b = GenomicRange::new(chr, *x as u64, *x as u64 + 1);
-            (b, *is_fwd)
-        }).collect();
-        let promoters = values.into_iter().map( |(chr, tss, is_fwd)| {
-            let b = GenomicRange::new(chr, tss.saturating_sub(half_window_size), tss + half_window_size + 1);
+    /// Create a new TssRegions from an iterator of (chr, tss, is_fwd) tuples.
+    /// The promoter region is defined as |--- window_size --- TSS --- window_size ---|,
+    /// a total of 2 * window_size + 1 bp.
+    pub fn new<I: IntoIterator<Item = (String, u64, bool)>>(iter: I, window_size: u64) -> Self {
+        let promoters = iter.into_iter().map( |(chr, tss, is_fwd)| {
+            let b = GenomicRange::new(chr, tss.saturating_sub(window_size), tss + window_size + 1);
             (b, is_fwd)
         }).collect();
-        Self { promoters, tss, size: 2 * half_window_size }
+        Self { promoters, window_size }
+    }
+
+    pub fn len(&self) -> usize {
+        2 * self.window_size as usize + 1
     }
 }
 
@@ -280,7 +281,7 @@ where
     barcodes
 }
 
-pub(crate) struct TSSe<'a> {
+pub struct TSSe<'a> {
     promoters: &'a TssRegions,
     counts: Vec<u64>,
     n_overlapping: u64,
@@ -289,42 +290,30 @@ pub(crate) struct TSSe<'a> {
 
 impl<'a> TSSe<'a> {
     pub fn new(promoters: &'a TssRegions) -> Self {
-        Self { counts: vec![0; promoters.size as usize + 1], n_overlapping: 0, n_total: 0, promoters }
+        Self { counts: vec![0; promoters.len()], n_overlapping: 0, n_total: 0, promoters }
     }
 
-    pub fn add(&mut self, bed: &Fragment) {
-        fn find_pos(tss: &mut TSSe, ins: &GenomicRange) {
-            tss.promoters.promoters.find(ins).map(|(entry, data)| {
-                let pos: u64 =
-                    if *data {
-                        ins.start() - entry.start()
-                    } else {
-                        tss.promoters.size as u64 - (entry.end() - 1 - ins.start())
-                    };
-                pos as usize
-            }).for_each(|pos| tss.counts[pos] += 1);
-        }
+    pub fn get_counts(&self) -> &[u64] {
+        &self.counts
+    }
 
-        self.n_total += 1;
-        if self.promoters.tss.is_overlapped(bed) {
-            self.n_overlapping += 1;
-        }
-        match bed.strand {
-            None => {
-                let p1 = GenomicRange::new(bed.chrom(), bed.start(), bed.start() + 1);
-                let p2 = GenomicRange::new(bed.chrom(), bed.end() - 1, bed.end());
-                find_pos(self, &p1);
-                find_pos(self, &p2);
-            },
-            Some(Strand::Forward) => {
-                let p = GenomicRange::new(bed.chrom(), bed.start(), bed.start() + 1);
-                find_pos(self, &p);
-            },
-            Some(Strand::Reverse) => {
-                let p = GenomicRange::new(bed.chrom(), bed.end() - 1, bed.end());
-                find_pos(self, &p);
-            },
-        }
+    pub fn add(&mut self, frag: &Fragment) {
+        frag.to_insertions().into_iter().for_each(|ins| {
+            self.n_total += 1;
+            let mut overlapped = false;
+            self.promoters.promoters.find(&ins).for_each(|(promoter, is_fwd)| {
+                overlapped = true;
+                let pos = if *is_fwd {
+                        ins.start() - promoter.start()
+                    } else {
+                        promoter.end() - 1 - ins.start()
+                    };
+                self.counts[pos as usize] += 1;
+            });
+            if overlapped {
+                self.n_overlapping += 1;
+            }
+        });
     }
 
     pub fn add_from(&mut self, tsse: &TSSe) {
@@ -335,56 +324,12 @@ impl<'a> TSSe<'a> {
 
     pub fn result(&self) -> (f64, f64) {
         let counts = &self.counts;
-        let bg_count: f64 =
-            ( counts[ .. 100].iter().sum::<u64>() +
-            counts[3901 .. 4001].iter().sum::<u64>() ) as f64 /
-            200.0 + 0.1;
-        let tss_enrichment = moving_average(5, &counts)
-            .max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap().div(bg_count);
-        (tss_enrichment, self.n_overlapping as f64 / self.n_total as f64)
+        let left_end_sum = counts.iter().take(100).sum::<u64>();
+        let right_end_sum = counts.iter().rev().take(100).sum::<u64>();
+        let background: f64 = (left_end_sum + right_end_sum) as f64 / 200.0 + 0.1;
+        let tss_count = moving_average(5, &counts).nth(self.promoters.window_size as usize).unwrap();
+        (tss_count / background, self.n_overlapping as f64 / self.n_total as f64)
     }
-}
-
-pub fn tss_enrichment<I>(fragments: I, promoter: &BedTree<bool>) -> f64
-where
-    I: Iterator<Item = Fragment>,
-{
-    fn find_pos<'a>(promoter: &'a BedTree<bool>, ins: &'a GenomicRange) -> impl Iterator<Item = usize> + 'a {
-        promoter.find(ins).map(|(entry, data)| {
-            let pos: u64 =
-                if *data {
-                    ins.start() - entry.start()
-                } else {
-                    4000 - (entry.end() - 1 - ins.start())
-                };
-            pos as usize
-        })
-    }
-
-    let mut counts = [0; 4001];
-    fragments.for_each(|bed| match bed.strand {
-        None => {
-            let p1 = GenomicRange::new(bed.chrom(), bed.start(), bed.start() + 1);
-            let p2 = GenomicRange::new(bed.chrom(), bed.end() - 1, bed.end());
-            find_pos(promoter, &p1).for_each(|pos| counts[pos] += 1);
-            find_pos(promoter, &p2).for_each(|pos| counts[pos] += 1);
-        },
-        Some(Strand::Forward) => {
-            let p = GenomicRange::new(bed.chrom(), bed.start(), bed.start() + 1);
-            find_pos(promoter, &p).for_each(|pos| counts[pos] += 1);
-        },
-        Some(Strand::Reverse) => {
-            let p = GenomicRange::new(bed.chrom(), bed.end() - 1, bed.end());
-            find_pos(promoter, &p).for_each(|pos| counts[pos] += 1);
-        },
-    });
-    let bg_count: f64 =
-        ( counts[ .. 100].iter().sum::<u64>() +
-        counts[3901 .. 4001].iter().sum::<u64>() ) as f64 /
-        200.0 + 0.1;
-    let tss_enrichment = moving_average(5, &counts)
-        .max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap().div(bg_count);
-    tss_enrichment
 }
 
 /// Compute the fragment size distribution.

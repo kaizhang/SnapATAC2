@@ -329,11 +329,12 @@ pub(crate) fn mk_gene_matrix(
 /// QC metrics
 
 #[pyfunction]
-pub(crate) fn tss_enrichment(
+pub(crate) fn tss_enrichment<'py>(
+    py: Python<'py>,
     anndata: AnnDataLike,
     gtf_file: PathBuf,
     exclude_chroms: Option<Vec<String>>,
-) -> Result<(Vec<f64>, (f64, f64))>
+) -> Result<HashMap<&'py str, PyObject>>
 {
     let exclude_chroms = match exclude_chroms {
         Some(chrs) => chrs.into_iter().collect(),
@@ -349,7 +350,14 @@ pub(crate) fn tss_enrichment(
             $data.tss_enrichment(&promoters)
         }
     }
-    crate::with_anndata!(&anndata, run)
+    let (scores, tsse) = crate::with_anndata!(&anndata, run)?;
+    let library_tsse = tsse.result();
+    let mut result = HashMap::new();
+    result.insert("tsse", scores.to_object(py));
+    result.insert("library_tsse", library_tsse.0.to_object(py));
+    result.insert("fraction_overlap_TSS", library_tsse.1.to_object(py));
+    result.insert("TSS_profile", tsse.get_counts().to_object(py));
+    Ok(result)
 }
 
 #[pyfunction]

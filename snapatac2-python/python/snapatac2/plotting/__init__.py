@@ -59,8 +59,7 @@ def tsse(
         >>> fig.show()
     """
     if "tsse" not in adata.obs:
-        logging.info("Computing TSS enrichment score...")
-        snapatac2.metrics.tsse(adata, inplace=True)
+        raise ValueError("TSS enrichment score is not computed, please run `metrics.tsse` first.")
 
     selected_cells = np.where(adata.obs["n_fragment"] >= min_fragment)[0]
     x = adata.obs["n_fragment"][selected_cells]
