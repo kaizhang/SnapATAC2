@@ -130,7 +130,7 @@ impl BamQC {
     pub fn update(&mut self, record: &Record, barcode: &Option<String>) {
         let flagstat = FlagStat::new(record);
         self.all_reads_flagstat.add(&flagstat);
-        let is_hq = record.mapping_quality().map_or(true, |x| x.get() > 30);
+        let is_hq = record.mapping_quality().map_or(true, |x| x.get() >= 30);
         if is_hq {
             self.hq_flagstat.add(&flagstat);
         }
@@ -148,7 +148,7 @@ impl BamQC {
     /// The metrics are:
     /// - Sequenced_reads: number of reads in the input BAM file.
     /// - Sequenced_read_pairs: number of read pairs in the input BAM file.
-    /// - Fraction_confidently_mapped: Fraction of sequenced reads or read pairs with mapping quality > 30.
+    /// - Fraction_confidently_mapped: Fraction of sequenced reads or read pairs with mapping quality >= 30.
     /// - Fraction_unmapped: Fraction of sequenced reads or read pairs that have
     ///                      a valid barcode but could not be mapped to the genome.
     /// - Fraction_valid_barcode: Fraction of reads or read pairs with barcodes that match the whitelist after error correction.
@@ -286,7 +286,7 @@ where
         let umi = umi_loc.and_then(|x| x.extract(&r).ok());
         let is_hq = mapq_filter.map_or(true, |min_q| {
             let q = r.mapping_quality().map_or(255, |x| x.get());
-            q > min_q
+            q >= min_q
         });
         qc.update(&r, &barcode);
 
