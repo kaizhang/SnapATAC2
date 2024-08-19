@@ -15,6 +15,38 @@ __all__ = [
     'regions', 'motif_enrichment',
 ]
 
+def valid_cells(
+    values,
+    width: int = 500,
+    height: int = 400,
+    **kwargs,
+):
+    import plotly.graph_objects as go
+
+    values = sorted(values, reverse=True)
+    result = {}
+    for x, y in enumerate(values):
+        x = x + 1
+        if y in result:
+            x_, n = result[y]
+            result[y] = (x_ + x, n + 1)
+        else:
+            result[y] = (x, 1)
+    for y, (x, n) in result.items():
+        result[y] = x / n
+    y, x = zip(*result.items())
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=x, y=y))
+    fig.update_xaxes(type="log")
+    fig.update_yaxes(type="log")
+    fig.update_layout(
+        xaxis_title="Barcodes",
+        yaxis_title="Counts",
+    )
+
+    return render_plot(fig, width, height, **kwargs)
+
 def tsse(
     adata: AnnData,
     min_fragment: int = 500,

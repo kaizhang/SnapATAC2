@@ -83,6 +83,7 @@ def frip(
     adata: internal.AnnData | list[internal.AnnData],
     regions: dict[str, Path | list[str]],
     *,
+    normalized: bool = True,
     inplace: bool = True,
     n_jobs: int = 8,
 ) -> dict[str, list[float]] | list[dict[str, list[float]]] | None:
@@ -102,6 +103,9 @@ def frip(
         The keys are peak set names and the values are either a bed file name or a list of
         strings representing genomic regions. For example,
         `{"promoter_frac": "promoter.bed", "enhancer_frac": ["chr1:100-200", "chr2:300-400"]}`.
+    normalized
+        Whether to normalize the counts by the total number of fragments.
+        If False, the raw number of fragments in peaks will be returned.
     inplace
         Whether to add the results to `adata.obs` or return it as a dictionary.
     n_jobs
@@ -141,7 +145,7 @@ def frip(
             n_jobs=n_jobs,
         )
     else:
-        result = internal.add_frip(adata, regions)
+        result = internal.add_frip(adata, regions, normalized)
         if inplace:
             for k, v in result.items():
                 adata.obs[k] = v

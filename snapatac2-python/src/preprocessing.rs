@@ -364,6 +364,7 @@ pub(crate) fn tss_enrichment<'py>(
 pub(crate) fn add_frip(
     anndata: AnnDataLike,
     regions: BTreeMap<String, Vec<String>>,
+    normalized: bool,
 ) -> Result<BTreeMap<String, Vec<f64>>>
 {
     let trees: Vec<_> = regions.values().map(|x|
@@ -372,7 +373,7 @@ pub(crate) fn add_frip(
 
     macro_rules! run {
         ($data:expr) => {
-            $data.frip(&trees)
+            $data.frip(&trees, normalized)
         }
     }
 

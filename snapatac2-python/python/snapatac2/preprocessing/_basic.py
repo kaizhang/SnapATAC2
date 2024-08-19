@@ -1,4 +1,6 @@
 from __future__ import annotations
+import snapatac2.preprocessing
+import snapatac2.preprocessing._cell_calling
 from typing_extensions import Literal
 
 from pathlib import Path
@@ -11,7 +13,7 @@ import snapatac2._snapatac2 as internal
 from snapatac2.genome import Genome
 
 __all__ = ['make_fragment_file', 'import_data', 'import_contacts', 'add_tile_matrix',
-           'make_peak_matrix', 'filter_cells', 'select_features', 'make_gene_matrix'
+           'make_peak_matrix', 'call_cells', 'filter_cells', 'select_features', 'make_gene_matrix'
 ]
 
 def make_fragment_file(
@@ -734,6 +736,62 @@ def make_gene_matrix(
         counting_strategy, min_frag_size, max_frag_size, out)
     return out
 
+def call_cells(
+    data: internal.AnnData | list[internal.AnnData],
+    use_rep: str | np.ndarray[float],
+    inplace: bool = True,
+    n_jobs: int = 8,
+) -> np.ndarray | None:
+    """
+    Calling cells based on the number of feature counts.
+
+    This implements Cell Ranger's
+    [cell calling algorithm](https://www.10xgenomics.com/support/software/cell-ranger/latest/algorithms-overview/cr-gex-algorithm),
+    which is based on two primary algorithms: Order of magnitude (OrdMag) and EmptyDrops.
+    
+    Currently only OrdMag is implemented.
+
+    Parameters
+    ----------
+    data
+        The (annotated) data matrix of shape `n_obs` x `n_vars`.
+        Rows correspond to cells and columns to regions.
+        `data` can also be a list of AnnData objects.
+        In this case, the function will be applied to each AnnData object in parallel.
+    use_rep
+        The representation to use for filtering. This can be a string or a numpy array.
+    inplace
+        Perform computation inplace or return result.
+    n_jobs
+        Number of parallel jobs to use when `data` is a list.
+
+    Returns
+    -------
+    np.ndarray | None:
+        If `inplace = True`, directly subsets the data matrix. Otherwise return 
+        indices of cells that pass the filtering.
+    """
+    if isinstance(data, list):
+        result = snapatac2._utils.anndata_par(
+            data,
+            lambda x: call_cells(x, inplace=inplace),
+            n_jobs=n_jobs,
+        )
+        if inplace:
+            return None
+        else:
+            return result
+
+    counts = data.obs[use_rep].to_numpy() if isinstance(use_rep, str) else use_rep
+    selected_cells = snapatac2.preprocessing._cell_calling.filter_cellular_barcodes_ordmag(counts, None)[0]
+    if inplace:
+        if data.isbacked:
+            data.subset(selected_cells)
+        else:
+            data._inplace_subset_obs(selected_cells)
+    else:
+        return selected_cells
+
 def filter_cells(
     data: internal.AnnData | list[internal.AnnData],
     min_counts: int | None = 1000,
@@ -773,8 +831,7 @@ def filter_cells(
     -------
     np.ndarray | None:
         If `inplace = True`, directly subsets the data matrix. Otherwise return 
-        a boolean index mask that does filtering, where `True` means that the
-        cell is kept, `False` means the cell is removed.
+        indices of cells that pass the filtering.
     """
     if isinstance(data, list):
         result = snapatac2._utils.anndata_par(
@@ -793,6 +850,7 @@ def filter_cells(
     if min_tsse: selected_cells &= data.obs["tsse"] >= min_tsse
     if max_tsse: selected_cells &= data.obs["tsse"] <= max_tsse
 
+    selected_cells = np.flatnonzero(selected_cells)
     if inplace:
         if data.isbacked:
             data.subset(selected_cells)
