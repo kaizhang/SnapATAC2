@@ -56,6 +56,7 @@ fn _snapatac2(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(call_peaks::fetch_peaks, m)?)?;
     m.add_function(wrap_pyfunction!(call_peaks::py_merge_peaks, m)?)?;
     m.add_function(wrap_pyfunction!(call_peaks::find_reproducible_peaks, m)?)?;
+    m.add_function(wrap_pyfunction!(call_peaks::call_peaks_bulk, m)?)?;
 
     m.add_function(wrap_pyfunction!(knn::nearest_neighbour_graph, m)?)?;
     m.add_function(wrap_pyfunction!(knn::approximate_nearest_neighbour_graph, m)?)?;

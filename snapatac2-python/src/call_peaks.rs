@@ -393,3 +393,72 @@ fn _export_tags<D: SnapData, P: AsRef<std::path::Path>>(
     });
     Ok(result)
 }
+
+#[pyfunction]
+pub fn call_peaks_bulk<'py>(
+    py: Python<'py>,
+    anndata: AnnDataLike,
+    macs3_options: &Bound<'_, PyAny>,
+    max_frag_size: Option<u64>,
+) -> Result<PyDataFrame> {
+    macro_rules! run {
+        ($data:expr) => { _call_peaks_bulk(py, $data, macs3_options, max_frag_size) };
+    }
+    crate::with_anndata!(&anndata, run)
+}
+
+fn _call_peaks_bulk<'py, D: SnapData>(
+    py: Python<'py>,
+    data: &D,
+    macs3_options: &Bound<'_, PyAny>,
+    max_frag_size: Option<u64>,
+) -> Result<PyDataFrame> {
+    let macs = py.import_bound("MACS3.Signal.FixWidthTrack")?;
+    let kwargs = pyo3::types::PyDict::new_bound(py);
+    kwargs.set_item("buffer_size", 100000)?;
+    let fwt = macs.getattr("FWTrack")?.call((), Some(&kwargs))?;
+
+    let style = ProgressStyle::with_template(
+        "[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})",
+    )?;
+    let mut counts = data.get_count_iter(1000)?;
+    if let Some(max_size) = max_frag_size {
+        counts = counts.max_fragment_size(max_size);
+    }
+    counts.into_fragments().progress_with_style(style)
+        .try_for_each(|vals| vals.0.into_iter().flatten().try_for_each(|x| {
+            let chr = x.chrom().as_bytes();
+            match x.strand() {
+                None => {
+                    fwt.call_method1("add_loc", (chr, x.start(), 0))?;
+                    fwt.call_method1("add_loc", (chr, x.end() - 1, 1))?;
+                },
+                Some(Strand::Forward) => {
+                    fwt.call_method1("add_loc", (chr, x.start(), 0))?;
+                },
+                Some(Strand::Reverse) => {
+                    fwt.call_method1("add_loc", (chr, x.end() - 1, 1))?;
+                }
+            }
+            anyhow::Ok(())
+        }))?;
+    fwt.call_method0("finalize")?;
+
+    let outputs = pyo3::types::PyDict::new_bound(py);
+    let inputs = pyo3::types::PyDict::new_bound(py);
+    inputs.set_item("fwt", fwt)?;
+    inputs.set_item("options", macs3_options)?;
+    py.run_bound(
+        r#"
+from MACS3.Signal.PeakDetect import PeakDetect
+peakdetect = PeakDetect(treat=fwt, opt=options)
+peakdetect.call_peaks()
+peakdetect.peaks.filter_fc(fc_low=options.fecutoff)
+peaks = peakdetect.peaks
+"#,
+        Some(&inputs),
+        Some(&outputs),
+    )?;
+    let peaks = outputs.get_item("peaks")?.unwrap();
+    Ok(PyDataFrame(narrow_peak_to_dataframe(get_peaks(&peaks)?)?))
+}

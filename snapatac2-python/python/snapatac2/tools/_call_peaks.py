@@ -8,8 +8,8 @@ from snapatac2.genome import Genome
 
 def macs3(
     adata: AnnData | AnnDataSet,
-    groupby: str | list[str],
     *,
+    groupby: str | list[str] | None = None,
     qvalue: float = 0.05,
     replicate: str | list[str] | None = None,
     replicate_qvalue: float | None = None,
@@ -34,7 +34,7 @@ def macs3(
         Rows correspond to cells and columns to regions.
     groupby
         Group the cells before peak calling. If a `str`, groups are obtained from
-        `.obs[groupby]`.
+        `.obs[groupby]`. If None, peaks will be called for all cells.
     qvalue
         qvalue cutoff used in MACS3.
     replicate
@@ -109,6 +109,7 @@ def macs3(
     options.do_SPMR = False
     options.trackline = False
     options.log_pvalue = None
+    options.log_qvalue = log(qvalue, 10) * -1
     options.PE_MODE = False
 
     options.gsize = adata.uns['reference_sequences']['reference_seq_length'].sum()    # Estimated genome size
@@ -123,6 +124,14 @@ def macs3(
     options.fecutoff = 1.0
     options.d = extsize
     options.scanwindow = 2 * options.d
+
+    if groupby is None:
+        peaks = _snapatac2.call_peaks_bulk(adata, options, max_frag_size)
+        if inplace:
+            adata.uns[key_added + "_pseudobulk"] = peaks.to_pandas() if not adata.isbacked else peaks
+            return
+        else:
+            return peaks
 
     with tempfile.TemporaryDirectory(dir=tempdir) as tmpdirname:
         logging.info("Exporting fragments...")
