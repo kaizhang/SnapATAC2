@@ -8,6 +8,7 @@
   - Also compute library-level TSSe in `metrics.tsse`.
   - `pp.make_fragment_file` can now work with 10X BAM files.
   - Add `pp.call_cells` to identify nonempty barcodes from raw data.
+  - Add `pp.recipe_10x_metrics` to compute 10X metrics.
 
 ## Release 2.6.4 (released May 28, 2024)
 

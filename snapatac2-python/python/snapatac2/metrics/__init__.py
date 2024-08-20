@@ -41,7 +41,7 @@ def tsse(
     tuple[np.ndarray, tuple[float, float]] | list[tuple[np.ndarray, tuple[float, float]]] | None
         If `inplace = True`, cell-level TSSe scores are computed and stored in `adata.obs['tsse']`.
         Library-level TSSe scores are stored in `adata.uns['library_tsse']`.
-        Fraction of fragments overlapping TSS are stored in `adata.uns['fraction_overlapp_TSS']`.
+        Fraction of fragments overlapping TSS are stored in `adata.uns['fraction_overlap_TSS']`.
         If `inplace = False`, return a tuple containing all these values.
 
     Examples
@@ -84,6 +84,7 @@ def frip(
     regions: dict[str, Path | list[str]],
     *,
     normalized: bool = True,
+    count_as_insertion: bool = False,
     inplace: bool = True,
     n_jobs: int = 8,
 ) -> dict[str, list[float]] | list[dict[str, list[float]]] | None:
@@ -106,6 +107,9 @@ def frip(
     normalized
         Whether to normalize the counts by the total number of fragments.
         If False, the raw number of fragments in peaks will be returned.
+    count_as_insertion
+        Whether to count transposition events instead of fragments. Transposition
+        events are located at both ends of fragments.
     inplace
         Whether to add the results to `adata.obs` or return it as a dictionary.
     n_jobs
@@ -145,7 +149,7 @@ def frip(
             n_jobs=n_jobs,
         )
     else:
-        result = internal.add_frip(adata, regions, normalized)
+        result = internal.add_frip(adata, regions, normalized, count_as_insertion)
         if inplace:
             for k, v in result.items():
                 adata.obs[k] = v

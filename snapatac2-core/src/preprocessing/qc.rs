@@ -357,7 +357,7 @@ pub fn fragment_size_distribution<I>(data: I, max_size: usize) -> Vec<usize>
 
 /// Count the fraction of the reads or read pairs in the given regions.
 pub fn fraction_of_reads_in_region<'a, I, D>(
-    iter: I, regions: &'a Vec<BedTree<D>>, normalized: bool,
+    iter: I, regions: &'a Vec<BedTree<D>>, normalized: bool, count_as_insertion: bool,
 ) -> impl Iterator<Item = (Vec<Vec<f64>>, usize, usize)> + 'a
 where
     I: Iterator<Item = (Vec<Vec<Fragment>>, usize, usize)> + 'a,
@@ -367,14 +367,27 @@ where
         let frac = data.into_iter().map(|fragments| {
             let mut sum = 0.0;
             let mut counts = vec![0.0; k];
-            fragments.into_iter().for_each(|read| {
-                sum += 1.0;
-                regions.iter().enumerate().for_each(|(i, r)|
-                    if r.is_overlapped(&read) {
-                        counts[i] += 1.0;
-                    }
-                )
-            });
+
+            if count_as_insertion {
+                fragments.into_iter().flat_map(|x| x.to_insertions()).for_each(|ins| {
+                    sum += 1.0;
+                    regions.iter().enumerate().for_each(|(i, r)|
+                        if r.is_overlapped(&ins) {
+                            counts[i] += 1.0;
+                        }
+                    )
+                });
+            } else {
+                fragments.into_iter().for_each(|read| {
+                    sum += 1.0;
+                    regions.iter().enumerate().for_each(|(i, r)|
+                        if r.is_overlapped(&read) {
+                            counts[i] += 1.0;
+                        }
+                    )
+                });
+            }
+
             if normalized {
                 counts.iter_mut().for_each(|x| *x /= sum);
             }

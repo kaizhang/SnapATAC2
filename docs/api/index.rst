@@ -15,3 +15,4 @@ methods.
    plotting
    export
    datasets
+   recipes

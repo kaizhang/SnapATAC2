@@ -125,8 +125,15 @@ def make_fragment_file(
         - "Sequenced_read_pairs": number of read pairs in the input BAM file.
         - "Fraction_confidently_mapped": Fraction of sequenced reads or read pairs with mapping quality > 30.
         - "Fraction_unmapped": Fraction of sequenced reads or read pairs that have
-           a valid barcode but could not be mapped to the genome.
+          a valid barcode but could not be mapped to the genome.
         - "Fraction_valid_barcode": Fraction of reads or read pairs with barcodes that match the whitelist after error correction.
+        - "Fraction_nonnuclear": Fraction of sequenced read pairs that have a valid
+          barcode and map to non-nuclear genome contigs, including mitochondria,
+          with mapping quality > 30.
+        - "Fraction_fragment_in_nucleosome_free_region": Fraction of high-quality
+          fragments smaller than 147 basepairs.
+        - "Fraction_fragment_flanking_single_nucleosome": Fraction of high-quality
+          fragments between 147 and 294 basepairs.
 
     See Also
     --------
