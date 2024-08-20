@@ -115,24 +115,24 @@ def make_fragment_file(
     dict[str, float]
         A dictionary containing the following metrics:
 
-        - "Fraction_duplicates": Fraction of high-quality read pairs that are deemed
+        - "sequenced_reads": number of reads in the input BAM file.
+        - "sequenced_read_pairs": number of read pairs in the input BAM file.
+        - "frac_duplicates": Fraction of high-quality read pairs that are deemed
           to be PCR duplicates. This metric is a measure of sequencing
           saturation and is a function of library complexity and sequencing
           depth. More specifically, this is the fraction of high-quality
           fragments with a valid barcode that align to the same genomic
           position as another read pair in the library.
-        - "Sequenced_reads": number of reads in the input BAM file.
-        - "Sequenced_read_pairs": number of read pairs in the input BAM file.
-        - "Fraction_confidently_mapped": Fraction of sequenced reads or read pairs with mapping quality > 30.
-        - "Fraction_unmapped": Fraction of sequenced reads or read pairs that have
+        - "frac_confidently_mapped": Fraction of sequenced reads or read pairs with mapping quality > 30.
+        - "frac_unmapped": Fraction of sequenced reads or read pairs that have
           a valid barcode but could not be mapped to the genome.
-        - "Fraction_valid_barcode": Fraction of reads or read pairs with barcodes that match the whitelist after error correction.
-        - "Fraction_nonnuclear": Fraction of sequenced read pairs that have a valid
+        - "frac_valid_barcode": Fraction of reads or read pairs with barcodes that match the whitelist after error correction.
+        - "frac_nonnuclear": Fraction of sequenced read pairs that have a valid
           barcode and map to non-nuclear genome contigs, including mitochondria,
           with mapping quality > 30.
-        - "Fraction_fragment_in_nucleosome_free_region": Fraction of high-quality
+        - "frac_fragment_in_nucleosome_free_region": Fraction of high-quality
           fragments smaller than 147 basepairs.
-        - "Fraction_fragment_flanking_single_nucleosome": Fraction of high-quality
+        - "frac_fragment_flanking_single_nucleosome": Fraction of high-quality
           fragments between 147 and 294 basepairs.
 
     See Also

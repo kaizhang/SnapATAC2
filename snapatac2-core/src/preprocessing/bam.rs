@@ -57,9 +57,9 @@ impl FragmentQC {
     ///                        as another read pair in the library.
     pub fn report(&self) -> HashMap<String, f64> {
         let mut result = HashMap::new();
-        result.insert("Fraction_duplicates".to_string(), self.num_pcr_duplicates as f64 / (self.num_unique_fragments + self.num_pcr_duplicates) as f64);
-        result.insert("Fraction_fragment_in_nucleosome_free_region".to_string(), self.num_frag_nfr as f64 / self.num_unique_fragments as f64);
-        result.insert("Fraction_fragment_flanking_single_nucleosome".to_string(), self.num_frag_single as f64 / self.num_unique_fragments as f64);
+        result.insert("frac_duplicates".to_string(), self.num_pcr_duplicates as f64 / (self.num_unique_fragments + self.num_pcr_duplicates) as f64);
+        result.insert("frac_fragment_in_nucleosome_free_region".to_string(), self.num_frag_nfr as f64 / self.num_unique_fragments as f64);
+        result.insert("frac_fragment_flanking_single_nucleosome".to_string(), self.num_frag_single as f64 / self.num_unique_fragments as f64);
         result
     }
 }

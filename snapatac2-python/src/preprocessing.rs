@@ -355,7 +355,7 @@ pub(crate) fn tss_enrichment<'py>(
     let mut result = HashMap::new();
     result.insert("tsse", scores.to_object(py));
     result.insert("library_tsse", library_tsse.0.to_object(py));
-    result.insert("fraction_overlap_TSS", library_tsse.1.to_object(py));
+    result.insert("frac_overlap_TSS", library_tsse.1.to_object(py));
     result.insert("TSS_profile", tsse.get_counts().to_object(py));
     Ok(result)
 }

@@ -404,7 +404,9 @@ pub fn call_peaks_bulk<'py>(
     macro_rules! run {
         ($data:expr) => { _call_peaks_bulk(py, $data, macs3_options, max_frag_size) };
     }
-    crate::with_anndata!(&anndata, run)
+    let peaks = crate::with_anndata!(&anndata, run)?;
+
+    Ok(PyDataFrame(narrow_peak_to_dataframe(peaks)?))
 }
 
 fn _call_peaks_bulk<'py, D: SnapData>(
@@ -412,7 +414,7 @@ fn _call_peaks_bulk<'py, D: SnapData>(
     data: &D,
     macs3_options: &Bound<'_, PyAny>,
     max_frag_size: Option<u64>,
-) -> Result<PyDataFrame> {
+) -> Result<Vec<NarrowPeak>> {
     let macs = py.import_bound("MACS3.Signal.FixWidthTrack")?;
     let kwargs = pyo3::types::PyDict::new_bound(py);
     kwargs.set_item("buffer_size", 100000)?;
@@ -459,6 +461,5 @@ peaks = peakdetect.peaks
         Some(&inputs),
         Some(&outputs),
     )?;
-    let peaks = outputs.get_item("peaks")?.unwrap();
-    Ok(PyDataFrame(narrow_peak_to_dataframe(get_peaks(&peaks)?)?))
+    get_peaks(&outputs.get_item("peaks")?.unwrap())
 }

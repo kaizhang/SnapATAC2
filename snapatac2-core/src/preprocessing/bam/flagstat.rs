@@ -118,6 +118,10 @@ pub struct BamQC {
     barcoded_reads_flagstat: FlagStat,
     hq_flagstat: FlagStat,
     mito_flagstat: FlagStat,
+    num_read1_bases: u64,
+    num_read1_q30_bases: u64,
+    num_read2_bases: u64,
+    num_read2_q30_bases: u64,
 }
 
 impl BamQC {
@@ -129,6 +133,14 @@ impl BamQC {
 
     pub fn update(&mut self, record: &Record, barcode: &Option<String>) {
         let flagstat = FlagStat::new(record);
+        if flagstat.paired == 1 && flagstat.read_2 == 1{
+            self.num_read2_bases += record.sequence().len() as u64;
+            self.num_read2_q30_bases += record.quality_scores().as_ref().iter().filter(|x| **x >= 30).count() as u64;
+        } else {
+            self.num_read1_bases += record.sequence().len() as u64;
+            self.num_read1_q30_bases += record.quality_scores().as_ref().iter().filter(|x| **x >= 30).count() as u64;
+        }
+
         self.all_reads_flagstat.add(&flagstat);
         let is_hq = record.mapping_quality().map_or(true, |x| x.get() >= 30);
         if is_hq {
@@ -146,12 +158,12 @@ impl BamQC {
 
     /// Report the quality control metrics.
     /// The metrics are:
-    /// - Sequenced_reads: number of reads in the input BAM file.
-    /// - Sequenced_read_pairs: number of read pairs in the input BAM file.
-    /// - Fraction_confidently_mapped: Fraction of sequenced reads or read pairs with mapping quality >= 30.
-    /// - Fraction_unmapped: Fraction of sequenced reads or read pairs that have
+    /// - sequenced_reads: number of reads in the input BAM file.
+    /// - sequenced_read_pairs: number of read pairs in the input BAM file.
+    /// - frac_confidently_mapped: Fraction of sequenced reads or read pairs with mapping quality >= 30.
+    /// - frac_unmapped: Fraction of sequenced reads or read pairs that have
     ///                      a valid barcode but could not be mapped to the genome.
-    /// - Fraction_valid_barcode: Fraction of reads or read pairs with barcodes that match the whitelist after error correction.
+    /// - frac_valid_barcode: Fraction of reads or read pairs with barcodes that match the whitelist after error correction.
     pub fn report(&self) -> HashMap<String, f64> {
         let mut result = HashMap::new();
         let flagstat_all = &self.all_reads_flagstat;
@@ -183,12 +195,14 @@ impl BamQC {
         } else {
             self.mito_flagstat.read as f64 / num_reads as f64
         };
-        result.insert("Sequenced_reads".to_string(), num_reads as f64);
-        result.insert("Sequenced_read_pairs".to_string(), num_pairs as f64);
-        result.insert("Fraction_confidently_mapped".to_string(), fraction_confidently_mapped);
-        result.insert("Fraction_unmapped".to_string(), fraction_unmapped);
-        result.insert("Fraction_valid_barcode".to_string(), valid_barcode);
-        result.insert("Fraction_nonnuclear".to_string(), fraction_nonnuclear);
+        result.insert("sequenced_reads".to_string(), num_reads as f64);
+        result.insert("sequenced_read_pairs".to_string(), num_pairs as f64);
+        result.insert("frac_q30_bases_read1".to_string(), self.num_read1_q30_bases as f64 / self.num_read1_bases as f64);
+        result.insert("frac_q30_bases_read2".to_string(), self.num_read2_q30_bases as f64 / self.num_read2_bases as f64);
+        result.insert("frac_confidently_mapped".to_string(), fraction_confidently_mapped);
+        result.insert("frac_unmapped".to_string(), fraction_unmapped);
+        result.insert("frac_valid_barcode".to_string(), valid_barcode);
+        result.insert("frac_nonnuclear".to_string(), fraction_nonnuclear);
 
         result
     }

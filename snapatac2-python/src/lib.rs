@@ -72,6 +72,7 @@ fn _snapatac2(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(utils::read_regions, m)?)?;
     m.add_function(wrap_pyfunction!(utils::intersect_bed, m)?)?;
     m.add_function(wrap_pyfunction!(utils::kmeans, m)?)?;
+    m.add_function(wrap_pyfunction!(utils::total_size_of_peaks, m)?)?;
     m.add_function(wrap_pyfunction!(embedding::spectral_embedding, m)?)?;
     m.add_function(wrap_pyfunction!(embedding::multi_spectral_embedding, m)?)?;
     m.add_function(wrap_pyfunction!(embedding::spectral_embedding_nystrom, m)?)?;

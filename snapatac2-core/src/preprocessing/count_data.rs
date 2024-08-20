@@ -96,6 +96,10 @@ pub trait SnapData: AnnDataOp {
         ).map(|x| x.0).flatten().flatten().collect::<Vec<_>>();
         Array2::from_shape_vec((self.n_obs(), regions.len()), vec).map_err(Into::into)
     }
+
+    fn genome_size(&self) -> Result<u64> {
+        Ok(self.read_chrom_sizes()?.total_size())
+    }
 }
 
 impl<B: Backend> SnapData for AnnData<B> {

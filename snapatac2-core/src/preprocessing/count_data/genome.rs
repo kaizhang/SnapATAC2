@@ -395,8 +395,26 @@ impl FeatureCounter for GeneCount<'_> {
 pub struct ChromSizes(IndexMap<String, u64>);
 
 impl ChromSizes {
+    pub fn total_size(&self) -> u64 {
+        self.0.iter().map(|x| x.1).sum()
+    }
+
     pub fn get(&self, chrom: &str) -> Option<u64> {
         self.0.get(chrom).copied()
+    }
+
+    pub fn to_dataframe(&self) -> DataFrame {
+        DataFrame::new(vec![
+            Series::new(
+                "reference_seq_name",
+                self.0.iter().map(|x| x.0.clone()).collect::<Series>(),
+            ),
+            Series::new(
+                "reference_seq_length",
+                self.0.iter().map(|x| x.1).collect::<Series>(),
+            ),
+        ])
+        .unwrap()
     }
 }
 
@@ -424,22 +442,6 @@ impl IntoIterator for ChromSizes {
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
-    }
-}
-
-impl ChromSizes {
-    pub fn to_dataframe(&self) -> DataFrame {
-        DataFrame::new(vec![
-            Series::new(
-                "reference_seq_name",
-                self.0.iter().map(|x| x.0.clone()).collect::<Series>(),
-            ),
-            Series::new(
-                "reference_seq_length",
-                self.0.iter().map(|x| x.1).collect::<Series>(),
-            ),
-        ])
-        .unwrap()
     }
 }
 

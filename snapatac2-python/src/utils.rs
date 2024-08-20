@@ -2,6 +2,8 @@ mod anndata;
 
 pub use self::anndata::AnnDataLike;
 
+use bed_utils::extsort::ExternalSorterBuilder;
+use bed_utils::bed::{merge_sorted_bed, BEDLike};
 use pyo3::{
     prelude::*,
     types::PyIterator,
@@ -11,6 +13,7 @@ use numpy::{Element, PyReadonlyArrayDyn, PyReadonlyArray, Ix1, Ix2, PyArray, Int
 use snapatac2_core::preprocessing::count_data::TranscriptParserOptions;
 use snapatac2_core::preprocessing::{Transcript, read_transcripts_from_gff, read_transcripts_from_gtf};
 use snapatac2_core::utils;
+use anyhow::Result;
 
 use bed_utils::{bed, bed::GenomicRange, bed::BED};
 use std::io::BufReader;
@@ -272,4 +275,13 @@ pub fn read_transcripts<P: AsRef<std::path::Path>>(file_path: P, options: &Trans
         read_transcripts_from_gff(BufReader::new(utils::open_file_for_read(file_path.as_ref())), options)
             .unwrap_or_else(|_| read_transcripts_from_gtf(BufReader::new(utils::open_file_for_read(file_path)), options).unwrap())
     }
+}
+
+#[pyfunction]
+pub(crate) fn total_size_of_peaks(peaks: Vec<String>) -> Result<u64>
+{
+    let sorter = ExternalSorterBuilder::new().build()?.sort(
+        peaks.into_iter().map(|x| std::io::Result::Ok(GenomicRange::from_str(&x).unwrap()))
+    )?.map(|x| x.unwrap());
+    Ok(merge_sorted_bed(sorter).map(|x| x.len()).sum())
 }

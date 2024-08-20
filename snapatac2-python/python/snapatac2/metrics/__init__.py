@@ -41,7 +41,7 @@ def tsse(
     tuple[np.ndarray, tuple[float, float]] | list[tuple[np.ndarray, tuple[float, float]]] | None
         If `inplace = True`, cell-level TSSe scores are computed and stored in `adata.obs['tsse']`.
         Library-level TSSe scores are stored in `adata.uns['library_tsse']`.
-        Fraction of fragments overlapping TSS are stored in `adata.uns['fraction_overlap_TSS']`.
+        Fraction of fragments overlapping TSS are stored in `adata.uns['frac_overlap_TSS']`.
         If `inplace = False`, return a tuple containing all these values.
 
     Examples
@@ -72,7 +72,7 @@ def tsse(
         if inplace:
             adata.obs["tsse"] = result['tsse']
             adata.uns['library_tsse'] = result['library_tsse']
-            adata.uns['fraction_overlap_TSS'] = result['fraction_overlap_TSS']
+            adata.uns['frac_overlap_TSS'] = result['frac_overlap_TSS']
             adata.uns['TSS_profile'] = result['TSS_profile']
     if inplace:
         return None
