@@ -202,4 +202,4 @@ def linkcode_resolve(domain, info):
 
     fn = os.path.relpath(fn, start=os.path.dirname(snapatac2.__file__))
 
-    return f"{code_url}/snapatac2-python/snapatac2/{fn}{linespec}"
+    return f"{code_url}/snapatac2-python/python/snapatac2/{fn}{linespec}"
