@@ -144,6 +144,7 @@ pub(crate) fn import_contacts(
     contact_file: PathBuf,
     chrom_size: BTreeMap<String, u64>,
     fragment_is_sorted_by_name: bool,
+    bin_size: usize,
     chunk_size: usize,
     tempdir: Option<PathBuf>,
 ) -> Result<()>
@@ -171,7 +172,7 @@ pub(crate) fn import_contacts(
 
     macro_rules! run {
         ($data:expr) => {
-            preprocessing::import_contacts($data, sorted_contacts, &chrom_sizes, chunk_size)?
+            preprocessing::import_contacts($data, sorted_contacts, &chrom_sizes, bin_size, chunk_size)?
         };
     }
 

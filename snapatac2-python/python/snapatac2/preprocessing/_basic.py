@@ -13,7 +13,7 @@ import snapatac2._snapatac2 as internal
 from snapatac2.genome import Genome
 
 __all__ = ['make_fragment_file', 'import_data', 'import_contacts', 'add_tile_matrix',
-           'make_peak_matrix', 'call_cells', 'filter_cells', 'select_features', 'make_gene_matrix'
+           'make_peak_matrix', 'call_cells', 'filter_cells', 'select_features', 'make_gene_matrix',
 ]
 
 def make_fragment_file(
@@ -346,7 +346,8 @@ def import_contacts(
     genome: Genome | None = None,
     chrom_size: dict[str, int] | None = None,
     sorted_by_barcode: bool = True,
-    chunk_size: int = 2000,
+    bin_size: int = 500000,
+    chunk_size: int = 200,
     tempdir: Path | None = None,
     backend: Literal['hdf5'] = 'hdf5',
 ) -> internal.AnnData:
@@ -374,6 +375,8 @@ def import_contacts(
         If `sorted_by_barcode == True`, this function makes use of small fixed amout of 
         memory. If `sorted_by_barcode == False` and `low_memory == False`,
         all data will be kept in memory. See `low_memory` for more details.
+    bin_size
+        The size of consecutive genomic regions used to record the counts.
     chunk_size
         Increasing the chunk_size speeds up I/O but uses more memory.
     tempdir
@@ -395,7 +398,7 @@ def import_contacts(
 
     adata = AnnData() if file is None else internal.AnnData(filename=file, backend=backend)
     internal.import_contacts(
-        adata, contact_file, chrom_size, sorted_by_barcode, chunk_size, tempdir
+        adata, contact_file, chrom_size, sorted_by_barcode, bin_size, chunk_size, tempdir
     )
     return adata
 

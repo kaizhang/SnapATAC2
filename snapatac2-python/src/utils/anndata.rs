@@ -10,7 +10,7 @@ use pyanndata::anndata::memory;
 use pyanndata::{AnnData, AnnDataSet};
 use pyo3::prelude::*;
 
-use snapatac2_core::preprocessing::{qc, SnapData, GenomeCount, ContactMap, count_data::FragmentType};
+use snapatac2_core::preprocessing::{qc, SnapData, GenomeCount, count_data::FragmentType};
 
 pub struct PyAnnData<'py>(memory::PyAnnData<'py>);
 
@@ -155,16 +155,6 @@ impl<'py> SnapData for PyAnnData<'py> {
                 anyhow::bail!("neither 'fragment_single' nor 'fragment_paired' is present in the '.obsm'")
             };
         Ok(GenomeCount::new(self.read_chrom_sizes()?, matrices))
-    }
-
-    fn contact_count_iter(
-        &self, chunk_size: usize
-    ) -> Result<ContactMap<Self::CountIter>>
-    {
-        Ok(ContactMap::new(
-            self.read_chrom_sizes()?,
-            self.obsm().get_item_iter("contact", chunk_size).expect("'contact' not found in obsm"),
-        ))
     }
 
     fn fragment_size_distribution(&self, max_size: usize) -> Result<Vec<usize>> {

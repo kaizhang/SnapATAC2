@@ -371,7 +371,7 @@ pub struct ContactMap<I> {
 
 impl<I> ContactMap<I>
 where
-    I: ExactSizeIterator<Item = (CsrMatrix<u8>, usize, usize)>,
+    I: Iterator<Item = CsrMatrix<u32>>,
 {
     pub fn new(chrom_sizes: ChromSizes, coverage: I) -> Self {
         Self {
@@ -394,21 +394,21 @@ where
     /// Output the raw coverage matrix.
     pub fn into_values<T: Zero + FromPrimitive + AddAssign + Send>(
         self,
-    ) -> impl ExactSizeIterator<Item = (CsrMatrix<T>, usize, usize)> {
+    ) -> impl Iterator<Item = CsrMatrix<T>> {
         let index = self.get_gindex();
         let ori_index = self.index;
         let genome_size = ori_index.len();
         let new_size = index.len();
-        self.coverage.map(move |(mat, i, j)| {
+        self.coverage.map(move |mat| {
             let new_mat = if self.resolution <= 1 {
                 let (pattern, data) = mat.into_pattern_and_values();
                 let new_data = data
                     .into_iter()
-                    .map(|x| T::from_u8(x).unwrap())
+                    .map(|x| T::from_u32(x).unwrap())
                     .collect::<Vec<_>>();
                 CsrMatrix::try_from_pattern_and_values(pattern, new_data).unwrap()
             } else {
-                let n = j - i;
+                let n = mat.nrows();
                 let vec = (0..n)
                     .into_par_iter()
                     .map(|k| {
@@ -425,7 +425,7 @@ where
                                 let i1 = index.get_position_rev(locus1.chrom(), locus1.start());
                                 let i2 = index.get_position_rev(locus2.chrom(), locus2.start());
                                 let i = i1 * new_size + i2;
-                                let val = T::from_u8(*val).unwrap();
+                                let val = T::from_u32(*val).unwrap();
                                 *count.entry(i).or_insert(Zero::zero()) += val;
                             });
                         count.into_iter().collect::<Vec<_>>()
@@ -434,7 +434,7 @@ where
                 let (r, c, offset, ind, data) = to_csr_data(vec, new_size * new_size);
                 CsrMatrix::try_from_csr_data(r,c,offset,ind, data).unwrap()
             };
-            (new_mat, i, j)
+            new_mat
         })
     }
 }

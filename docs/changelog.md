@@ -9,6 +9,7 @@
   - `pp.make_fragment_file` can now work with 10X BAM files.
   - Add `pp.call_cells` to identify nonempty barcodes from raw data.
   - Add `pp.recipe_10x_metrics` to compute 10X metrics.
+  - Add `pp.import_contacts` to process scHi-C data.
 
 ## Release 2.6.4 (released May 28, 2024)
 

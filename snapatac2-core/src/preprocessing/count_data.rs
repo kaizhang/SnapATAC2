@@ -49,8 +49,6 @@ pub trait SnapData: AnnDataOp {
     fn get_count_iter(&self, chunk_size: usize) ->
         Result<GenomeCount<Box<dyn ExactSizeIterator<Item = (FragmentType, usize, usize)>>>>;
 
-    fn contact_count_iter(&self, chunk_size: usize) -> Result<ContactMap<Self::CountIter>>;
-
     /// Read counts stored in the `X` matrix.
     fn read_chrom_values(
         &self,
@@ -120,13 +118,6 @@ impl<B: Backend> SnapData for AnnData<B> {
         Ok(GenomeCount::new(self.read_chrom_sizes()?, matrices))
     }
 
-    fn contact_count_iter(&self, chunk_size: usize) -> Result<ContactMap<Self::CountIter>> {
-        Ok(ContactMap::new(
-            self.read_chrom_sizes()?,
-            self.obsm().get_item_iter("contact", chunk_size).unwrap(),
-        ))
-    }
-
     fn fragment_size_distribution(&self, max_size: usize) -> Result<Vec<usize>> {
         if let Some(fragment) = self.obsm().get_item_iter("fragment_paired", 500) {
             Ok(qc::fragment_size_distribution(fragment.map(|x| x.0), max_size))
@@ -153,17 +144,6 @@ impl<B: Backend> SnapData for AnnDataSet<B> {
                 anyhow::bail!("neither 'fragment_single' nor 'fragment_paired' is present in the '.obsm'")
             };
         Ok(GenomeCount::new(self.read_chrom_sizes()?, matrices))
-    }
-
-    fn contact_count_iter(&self, chunk_size: usize) -> Result<ContactMap<Self::CountIter>> {
-        Ok(ContactMap::new(
-            self.read_chrom_sizes()?,
-            self.adatas()
-                .inner()
-                .get_obsm()
-                .get_item_iter("contact", chunk_size)
-                .unwrap(),
-        ))
     }
 
     fn fragment_size_distribution(&self, max_size: usize) -> Result<Vec<usize>> {
