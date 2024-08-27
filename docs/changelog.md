@@ -1,15 +1,22 @@
 # Release Notes
 
-## Nightly version
+## Release 2.7.0 (released August 27, 2024)
 
 ### Features:
 
   - Return more QC metrics from `pp.make_fragment_file`.
   - Also compute library-level TSSe in `metrics.tsse`.
-  - `pp.make_fragment_file` can now work with 10X BAM files.
+  - `pp.make_fragment_file` can now work with 10X BAM files by specifying `source=10x`.
   - Add `pp.call_cells` to identify nonempty barcodes from raw data.
   - Add `pp.recipe_10x_metrics` to compute 10X metrics.
   - Add `pp.import_contacts` to process scHi-C data.
+  - Implement pseudo-bulk peak calling in `tl.macs3`.
+
+### Other Changes:
+
+  - Change the default counting strategy from "insertion" to "paired-insertion" in
+    `pp.add_tile_matrix`, `pp.make_peak_matrix`, `pp.make_gene_matrix`.
+  - Minor changes in TSSe calculation.
 
 ## Release 2.6.4 (released May 28, 2024)
 

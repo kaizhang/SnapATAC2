@@ -411,7 +411,7 @@ def add_tile_matrix(
     exclude_chroms: list[str] | str | None = ["chrM", "chrY", "M", "Y"],
     min_frag_size: int | None = None,
     max_frag_size: int | None = None,
-    counting_strategy: Literal['fragment', 'insertion', 'paired-insertion'] = 'insertion',
+    counting_strategy: Literal['fragment', 'insertion', 'paired-insertion'] = 'paired-insertion',
     file: Path | None = None,
     backend: Literal['hdf5'] = 'hdf5',
     n_jobs: int = 8,
@@ -520,7 +520,7 @@ def make_peak_matrix(
     use_x: bool = False,
     min_frag_size: int | None = None,
     max_frag_size: int | None = None,
-    counting_strategy: Literal['fragment', 'insertion', 'paired-insertion'] = 'insertion',
+    counting_strategy: Literal['fragment', 'insertion', 'paired-insertion'] = 'paired-insertion',
 ) -> internal.AnnData:
     """Generate cell by peak count matrix.
 
@@ -643,7 +643,7 @@ def make_gene_matrix(
     gene_id_key: str = "gene_id",
     min_frag_size: int | None = None,
     max_frag_size: int | None = None,
-    counting_strategy: Literal['fragment', 'insertion', 'paired-insertion'] = 'insertion',
+    counting_strategy: Literal['fragment', 'insertion', 'paired-insertion'] = 'paired-insertion',
 ) -> internal.AnnData:
     """Generate cell by gene activity matrix.
 
