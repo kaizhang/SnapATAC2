@@ -1,6 +1,6 @@
 from __future__ import annotations
-from typing_extensions import Literal
 
+from typing import Literal
 import numpy as np
 from scipy.sparse import csr_matrix
 

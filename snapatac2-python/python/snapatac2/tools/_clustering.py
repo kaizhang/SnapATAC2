@@ -1,6 +1,6 @@
 from __future__ import annotations
-from typing_extensions import Literal
 
+from typing import Literal
 import scipy.sparse as ss
 import numpy as np
 

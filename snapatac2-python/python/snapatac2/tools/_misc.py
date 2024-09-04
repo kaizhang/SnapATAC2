@@ -1,6 +1,6 @@
 from __future__ import annotations
-from typing_extensions import Literal
 
+from typing import Literal
 import logging
 from pathlib import Path
 import numpy as np

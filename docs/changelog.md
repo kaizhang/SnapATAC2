@@ -1,5 +1,13 @@
 # Release Notes
 
+## Nightly
+
+### Features:
+
+  - Implement barcode correction algorithms.
+
+### Features:
+
 ## Release 2.7.0 (released August 27, 2024)
 
 ### Features:

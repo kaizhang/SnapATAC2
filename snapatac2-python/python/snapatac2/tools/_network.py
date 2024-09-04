@@ -1,8 +1,7 @@
 from __future__ import annotations
-from typing_extensions import Literal
 
 import logging
-from typing import Callable
+from typing import Callable, Literal
 from pathlib import Path
 import numpy as np
 import rustworkx as rx

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from collections.abc import Callable
 
-from snapatac2.datasets import datasets
+from snapatac2.datasets import register_datasets
 from pathlib import Path
 from pooch import Decompress
 
@@ -111,17 +111,17 @@ class Genome:
         return self._chrom_sizes
         
 GRCh37 = Genome(
-    fasta=lambda : datasets().fetch(
+    fasta=lambda : register_datasets().fetch(
         "gencode_v41_GRCh37.fa.gz", processor=Decompress(method = "gzip"), progressbar=True),
-    annotation=lambda : datasets().fetch(
+    annotation=lambda : register_datasets().fetch(
         "gencode_v41_GRCh37.gff3.gz", progressbar=True),
     )
 hg19 = GRCh37
 
 GRCh38 = Genome(
-    fasta=lambda :  datasets().fetch(
+    fasta=lambda :  register_datasets().fetch(
         "gencode_v41_GRCh38.fa.gz", processor=Decompress(method = "gzip"), progressbar=True),
-    annotation=lambda : datasets().fetch(
+    annotation=lambda : register_datasets().fetch(
         "gencode_v41_GRCh38.gff3.gz", progressbar=True),
     chrom_sizes= {"chr1": 248956422, "chr2": 242193529, "chr3": 198295559,
                   "chr4": 190214555, "chr5": 181538259, "chr6": 170805979,
@@ -136,9 +136,9 @@ GRCh38 = Genome(
 hg38 = GRCh38
 
 GRCm39 = Genome(
-    fasta=lambda : datasets().fetch(
+    fasta=lambda : register_datasets().fetch(
         "gencode_vM30_GRCm39.fa.gz", processor=Decompress(method = "gzip"), progressbar=True),
-    annotation=lambda : datasets().fetch(
+    annotation=lambda : register_datasets().fetch(
         "gencode_vM30_GRCm39.gff3.gz", progressbar=True),
     chrom_sizes={
         "chr1": 195154279,
@@ -168,9 +168,9 @@ GRCm39 = Genome(
 mm39 = GRCm39
 
 GRCm38 = Genome(
-    fasta=lambda : datasets().fetch(
+    fasta=lambda : register_datasets().fetch(
         "gencode_vM25_GRCm38.fa.gz", processor=Decompress(method = "gzip"), progressbar=True),
-    annotation=lambda : datasets().fetch(
+    annotation=lambda : register_datasets().fetch(
         "gencode_vM25_GRCm38.gff3.gz", progressbar=True),
     chrom_sizes={
         "chr1": 195471971,

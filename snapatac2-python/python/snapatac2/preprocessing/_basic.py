@@ -1,8 +1,6 @@
 from __future__ import annotations
-import snapatac2.preprocessing
-import snapatac2.preprocessing._cell_calling
-from typing_extensions import Literal
 
+from typing import Literal
 from pathlib import Path
 import numpy as np
 from anndata import AnnData
@@ -11,6 +9,7 @@ import logging
 import snapatac2
 import snapatac2._snapatac2 as internal
 from snapatac2.genome import Genome
+from snapatac2.preprocessing._cell_calling import filter_cellular_barcodes_ordmag
 
 __all__ = ['make_fragment_file', 'import_data', 'import_contacts', 'add_tile_matrix',
            'make_peak_matrix', 'call_cells', 'filter_cells', 'select_features', 'make_gene_matrix',
@@ -793,7 +792,7 @@ def call_cells(
             return result
 
     counts = data.obs[use_rep].to_numpy() if isinstance(use_rep, str) else use_rep
-    selected_cells = snapatac2.preprocessing._cell_calling.filter_cellular_barcodes_ordmag(counts, None)[0]
+    selected_cells = filter_cellular_barcodes_ordmag(counts, None)[0]
     if inplace:
         if data.isbacked:
             data.subset(selected_cells)

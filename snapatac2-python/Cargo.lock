@@ -1790,6 +1790,7 @@ checksum = "8a67f576cd91c3d6fbc0d47b6817abb511519276380005788d8f69852cbfd621"
 dependencies = [
  "noodles-bam",
  "noodles-core",
+ "noodles-fastq",
  "noodles-gff",
  "noodles-gtf",
  "noodles-sam",
@@ -1843,6 +1844,16 @@ dependencies = [
  "indexmap 2.3.0",
  "noodles-bgzf",
  "noodles-core",
+]
+
+[[package]]
+name = "noodles-fastq"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c596792c857f37e6a85e2cf1e68578f5b70f867cad028bf95c1e2b5d7c9c84eb"
+dependencies = [
+ "bstr",
+ "memchr",
 ]
 
 [[package]]
@@ -3179,7 +3190,7 @@ dependencies = [
 
 [[package]]
 name = "snapatac2"
-version = "2.7.0"
+version = "2.7.1-dev0"
 dependencies = [
  "anndata",
  "anndata-hdf5",

@@ -1,4 +1,5 @@
-from typing import Optional, Union
+from __future__ import annotations
+
 from scipy.sparse import vstack
 import numpy as np
 import scipy.sparse as ss
@@ -6,10 +7,10 @@ import scipy.sparse as ss
 import snapatac2._snapatac2 as internal
 
 def smooth(
-    adata: Union[internal.AnnData, internal.AnnDataSet, ss.spmatrix],
-    distances: Optional[Union[str, ss.spmatrix]] = None,
+    adata: internal.AnnData | internal.AnnDataSet | ss.spmatrix,
+    distances: str | ss.spmatrix | None = None,
     inplace: bool = True,
-) -> Optional[np.ndarray]:
+) -> np.ndarray | None:
     """
     Smoothing.
 

@@ -45,7 +45,7 @@ dependencies = [
     'scipy >= 1.4, < 2.0.0',
     'scikit-learn >= 1.0, < 2.0.0',
     'tqdm >= 4.62',
-    'typing_extensions',
+    'typeguard >= 4.0',
 ]
 
 [project.urls]

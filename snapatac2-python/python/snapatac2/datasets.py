@@ -1,6 +1,7 @@
 from __future__ import annotations
-from typing_extensions import Literal
 
+from typing import Literal
+from typeguard import typechecked
 from pathlib import Path
 import pooch
 
@@ -10,7 +11,7 @@ from snapatac2._snapatac2 import read_motifs, PyDNAMotif
 # when the data is requested.
 _datasets = None
 
-def datasets():
+def register_datasets():
     global _datasets
     if _datasets is None:
         _datasets = pooch.create(
@@ -19,8 +20,9 @@ def datasets():
             env="SNAP_DATA_DIR",  # The user can overwrite the storage path by setting this environment variable.
             # The registry specifies the files that can be fetched
             registry={
-                "atac_pbmc_500.tsv.gz": "sha256:196c5d7ee0169957417e9f4d5502abf1667ef99453328f8d290d4a7f3b205c6c",
+                "atac_pbmc_500_fastqs.tar": "sha256:5897a4790d2841eff69c85b4bef2825166dd0cc2587da91f42eeed09000c5f47",
                 "atac_pbmc_500.bam": "sha256:2fac56ca45186943a1daf9da71aed42263ad43a9428f2388fa5f3bcf6d2754ff",
+                "atac_pbmc_500.tsv.gz": "sha256:196c5d7ee0169957417e9f4d5502abf1667ef99453328f8d290d4a7f3b205c6c",
                 "atac_pbmc_500_downsample.tsv.gz": "sha256:6053cf4578a140bfd8ce34964602769dc5f5ec6b25ba4f2db23cdbd4681b0e2f",
 
                 "atac_pbmc_5k.tsv.gz": "sha256:5fe44c0f8f76ce1534c1ae418cf0707ca5ef712004eee77c3d98d2d4b35ceaec",
@@ -50,6 +52,7 @@ def datasets():
                 "gencode_vM30_GRCm39.fa.gz": "sha256:3b923c06a0d291fe646af6bf7beaed7492bf0f6dd5309d4f5904623cab41b0aa",
             },
             urls={
+                "atac_pbmc_500_fastqs.tar": "https://cf.10xgenomics.com/samples/cell-atac/2.0.0/atac_pbmc_500_nextgem/atac_pbmc_500_nextgem_fastqs.tar",
                 "atac_pbmc_500.tsv.gz": "https://cf.10xgenomics.com/samples/cell-atac/2.0.0/atac_pbmc_500_nextgem/atac_pbmc_500_nextgem_fragments.tsv.gz",
                 "atac_pbmc_500.bam": "https://cf.10xgenomics.com/samples/cell-atac/2.0.0/atac_pbmc_500_nextgem/atac_pbmc_500_nextgem_possorted_bam.bam",
                 "atac_pbmc_500_downsample.tsv.gz": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/b0e7e9e8-9ffb-4710-8619-73f7e5cbd10b?a=758c37e5-4832-4c91-af89-9a1a83a051b3",
@@ -81,7 +84,8 @@ def datasets():
         )
     return _datasets
 
-def pbmc500(type: Literal["fragment, bam"]="fragment", downsample: bool = False) -> Path:
+@typechecked
+def pbmc500(type: Literal['fastq', 'bam', 'fragment'] = 'fragment', downsample: bool = False) -> Path | list[Path]:
     """scATAC-seq dataset of 500 PBMCs from 10x Genomics.
 
     This function returns the path to the fragment file of the 10X scATAC-seq dataset
@@ -99,20 +103,22 @@ def pbmc500(type: Literal["fragment, bam"]="fragment", downsample: bool = False)
 
     Returns
     -------
-    Path
+    Path | list[Path]
         Path to the fragment file.
     """
-    if type == "fragment":
+    datasets = register_datasets()
+    if type == 'fragment':
         if downsample:
-            return Path(datasets().fetch("atac_pbmc_500_downsample.tsv.gz", progressbar=True))
+            return Path(datasets.fetch("atac_pbmc_500_downsample.tsv.gz", progressbar=True))
         else:
-            return Path(datasets().fetch("atac_pbmc_500.tsv.gz", progressbar=True))
-    elif type == "bam":
-        return Path(datasets().fetch("atac_pbmc_500.bam", progressbar=True))
-    else:
-        raise NameError("type '{}' is not available.".format(type))
+            return Path(datasets.fetch("atac_pbmc_500.tsv.gz", progressbar=True))
+    elif type == 'bam':
+        return Path(datasets.fetch("atac_pbmc_500.bam", progressbar=True))
+    elif type == 'fastq':
+        return [Path(f) for f in datasets.fetch("atac_pbmc_500_fastqs.tar", processor=pooch.Untar(), progressbar=True)]
 
-def pbmc5k(type: Literal["fragment, h5ad, annotated_h5ad"] = "fragment") -> Path:
+@typechecked
+def pbmc5k(type: Literal['fragment', 'h5ad', 'annotated_h5ad'] = 'fragment') -> Path:
     """scATAC-seq dataset of 5k PBMCs from 10x Genomics.
 
     Parameters
@@ -128,15 +134,15 @@ def pbmc5k(type: Literal["fragment, h5ad, annotated_h5ad"] = "fragment") -> Path
     Path
         path to the file.
     """
+    datasets = register_datasets()
     if type == "fragment":
-        return Path(datasets().fetch("atac_pbmc_5k.tsv.gz", progressbar=True))
+        return Path(datasets.fetch("atac_pbmc_5k.tsv.gz", progressbar=True))
     elif type == "h5ad":
-        return Path(datasets().fetch("atac_pbmc_5k.h5ad", progressbar=True))
+        return Path(datasets.fetch("atac_pbmc_5k.h5ad", progressbar=True))
     elif type == "annotated_h5ad":
-        return Path(datasets().fetch("atac_pbmc_5k_annotated.h5ad", progressbar=True))
-    else:
-        raise NameError("type '{}' is not available.".format(type))
+        return Path(datasets.fetch("atac_pbmc_5k_annotated.h5ad", progressbar=True))
 
+@typechecked
 def pbmc10k_multiome(
     modality: Literal['ATAC', 'RNA'] = 'RNA',
     type: Literal['fragment', 'h5ad'] = 'h5ad',
@@ -159,15 +165,14 @@ def pbmc10k_multiome(
     Path
         path to the file.
     """
+    datasets = register_datasets()
     if modality == 'RNA':
-        return Path(datasets().fetch("10x-Multiome-Pbmc10k-RNA.h5ad"))
+        return Path(datasets.fetch("10x-Multiome-Pbmc10k-RNA.h5ad"))
     elif modality == 'ATAC':
         if type == 'fragment':
-            return Path(datasets().fetch("pbmc_10k_atac.tsv.gz"))
+            return Path(datasets.fetch("pbmc_10k_atac.tsv.gz"))
         else:
-            return Path(datasets().fetch("10x-Multiome-Pbmc10k-ATAC.h5ad"))
-    else:
-        raise NameError("modality '{}' is not available.".format(modality))
+            return Path(datasets.fetch("10x-Multiome-Pbmc10k-ATAC.h5ad"))
 
 def colon() -> list[tuple[str, Path]]:
     """scATAC-seq datasets of five colon transverse samples from [Zhang21]_.
@@ -177,7 +182,7 @@ def colon() -> list[tuple[str, Path]]:
     list[tuple[str, Path]]
         A list of tuples, each tuple contains the sample name and the path to the fragment file.
     """
-    files = datasets().fetch("colon_transverse.tar", progressbar=True, processor = pooch.Untar())
+    files = register_datasets().fetch("colon_transverse.tar", progressbar=True, processor = pooch.Untar())
     return [(fl.split("/")[-1].split("_rep1_fragments")[0], Path(fl)) for fl in files]
 
 def cre_HEA() -> Path:
@@ -188,7 +193,7 @@ def cre_HEA() -> Path:
     Path
         Path to the gzipped BED file containing the cis-regulatory elements.
     """
-    return Path(datasets().fetch("HEA_cCRE.bed.gz"))
+    return Path(register_datasets().fetch("HEA_cCRE.bed.gz"))
 
 def cis_bp(unique: bool = True) -> list[PyDNAMotif]:
     """A list of transcription factor motifs curated by the CIS-BP database.
@@ -212,7 +217,7 @@ def cis_bp(unique: bool = True) -> list[PyDNAMotif]:
     --------
     :func:`~snapatac2.tl.motif_enrichment`: compute motif enrichment.
     """
-    motifs = read_motifs(datasets().fetch("cisBP_human.meme"))
+    motifs = read_motifs(register_datasets().fetch("cisBP_human.meme"))
     for motif in motifs:
         motif.name = motif.id.split('+')[0]
     if unique:
@@ -244,7 +249,7 @@ def Meuleman_2020() -> list[PyDNAMotif]:
     --------
     :func:`~snapatac2.tl.motif_enrichment`: compute motif enrichment.
     """
-    motifs = read_motifs(datasets().fetch("Meuleman_2020.meme"))
+    motifs = read_motifs(register_datasets().fetch("Meuleman_2020.meme"))
     for motif in motifs:
         motif.name = motif.id.split('_')[0]
         motif.family = motif.id.split('+')[-1]
