@@ -20,8 +20,8 @@
 //! genomic feature counts in Rust.
 use noodles::{core::Position, gff, gff::record::Strand, gtf};
 use bed_utils::bed::tree::GenomeRegions;
-use anyhow::{Result, bail};
-use std::{collections::{BTreeMap, HashMap}, fmt::Debug, io::BufRead};
+use anyhow::{bail, Context, Result};
+use std::{collections::{BTreeMap, HashMap}, fmt::Debug, io::BufRead, str::FromStr};
 use indexmap::map::IndexMap;
 use bed_utils::bed::{GenomicRange, BEDLike, tree::SparseCoverage};
 use itertools::Itertools;
@@ -69,7 +69,7 @@ impl<'a> Default for TranscriptParserOptions {
     }
 }
 
-fn from_gtf(record: gtf::Record, options: &TranscriptParserOptions) -> Result<Transcript> {
+fn from_gtf(record: &gtf::Record, options: &TranscriptParserOptions) -> Result<Transcript> {
     if record.ty() != "transcript" {
         bail!("record is not a transcript");
     }
@@ -104,7 +104,7 @@ fn from_gtf(record: gtf::Record, options: &TranscriptParserOptions) -> Result<Tr
     })
 }
 
-fn from_gff(record: gff::Record, options: &TranscriptParserOptions) -> Result<Transcript> {
+fn from_gff(record: &gff::Record, options: &TranscriptParserOptions) -> Result<Transcript> {
     if record.ty() != "transcript" {
         bail!("record is not a transcript");
     }
@@ -147,28 +147,36 @@ pub fn read_transcripts_from_gtf<R>(input: R, options: &TranscriptParserOptions)
 where
     R: BufRead,
 {
-    gtf::Reader::new(input)
-        .records()
-        .try_fold(Vec::new(), |mut acc, rec| {
-            if let Ok(transcript) = from_gtf(rec?, options) {
-                acc.push(transcript);
+    let mut results = Vec::new();
+    input.lines().try_for_each(|line| {
+        let line = line?;
+        let line = gtf::Line::from_str(&line).with_context(|| format!("failed to parse GTF line: {}", line))?;
+        if let gtf::line::Line::Record(rec) = line {
+            if rec.ty() == "transcript" {
+                results.push(from_gtf(&rec, options)?);
             }
-            Ok(acc)
-        })
+        }
+        anyhow::Ok(())
+    })?;
+    Ok(results)
 }
 
 pub fn read_transcripts_from_gff<R>(input: R, options: &TranscriptParserOptions) -> Result<Vec<Transcript>>
 where
     R: BufRead,
 {
-    gff::Reader::new(input)
-        .records()
-        .try_fold(Vec::new(), |mut acc, rec| {
-            if let Ok(transcript) = from_gff(rec?, options) {
-                acc.push(transcript);
+    let mut results = Vec::new();
+    input.lines().try_for_each(|line| {
+        let line = line?;
+        let line = gff::Line::from_str(&line).with_context(|| format!("failed to parse GFF line: {}", line))?;
+        if let gff::line::Line::Record(rec) = line {
+            if rec.ty() == "transcript" {
+                results.push(from_gff(&rec, options)?);
             }
-            Ok(acc)
-        })
+        }
+        anyhow::Ok(())
+    })?;
+    Ok(results)
 }
 
 pub struct Promoters {
@@ -866,5 +874,10 @@ mod tests {
             read_transcripts_from_gtf(gtf.as_bytes(), &Default::default()).unwrap()[0],
             expected
         );
+
+
+        //let failed_line = "NC_051341.1\tGnomon\ttranscript\t26923605\t26924789\t.\t+\t.\tgene_id \"RGD1565766\"; transcript_id \"XM_039113095.1\"; db_xref \"GeneID:500622\"; gbkey \"mRNA\"; gene_name \"RGD1565766\"; model_evidence \"Supporting evidence includes similarity to: 1 EST, 4 Proteins, and 100% coverage of the annotated genomic feature by RNAseq alignments\"; product \"hypothetical gene supported by BC088468; NM_001009712\"; transcript_biotype \"mRNA\";";
+        let worked = "chr1\tG\ttranscript\t26\t92\t.\t+\t.\tgene_id \"RGD\"; transcript_id \"XM_5\"; gene_name \"RGD\"; note \"note1;note2\";";
+        assert!(read_transcripts_from_gtf(worked.as_bytes(), &Default::default()).is_ok());
     }
 }

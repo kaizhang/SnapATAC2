@@ -6,6 +6,10 @@
 
   - Implement barcode correction algorithms.
 
+### Bugs fixed:
+
+  - Fix #335: GTF parsing error when textual attributes contain semicolons.
+
 ### Features:
 
 ## Release 2.7.0 (released August 27, 2024)

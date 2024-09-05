@@ -392,6 +392,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d2c54ff287cfc0a34f38a6b832ea1bd8e448a330b3e40a50859e6488bee07f22"
 
 [[package]]
+name = "bit-vec"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e764a1d40d510daf35e07be9eb06e75770908c27d411ee6c92109c9840eaaf7"
+
+[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1788,12 +1794,22 @@ version = "0.79.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a67f576cd91c3d6fbc0d47b6817abb511519276380005788d8f69852cbfd621"
 dependencies = [
- "noodles-bam",
+ "noodles-bam 0.66.0",
+ "noodles-sam 0.63.0",
+]
+
+[[package]]
+name = "noodles"
+version = "0.80.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "15ea7a4ffa2e3684ce476156d199e388b465d860d702b739f3e39257ded7d174"
+dependencies = [
+ "noodles-bam 0.67.0",
  "noodles-core",
  "noodles-fastq",
  "noodles-gff",
  "noodles-gtf",
- "noodles-sam",
+ "noodles-sam 0.64.0",
 ]
 
 [[package]]
@@ -1806,10 +1822,26 @@ dependencies = [
  "byteorder",
  "bytes",
  "indexmap 2.3.0",
- "noodles-bgzf",
+ "noodles-bgzf 0.32.0",
  "noodles-core",
- "noodles-csi",
- "noodles-sam",
+ "noodles-csi 0.37.0",
+ "noodles-sam 0.63.0",
+]
+
+[[package]]
+name = "noodles-bam"
+version = "0.67.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53bc69bd00891e3e1c5faffe4f55d00c94d9e53d4bdbe63ec8c7e2b881f3bc85"
+dependencies = [
+ "bstr",
+ "byteorder",
+ "bytes",
+ "indexmap 2.3.0",
+ "noodles-bgzf 0.33.0",
+ "noodles-core",
+ "noodles-csi 0.38.0",
+ "noodles-sam 0.64.0",
 ]
 
 [[package]]
@@ -1817,6 +1849,18 @@ name = "noodles-bgzf"
 version = "0.32.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b2fba0f4a64cc897d9396d730a0c444d148daed7de31ad5904ecc673178fc9d"
+dependencies = [
+ "byteorder",
+ "bytes",
+ "crossbeam-channel",
+ "flate2",
+]
+
+[[package]]
+name = "noodles-bgzf"
+version = "0.33.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3b50aaa8f0a3c8a0b738b641a6d1a78d9fd30a899ab2d398779ee3c4eb80f1c1"
 dependencies = [
  "byteorder",
  "bytes",
@@ -1842,7 +1886,20 @@ dependencies = [
  "bit-vec 0.7.0",
  "byteorder",
  "indexmap 2.3.0",
- "noodles-bgzf",
+ "noodles-bgzf 0.32.0",
+ "noodles-core",
+]
+
+[[package]]
+name = "noodles-csi"
+version = "0.38.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a69e79dbc09bd0cb86d29469ed29066e9a163bce6640527b343bdea458144618"
+dependencies = [
+ "bit-vec 0.8.0",
+ "byteorder",
+ "indexmap 2.3.0",
+ "noodles-bgzf 0.33.0",
  "noodles-core",
 ]
 
@@ -1858,26 +1915,26 @@ dependencies = [
 
 [[package]]
 name = "noodles-gff"
-version = "0.35.0"
+version = "0.36.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "adef59012090b5694b58cad0e4426cd18af404803f942d02e664af607d89ee28"
+checksum = "83d0a43629762ce799147e0d60f80293abe731b65740b7a6a92c1279ef88f0b5"
 dependencies = [
  "indexmap 2.3.0",
- "noodles-bgzf",
+ "noodles-bgzf 0.33.0",
  "noodles-core",
- "noodles-csi",
+ "noodles-csi 0.38.0",
  "percent-encoding",
 ]
 
 [[package]]
 name = "noodles-gtf"
-version = "0.30.0"
+version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7fd29a4d1bb243412ebd5090d0908c0c797ad3dd7832cc1623175c9c7c9d1a5a"
+checksum = "7ae064fa303a003cff43f461108157d25e2f7f2f80163ae43a6cb48bdc5d1543"
 dependencies = [
- "noodles-bgzf",
+ "noodles-bgzf 0.33.0",
  "noodles-core",
- "noodles-csi",
+ "noodles-csi 0.38.0",
 ]
 
 [[package]]
@@ -1891,9 +1948,25 @@ dependencies = [
  "indexmap 2.3.0",
  "lexical-core",
  "memchr",
- "noodles-bgzf",
+ "noodles-bgzf 0.32.0",
  "noodles-core",
- "noodles-csi",
+ "noodles-csi 0.37.0",
+]
+
+[[package]]
+name = "noodles-sam"
+version = "0.64.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72da678e9332b32a916f8c5d5a7c4324da11891bc7148077744566981acaf00c"
+dependencies = [
+ "bitflags 2.4.2",
+ "bstr",
+ "indexmap 2.3.0",
+ "lexical-core",
+ "memchr",
+ "noodles-bgzf 0.33.0",
+ "noodles-core",
+ "noodles-csi 0.38.0",
 ]
 
 [[package]]
@@ -3206,7 +3279,7 @@ dependencies = [
  "nalgebra 0.32.4",
  "nalgebra-sparse",
  "ndarray",
- "noodles",
+ "noodles 0.79.0",
  "numpy",
  "polars",
  "pyanndata",
@@ -3244,7 +3317,7 @@ dependencies = [
  "log",
  "nalgebra-sparse",
  "ndarray",
- "noodles",
+ "noodles 0.80.0",
  "num",
  "polars",
  "rayon",

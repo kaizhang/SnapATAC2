@@ -27,7 +27,7 @@ lexical = "6.1"
 log = "0.4"
 ndarray = { version = "0.15", features = ["rayon"] }
 num = "0.4"
-noodles = { version = "0.79", features = ["core", "fastq", "bam", "sam", "gff", "gtf"] }
+noodles = { version = "0.80", features = ["core", "fastq", "bam", "sam", "gff", "gtf"] }
 nalgebra-sparse = "0.9"
 polars = { version = "0.40", features = ["ndarray", "dtype-categorical"] }
 rayon = "1.10"
