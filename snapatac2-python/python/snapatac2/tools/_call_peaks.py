@@ -21,9 +21,6 @@ def macs3(
     min_len: int | None = None,
     blacklist: Path | None = None,
     key_added: str = 'macs3',
-        broad: bool = False,
-        store_bdg: bool = False,
-        SPMR: bool = False,
     tempdir: Path | None = None,
     inplace: bool = True,
     n_jobs: int = 8,
@@ -71,12 +68,6 @@ def macs3(
         removed.
     key_added
         `.uns` key under which to add the peak information.
-    broad:
-        Call broad peak or not (by default False)
-    store_bdg:
-        Store bedgraph file or not (by default False). Note: this will capture large storage on disk.
-    SPMR:
-        Use signal per million reads for fragment pileup profiles (by default False), an option for storing bedgraph.
     tempdir
         If provided, a temporary directory will be created in the directory.
         Otherwise, a temporary directory will be created in the system default temporary directory.
@@ -114,8 +105,8 @@ def macs3(
     options.bdg_control = 'c'
     options.cutoff_analysis = False
     options.cutoff_analysis_file = 'a'
-    options.store_bdg = store_bdg
-    options.do_SPMR = SPMR
+    options.store_bdg = False
+    options.do_SPMR = False
     options.trackline = False
     options.log_pvalue = None
     options.log_qvalue = log(qvalue, 10) * -1
@@ -129,7 +120,7 @@ def macs3(
     options.smalllocal = 1000
     options.largelocal = 10000
     options.call_summits = True
-    options.broad = broad
+    options.broad = False
     options.fecutoff = 1.0
     options.d = extsize
     options.scanwindow = 2 * options.d
