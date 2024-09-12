@@ -1,4 +1,3 @@
-import multiprocessing
 import pathlib
 from collections import OrderedDict
 
@@ -10,13 +9,36 @@ import pynndescent
 from scipy.cluster.hierarchy import linkage
 from scipy.sparse import issparse
 from scipy.stats import zscore
+import scipy as sc
+import anndata as ad
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import OneHotEncoder, normalize
 
 from .cca import cca, lsi_cca
 
-CPU_COUNT = multiprocessing.cpu_count()
-
+def scanpy_PCA_plus(
+        a: ad.AnnData, n_comps: int,
+        key_added: str | None = None,
+        weight_by_var: bool = True, **kwargs) -> None:
+    """
+    Ref:
+    https://github.com/satijalab/seurat/blob/1549dcb3075eaeac01c925c4b4bb73c73450fc50/R/dimensional_reduction.R#L897
+    """
+    sc.pp.pca(a, n_comps=n_comps, key_added=key_added, **kwargs)
+    key_obsm, key_varm, key_uns = (("X_pca", "PCs", "pca") if key_added is None else [key_added] * 3)
+    if not weight_by_var:
+        print("Normalize PCA by diving the singluar values.")
+        sdev = np.sqrt(a.uns[key_uns]['variance'])
+        singular_values = sdev * np.sqrt(a.shape[0] - 1)
+        old_X_pca = a.obsm['X_pca']
+        # 
+        new_X_pca = old_X_pca / singular_values
+        a.obsm['X_pca'] = new_X_pca
+        a.obsm['scanpy_X_pca'] = old_X_pca
+        a.uns[key_uns]['singular_values'] = singular_values
+    else:
+        print("Keep the scanpy default PCA, i.e., weighted by variance of PCs.")
+    return None
 
 def find_neighbor(cc1, cc2, k, random_state=0, n_jobs=-1):
     """
@@ -47,7 +69,7 @@ def find_neighbor(cc1, cc2, k, random_state=0, n_jobs=-1):
         parallel_batch_queries=True,
         n_jobs=n_jobs,
     )
-    G11 = index.neighbor_graph[0][:, 1 : k + 1]
+    G11 = index.neighbor_graph[0][:, 1: k + 1]
     G21 = index.query(cc2, k=k)[0]
     index = pynndescent.NNDescent(
         cc2,
@@ -57,7 +79,7 @@ def find_neighbor(cc1, cc2, k, random_state=0, n_jobs=-1):
         parallel_batch_queries=True,
         n_jobs=n_jobs,
     )
-    G22 = index.neighbor_graph[0][:, 1 : k + 1]
+    G22 = index.neighbor_graph[0][:, 1: k + 1]
     G12 = index.query(cc1, k=k)[0]
     return G11, G12, G21, G22
 
@@ -454,7 +476,7 @@ class SeuratIntegration:
                 random_state=random_state,
                 n_jobs=-1,
             )
-            G11 = index.neighbor_graph[0][:, 1 : k + 1]
+            G11 = index.neighbor_graph[0][:, 1: k + 1]
             G21 = index.query(V, k=k)[0]
 
             # project adata1 to adata2
@@ -471,7 +493,7 @@ class SeuratIntegration:
                 random_state=random_state,
                 n_jobs=-1,
             )
-            G22 = index.neighbor_graph[0][:, 1 : k + 1]
+            G22 = index.neighbor_graph[0][:, 1: k + 1]
             G12 = index.query(U, k=k)[0]
 
             raw_anchors = find_mnn(G12, G21, k_anchor)
@@ -746,16 +768,16 @@ class SeuratIntegration:
         data_prj = np.zeros(data_qry.shape)
 
         for chunk_start in np.arange(0, data_prj.shape[0], chunk_size):
-            data_prj[chunk_start : (chunk_start + chunk_size)] = data_qry[
-                chunk_start : (chunk_start + chunk_size)
+            data_prj[chunk_start: (chunk_start + chunk_size)] = data_qry[
+                chunk_start: (chunk_start + chunk_size)
             ] + (
-                D[chunk_start : (chunk_start + chunk_size), :, None]
-                * bias[G[chunk_start : (chunk_start + chunk_size)]]
+                D[chunk_start: (chunk_start + chunk_size), :, None]
+                * bias[G[chunk_start: (chunk_start + chunk_size)]]
             ).sum(
                 axis=1
             )
         for i, xx in enumerate(qry):
-            _data = data_prj[cum_qry[i] : cum_qry[i + 1]]
+            _data = data_prj[cum_qry[i]: cum_qry[i + 1]]
             if row_normalize:
                 _data = normalize(_data, axis=1)
             data[xx] = _data
@@ -881,9 +903,9 @@ class SeuratIntegration:
 
         bias = label_ref[anchor[:, 0]]
         for chunk_start in np.arange(0, label_qry.shape[0], chunk_size):
-            label_qry[chunk_start : (chunk_start + chunk_size)] = (
-                D[chunk_start : (chunk_start + chunk_size), :, None]
-                * bias[G[chunk_start : (chunk_start + chunk_size)]]
+            label_qry[chunk_start: (chunk_start + chunk_size)] = (
+                D[chunk_start: (chunk_start + chunk_size), :, None]
+                * bias[G[chunk_start: (chunk_start + chunk_size)]]
             ).sum(axis=1)
 
         # these column names might be duplicated
