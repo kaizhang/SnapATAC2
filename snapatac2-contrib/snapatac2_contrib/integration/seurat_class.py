@@ -9,7 +9,7 @@ import pynndescent
 from scipy.cluster.hierarchy import linkage
 from scipy.sparse import issparse
 from scipy.stats import zscore
-import scipy as sc
+import scanpy as sc
 import anndata as ad
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import OneHotEncoder, normalize
@@ -18,23 +18,22 @@ from .cca import cca, lsi_cca
 
 def scanpy_PCA_plus(
         a: ad.AnnData, n_comps: int,
-        key_added: str | None = None,
         weight_by_var: bool = True, **kwargs) -> None:
     """
     Ref:
     https://github.com/satijalab/seurat/blob/1549dcb3075eaeac01c925c4b4bb73c73450fc50/R/dimensional_reduction.R#L897
     """
-    sc.pp.pca(a, n_comps=n_comps, key_added=key_added, **kwargs)
-    key_obsm, key_varm, key_uns = (("X_pca", "PCs", "pca") if key_added is None else [key_added] * 3)
+    sc.pp.pca(a, n_comps=n_comps, **kwargs)
+    key_obsm = "X_pca"
+    key_uns = "pca"
     if not weight_by_var:
         print("Normalize PCA by diving the singluar values.")
         sdev = np.sqrt(a.uns[key_uns]['variance'])
         singular_values = sdev * np.sqrt(a.shape[0] - 1)
-        old_X_pca = a.obsm['X_pca']
-        #
+        old_X_pca = a.obsm[key_obsm]
         new_X_pca = old_X_pca / singular_values
-        a.obsm['X_pca'] = new_X_pca
-        a.obsm['scanpy_X_pca'] = old_X_pca
+        a.obsm[key_obsm] = new_X_pca
+        a.obsm[f"scanpy_{key_obsm}"] = old_X_pca
         a.uns[key_uns]['singular_values'] = singular_values
     else:
         print("Keep the scanpy default PCA, i.e., weighted by variance of PCs.")
@@ -421,18 +420,18 @@ class SeuratIntegration:
                     random_state=self.random_state,
                     n_jobs=self.n_jobs,
                 )
-                else:
-                    raw_anchors = filter_anchor(
-                        anchor=raw_anchors[:, ::-1],
-                        adata_ref=adata2,
-                        adata_qry=adata1,
-                        scale_ref=scale2,
-                        scale_qry=scale1,
-                        high_dim_feature=high_dim_feature,
-                        k_filter=k_filter,
-                        random_state=self.random_state,
-                        n_jobs=self.n_jobs,
-                    )[:, ::-1]
+            else:
+                raw_anchors = filter_anchor(
+                    anchor=raw_anchors[:, ::-1],
+                    adata_ref=adata2,
+                    adata_qry=adata1,
+                    scale_ref=scale2,
+                    scale_qry=scale1,
+                    high_dim_feature=high_dim_feature,
+                    k_filter=k_filter,
+                    random_state=self.random_state,
+                    n_jobs=self.n_jobs,
+                )[:, ::-1]
         elif dim_red in ("rpca", "rlsi"):
             from .cca import LSI, SVD, downsample
 
@@ -496,7 +495,6 @@ class SeuratIntegration:
             raise ValueError(f"Dimension reduction method {dim_red} is not supported.")
 
         print("6. Score anchors with snn and local structure preservation.")
-        print("Score Anchors")
         anchor_df = score_anchor(
             anchor=raw_anchors,
             G11=G11,
@@ -547,7 +545,9 @@ class SeuratIntegration:
             Based on current implementation,
             - choosing pca or cca, will perform CCA
             - choosing lsi or lsi-cca, will perform LSI-CCA
-            - all the left are not implemented yet
+            - rpca is only used when key_match is None at least
+        n_components
+            int, dim used for CCA and other methods, default None will set it as 50.
         adata_names
             list of int.
         """
