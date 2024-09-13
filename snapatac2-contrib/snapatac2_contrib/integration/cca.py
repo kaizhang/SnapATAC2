@@ -103,6 +103,7 @@ def cca(
     # CCA decomposition
     model = TruncatedSVD(n_components=n_components, algorithm=svd_algorithm, random_state=random_state)
     tf_data2_t = tf_data2.T.copy()
+    ## TODO: this can be optimized to reduce memory.
     U = model.fit_transform(tf_data1.dot(tf_data2_t))
 
     # select dimensions with non-zero singular values
