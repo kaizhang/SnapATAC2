@@ -354,85 +354,81 @@ class SeuratIntegration:
             adata1 = adata1[i_sel, :]
         if j_sel is not None:
             adata2 = adata2[j_sel, :]
-        if dim_red not in ("cca", "pca", "lsi", "lsi-cca"):
-            raise ValueError(
-                f"Dimension reduction method {dim_red} is not supported.")
-        print(
-            f"1. Prepare input matrix for CCA or LSI-CCA using {key_anchor}.")
-        U, V = self._prepare_matrix(i, j, key_anchor=key_anchor)
-        if dim_red in ("cca", "pca"):
-            print("2. Run CCA")
-            U, V, high_dim_feature = cca(
-                data1=U,
-                data2=V,
-                scale1=scale1,
-                scale2=scale2,
-                n_components=ncc,
-                max_cc_cell=max_cc_cell,
-                k_filter=k_filter,
-                n_features=n_features,
-                chunk_size=chunk_size,
-                svd_algorithm=svd_algorithm,
-                random_state=random_state,
-            )
-        else:
-            print("2. Run LSI-CCA")
-            U, V = lsi_cca(
-                data1=U,
-                data2=V,
-                scale_factor=100000,
-                n_components=ncc,
-                max_cc_cell=max_cc_cell,
-                chunk_size=chunk_size,
-                svd_algorithm=svd_algorithm,
-                min_cov_filter=5,
-                random_state=random_state,
-            )
-        high_dim_feature = None
-
-        print("3. Normalize CCV per sample/row")
-        U = normalize(U, axis=1)
-        V = normalize(V, axis=1)
-        print("4. find MNN of U and V to get anchors.")
-        _k = max(
-            _temp for _temp in [k_anchor, k_local, k_score] if _temp is not None
-        )
-        _k = min(min_sample - 2, _k)
-        print(f"Find Anchors using k={_k}")
-        G11, G12, G21, G22, raw_anchors = (
-            self._calculate_mutual_knn_and_raw_anchors(
-                i=i, j=j, U=U, V=V, k=_k, k_anchor=k_anchor
-            )
-        )
-
-        print("5. filter anchors by high dimensional neighbors.")
-        # compute ccv feature loading
-        if k_filter is not None and high_dim_feature is not None:
-            if self.n_cells[i] >= self.n_cells[j]:
-                raw_anchors = filter_anchor(
-                    anchor=raw_anchors,
-                    adata_ref=adata1,
-                    adata_qry=adata2,
-                    scale_ref=scale1,
-                    scale_qry=scale2,
-                    high_dim_feature=high_dim_feature,
+        if dim_red in ("cca", "pca", "lsi", "lsi-cca"):
+            print(f"1. Prepare input matrix using {key_anchor}.")
+            U, V = self._prepare_matrix(i, j, key_anchor=key_anchor)
+            if dim_red in ("cca", "pca"):
+                print("2. Run CCA")
+                U, V, high_dim_feature = cca(
+                    data1=U,
+                    data2=V,
+                    scale1=scale1,
+                    scale2=scale2,
+                    n_components=ncc,
+                    max_cc_cell=max_cc_cell,
                     k_filter=k_filter,
-                    random_state=self.random_state,
-                    n_jobs=self.n_jobs,
+                    n_features=n_features,
+                    chunk_size=chunk_size,
+                    svd_algorithm=svd_algorithm,
+                    random_state=random_state,
                 )
             else:
-                raw_anchors = filter_anchor(
-                    anchor=raw_anchors[:, ::-1],
-                    adata_ref=adata2,
-                    adata_qry=adata1,
-                    scale_ref=scale2,
-                    scale_qry=scale1,
-                    high_dim_feature=high_dim_feature,
-                    k_filter=k_filter,
-                    random_state=self.random_state,
-                    n_jobs=self.n_jobs,
-                )[:, ::-1]
+                print("2. Run LSI-CCA")
+                U, V = lsi_cca(
+                    data1=U,
+                    data2=V,
+                    scale_factor=100000,
+                    n_components=ncc,
+                    max_cc_cell=max_cc_cell,
+                    chunk_size=chunk_size,
+                    svd_algorithm=svd_algorithm,
+                    min_cov_filter=5,
+                    random_state=random_state,
+                )
+                high_dim_feature = None
+            print("3. Normalize CCV per sample/row")
+            U = normalize(U, axis=1)
+            V = normalize(V, axis=1)
+            print("4. find MNN of U and V to get anchors.")
+            _k = max(_temp for _temp
+                    in [k_anchor, k_local, k_score] if _temp is not None)
+            _k = min(min_sample - 2, _k)
+            print(f"Find Anchors using k={_k}")
+            G11, G12, G21, G22, raw_anchors = (
+                self._calculate_mutual_knn_and_raw_anchors(
+                    i=i, j=j, U=U, V=V, k=_k, k_anchor=k_anchor
+                )
+            )
+
+            print("5. filter anchors by high dimensional neighbors.")
+            # compute ccv feature loading
+            if k_filter is not None and high_dim_feature is not None:
+                if self.n_cells[i] >= self.n_cells[j]:
+                    raw_anchors = filter_anchor(
+                        anchor=raw_anchors,
+                        adata_ref=adata1,
+                        adata_qry=adata2,
+                        scale_ref=scale1,
+                        scale_qry=scale2,
+                        high_dim_feature=high_dim_feature,
+                        k_filter=k_filter,
+                        random_state=self.random_state,
+                        n_jobs=self.n_jobs,
+                    )
+                else:
+                    raw_anchors = filter_anchor(
+                        anchor=raw_anchors[:, ::-1],
+                        adata_ref=adata2,
+                        adata_qry=adata1,
+                        scale_ref=scale2,
+                        scale_qry=scale1,
+                        high_dim_feature=high_dim_feature,
+                        k_filter=k_filter,
+                        random_state=self.random_state,
+                        n_jobs=self.n_jobs,
+                    )[:, ::-1]
         elif dim_red in ("rpca", "rlsi"):
+            print(f"Perform {dim_red}.")
             from .cca import LSI, SVD, downsample
 
             adata1, adata2 = adata1.X, adata2.X
@@ -492,7 +488,7 @@ class SeuratIntegration:
 
             raw_anchors = find_mnn(G12, G21, k_anchor)
         else:
-            raise ValueError(f"Dimension reduction method {dim_red} is not supported.")
+            raise ValueError(f"{dim_red} is not supported.")
 
         print("6. Score anchors with snn and local structure preservation.")
         anchor_df = score_anchor(
@@ -504,8 +500,7 @@ class SeuratIntegration:
             k_score=k_score,
             k_local=k_local,
             Gp1=self.local_knn[i],
-            Gp2=self.local_knn[j],
-        )
+            Gp2=self.local_knn[j])
         return anchor_df
 
     def find_anchor(
@@ -797,7 +792,30 @@ class SeuratIntegration:
         sd=1,
         alignments=None,
     ):
-        """Integrate datasets by transform data matrices from query to reference data using the MNN information."""
+        """\
+        Map query data to reference space.
+
+        Transform query matrices datasets by transform data matrices
+        from query to reference data using the MNN information.
+        Reference data will not be changed or perform L2-normalization
+        per row if row_normalize = True.
+        
+        NOTE: From the implementation, it will go through each element in
+        the alignments, but only return the last one. So we should
+        consider the ref and quey pair for this function.
+        
+        Parameters
+        ----------
+        key_correct
+            str, X or field of obsm, such as X_pca
+        row_normalize
+            boolean, if perform L2-normalized for key_correct
+            default is True
+
+        Returns
+        -------
+        List of numpy arrays, ordered by alignments (ref, qeury).
+        """
         if alignments is not None:
             self.alignments = alignments
 
@@ -822,10 +840,13 @@ class SeuratIntegration:
             corrected = [adata_list[i].X.copy() for i in range(self.n_dataset)]
         else:
             # correct dimensionality reduced matrix only
-            corrected = [
-                normalize(adata_list[i].obsm[key_correct], axis=1)
-                for i in range(self.n_dataset)
-            ]
+            if row_normalize:
+                corrected = [
+                    normalize(adata_list[i].obsm[key_correct], axis=1)
+                    for i in range(self.n_dataset)]
+            else:
+                corrected = [
+                    adata_list[i].obsm[key_correct] for i in range(self.n_dataset)]
 
         for xx in self.alignments:
             print(xx)
