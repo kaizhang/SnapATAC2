@@ -68,7 +68,7 @@ def register_datasets():
                 "colon_transverse.tar": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/eaa46151-a73f-4ef5-8b05-9648c8d1efda?a=758c37e5-4832-4c91-af89-9a1a83a051b3", 
                 "HEA_cCRE.bed.gz": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/91f93222-1a24-49a5-92e3-d9105ec53f91?a=758c37e5-4832-4c91-af89-9a1a83a051b3",
 
-                "cisBP_human.meme": "https://data.mendeley.com/api/datasets/dr2z4jbcx3/draft/files/9eff4b7d-d769-49a2-8fb4-acd472402165?a=758c37e5-4832-4c91-af89-9a1a83a051b3", 
+                "cisBP_human.meme": "https://osf.io/download/uk6vn",
                 "Meuleman_2020.meme": "https://osf.io/download/6uet5/",
 
                 "gencode_v41_GRCh37.gff3.gz": "https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_41/GRCh37_mapping/gencode.v41lift37.basic.annotation.gff3.gz",

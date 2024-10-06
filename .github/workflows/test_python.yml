@@ -4,8 +4,6 @@ on: [push, pull_request]
 
 jobs:
   build-and-test:
-    outputs:
-      VERSION: ${{ steps.get-version.outputs.VERSION }}
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
@@ -22,7 +20,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        sudo pip install --upgrade pip
+        pip install --user --upgrade pip
         pip install --user coverage pytest hypothesis==6.72.4 wheel
 
     - name: Build wheel files
@@ -36,21 +34,10 @@ jobs:
         pip install --user ${GITHUB_WORKSPACE}/wheel_files/*.whl
         coverage run -m pytest ${GITHUB_WORKSPACE}/snapatac2-python/tests
 
-    - name: Get SnapATAC2 version
-      id: get-version
-      run: |
-        VERSION_NUMBER=$(python -c "import snapatac2;print(snapatac2.__version__)")
-        echo $VERSION_NUMBER
-        echo "VERSION=$VERSION_NUMBER" >> $GITHUB_OUTPUT
+    - uses: ./.github/actions/build-docs
 
     - name: Upload Coverage to Codecov
       uses: codecov/codecov-action@v3
-
-    - name: Upload wheel files as artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: wheel-files
-        path: ./wheel_files/snapatac2*.whl
 
   build-wheel:
     needs: build-and-test
