@@ -140,3 +140,23 @@ def test_import(datadir):
         outputs = snap.ex.export_fragments(data, groupby="group", out_dir=str(datadir), suffix='.bed.gz')
 
         assert read_bed(list(outputs.values())[0]) == read_bed(fl)
+
+def test_tile_matrix(datadir):
+    def total_count(adata, bin_size):
+        return snap.pp.add_tile_matrix(
+            adata,
+            bin_size=bin_size,
+            inplace=False,
+            counting_strategy='insertion',
+            ).X.sum()
+
+    data = snap.pp.import_data(
+        snap.datasets.pbmc500(downsample=True),
+        chrom_sizes=snap.genome.hg38,
+        min_num_fragments=0,
+        sorted_by_barcode=False,
+    )
+
+    counts = [total_count(data, i) for i in [500, 1000, 5000, 10000]]
+    for i in range(1, len(counts)):
+        assert counts[i] == counts[i - 1], f"Bin size {i} failed"

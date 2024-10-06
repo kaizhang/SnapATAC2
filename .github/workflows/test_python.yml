@@ -21,23 +21,16 @@ jobs:
     - name: Install dependencies
       run: |
         pip install --user --upgrade pip
-        pip install --user coverage pytest hypothesis==6.72.4 wheel
+        pip install --user pytest hypothesis==6.72.4 wheel
 
-    - name: Build wheel files
+    - name: Build Python package
       run: |
         cd ${GITHUB_WORKSPACE}/snapatac2-python
-        mkdir ${GITHUB_WORKSPACE}/wheel_files
-        pip wheel . --wheel-dir ${GITHUB_WORKSPACE}/wheel_files
-
-    - name: Test Python package
-      run: |
-        pip install --user ${GITHUB_WORKSPACE}/wheel_files/*.whl
-        coverage run -m pytest ${GITHUB_WORKSPACE}/snapatac2-python/tests
+        pip install --user .
+        pytest tests
 
     - uses: ./.github/actions/build-docs
-
-    - name: Upload Coverage to Codecov
-      uses: codecov/codecov-action@v3
+      if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
 
   build-wheel:
     needs: build-and-test
