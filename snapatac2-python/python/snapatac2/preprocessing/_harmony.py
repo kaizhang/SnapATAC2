@@ -1,12 +1,17 @@
 """
 Use harmony to integrate cells from different experiments.
 """
+
 from __future__ import annotations
 
 import numpy as np
+import pandas as pd
+import multiprocessing as mp
+from functools import partial
 
 import snapatac2._snapatac2 as internal
-from snapatac2._utils import is_anndata 
+from snapatac2._utils import is_anndata
+
 
 def harmony(
     adata: internal.AnnData | internal.AnnDataSet | np.ndarray,
@@ -17,6 +22,7 @@ def harmony(
     groupby: str | list[str] | None = None,
     key_added: str | None = None,
     inplace: bool = True,
+    n_jobs: int = 8,
     **kwargs,
 ) -> np.ndarray | None:
     """
@@ -69,21 +75,32 @@ def harmony(
         inplace = False
 
     # Use only the specified dimensions
-    if isinstance(use_dims, int): use_dims = range(use_dims) 
+    if isinstance(use_dims, int):
+        use_dims = range(use_dims)
     mat = mat if use_dims is None else mat[:, use_dims]
 
     # Create a pandas dataframe with the batch information
-    if isinstance(batch, str):
-        batch = adata.obs[batch]
+    if isinstance(batch, str) or isinstance(batch, list):
+        batch = pd.DataFrame(adata.obs[batch])
 
     if groupby is None:
         mat = _harmony(mat, batch, **kwargs)
     else:
-        if isinstance(groupby, str): groupby = adata.obs[groupby]
+        if isinstance(groupby, str):
+            groupby = adata.obs[groupby]
         groups = list(set(groupby))
-        for group in groups:
-            group_idx = [i for i, x in enumerate(groupby) if x == group]
-            mat[group_idx, :] = _harmony(mat[group_idx, :], batch[group_idx], **kwargs)
+        group_idxs = [
+            [i for i, x in enumerate(groupby) if x == group] for group in groups
+        ]
+        margs = [
+            (mat[group_idx, :], batch.iloc[group_idx, :].copy())
+            for group_idx in group_idxs
+        ]
+
+        with mp.Pool(processes=min(n_jobs, len(groups))) as pool:
+            mats = pool.starmap(partial(_harmony, **kwargs), margs)
+        for i, group_idx in enumerate(group_idxs):
+            mat[group_idx, :] = mats[i]
 
     if inplace:
         if key_added is None:
@@ -93,13 +110,26 @@ def harmony(
     else:
         return mat
 
+
 def _harmony(data_matrix, batch_labels, **kwargs):
     try:
         import harmonypy
     except ImportError:
         raise ImportError("\nplease install harmonypy:\n\n\tpip install harmonypy")
-    import pandas as pd
-
-    meta = pd.DataFrame({'batch': np.array(batch_labels)})
-    harmony_out = harmonypy.run_harmony(data_matrix, meta, 'batch', **kwargs)
+    if data_matrix.shape[0] == 1:
+        return data_matrix
+    if len(batch_labels.shape) == 1:
+        batch_labels = pd.DataFrame(batch_labels)
+    # check if batch has >1 unique values
+    for b in batch_labels.columns:
+        if len(batch_labels[b].unique()) == 1:
+            batch_labels = batch_labels.drop(b, axis=1)
+    if batch_labels.shape[1] == 0:
+        return data_matrix
+    harmony_out = harmonypy.run_harmony(
+        data_matrix,
+        pd.DataFrame(batch_labels.values, columns=batch_labels.columns),
+        batch_labels.columns.values,
+        **kwargs,
+    )
     return harmony_out.Z_corr.T
