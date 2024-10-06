@@ -1,0 +1,6 @@
+snapatac2.AnnData.var\_ix
+=========================
+
+.. currentmodule:: snapatac2
+
+.. automethod:: AnnData.var_ix

@@ -1,0 +1,6 @@
+﻿snapatac2.pl.regions
+====================
+
+.. currentmodule:: snapatac2.pl
+
+.. autofunction:: regions

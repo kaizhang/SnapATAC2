@@ -1,0 +1,6 @@
+﻿snapatac2.tl.aggregate\_cells
+=============================
+
+.. currentmodule:: snapatac2.tl
+
+.. autofunction:: aggregate_cells
