@@ -19,11 +19,11 @@
 //! The module aims to provide a comprehensive, efficient, and flexible way to handle and manipulate 
 //! genomic feature counts in Rust.
 use noodles::{core::Position, gff, gff::record::Strand, gtf};
-use bed_utils::bed::tree::GenomeRegions;
 use anyhow::{bail, Context, Result};
 use std::{collections::{BTreeMap, HashMap}, fmt::Debug, io::BufRead, str::FromStr};
 use indexmap::map::IndexMap;
-use bed_utils::bed::{GenomicRange, BEDLike, tree::SparseCoverage};
+use bed_utils::bed::map::GIntervalIndexSet;
+use bed_utils::{bed::{GenomicRange, BEDLike}, coverage::SparseCoverage};
 use itertools::Itertools;
 use num::traits::{ToPrimitive, NumCast};
 use anndata::data::utils::to_csr_data;
@@ -180,7 +180,7 @@ where
 }
 
 pub struct Promoters {
-    pub regions: GenomeRegions<GenomicRange>,
+    pub regions: GIntervalIndexSet,
     pub transcripts: Vec<Transcript>,
 }
 
@@ -250,7 +250,7 @@ pub trait FeatureCounter {
 
 /// Implementation of `FeatureCounter` trait for `SparseCoverage` struct.
 /// `SparseCoverage` represents a sparse coverage map for genomic data.
-impl<D: BEDLike> FeatureCounter for SparseCoverage<'_, D, u32> {
+impl FeatureCounter for SparseCoverage<'_, u32> {
     type Value = u32;
 
     fn reset(&mut self) { self.reset(); }
@@ -286,7 +286,7 @@ impl<D: BEDLike> FeatureCounter for SparseCoverage<'_, D, u32> {
     }
 
     fn get_feature_ids(&self) -> Vec<String> {
-        self.get_regions().map(|x| x.to_genomic_range().pretty_show()).collect()
+        self.regions().map(|x| x.to_genomic_range().pretty_show()).collect()
     }
 
     fn get_counts(&self) -> Vec<(usize, Self::Value)> {
@@ -298,7 +298,7 @@ impl<D: BEDLike> FeatureCounter for SparseCoverage<'_, D, u32> {
 /// It holds a `SparseCoverage` counter and a reference to `Promoters`.
 #[derive(Clone)]
 pub struct TranscriptCount<'a> {
-    counter: SparseCoverage<'a, GenomicRange, u32>,
+    counter: SparseCoverage<'a, u32>,
     promoters: &'a Promoters,
 }
 

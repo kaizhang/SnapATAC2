@@ -92,10 +92,11 @@ pub(crate) fn import_fragments(
     };
     let chrom_sizes = chrom_size.into_iter().collect();
     let fragments = bed::io::Reader::new(utils::open_file_for_read(&fragment_file), Some("#".to_string()))
-        .into_records::<Fragment>().map(|x| x.map(|mut f| {
+        .into_records::<Fragment>().map(|f| {
+            let mut f = f.unwrap();
             shift_fragment(&mut f, shift_left, shift_right);
             f
-    }));
+    });
     let sorted_fragments: Box<dyn Iterator<Item = Fragment>> = if !fragment_is_sorted_by_name {
         let mut sorter = ExternalSorterBuilder::new()
             .with_chunk_size(50000000)
@@ -110,7 +111,7 @@ pub(crate) fn import_fragments(
             .map(Result::unwrap)
         )
     } else {
-        Box::new(fragments.map(Result::unwrap))
+        Box::new(fragments)
     };
 
     macro_rules! run {
@@ -152,7 +153,7 @@ pub(crate) fn import_contacts(
     let chrom_sizes = chrom_size.into_iter().map(|(chr, s)| GenomicRange::new(chr, 0, s)).collect();
 
     let contacts = BufReader::new(utils::open_file_for_read(&contact_file)).lines()
-        .map(|r| r.map(|x| Contact::from_str(&x).unwrap()));
+        .map(|r| Contact::from_str(&r.unwrap()).unwrap());
     let sorted_contacts: Box<dyn Iterator<Item = Contact>> = if !fragment_is_sorted_by_name {
         let mut sorter = ExternalSorterBuilder::new()
             .with_chunk_size(50000000)
@@ -167,7 +168,7 @@ pub(crate) fn import_contacts(
             .map(Result::unwrap)
         )
     } else {
-        Box::new(contacts.map(Result::unwrap))
+        Box::new(contacts)
     };
 
     macro_rules! run {

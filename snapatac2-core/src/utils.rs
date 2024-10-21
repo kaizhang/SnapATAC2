@@ -30,7 +30,7 @@ where
         x.start = summit.saturating_sub(half_window_size);
         x.end = summit + half_window_size + 1;
         x.peak = summit - x.start;
-        std::io::Result::Ok(x)
+        x
     });
     let input = ExternalSorterBuilder::new()
         .with_compression(2)

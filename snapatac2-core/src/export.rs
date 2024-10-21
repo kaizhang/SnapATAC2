@@ -10,8 +10,9 @@ use std::{
 use rayon::iter::{ParallelBridge, ParallelIterator, IntoParallelIterator};
 use bed_utils::bed::{
     BEDLike, BedGraph, merge_sorted_bed_with, GenomicRange, io,
-    tree::{GenomeRegions, SparseBinnedCoverage, BedTree}
+    map::{GIntervalIndexSet, GIntervalMap},
 };
+use bed_utils::coverage::SparseBinnedCoverage;
 use bigtools::BigWigWrite;
 use indicatif::{ProgressIterator, style::ProgressStyle, ParallelProgressIterator};
 use tempfile::Builder;
@@ -107,7 +108,7 @@ pub trait Exporter: SnapData {
         group_by: &Vec<&str>,
         selections: Option<HashSet<&str>>,
         resolution: usize,
-        blacklist_regions: Option<&BedTree<()>>,
+        blacklist_regions: Option<&GIntervalMap<()>>,
         normalization: Option<Normalization>,
         ignore_for_norm: Option<&HashSet<&str>>,
         min_fragment_length: Option<u64>,
@@ -233,14 +234,14 @@ fn create_bedgraph_from_fragments<I>(
     fragments: I,
     chrom_sizes: &ChromSizes,
     bin_size: u64,
-    blacklist_regions: Option<&BedTree<()>>,
+    blacklist_regions: Option<&GIntervalMap<()>>,
     normalization: Option<Normalization>,
     ignore_for_norm: Option<&HashSet<&str>>,
 ) -> Vec<BedGraph<f32>>
 where
     I: Iterator<Item = Fragment>,
 {
-    let genome: GenomeRegions<GenomicRange> = chrom_sizes.into_iter()
+    let genome: GIntervalIndexSet = chrom_sizes.into_iter()
         .map(|(k, v)| GenomicRange::new(k, 0, *v)).collect();
     let mut counter = SparseBinnedCoverage::new(&genome, bin_size);
     let mut total_count = 0.0;

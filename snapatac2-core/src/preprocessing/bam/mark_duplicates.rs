@@ -204,7 +204,7 @@ where
         sorter = sorter.with_tmp_dir(tmp);
     }
     let groups = sorter.build().unwrap()
-        .sort_by(reads.map(|x| std::io::Result::Ok(x)), |a, b| a.barcode.cmp(&b.barcode)
+        .sort_by(reads, |a, b| a.barcode.cmp(&b.barcode)
             .then_with(|| a.unclipped_start.cmp(&b.unclipped_start))
             .then_with(|| a.unclipped_end.cmp(&b.unclipped_end))
         ).unwrap()

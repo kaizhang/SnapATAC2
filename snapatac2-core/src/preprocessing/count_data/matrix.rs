@@ -9,7 +9,7 @@ use anndata::{data::DataFrameIndex, AnnDataOp};
 use indicatif::{ProgressIterator, ProgressStyle};
 use polars::prelude::{NamedFrom, DataFrame, Series};
 use anyhow::Result;
-use bed_utils::bed::{BEDLike, tree::{GenomeRegions, SparseCoverage}};
+use bed_utils::{bed::{BEDLike, map::GIntervalIndexSet}, coverage::SparseCoverage};
 
 /// Create cell by bin matrix.
 /// 
@@ -91,7 +91,7 @@ where
     let style = ProgressStyle::with_template(
         "[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})"
     ).unwrap();
-    let regions: GenomeRegions<D> = peaks.collect();
+    let regions: GIntervalIndexSet = peaks.collect();
     let counter = SparseCoverage::new(&regions);
     let feature_names = counter.get_feature_ids();
     let data: Box<dyn ExactSizeIterator<Item = _>> = if use_x {

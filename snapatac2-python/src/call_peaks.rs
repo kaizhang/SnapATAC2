@@ -13,7 +13,7 @@ use snapatac2_core::{
 use anndata::Backend;
 use anndata_hdf5::H5;
 use anyhow::{ensure, Result};
-use bed_utils::bed::{io::Reader, tree::BedTree, BEDLike, GenomicRange};
+use bed_utils::bed::{io::Reader, map::{GIntervalIndexSet, GIntervalMap}, BEDLike, GenomicRange};
 use polars::{
     prelude::{DataFrame, NamedFrom},
     series::Series,
@@ -54,11 +54,11 @@ pub fn py_merge_peaks<'py>(
             .map(|x| x.to_genomic_range().pretty_show())
             .collect::<Vec<_>>(),
     );
-    let peaks_index: BedTree<usize> = peaks.into_iter().enumerate().map(|(i, x)| (x, i)).collect();
+    let peaks_index: GIntervalIndexSet = peaks.into_iter().collect();
     let iter = peak_list.iter().map(|(key, ps)| {
         let mut values = vec![false; n];
         ps.into_iter().for_each(|bed| {
-            peaks_index.find(bed).for_each(|(_, i)| values[*i] = true);
+            peaks_index.find_index_of(bed).for_each(|i| values[i] = true);
         });
         Series::new(key.as_str(), values)
     });
@@ -71,13 +71,13 @@ pub fn find_reproducible_peaks<'py>(
     replicates: Vec<Bound<'py, PyAny>>,
     blacklist: Option<PathBuf>,
 ) -> Result<PyDataFrame> {
-    let black: BedTree<_> = if let Some(black) = blacklist {
+    let black: GIntervalMap<_> = if let Some(black) = blacklist {
         Reader::new(utils::open_file_for_read(black), None)
             .into_records::<GenomicRange>()
             .map(|x| (x.unwrap(), ()))
             .collect()
     } else {
-        Default::default()
+        GIntervalMap::new()
     };
 
     let peaks = get_peaks(peaks)?
@@ -86,7 +86,7 @@ pub fn find_reproducible_peaks<'py>(
         .collect::<Vec<_>>();
     let replicates = replicates
         .into_iter()
-        .map(|x| BedTree::from_iter(get_peaks(&x).unwrap().into_iter().map(|x| (x, ()))))
+        .map(|x| GIntervalMap::from_iter(get_peaks(&x).unwrap().into_iter().map(|x| (x, ()))))
         .collect::<Vec<_>>();
     let peaks: Vec<_> = peaks
         .into_iter()
@@ -100,13 +100,13 @@ pub fn fetch_peaks<'py>(
     peaks: HashMap<String, Bound<'py, PyAny>>,
     blacklist: Option<PathBuf>,
 ) -> Result<HashMap<String, PyDataFrame>> {
-    let black: BedTree<_> = if let Some(black) = blacklist {
+    let black: GIntervalMap<_> = if let Some(black) = blacklist {
         Reader::new(utils::open_file_for_read(black), None)
             .into_records::<GenomicRange>()
             .map(|x| (x.unwrap(), ()))
             .collect()
     } else {
-        Default::default()
+        GIntervalMap::new()
     };
     peaks
         .into_iter()

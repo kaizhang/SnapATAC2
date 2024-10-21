@@ -15,7 +15,7 @@ pub use matrix::{create_gene_matrix, create_tile_matrix, create_peak_matrix};
 
 use anndata::{container::{ChunkedArrayElem, StackedChunkedArrayElem}, ArrayElemOp};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use bed_utils::bed::{tree::BedTree, GenomicRange};
+use bed_utils::bed::{map::GIntervalMap, GenomicRange};
 use anndata::{AnnDataOp, ElemCollectionOp, AxisArraysOp, AnnDataSet, Backend, AnnData};
 use ndarray::Array2;
 use polars::frame::DataFrame;
@@ -88,7 +88,7 @@ pub trait SnapData: AnnDataOp {
     fn fragment_size_distribution(&self, max_size: usize) -> Result<Vec<usize>>;
 
     /// Compute the fraction of reads in each region.
-    fn frip<D>(&self, regions: &Vec<BedTree<D>>, normalized: bool, count_as_insertion: bool) -> Result<Array2<f64>> {
+    fn frip<D>(&self, regions: &Vec<GIntervalMap<D>>, normalized: bool, count_as_insertion: bool) -> Result<Array2<f64>> {
         let vec = qc::fraction_of_reads_in_region(
             self.get_count_iter(2000)?.into_fragments(), regions, normalized, count_as_insertion,
         ).map(|x| x.0).flatten().flatten().collect::<Vec<_>>();

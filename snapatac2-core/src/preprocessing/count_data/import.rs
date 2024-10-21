@@ -8,7 +8,7 @@ use anndata::{
     data::array::utils::{from_csr_data, to_csr_data}, ArrayData,
 };
 use anyhow::Result;
-use bed_utils::bed::{tree::GenomeRegions, BEDLike, Strand};
+use bed_utils::bed::{map::GIntervalIndexSet, BEDLike, Strand};
 use indexmap::IndexSet;
 use indicatif::{style::ProgressStyle, ProgressBar, ProgressDrawTarget, ProgressIterator};
 use itertools::Itertools;
@@ -189,23 +189,21 @@ fn qc_to_df(qc: Vec<QualityControl>) -> DataFrame {
 }
 
 /// Import scHi-C contacts into AnnData
-pub fn import_contacts<A, B, I>(
+pub fn import_contacts<A, I>(
     anndata: &A,
     contacts: I,
-    regions: &GenomeRegions<B>,
+    regions: &GIntervalIndexSet,
     bin_size: usize,
     chunk_size: usize,
 ) -> Result<()>
 where
     A: AnnDataOp,
-    B: BEDLike + Clone + std::marker::Sync,
     I: Iterator<Item = Contact>,
 {
     let chrom_sizes: ChromSizes = regions
-        .regions
         .iter()
-        .map(|x| x.chrom())
-        .zip(regions.regions.iter().map(|x| x.end())).collect();
+        .map(|x| (x.chrom(), x.end()))
+        .collect();
  
     let genome_index = GenomeBaseIndex::new(&chrom_sizes);
     let genome_size = genome_index.len();
@@ -259,14 +257,13 @@ where
             Series::new(
                 "reference_seq_name",
                 regions
-                    .regions
                     .iter()
                     .map(|x| x.chrom())
                     .collect::<Series>(),
             ),
             Series::new(
                 "reference_seq_length",
-                regions.regions.iter().map(|x| x.end()).collect::<Series>(),
+                regions.iter().map(|x| x.end()).collect::<Series>(),
             ),
         ])?,
     )?;

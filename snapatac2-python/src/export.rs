@@ -7,7 +7,7 @@ use anndata::Backend;
 use anndata_hdf5::H5;
 use std::{collections::{HashSet, HashMap}, path::PathBuf};
 use anyhow::Result;
-use bed_utils::bed::{GenomicRange, io::Reader, tree::BedTree};
+use bed_utils::bed::{GenomicRange, io::Reader, map::GIntervalMap};
 use std::str::FromStr;
 
 #[pyfunction]
@@ -65,7 +65,7 @@ pub fn export_coverage(
     let ignore_for_norm = ignore_for_norm.as_ref()
         .map(|s| s.iter().map(|x| x.as_ref()).collect());
 
-    let black: Option<BedTree<()>> = blacklist.map(|black| {
+    let black: Option<GIntervalMap<()>> = blacklist.map(|black| {
         Reader::new(utils::open_file_for_read(black), None)
             .into_records::<GenomicRange>()
             .map(|x| (x.unwrap(), ()))

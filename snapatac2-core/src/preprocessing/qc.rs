@@ -1,6 +1,6 @@
 use std::{io::{Read, BufRead, BufReader}, collections::{HashMap, HashSet}};
 use anndata::data::CsrNonCanonical;
-use bed_utils::bed::{GenomicRange, BEDLike, tree::BedTree, ParseError, Strand};
+use bed_utils::bed::{GenomicRange, BEDLike, map::GIntervalMap, ParseError, Strand};
 use anyhow::Result;
 use serde::{Serialize, Deserialize};
 use smallvec::{SmallVec, smallvec};
@@ -239,7 +239,7 @@ pub fn read_tss<R: Read>(file: R) -> impl Iterator<Item = (String, u64, bool)> {
 }
 
 pub struct TssRegions {
-    pub promoters: BedTree<bool>,
+    pub promoters: GIntervalMap<bool>,
     window_size: u64,
 }
 
@@ -260,7 +260,7 @@ impl TssRegions {
     }
 }
 
-pub fn make_promoter_map<I: Iterator<Item = (String, u64, bool)>>(iter: I, half_window_size: u64) -> BedTree<bool> {
+pub fn make_promoter_map<I: Iterator<Item = (String, u64, bool)>>(iter: I, half_window_size: u64) -> GIntervalMap<bool> {
     iter
         .map( |(chr, tss, is_fwd)| {
             let b = GenomicRange::new(chr, tss.saturating_sub(half_window_size), tss + half_window_size + 1);
@@ -357,7 +357,7 @@ pub fn fragment_size_distribution<I>(data: I, max_size: usize) -> Vec<usize>
 
 /// Count the fraction of the reads or read pairs in the given regions.
 pub fn fraction_of_reads_in_region<'a, I, D>(
-    iter: I, regions: &'a Vec<BedTree<D>>, normalized: bool, count_as_insertion: bool,
+    iter: I, regions: &'a Vec<GIntervalMap<D>>, normalized: bool, count_as_insertion: bool,
 ) -> impl Iterator<Item = (Vec<Vec<f64>>, usize, usize)> + 'a
 where
     I: Iterator<Item = (Vec<Vec<Fragment>>, usize, usize)> + 'a,

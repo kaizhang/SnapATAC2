@@ -67,7 +67,7 @@ where
 {
     let mut assoc_regions = vec![Vec::new(); promoters.regions.len()];
     regions.into_iter().for_each(|x|
-        promoters.regions.indices.find(x).for_each(|(_, i)| assoc_regions[*i].push(x))
+        promoters.regions.find_index_of(x).for_each(|i| assoc_regions[i].push(x))
     );
     PromoterLinkage {
         promoters,

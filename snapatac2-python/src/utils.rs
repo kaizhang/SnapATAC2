@@ -238,7 +238,7 @@ pub(crate) fn read_regions(file: PathBuf) -> Vec<String> {
 
 #[pyfunction]
 pub(crate) fn intersect_bed<'py>(regions: Bound<'py, PyAny>, bed_file: &str) -> PyResult<Vec<bool>> {
-    let bed_tree: bed::tree::BedTree<()> = bed::io::Reader::new(utils::open_file_for_read(bed_file), None)
+    let bed_tree: bed::map::GIntervalMap<()> = bed::io::Reader::new(utils::open_file_for_read(bed_file), None)
         .into_records().map(|x: Result<BED<3>, _>| (x.unwrap(), ())).collect();
     let res = PyIterator::from_bound_object(&regions)?
         .map(|x| bed_tree.is_overlapped(&GenomicRange::from_str(x.unwrap().extract().unwrap()).unwrap()))
@@ -281,7 +281,7 @@ pub fn read_transcripts<P: AsRef<std::path::Path>>(file_path: P, options: &Trans
 pub(crate) fn total_size_of_peaks(peaks: Vec<String>) -> Result<u64>
 {
     let sorter = ExternalSorterBuilder::new().build()?.sort(
-        peaks.into_iter().map(|x| std::io::Result::Ok(GenomicRange::from_str(&x).unwrap()))
+        peaks.into_iter().map(|x| GenomicRange::from_str(&x).unwrap())
     )?.map(|x| x.unwrap());
     Ok(merge_sorted_bed(sorter).map(|x| x.len()).sum())
 }
