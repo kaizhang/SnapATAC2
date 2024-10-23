@@ -259,9 +259,9 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "bed-utils"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fecb3709882816e1cb5617ec35d72eb355a0ffbf807f90c2b23bbc181c0ec608"
+checksum = "9356b0fde9afb91323fec40d38629f85bee4b51f9b1605f90c2f48c8eb693431"
 dependencies = [
  "bincode",
  "byteorder",

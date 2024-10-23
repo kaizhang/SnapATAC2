@@ -54,6 +54,7 @@ pub fn export_coverage(
     ignore_for_norm: Option<HashSet<PyBackedStr>>,
     min_frag_length: Option<u64>,
     max_frag_length: Option<u64>,
+    smooth_length: Option<u16>,
     compression: Option<&str>,
     compression_level: Option<u32>,
     temp_dir: Option<PathBuf>,
@@ -79,7 +80,7 @@ pub fn export_coverage(
         ($data:expr) => {
             $data.export_coverage(
                 &group_by, selections, resolution, black.as_ref(), normalization,
-                ignore_for_norm.as_ref(), min_frag_length, max_frag_length, dir, prefix,
+                ignore_for_norm.as_ref(), min_frag_length, max_frag_length, smooth_length, dir, prefix,
                 suffix, output_format, compression.map(|x| utils::Compression::from_str(x).unwrap()),
                 compression_level, temp_dir, num_threads,
             )

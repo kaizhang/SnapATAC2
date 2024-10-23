@@ -87,6 +87,7 @@ def export_coverage(
     ignore_for_norm: list[str] | None = None,
     min_frag_length: int | None = None,
     max_frag_length: int | None = 2000,
+    smooth_length: int | None = None,
     out_dir: Path = "./",
     prefix: str = "",
     suffix: str = ".bw",
@@ -129,6 +130,11 @@ def export_coverage(
         Minimum fragment length to be included in the computation.
     max_frag_length
         Maximum fragment length to be included in the computation.
+    smooth_length
+        Length of the smoothing window for the output of the bigwig/bedgraph file.
+        For example, if the bin_size is set to 20 and the smooth_length is set to 3,
+        then, for each bin, the average of the bin and its left and right neighbors
+        is considered (the total of 60 bp).
     out_dir
         Directory for saving the outputs.
     prefix
@@ -202,5 +208,5 @@ def export_coverage(
     return internal.export_coverage(
         adata, list(groupby), bin_size, out_dir, prefix, suffix, output_format, selections,
         blacklist, normalization, ignore_for_norm, min_frag_length,
-        max_frag_length, compression, compression_level, tempdir, n_jobs,
+        max_frag_length, smooth_length, compression, compression_level, tempdir, n_jobs,
     )
