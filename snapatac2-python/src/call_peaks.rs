@@ -1,7 +1,7 @@
 use crate::utils::AnnDataLike;
 
 use snapatac2_core::utils::{self, Compression};
-use anyhow::Context;
+use anyhow::{bail, Context};
 use bed_utils::bed::{NarrowPeak, Strand};
 use indicatif::{ProgressIterator, ProgressStyle};
 use itertools::Itertools;
@@ -357,11 +357,11 @@ fn _export_tags<D: SnapData, P: AsRef<std::path::Path>>(
     let files = unique_keys
         .into_iter()
         .map(|(a, b)| {
-            let filename = dir.as_ref().join(&format!(
-                "{}_{}.zst",
-                a.replace("/", "+"),
-                b.replace("/", "+")
-            ));
+            let filename = format!("{}_{}.zst", a, b);
+            if !sanitize_filename::is_sanitized(&filename) {
+                bail!("invalid filename: {}", filename);
+            }
+            let filename = dir.as_ref().join(&filename);
             let writer = open_file_for_write(&filename, Some(Compression::Zstd), Some(1))?;
             let val = (filename, Arc::new(Mutex::new(writer)));
             Ok(((a, b), val))

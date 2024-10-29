@@ -35,6 +35,7 @@ regex = "1.6"
 serde = "1.0"
 statrs = "0.17"
 smallvec = "1.13"
+sanitize-filename = "0.5"
 tempfile = "3.3"
 zstd = { version = "0.13", features = ["zstdmt"] }
 hashbrown = { version = "0.14.5", features = ["raw"] }

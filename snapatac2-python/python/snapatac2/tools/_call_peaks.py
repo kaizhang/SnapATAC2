@@ -161,7 +161,10 @@ def macs3(
             return _snapatac2.find_reproducible_peaks(merged, others, blacklist)
 
         logging.info("Calling peaks...")
-        peaks = _par_map(_call_peaks, [(x,) for x in fragments.values()], n_jobs)
+        if n_jobs == 1:
+            peaks = [_call_peaks(x) for x in fragments.values()]
+        else:
+            peaks = _par_map(_call_peaks, [(x,) for x in fragments.values()], n_jobs)
         peaks = {k: v for k, v in zip(fragments.keys(), peaks)}
         if inplace:
             if adata.isbacked:

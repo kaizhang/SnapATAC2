@@ -2857,6 +2857,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "sanitize-filename"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2ed72fbaf78e6f2d41744923916966c4fbe3d7c74e3037a8ee482f1115572603"
+dependencies = [
+ "lazy_static",
+ "regex",
+]
+
+[[package]]
 name = "schannel"
 version = "0.1.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3021,6 +3031,7 @@ dependencies = [
  "rand_core",
  "rand_isaac",
  "rayon",
+ "sanitize-filename",
  "snapatac2-core",
  "statrs",
  "tempfile",
@@ -3054,6 +3065,7 @@ dependencies = [
  "polars",
  "rayon",
  "regex",
+ "sanitize-filename",
  "serde",
  "smallvec",
  "statrs",

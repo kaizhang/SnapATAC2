@@ -6,7 +6,7 @@ use crate::{
     utils::{self, Compression},
 };
 
-use anyhow::{ensure, Context, Result};
+use anyhow::{bail, ensure, Context, Result};
 use bed_utils::bed::{
     io,
     map::{GIntervalIndexSet, GIntervalMap},
@@ -70,9 +70,11 @@ pub trait Exporter: SnapData {
         let files = groups
             .into_iter()
             .map(|x| {
-                let filename = dir
-                    .as_ref()
-                    .join(prefix.to_string() + x.replace("/", "+").as_str() + suffix);
+                let filename = prefix.to_string() + x + suffix;
+                if !sanitize_filename::is_sanitized(&filename) {
+                    bail!("invalid filename: {}", filename);
+                }
+                let filename = dir.as_ref().join(filename);
                 let writer = utils::open_file_for_write(&filename, compression, compression_level)?;
                 Ok((x, (filename, Arc::new(Mutex::new(writer)))))
             })

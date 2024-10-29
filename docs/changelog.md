@@ -5,10 +5,12 @@
 ### Features:
 
   - Implement barcode correction algorithms.
+  - Add `smooth_length` to `ex.export_coverage`.
 
 ### Bugs fixed:
 
   - Fix #335: GTF parsing error when textual attributes contain semicolons.
+  - Fix #347: Add file name sanity check in various places.
 
 ### Features:
 
