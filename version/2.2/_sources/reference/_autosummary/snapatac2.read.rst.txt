@@ -1,0 +1,6 @@
+﻿snapatac2.read
+==============
+
+.. currentmodule:: snapatac2
+
+.. autofunction:: read
