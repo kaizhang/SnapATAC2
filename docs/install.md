@@ -57,14 +57,10 @@ The Rust compiler can be installed using:
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-Once you have cmake and the Rust compiler properly installed,
-clone the source code repository and go to the `snapatac2-python` directory,
-use `pip install .` to install the package.
+Once you have the Rust compiler properly installed, you can use pip to install the SnapATAC2 library:
 
 ```
-git clone https://github.com/kaizhang/SnapATAC2.git
-cd SnapATAC2/snapatac2-python
-pip install .
+pip install 'git+https://github.com/kaizhang/SnapATAC2.git#egg=snapatac2&subdirectory=snapatac2-python'
 ```
 
 Optional dependencies

@@ -1,0 +1,6 @@
+[workspace]
+members = ["snapatac2-core", "snapatac2-python"]
+resolver = "2"
+
+[workspace.dependencies]
+snapatac2-core = { path = "snapatac2-core" }
