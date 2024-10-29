@@ -19,4 +19,4 @@ runs:
       uses: Swatinem/rust-cache@v2
       if: ${{ inputs.cache == 'true' }}
       with:
-        workspaces: "snapatac2-python -> target"
+        workspaces: "target"

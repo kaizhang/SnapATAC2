@@ -11,7 +11,7 @@ homepage = "https://github.com/"
 keywords = ["single-cell", "biology"]
 
 [dependencies]
-snapatac2-core = { version = "2.0", workspace = true }
+snapatac2-core = { workspace = true }
 anndata = "0.4.2"
 anndata-hdf5 = "0.3"
 pyanndata = "0.4.1"

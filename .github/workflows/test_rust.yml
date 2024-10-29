@@ -16,4 +16,4 @@ jobs:
     - name: Test Rust package
       run: |
         cd ${GITHUB_WORKSPACE}/snapatac2-core
-        cargo test --release --all --no-fail-fast
+        cargo test --no-fail-fast
