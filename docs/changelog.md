@@ -1,5 +1,7 @@
 # Release Notes
 
+## Nightly (unreleased)
+
 ## Release 2.7.1 (released October 29, 2024)
 
 ### Features:

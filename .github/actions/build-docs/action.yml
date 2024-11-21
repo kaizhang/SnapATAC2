@@ -13,9 +13,9 @@ runs:
     shell: bash
     run: |
       sudo apt-get install -y pandoc jq
-      pip install --user sphinx==7.* pydata-sphinx-theme==0.15.* pandoc nbsphinx \
-        Pygments==2.16.* sphinx-autodoc-typehints myst-parser \
-        markupsafe==2.1.* sphinx-plotly-directive
+      pip install --user sphinx==8.* pydata-sphinx-theme==0.16.* pandoc nbsphinx \
+        Pygments==2.18.* sphinx-autodoc-typehints myst-parser \
+        markupsafe==3.* sphinx-plotly-directive
 
   - name: Build doc
     shell: bash
