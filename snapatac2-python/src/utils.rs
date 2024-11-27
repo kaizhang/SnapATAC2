@@ -228,6 +228,22 @@ pub(crate) fn jm_regress(
     Ok(lin_reg_imprecise(iter).unwrap())
 }
 
+/// Get a list of genomic ranges from a python object. Acceptable types are:
+/// - file-like object
+/// - list of strings
+pub(crate) fn read_genomic_ranges(input: &Bound<'_, PyAny>) -> Result<Vec<GenomicRange>> {
+    if let Ok(list) = input.downcast::<pyo3::types::PyList>() {
+        list.iter().map(|str| {
+            let str: &str = str.extract()?;
+            Ok(GenomicRange::from_str(str).unwrap())
+        }).collect()
+    } else {
+        let file: PathBuf = input.extract()?;
+        let mut reader = bed::io::Reader::new(utils::open_file_for_read(file), None);
+        Ok(reader.records::<GenomicRange>().map(|x| x.unwrap()).collect())
+    }
+}
+
 /// Read genomic regions from a bed file.
 /// Returns a list of strings
 #[pyfunction]

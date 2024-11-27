@@ -133,7 +133,8 @@ pub trait Exporter: SnapData {
         resolution: usize,
         blacklist_regions: Option<&GIntervalMap<()>>,
         normalization: Option<Normalization>,
-        ignore_for_norm: Option<&HashSet<&str>>,
+        include_for_norm: Option<&GIntervalMap<()>>,
+        exclude_for_norm: Option<&GIntervalMap<()>>,
         min_fragment_length: Option<u64>,
         max_fragment_length: Option<u64>,
         smooth_length: Option<u16>,
@@ -206,7 +207,8 @@ pub trait Exporter: SnapData {
                         smooth_length,
                         blacklist_regions,
                         normalization,
-                        ignore_for_norm,
+                        include_for_norm,
+                        exclude_for_norm,
                     );
 
                     match format {
@@ -276,7 +278,10 @@ impl std::str::FromStr for Normalization {
 ///                     is considered (the total of 60 bp).
 /// * `blacklist_regions` - Blacklist regions to be ignored.
 /// * `normalization` - Normalization method.
-/// * `ignore_for_norm` - Chromosomes to be ignored for normalization.
+/// * `include_for_norm` - If specified, only the regions that overlap with these intervals will be used for normalization.
+/// * `exclude_for_norm` - If specified, the regions that overlap with these intervals will be
+///                        excluded from normalization. If a region is in both "include_for_norm" and
+///                        "exclude_for_norm", it will be excluded.
 fn create_bedgraph_from_fragments<I>(
     fragments: I,
     chrom_sizes: &ChromSizes,
@@ -284,7 +289,8 @@ fn create_bedgraph_from_fragments<I>(
     smooth_length: Option<u16>,
     blacklist_regions: Option<&GIntervalMap<()>>,
     normalization: Option<Normalization>,
-    ignore_for_norm: Option<&HashSet<&str>>,
+    include_for_norm: Option<&GIntervalMap<()>>,
+    exclude_for_norm: Option<&GIntervalMap<()>>,
 ) -> Vec<BedGraph<f32>>
 where
     I: Iterator<Item = Fragment>,
@@ -294,21 +300,23 @@ where
         .map(|(k, v)| GenomicRange::new(k, 0, *v))
         .collect();
     let mut counter = SparseBinnedCoverage::new(&genome, bin_size);
-    let mut total_reads = 0.0;
+    let mut norm_factor = 0.0;
     fragments.for_each(|frag| {
         let not_in_blacklist = blacklist_regions.map_or(true, |bl| !bl.is_overlapped(&frag));
         if not_in_blacklist {
-            if ignore_for_norm.map_or(true, |x| !x.contains(frag.chrom())) {
-                total_reads += 1.0;
+            if include_for_norm.map_or(true, |x| x.is_overlapped(&frag))
+                && !exclude_for_norm.map_or(false, |x| x.is_overlapped(&frag))
+            {
+                norm_factor += 1.0;
             }
             counter.insert(&frag, 1.0);
         }
     });
 
-    let norm_factor = match normalization {
+    norm_factor = match normalization {
         None => 1.0,
-        Some(Normalization::RPKM) => total_reads * bin_size as f32 / 1e9,
-        Some(Normalization::CPM) => total_reads / 1e6,
+        Some(Normalization::RPKM) => norm_factor * bin_size as f32 / 1e9,
+        Some(Normalization::CPM) => norm_factor / 1e6,
         Some(Normalization::BPM) => counter.get_coverage().values().sum::<f32>() / 1e6,
         Some(Normalization::RPGC) => todo!(),
     };
@@ -321,7 +329,13 @@ where
     let counts: Box<dyn Iterator<Item = _>> = if let Some(smooth_length) = smooth_length {
         let smooth_left = (smooth_length - 1) / 2;
         let smooth_right = smooth_left + (smooth_left - 1) % 2;
-        Box::new(smooth_bedgraph(counts, bin_size, smooth_left, smooth_right, chrom_sizes))
+        Box::new(smooth_bedgraph(
+            counts,
+            bin_size,
+            smooth_left,
+            smooth_right,
+            chrom_sizes,
+        ))
     } else {
         Box::new(counts)
     };
@@ -329,7 +343,8 @@ where
     let chunks = counts
         .map(|(region, count)| BedGraph::from_bed(&region, count))
         .chunk_by(|x| x.value);
-    chunks.into_iter()
+    chunks
+        .into_iter()
         .flat_map(|(_, groups)| {
             merge_sorted_bed_with(groups, |beds| {
                 let mut iter = beds.into_iter();
@@ -502,7 +517,11 @@ mod tests {
             None,
             None,
             None,
-        ).into_iter().map(|x| x.value).collect();
+            None,
+        )
+        .into_iter()
+        .map(|x| x.value)
+        .collect();
         let expected = vec![1.0, 3.0, 4.0, 3.0, 2.0, 4.0, 3.0, 2.0];
         assert_eq!(output, expected);
 
@@ -514,7 +533,11 @@ mod tests {
             None,
             None,
             None,
-        ).into_iter().map(|x| x.value).collect();
+            None,
+        )
+        .into_iter()
+        .map(|x| x.value)
+        .collect();
         let expected = vec![2.0, 4.0, 3.0, 4.0, 3.0, 2.0, 1.0];
         assert_eq!(output, expected);
     }
@@ -531,8 +554,11 @@ mod tests {
 
         let output = create_bedgraph_from_fragments(
             fragments.clone().into_iter(),
-            &[("chr1", 248956422), ("chr2", 242193529)].into_iter().collect(),
+            &[("chr1", 248956422), ("chr2", 242193529)]
+                .into_iter()
+                .collect(),
             1,
+            None,
             None,
             None,
             None,
@@ -542,18 +568,31 @@ mod tests {
 
         let output = create_bedgraph_from_fragments(
             fragments.into_iter(),
-            &[("chr1", 248956422), ("chr2", 242193529)].into_iter().collect(),
+            &[("chr1", 248956422), ("chr2", 242193529)]
+                .into_iter()
+                .collect(),
             1,
             None,
             None,
             Some(Normalization::BPM),
             None,
+            None,
         );
-        let scale_factor: f32 = expected.iter().map(|x| x.value * x.len() as f32).sum::<f32>() / 1e6;
-        assert_eq!(output, expected.into_iter().map(|mut x| {
-            x.value = x.value / scale_factor;
-            x
-        }).collect::<Vec<_>>());
+        let scale_factor: f32 = expected
+            .iter()
+            .map(|x| x.value * x.len() as f32)
+            .sum::<f32>()
+            / 1e6;
+        assert_eq!(
+            output,
+            expected
+                .into_iter()
+                .map(|mut x| {
+                    x.value = x.value / scale_factor;
+                    x
+                })
+                .collect::<Vec<_>>()
+        );
     }
 
     #[test]
@@ -572,7 +611,8 @@ mod tests {
                 2,
                 2,
                 &[("chr1", 10000000)].into_iter().collect(),
-            ).collect::<Vec<_>>(),
+            )
+            .collect::<Vec<_>>(),
             vec![
                 (GenomicRange::new("chr1", 0, 100), 0.6),
                 (GenomicRange::new("chr1", 100, 200), 0.6),

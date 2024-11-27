@@ -249,6 +249,7 @@ pub fn read_tss<R: Read>(file: R) -> impl Iterator<Item = (String, u64, bool)> {
     })
 }
 
+#[derive(Debug, Clone)]
 pub struct TssRegions {
     pub promoters: GIntervalMap<bool>,
     window_size: u64,

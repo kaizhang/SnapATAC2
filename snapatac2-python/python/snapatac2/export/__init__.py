@@ -84,7 +84,8 @@ def export_coverage(
     bin_size: int = 10,
     blacklist: Path | None = None,
     normalization: Literal["RPKM", "CPM", "BPM"] | None = "RPKM",
-    ignore_for_norm: list[str] | None = None,
+    include_for_norm: list[str] | Path = None,
+    exclude_for_norm: list[str] | Path = None,
     min_frag_length: int | None = None,
     max_frag_length: int | None = 2000,
     smooth_length: int | None = None,
@@ -99,8 +100,9 @@ def export_coverage(
 ) -> dict[str, str]:
     """Export and save coverage in a bedgraph or bigwig format file.
 
-    This function generates coverage tracks (bigWig or bedGraph) for each group
-    of cells defined in `groupby`. The coverage is calculated as the number of reads
+    This function first divides cells into groups based on the `groupby` parameter.
+    It then independently generates the genome-wide coverage track (bigWig or bedGraph) for each group
+    of cells. The coverage is calculated as the number of reads
     per bin, where bins are short consecutive counting windows of a defined size.
     For paired-end data, the reads are extended to the fragment length and the
     coverage is calculated as the number of fragments per bin.
@@ -130,8 +132,14 @@ def export_coverage(
         - RPKM (per bin) = #reads per bin / (#mapped_reads (in millions) * bin length (kb)).
         - CPM (per bin) = #reads per bin / #mapped_reads (in millions).
         - BPM (per bin) = #reads per bin / sum of all reads per bin (in millions).
-    ignore_for_norm
-        A list of chromosomes to ignore for normalization.
+    include_for_norm
+        A list of string or a BED file containing the genomic loci to include for normalization.
+        If specified, only the reads that overlap with these loci will be used for normalization.
+        A typical use case is to include only the promoter regions for the normalization.
+    exclude_for_norm
+        A list of string or a BED file containing the genomic loci to exclude for normalization.
+        If specified, the reads that overlap with these loci will be excluded from normalization.
+        If a read overlaps with both `include_for_norm` and `exclude_for_norm`, it will be excluded.
     min_frag_length
         Minimum fragment length to be included in the computation.
     max_frag_length
@@ -213,6 +221,6 @@ def export_coverage(
     n_jobs = None if n_jobs <= 0 else n_jobs
     return internal.export_coverage(
         adata, list(groupby), bin_size, out_dir, prefix, suffix, output_format, selections,
-        blacklist, normalization, ignore_for_norm, min_frag_length,
+        blacklist, normalization, include_for_norm, exclude_for_norm, min_frag_length,
         max_frag_length, smooth_length, compression, compression_level, tempdir, n_jobs,
     )

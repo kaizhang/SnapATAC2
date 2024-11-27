@@ -1,4 +1,4 @@
-use crate::utils::AnnDataLike;
+use crate::utils::{read_genomic_ranges, AnnDataLike};
 use snapatac2_core::{export::{Exporter, Normalization, CoverageOutputFormat}, utils};
 
 use pyo3::{prelude::*, pybacked::PyBackedStr};
@@ -51,7 +51,8 @@ pub fn export_coverage(
     selections: Option<HashSet<PyBackedStr>>,
     blacklist: Option<PathBuf>,
     normalization: Option<&str>,
-    ignore_for_norm: Option<HashSet<PyBackedStr>>,
+    include_for_norm: Option<&Bound<'_, PyAny>>,
+    exclude_for_norm: Option<&Bound<'_, PyAny>>,
     min_frag_length: Option<u64>,
     max_frag_length: Option<u64>,
     smooth_length: Option<u16>,
@@ -63,8 +64,10 @@ pub fn export_coverage(
     let group_by = group_by.iter().map(|x| x.as_ref()).collect();
     let selections = selections.as_ref()
         .map(|s| s.iter().map(|x| x.as_ref()).collect());
-    let ignore_for_norm = ignore_for_norm.as_ref()
-        .map(|s| s.iter().map(|x| x.as_ref()).collect());
+    let include_for_norm = include_for_norm.as_ref()
+        .map(|s| read_genomic_ranges(s).unwrap().into_iter().map(|x| (x, ())).collect());
+    let exclude_for_norm = exclude_for_norm.as_ref()
+        .map(|s| read_genomic_ranges(s).unwrap().into_iter().map(|x| (x, ())).collect());
 
     let black: Option<GIntervalMap<()>> = blacklist.map(|black| {
         Reader::new(utils::open_file_for_read(black), None)
@@ -80,7 +83,8 @@ pub fn export_coverage(
         ($data:expr) => {
             $data.export_coverage(
                 &group_by, selections, resolution, black.as_ref(), normalization,
-                ignore_for_norm.as_ref(), min_frag_length, max_frag_length, smooth_length, dir, prefix,
+                include_for_norm.as_ref(), exclude_for_norm.as_ref(),
+                min_frag_length, max_frag_length, smooth_length, dir, prefix,
                 suffix, output_format, compression.map(|x| utils::Compression::from_str(x).unwrap()),
                 compression_level, temp_dir, num_threads,
             )
