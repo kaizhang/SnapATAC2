@@ -294,12 +294,12 @@ where
         .map(|(k, v)| GenomicRange::new(k, 0, *v))
         .collect();
     let mut counter = SparseBinnedCoverage::new(&genome, bin_size);
-    let mut total_count = 0.0;
+    let mut total_reads = 0.0;
     fragments.for_each(|frag| {
         let not_in_blacklist = blacklist_regions.map_or(true, |bl| !bl.is_overlapped(&frag));
         if not_in_blacklist {
             if ignore_for_norm.map_or(true, |x| !x.contains(frag.chrom())) {
-                total_count += 1.0;
+                total_reads += 1.0;
             }
             counter.insert(&frag, 1.0);
         }
@@ -307,9 +307,9 @@ where
 
     let norm_factor = match normalization {
         None => 1.0,
-        Some(Normalization::RPKM) => total_count * bin_size as f32 / 1e9,
-        Some(Normalization::CPM) => total_count / 1e6,
-        Some(Normalization::BPM) => todo!(),
+        Some(Normalization::RPKM) => total_reads * bin_size as f32 / 1e9,
+        Some(Normalization::CPM) => total_reads / 1e6,
+        Some(Normalization::BPM) => counter.get_coverage().values().sum::<f32>() / 1e6,
         Some(Normalization::RPGC) => todo!(),
     };
 
@@ -479,6 +479,82 @@ fn create_bigwig_from_bedgraph<P: AsRef<Path>>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_bedgraph1() {
+        let fragments: Vec<Fragment> = vec![
+            Fragment::new("chr1", 0, 10),
+            Fragment::new("chr1", 3, 13),
+            Fragment::new("chr1", 5, 41),
+            Fragment::new("chr1", 8, 18),
+            Fragment::new("chr1", 15, 25),
+            Fragment::new("chr1", 22, 24),
+            Fragment::new("chr1", 23, 33),
+            Fragment::new("chr1", 29, 40),
+        ];
+        let genome: ChromSizes = [("chr1", 50)].into_iter().collect();
+
+        let output: Vec<_> = create_bedgraph_from_fragments(
+            fragments.clone().into_iter(),
+            &genome,
+            3,
+            None,
+            None,
+            None,
+            None,
+        ).into_iter().map(|x| x.value).collect();
+        let expected = vec![1.0, 3.0, 4.0, 3.0, 2.0, 4.0, 3.0, 2.0];
+        assert_eq!(output, expected);
+
+        let output: Vec<_> = create_bedgraph_from_fragments(
+            fragments.clone().into_iter(),
+            &genome,
+            5,
+            None,
+            None,
+            None,
+            None,
+        ).into_iter().map(|x| x.value).collect();
+        let expected = vec![2.0, 4.0, 3.0, 4.0, 3.0, 2.0, 1.0];
+        assert_eq!(output, expected);
+    }
+
+    #[test]
+    fn test_bedgraph2() {
+        let reader = crate::utils::open_file_for_read("test/fragments.tsv.gz");
+        let mut reader = bed_utils::bed::io::Reader::new(reader, None);
+        let fragments: Vec<Fragment> = reader.records().map(|x| x.unwrap()).collect();
+
+        let reader = crate::utils::open_file_for_read("test/coverage.bdg.gz");
+        let mut reader = bed_utils::bed::io::Reader::new(reader, None);
+        let expected: Vec<BedGraph<f32>> = reader.records().map(|x| x.unwrap()).collect();
+
+        let output = create_bedgraph_from_fragments(
+            fragments.clone().into_iter(),
+            &[("chr1", 248956422), ("chr2", 242193529)].into_iter().collect(),
+            1,
+            None,
+            None,
+            None,
+            None,
+        );
+        assert_eq!(output, expected);
+
+        let output = create_bedgraph_from_fragments(
+            fragments.into_iter(),
+            &[("chr1", 248956422), ("chr2", 242193529)].into_iter().collect(),
+            1,
+            None,
+            None,
+            Some(Normalization::BPM),
+            None,
+        );
+        let scale_factor: f32 = expected.iter().map(|x| x.value * x.len() as f32).sum::<f32>() / 1e6;
+        assert_eq!(output, expected.into_iter().map(|mut x| {
+            x.value = x.value / scale_factor;
+            x
+        }).collect::<Vec<_>>());
+    }
 
     #[test]
     fn test_smoothing() {

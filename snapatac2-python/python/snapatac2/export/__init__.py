@@ -83,7 +83,7 @@ def export_coverage(
     selections: list[str] | None = None,
     bin_size: int = 10,
     blacklist: Path | None = None,
-    normalization: Literal["RPKM", "CPM"] | None = "RPKM",
+    normalization: Literal["RPKM", "CPM", "BPM"] | None = "RPKM",
     ignore_for_norm: list[str] | None = None,
     min_frag_length: int | None = None,
     max_frag_length: int | None = 2000,
@@ -108,6 +108,9 @@ def export_coverage(
     normalizes by the total number of reads and the length of the region.
     The normalization can be disabled by setting `normalization=None`.
 
+    .. image:: /_static/images/func+export_coverage.svg
+        :align: center
+
     Parameters
     ----------
     adata
@@ -123,7 +126,10 @@ def export_coverage(
     blacklist
         A BED file containing the blacklisted regions.
     normalization
-        Normalization method. If `None`, no normalization is performed.
+        Normalization method. If `None`, no normalization is performed. Options:
+        - RPKM (per bin) = #reads per bin / (#mapped_reads (in millions) * bin length (kb)).
+        - CPM (per bin) = #reads per bin / #mapped_reads (in millions).
+        - BPM (per bin) = #reads per bin / sum of all reads per bin (in millions).
     ignore_for_norm
         A list of chromosomes to ignore for normalization.
     min_frag_length
