@@ -4,12 +4,14 @@ pub use self::anndata::AnnDataLike;
 
 use bed_utils::extsort::ExternalSorterBuilder;
 use bed_utils::bed::{merge_sorted_bed, BEDLike};
+use polars::frame::DataFrame;
 use pyo3::{
     prelude::*,
     types::PyIterator,
     PyResult, Python,
 };
 use numpy::{Element, PyReadonlyArrayDyn, PyReadonlyArray, Ix1, Ix2, PyArray, IntoPyArray, PyArrayMethods};
+use pyo3_polars::PyDataFrame;
 use snapatac2_core::preprocessing::count_data::TranscriptParserOptions;
 use snapatac2_core::preprocessing::{Transcript, read_transcripts_from_gff, read_transcripts_from_gtf};
 use snapatac2_core::utils;
@@ -277,18 +279,39 @@ pub(crate) fn kmeans<'py>(
     Ok(model.predict(observations).targets.into_pyarray_bound(py))
 }
 
+/*
+#[pyfunction]
+pub(crate) fn read_promoters(
+    annotation: PathBuf,
+) -> Result<PyDataFrame> {
+    let transcripts = read_transcripts(annotation, &TranscriptParserOptions::default());
+    let (chroms, starts, ends, strands, names) = transcripts.iter().map(|x| {
+        let strand = x.strand.as_str();
+
+    }).unzip();
+    Ok(DataFrame::new(vec![
+        ("chrom", chroms),
+        ("start", starts),
+        ("end", ends),
+        ("strand", strand),
+        ("name", name),
+    ])?)
+}
+    */
+
 pub fn read_transcripts<P: AsRef<std::path::Path>>(file_path: P, options: &TranscriptParserOptions) -> Vec<Transcript> {
     let path = if file_path.as_ref().extension().unwrap() == "gz" {
         file_path.as_ref().file_stem().unwrap().as_ref()
     } else {
         file_path.as_ref()
     };
+    let file = BufReader::new(utils::open_file_for_read(&file_path));
     if path.extension().unwrap() == "gff" {
-        read_transcripts_from_gff(BufReader::new(utils::open_file_for_read(file_path)), options).unwrap()
+        read_transcripts_from_gff(file, options).unwrap()
     } else if path.extension().unwrap() == "gtf" {
-        read_transcripts_from_gtf(BufReader::new(utils::open_file_for_read(file_path)), options).unwrap()
+        read_transcripts_from_gtf(file, options).unwrap()
     } else {
-        read_transcripts_from_gff(BufReader::new(utils::open_file_for_read(file_path.as_ref())), options)
+        read_transcripts_from_gff(file, options)
             .unwrap_or_else(|_| read_transcripts_from_gtf(BufReader::new(utils::open_file_for_read(file_path)), options).unwrap())
     }
 }

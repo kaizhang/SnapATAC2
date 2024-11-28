@@ -133,11 +133,13 @@ def export_coverage(
         - CPM (per bin) = #reads per bin / #mapped_reads (in millions).
         - BPM (per bin) = #reads per bin / sum of all reads per bin (in millions).
     include_for_norm
-        A list of string or a BED file containing the genomic loci to include for normalization.
+        A list of string (e.g., ["chr1:1-100", "chr2:2-200"]) or a BED file containing
+        the genomic loci to include for normalization.
         If specified, only the reads that overlap with these loci will be used for normalization.
         A typical use case is to include only the promoter regions for the normalization.
     exclude_for_norm
-        A list of string or a BED file containing the genomic loci to exclude for normalization.
+        A list of string (e.g., ["chr1:1-100", "chr2:2-200"]) or a BED file containing
+        the genomic loci to exclude for normalization.
         If specified, the reads that overlap with these loci will be excluded from normalization.
         If a read overlaps with both `include_for_norm` and `exclude_for_norm`, it will be excluded.
     min_frag_length

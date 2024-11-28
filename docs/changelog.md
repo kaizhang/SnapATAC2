@@ -6,6 +6,7 @@
 
   - Implement `BPM` normalization in `ex.export_coverage`.
   - Add `include_for_norm` and `exclude_for_norm` to `ex.export_coverage`.
+  - `ex.export_coverage` is much faster.
 
 ## Release 2.7.1 (released October 29, 2024)
 
