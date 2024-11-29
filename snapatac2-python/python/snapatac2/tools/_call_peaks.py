@@ -11,6 +11,8 @@ def macs3(
     *,
     groupby: str | list[str] | None = None,
     qvalue: float = 0.05,
+    call_broad_peaks: bool = False,
+    broad_cutoff: float = 0.1,
     replicate: str | list[str] | None = None,
     replicate_qvalue: float | None = None,
     max_frag_size: int | None = None,
@@ -37,6 +39,17 @@ def macs3(
         `.obs[groupby]`. If None, peaks will be called for all cells.
     qvalue
         qvalue cutoff used in MACS3.
+    call_broad_peaks
+        If True, MACS3 will call broad peaks. The broad peak calling process
+        utilizes two distinct cutoffs to discern broader, weaker peaks (`broad_cutoff`)
+        and narrower, stronger peaks (`qvalue`), which are subsequently nested to
+        provide a detailed peak landscape. To conceptualize "nested" peaks, picture
+        a gene structure housing regions analogous to exons (strong peaks) and
+        introns coupled with UTRs (weak peaks). Please note that, if you only want to
+        call "broader" peak and not interested in the nested peak structure, please
+        simply use `qvalue` with weaker cutoff instead of using `call_broad_peaks` option.
+    broad_cutoff
+        qvalue cutoff used in MACS3 for calling broad peaks.
     replicate
         Replicate information. If provided, reproducible peaks will be called
         for each group.
@@ -119,8 +132,11 @@ def macs3(
     options.nolambda = nolambda
     options.smalllocal = 1000
     options.largelocal = 10000
-    options.call_summits = True
-    options.broad = False
+    options.call_summits = False if call_broad_peaks else True
+    options.broad = call_broad_peaks
+    if options.broad:
+        options.log_broadcutoff = log(broad_cutoff, 10) * -1
+
     options.fecutoff = 1.0
     options.d = extsize
     options.scanwindow = 2 * options.d
@@ -142,7 +158,7 @@ def macs3(
             tempfile.tempdir = tmpdirname  # Overwrite the default tempdir in MACS3
             merged, reps = _snapatac2.create_fwtrack_obj(tags)
             options.log_qvalue = log(qvalue, 10) * -1
-            logging.getLogger().setLevel(logging.CRITICAL + 1)
+            logging.getLogger().setLevel(logging.CRITICAL + 1) # temporarily disable logging
             peakdetect = PeakDetect(treat=merged, opt=options)
             peakdetect.call_peaks()
             peakdetect.peaks.filter_fc(fc_low = options.fecutoff)
@@ -157,7 +173,7 @@ def macs3(
                 peakdetect.peaks.filter_fc(fc_low = options.fecutoff)
                 others.append(peakdetect.peaks)
             
-            logging.getLogger().setLevel(logging.INFO)
+            logging.getLogger().setLevel(logging.INFO) # enable logging
             return _snapatac2.find_reproducible_peaks(merged, others, blacklist)
 
         logging.info("Calling peaks...")

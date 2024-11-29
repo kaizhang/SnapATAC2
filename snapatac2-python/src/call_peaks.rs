@@ -1,10 +1,10 @@
 use crate::utils::AnnDataLike;
 
-use snapatac2_core::utils::{self, Compression};
 use anyhow::{bail, Context};
-use bed_utils::bed::{NarrowPeak, Strand};
+use bed_utils::bed::{BroadPeak, NarrowPeak, Strand};
 use indicatif::{ProgressIterator, ProgressStyle};
 use itertools::Itertools;
+use snapatac2_core::utils::{self, Compression};
 use snapatac2_core::{
     preprocessing::{Fragment, SnapData},
     utils::{clip_peak, merge_peaks, open_file_for_write},
@@ -13,7 +13,11 @@ use snapatac2_core::{
 use anndata::Backend;
 use anndata_hdf5::H5;
 use anyhow::{ensure, Result};
-use bed_utils::bed::{io::Reader, map::{GIntervalIndexSet, GIntervalMap}, BEDLike, GenomicRange};
+use bed_utils::bed::{
+    io::Reader,
+    map::{GIntervalIndexSet, GIntervalMap},
+    BEDLike, GenomicRange,
+};
 use polars::{
     prelude::{DataFrame, NamedFrom},
     series::Series,
@@ -58,11 +62,15 @@ pub fn py_merge_peaks<'py>(
     let iter = peak_list.iter().map(|(key, ps)| {
         let mut values = vec![false; n];
         ps.into_iter().for_each(|bed| {
-            peaks_index.find_index_of(bed).for_each(|i| values[i] = true);
+            peaks_index
+                .find_index_of(bed)
+                .for_each(|i| values[i] = true);
         });
         Series::new(key.as_str(), values)
     });
-    Ok(PyDataFrame(DataFrame::new(std::iter::once(peaks_str).chain(iter).collect())?))
+    Ok(PyDataFrame(DataFrame::new(
+        std::iter::once(peaks_str).chain(iter).collect(),
+    )?))
 }
 
 #[pyfunction]
@@ -79,20 +87,33 @@ pub fn find_reproducible_peaks<'py>(
     } else {
         GIntervalMap::new()
     };
-
-    let peaks = get_peaks(peaks)?
-        .into_iter()
-        .filter(|x| !black.is_overlapped(x))
-        .collect::<Vec<_>>();
     let replicates = replicates
         .into_iter()
-        .map(|x| GIntervalMap::from_iter(get_peaks(&x).unwrap().into_iter().map(|x| (x, ()))))
+        .map(|x| {
+            GIntervalMap::from_iter(get_genomic_ranges(&x).unwrap().into_iter().map(|x| (x, ())))
+        })
         .collect::<Vec<_>>();
-    let peaks: Vec<_> = peaks
-        .into_iter()
-        .filter(|x| replicates.iter().all(|y| y.is_overlapped(x)))
-        .collect();
-    Ok(PyDataFrame(narrow_peak_to_dataframe(peaks)?))
+
+    if let Ok(peaks) = get_narrow_peaks(peaks) {
+        Ok(PyDataFrame(narrow_peak_to_dataframe(
+            peaks
+                .into_iter()
+                .filter(|x| {
+                    !black.is_overlapped(x) && replicates.iter().all(|y| y.is_overlapped(x))
+                })
+                .collect::<Vec<_>>(),
+        )?))
+    } else {
+        let peaks = get_broad_peaks(peaks)?;
+        Ok(PyDataFrame(broad_peak_to_dataframe(
+            peaks
+                .into_iter()
+                .filter(|x| {
+                    !black.is_overlapped(x) && replicates.iter().all(|y| y.is_overlapped(x))
+                })
+                .collect::<Vec<_>>(),
+        )?))
+    }
 }
 
 #[pyfunction]
@@ -111,7 +132,7 @@ pub fn fetch_peaks<'py>(
     peaks
         .into_iter()
         .map(|(key, peaks)| {
-            let ps = get_peaks(&peaks)?
+            let ps = get_narrow_peaks(&peaks)?
                 .into_iter()
                 .filter(|x| !black.is_overlapped(x))
                 .collect::<Vec<_>>();
@@ -151,8 +172,8 @@ fn dataframe_to_narrow_peaks(df: &DataFrame) -> Result<Vec<NarrowPeak>> {
                 }
             }),
             signal_value: signal_values.get(i).unwrap(),
-            p_value: p_values.get(i).unwrap(),
-            q_value: q_values.get(i).unwrap(),
+            p_value: p_values.get(i),
+            q_value: q_values.get(i),
             peak: peaks.get(i).unwrap(),
         });
     }
@@ -209,7 +230,77 @@ fn narrow_peak_to_dataframe<I: IntoIterator<Item = NarrowPeak>>(
     Ok(df)
 }
 
-fn get_peaks<'py>(peak_io_obj: &Bound<'py, PyAny>) -> Result<Vec<NarrowPeak>> {
+fn broad_peak_to_dataframe<I: IntoIterator<Item = BroadPeak>>(
+    peaks: I,
+) -> Result<DataFrame> {
+    // Separate Vec collections for each column
+    let mut chroms = Vec::new();
+    let mut starts = Vec::new();
+    let mut ends = Vec::new();
+    let mut names = Vec::new();
+    let mut scores = Vec::new();
+    let mut strands = Vec::new();
+    let mut signal_values = Vec::new();
+    let mut p_values = Vec::new();
+    let mut q_values = Vec::new();
+
+    for peak in peaks {
+        chroms.push(peak.chrom);
+        starts.push(peak.start);
+        ends.push(peak.end);
+        names.push(peak.name.unwrap_or(".".to_string()));
+        scores.push(peak.score.map(|x| u16::from(x)));
+        strands.push(
+            peak
+                .strand
+                .map_or(".".to_string(), |x| x.to_string()),
+        );
+        signal_values.push(peak.signal_value);
+        p_values.push(peak.p_value);
+        q_values.push(peak.q_value);
+    }
+
+    // Create a DataFrame from the collected Vecs
+    let df = DataFrame::new(vec![
+        Series::new("chrom", chroms),
+        Series::new("start", starts),
+        Series::new("end", ends),
+        Series::new("name", names),
+        Series::new("score", scores),
+        Series::new("strand", strands),
+        Series::new("signal_value", signal_values),
+        Series::new("p_value", p_values),
+        Series::new("q_value", q_values),
+    ])?;
+
+    Ok(df)
+}
+
+
+
+fn get_genomic_ranges<'py>(peak_io_obj: &Bound<'py, PyAny>) -> Result<Vec<GenomicRange>> {
+    peak_io_obj
+        .getattr("peaks")?
+        .downcast::<pyo3::types::PyDict>()
+        .unwrap()
+        .iter()
+        .flat_map(|(chr, peaks)| {
+            let chrom = String::from_utf8(chr.extract().unwrap()).unwrap();
+            peaks
+                .downcast::<pyo3::types::PyList>()
+                .unwrap()
+                .iter()
+                .map(|peak| {
+                    let start = peak.get_item("start")?.extract::<u64>()?;
+                    let end = peak.get_item("end")?.extract::<u64>()?;
+                    Ok(GenomicRange::new(chrom.clone(), start, end))
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
+fn get_narrow_peaks<'py>(peak_io_obj: &Bound<'py, PyAny>) -> Result<Vec<NarrowPeak>> {
     peak_io_obj
         .getattr("peaks")?
         .downcast::<pyo3::types::PyDict>()
@@ -237,9 +328,45 @@ fn get_peaks<'py>(peak_io_obj: &Bound<'py, PyAny>) -> Result<Vec<NarrowPeak>> {
                         score: Some((score as u16).min(1000).try_into().unwrap()),
                         strand: None,
                         signal_value: fc,
-                        p_value,
-                        q_value,
+                        p_value: if p_value < 0.0 { None } else { Some(p_value) },
+                        q_value: if q_value < 0.0 { None } else { Some(q_value) },
                         peak,
+                    })
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
+fn get_broad_peaks<'py>(peak_io_obj: &Bound<'py, PyAny>) -> Result<Vec<BroadPeak>> {
+    peak_io_obj
+        .getattr("peaks")?
+        .downcast::<pyo3::types::PyDict>()
+        .unwrap()
+        .iter()
+        .flat_map(|(chr, peaks)| {
+            let chrom = String::from_utf8(chr.extract().unwrap()).unwrap();
+            peaks
+                .downcast::<pyo3::types::PyList>()
+                .unwrap()
+                .iter()
+                .map(|peak| {
+                    let start = peak.get_item("start")?.extract::<u64>()?;
+                    let end = peak.get_item("end")?.extract::<u64>()?;
+                    let fc = peak.get_item("fc")?.extract::<f64>()?;
+                    let score = peak.get_item("score")?.extract::<f64>()? * 10.0;
+                    let p_value = peak.get_item("pscore")?.extract::<f64>()?;
+                    let q_value = peak.get_item("qscore")?.extract::<f64>()?;
+                    Ok(BroadPeak {
+                        chrom: chrom.clone(),
+                        start,
+                        end,
+                        name: None,
+                        score: Some((score as u16).min(1000).try_into().unwrap()),
+                        strand: None,
+                        signal_value: fc,
+                        p_value: if p_value < 0.0 { None } else { Some(p_value) },
+                        q_value: if q_value < 0.0 { None } else { Some(q_value) },
                     })
                 })
                 .collect::<Vec<_>>()
@@ -376,14 +503,18 @@ fn _export_tags<D: SnapData, P: AsRef<std::path::Path>>(
     if let Some(max_size) = max_frag_size {
         counts = counts.max_fragment_size(max_size);
     }
-    counts.into_fragment_groups(|x| keys[x])
+    counts
+        .into_fragment_groups(|x| keys[x])
         .progress_with_style(style)
-        .for_each(|vals| vals.into_iter().par_bridge().for_each(|(i, beds)| {
-            if let Some((_, fl)) = files.get(&i) {
-                let mut fl = fl.lock().unwrap();
-                beds.into_iter().for_each(|bed| writeln!(fl, "{}", bed).unwrap());
-            }
-        }));
+        .for_each(|vals| {
+            vals.into_iter().par_bridge().for_each(|(i, beds)| {
+                if let Some((_, fl)) = files.get(&i) {
+                    let mut fl = fl.lock().unwrap();
+                    beds.into_iter()
+                        .for_each(|bed| writeln!(fl, "{}", bed).unwrap());
+                }
+            })
+        });
     let mut result = HashMap::new();
     files.into_iter().for_each(|((a, _), (filename, _))| {
         result
@@ -402,7 +533,9 @@ pub fn call_peaks_bulk<'py>(
     max_frag_size: Option<u64>,
 ) -> Result<PyDataFrame> {
     macro_rules! run {
-        ($data:expr) => { _call_peaks_bulk(py, $data, macs3_options, max_frag_size) };
+        ($data:expr) => {
+            _call_peaks_bulk(py, $data, macs3_options, max_frag_size)
+        };
     }
     let peaks = crate::with_anndata!(&anndata, run)?;
 
@@ -427,23 +560,27 @@ fn _call_peaks_bulk<'py, D: SnapData>(
     if let Some(max_size) = max_frag_size {
         counts = counts.max_fragment_size(max_size);
     }
-    counts.into_fragments().progress_with_style(style)
-        .try_for_each(|vals| vals.0.into_iter().flatten().try_for_each(|x| {
-            let chr = x.chrom().as_bytes();
-            match x.strand() {
-                None => {
-                    fwt.call_method1("add_loc", (chr, x.start(), 0))?;
-                    fwt.call_method1("add_loc", (chr, x.end() - 1, 1))?;
-                },
-                Some(Strand::Forward) => {
-                    fwt.call_method1("add_loc", (chr, x.start(), 0))?;
-                },
-                Some(Strand::Reverse) => {
-                    fwt.call_method1("add_loc", (chr, x.end() - 1, 1))?;
+    counts
+        .into_fragments()
+        .progress_with_style(style)
+        .try_for_each(|vals| {
+            vals.0.into_iter().flatten().try_for_each(|x| {
+                let chr = x.chrom().as_bytes();
+                match x.strand() {
+                    None => {
+                        fwt.call_method1("add_loc", (chr, x.start(), 0))?;
+                        fwt.call_method1("add_loc", (chr, x.end() - 1, 1))?;
+                    }
+                    Some(Strand::Forward) => {
+                        fwt.call_method1("add_loc", (chr, x.start(), 0))?;
+                    }
+                    Some(Strand::Reverse) => {
+                        fwt.call_method1("add_loc", (chr, x.end() - 1, 1))?;
+                    }
                 }
-            }
-            anyhow::Ok(())
-        }))?;
+                anyhow::Ok(())
+            })
+        })?;
     fwt.call_method0("finalize")?;
 
     let outputs = pyo3::types::PyDict::new_bound(py);
@@ -461,5 +598,5 @@ peaks = peakdetect.peaks
         Some(&inputs),
         Some(&outputs),
     )?;
-    get_peaks(&outputs.get_item("peaks")?.unwrap())
+    get_narrow_peaks(&outputs.get_item("peaks")?.unwrap())
 }

@@ -46,6 +46,7 @@ def pipeline(data):
     snap.pp.knn(data)
     snap.tl.leiden(data)
 
+    snap.tl.macs3(data, groupby="leiden", call_broad_peaks=True)
     snap.tl.macs3(data, groupby="leiden")
     snap.tl.merge_peaks(data.uns["macs3"], snap.genome.hg38)
 
