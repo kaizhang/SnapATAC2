@@ -8,7 +8,7 @@ use num::traits::{FromPrimitive, One, Zero, SaturatingAdd};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::{collections::{BTreeMap, HashSet}, ops::AddAssign};
 
-pub enum FragmentType {
+pub enum ValueType {
     FragmentSingle(CsrNonCanonical<i32>),
     FragmentPaired(CsrNonCanonical<u32>),
 }
@@ -41,7 +41,7 @@ pub struct GenomeCount<I> {
 
 impl<I> GenomeCount<I>
 where
-    I: ExactSizeIterator<Item = (FragmentType, usize, usize)>,
+    I: ExactSizeIterator<Item = (ValueType, usize, usize)>,
 {
     pub fn new(chrom_sizes: ChromSizes, fragments: I) -> Self {
         Self {
@@ -111,7 +111,7 @@ where
         let index = self.index;
         self.fragments.map(move |(raw_mat, a, b)| {
             let beds = match raw_mat {
-                FragmentType::FragmentSingle(mat) => {
+                ValueType::FragmentSingle(mat) => {
                     let row_offsets = mat.row_offsets();
                     let col_indices = mat.col_indices();
                     let values = mat.values();
@@ -140,7 +140,7 @@ where
                         }).collect()
                     }).collect()
                 },
-                FragmentType::FragmentPaired(mat) => {
+                ValueType::FragmentPaired(mat) => {
                     let row_offsets = mat.row_offsets();
                     let col_indices = mat.col_indices();
                     let values = mat.values();
@@ -203,7 +203,7 @@ where
         let ori_index = self.index;
         self.fragments.map(move |(raw_mat, i, j)| {
             let new_mat = match raw_mat {
-                FragmentType::FragmentSingle(mat) => {
+                ValueType::FragmentSingle(mat) => {
                     let row_offsets = mat.row_offsets();
                     let col_indices = mat.col_indices();
                     let n = j - i;
@@ -230,7 +230,7 @@ where
                     let (r, c, offset, ind, data) = to_csr_data(vec, index.len());
                     CsrMatrix::try_from_csr_data(r,c,offset,ind, data).unwrap()
                 },
-                FragmentType::FragmentPaired(mat) => {
+                ValueType::FragmentPaired(mat) => {
                     let row_offsets = mat.row_offsets();
                     let col_indices = mat.col_indices();
                     let values = mat.values();

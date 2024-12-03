@@ -6,6 +6,7 @@ use anndata::Backend;
 use anndata_hdf5::H5;
 use snapatac2_core::preprocessing::count_data::TranscriptParserOptions;
 use snapatac2_core::preprocessing::count_data::CountingStrategy;
+use snapatac2_core::preprocessing::ChromValue;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
@@ -181,6 +182,48 @@ pub(crate) fn import_contacts(
     Ok(())
 } 
 
+#[pyfunction]
+pub(crate) fn import_values(
+    anndata: AnnDataLike,
+    input_dir: PathBuf,
+    chrom_size: BTreeMap<String, u64>,
+    chunk_size: usize,
+) -> Result<()>
+{
+    fn read_chrom_values(path: PathBuf) -> impl Iterator<Item = ChromValue> {
+        let barcode = path.file_stem().unwrap().to_str().unwrap().to_string();
+        let reader = BufReader::new(utils::open_file_for_read(&path));
+        reader.lines().skip(1).map(move |line| {
+            let line = line.unwrap();
+            let mut parts = line.split_whitespace();
+            let chrom = parts.next().unwrap();
+            let pos = parts.next().unwrap().parse().unwrap();
+            parts.next();
+            parts.next();
+            let value = parts.next().unwrap().parse().unwrap();
+            ChromValue {
+                chrom: chrom.to_string(),
+                pos,
+                value,
+                barcode: barcode.clone(),
+            }
+        })
+    }
+
+    let sorted_values = std::fs::read_dir(input_dir)?
+        .map(|x| x.unwrap().path())
+        .flat_map(read_chrom_values);
+    let chrom_sizes = chrom_size.into_iter().collect();
+
+    macro_rules! run {
+        ($data:expr) => {
+            preprocessing::import_values($data, sorted_values, &chrom_sizes, chunk_size)?
+        };
+    }
+
+    crate::with_anndata!(&anndata, run);
+    Ok(())
+} 
 
 fn parse_strategy(strategy: &str) -> CountingStrategy {
     match strategy {

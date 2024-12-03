@@ -1,12 +1,14 @@
-pub mod qc;
 pub mod bam;
-pub mod count_data;
 pub mod barcode;
+pub mod count_data;
+pub mod qc;
 
-pub use count_data::{import_fragments, import_contacts, Promoters, Transcript,
-    read_transcripts_from_gff, read_transcripts_from_gtf,
-    create_gene_matrix, create_tile_matrix, create_peak_matrix,
-    GenomeCount, ContactMap, SnapData,
+pub use bam::{make_fragment_file, BamQC, FlagStat};
+pub use count_data::{
+    create_gene_matrix, create_peak_matrix, create_tile_matrix, import_contacts, import_fragments,
+    import_values, read_transcripts_from_gff, read_transcripts_from_gtf, ChromValue, ContactMap,
+    GenomeCount, Promoters, SnapData, Transcript,
 };
-pub use bam::{make_fragment_file, FlagStat, BamQC};
-pub use qc::{Fragment, Contact, CellBarcode, read_tss, TssRegions, make_promoter_map, get_barcode_count};
+pub use qc::{
+    get_barcode_count, make_promoter_map, read_tss, CellBarcode, Contact, Fragment, TssRegions,
+};

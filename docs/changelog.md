@@ -6,7 +6,8 @@
 
   - Implement `BPM` normalization in `ex.export_coverage`.
   - Add `include_for_norm` and `exclude_for_norm` to `ex.export_coverage`.
-  - `ex.export_coverage` is much faster.
+  - BedGraph generation in `ex.export_coverage` is 10x faster.
+  - Implement broad peak calling in `tl.macs3`.
 
 ## Release 2.7.1 (released October 29, 2024)
 

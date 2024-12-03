@@ -4,8 +4,8 @@ mod genome;
 mod matrix;
 
 pub use crate::preprocessing::qc;
-pub use import::{import_fragments, import_contacts};
-pub use coverage::{GenomeCount, ContactMap, FragmentType, CountingStrategy};
+pub use import::{import_fragments, import_contacts, import_values, ChromValue};
+pub use coverage::{GenomeCount, ContactMap, ValueType, CountingStrategy};
 pub use genome::{
     TranscriptParserOptions, Transcript, Promoters, FeatureCounter, TranscriptCount, GeneCount,
     read_transcripts_from_gff, read_transcripts_from_gtf,
@@ -47,7 +47,7 @@ pub trait SnapData: AnnDataOp {
 
     /// Read insertion counts stored in the `.obsm` matrix.
     fn get_count_iter(&self, chunk_size: usize) ->
-        Result<GenomeCount<Box<dyn ExactSizeIterator<Item = (FragmentType, usize, usize)>>>>;
+        Result<GenomeCount<Box<dyn ExactSizeIterator<Item = (ValueType, usize, usize)>>>>;
 
     /// Read counts stored in the `X` matrix.
     fn read_chrom_values(
@@ -104,14 +104,14 @@ impl<B: Backend> SnapData for AnnData<B> {
     type CountIter = ChunkedArrayElem<B, CsrMatrix<u8>>;
 
     fn get_count_iter(&self, chunk_size: usize) ->
-        Result<GenomeCount<Box<dyn ExactSizeIterator<Item = (FragmentType, usize, usize)>>>>
+        Result<GenomeCount<Box<dyn ExactSizeIterator<Item = (ValueType, usize, usize)>>>>
     {
         let obsm = self.obsm();
-        let matrices: Box<dyn ExactSizeIterator<Item = (FragmentType, usize, usize)>> =
+        let matrices: Box<dyn ExactSizeIterator<Item = (ValueType, usize, usize)>> =
             if let Some(insertion) = obsm.get_item_iter("fragment_single", chunk_size) {
-                Box::new(insertion.map(|(x, a, b)| (FragmentType::FragmentSingle(x), a, b)))
+                Box::new(insertion.map(|(x, a, b)| (ValueType::FragmentSingle(x), a, b)))
             } else if let Some(fragment) = obsm.get_item_iter("fragment_paired", chunk_size) {
-                Box::new(fragment.map(|(x, a, b)| (FragmentType::FragmentPaired(x), a, b)))
+                Box::new(fragment.map(|(x, a, b)| (ValueType::FragmentPaired(x), a, b)))
             } else {
                 anyhow::bail!("neither 'fragment_single' nor 'fragment_paired' is present in the '.obsm'")
             };
@@ -131,15 +131,15 @@ impl<B: Backend> SnapData for AnnDataSet<B> {
     type CountIter = StackedChunkedArrayElem<B, CsrMatrix<u8>>;
 
     fn get_count_iter(&self, chunk_size: usize) ->
-        Result<GenomeCount<Box<dyn ExactSizeIterator<Item = (FragmentType, usize, usize)>>>>
+        Result<GenomeCount<Box<dyn ExactSizeIterator<Item = (ValueType, usize, usize)>>>>
     {
         let adatas = self.adatas().inner();
         let obsm = adatas.get_obsm();
-        let matrices: Box<dyn ExactSizeIterator<Item = (FragmentType, usize, usize)>> =
+        let matrices: Box<dyn ExactSizeIterator<Item = (ValueType, usize, usize)>> =
             if let Some(insertion) = obsm.get_item_iter("fragment_single", chunk_size) {
-                Box::new(insertion.map(|(x, a, b)| (FragmentType::FragmentSingle(x), a, b)))
+                Box::new(insertion.map(|(x, a, b)| (ValueType::FragmentSingle(x), a, b)))
             } else if let Some(fragment) = obsm.get_item_iter("fragment_paired", chunk_size) {
-                Box::new(fragment.map(|(x, a, b)| (FragmentType::FragmentPaired(x), a, b)))
+                Box::new(fragment.map(|(x, a, b)| (ValueType::FragmentPaired(x), a, b)))
             } else {
                 anyhow::bail!("neither 'fragment_single' nor 'fragment_paired' is present in the '.obsm'")
             };

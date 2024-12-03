@@ -32,7 +32,7 @@ dependencies = [
     'kaleido',
     'multiprocess',
     #'MACS3 >= 3.0, < 3.1',
-    "MACS3 @ git+https://github.com/kaizhang/MACS.git@1cceabc0420959e74ae610e34d4d71f88bf5f6a3",
+    "MACS3 @ git+https://github.com/macs3-project/MACS.git@e722a5490afa6144f9a8f44136da1a6c9c449988",
     'natsort', 
     'numpy >= 1.16.0, < 2.0.0',
     'pandas >= 1.0, < 2.1.2',

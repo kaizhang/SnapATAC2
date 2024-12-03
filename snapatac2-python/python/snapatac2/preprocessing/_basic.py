@@ -11,7 +11,7 @@ import snapatac2._snapatac2 as internal
 from snapatac2.genome import Genome
 from snapatac2.preprocessing._cell_calling import filter_cellular_barcodes_ordmag
 
-__all__ = ['make_fragment_file', 'import_data', 'import_contacts', 'add_tile_matrix',
+__all__ = ['make_fragment_file', 'import_data', 'import_contacts', 'import_values', 'add_tile_matrix',
            'make_peak_matrix', 'call_cells', 'filter_cells', 'select_features', 'make_gene_matrix',
 ]
 
@@ -398,6 +398,56 @@ def import_contacts(
     adata = AnnData() if file is None else internal.AnnData(filename=file, backend=backend)
     internal.import_contacts(
         adata, contact_file, chrom_size, sorted_by_barcode, bin_size, chunk_size, tempdir
+    )
+    return adata
+
+def import_values(
+    input_dir: Path,
+    *,
+    file: Path | None = None,
+    genome: Genome | None = None,
+    chrom_size: dict[str, int] | None = None,
+    chunk_size: int = 200,
+    backend: Literal['hdf5'] = 'hdf5',
+) -> internal.AnnData:
+    """Import chromatin contacts.
+
+    Parameters
+    ----------
+    input_dir
+        Directory containing the input files. Each file corresponds to a single cell.
+    file
+        File name of the output h5ad file used to store the result. If provided,
+        result will be saved to a backed AnnData, otherwise an in-memory AnnData
+        is used.
+    genome
+        A Genome object, providing gene annotation and chromosome sizes.
+        If not set, `gff_file` and `chrom_size` must be provided.
+        `genome` has lower priority than `gff_file` and `chrom_size`.
+    chrom_size
+        A dictionary containing chromosome sizes, for example,
+        `{"chr1": 2393, "chr2": 2344, ...}`.
+        This is required if `genome` is not set.
+        Setting `chrom_size` will override the chrom_size from the `genome` parameter.
+    chunk_size
+        Increasing the chunk_size speeds up I/O but uses more memory.
+    backend
+        The backend.
+
+    Returns
+    -------
+    AnnData | ad.AnnData
+        An annotated data matrix of shape `n_obs` x `n_vars`. Rows correspond to
+        cells and columns to regions. If `file=None`, an in-memory AnnData will be
+        returned, otherwise a backed AnnData is returned.
+    """
+    if genome is not None:
+        if chrom_size is None:
+            chrom_size = genome.chrom_sizes
+
+    adata = AnnData() if file is None else internal.AnnData(filename=file, backend=backend)
+    internal.import_values(
+        adata, input_dir, chrom_size, chunk_size
     )
     return adata
 
