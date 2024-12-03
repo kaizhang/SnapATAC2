@@ -81,15 +81,15 @@ pub trait Exporter: SnapData {
         let style = ProgressStyle::with_template(
             "[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})",
         )?;
-        let mut counts = self.get_count_iter(1000)?;
+        let mut fragment_data = self.get_fragment_iter(1000)?;
         if let Some(min_len) = min_fragment_length {
-            counts = counts.min_fragment_size(min_len);
+            fragment_data = fragment_data.min_fragment_size(min_len);
         }
         if let Some(max_len) = max_fragment_length {
-            counts = counts.max_fragment_size(max_len);
+            fragment_data = fragment_data.max_fragment_size(max_len);
         }
 
-        counts
+        fragment_data
             .into_fragments()
             .map(move |(vals, start, _)| {
                 let mut ordered = HashMap::new();

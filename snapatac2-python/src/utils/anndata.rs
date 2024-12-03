@@ -10,7 +10,7 @@ use pyanndata::anndata::memory;
 use pyanndata::{AnnData, AnnDataSet};
 use pyo3::prelude::*;
 
-use snapatac2_core::preprocessing::{qc, SnapData, GenomeCount, count_data::ValueType};
+use snapatac2_core::preprocessing::{count_data::{BaseData, FragmentData, FragmentDataIter}, qc, SnapData};
 
 pub struct PyAnnData<'py>(memory::PyAnnData<'py>);
 
@@ -142,19 +142,26 @@ impl<'py> AnnDataOp for PyAnnData<'py> {
 impl<'py> SnapData for PyAnnData<'py> {
     type CountIter = memory::PyArrayIterator<CsrMatrix<u8>>;
 
-    fn get_count_iter(&self, chunk_size: usize) ->
-        Result<GenomeCount<Box<dyn ExactSizeIterator<Item = (ValueType, usize, usize)>>>>
-    {
+    fn get_fragment_iter(&self, chunk_size: usize) -> Result<FragmentData> {
         let obsm = self.obsm();
-        let matrices: Box<dyn ExactSizeIterator<Item = (ValueType, usize, usize)>> =
+        let matrices: FragmentDataIter =
             if let Some(insertion) = obsm.get_item_iter("fragment_single", chunk_size) {
-                Box::new(insertion.map(|(x, a, b)| (ValueType::FragmentSingle(x), a, b)))
+                FragmentDataIter::FragmentSingle(Box::new(insertion))
             } else if let Some(fragment) = obsm.get_item_iter("fragment_paired", chunk_size) {
-                Box::new(fragment.map(|(x, a, b)| (ValueType::FragmentPaired(x), a, b)))
+                FragmentDataIter::FragmentPaired(Box::new(fragment))
             } else {
-                anyhow::bail!("neither 'fragment_single' nor 'fragment_paired' is present in the '.obsm'")
+                bail!("one of the following keys must be present in the '.obsm': 'fragment_single', 'fragment_paired'")
             };
-        Ok(GenomeCount::new(self.read_chrom_sizes()?, matrices))
+        Ok(FragmentData::new(self.read_chrom_sizes()?, matrices))
+    }
+
+    fn get_base_iter(&self, chunk_size: usize) -> Result<BaseData<impl ExactSizeIterator<Item = (CsrMatrix<f32>, usize, usize)>>> {
+        let obsm = self.obsm();
+        if let Some(data) = obsm.get_item_iter::<CsrMatrix<f32>>("_values", chunk_size) {
+            Ok(BaseData::new(self.read_chrom_sizes()?, data))
+        } else {
+            bail!("key '_values' is not present in the '.obsm'")
+        }
     }
 
     fn fragment_size_distribution(&self, max_size: usize) -> Result<Vec<usize>> {

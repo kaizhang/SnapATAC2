@@ -499,11 +499,11 @@ fn _export_tags<D: SnapData, P: AsRef<std::path::Path>>(
     let style = ProgressStyle::with_template(
         "[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})",
     )?;
-    let mut counts = data.get_count_iter(1000)?;
+    let mut fragments = data.get_fragment_iter(1000)?;
     if let Some(max_size) = max_frag_size {
-        counts = counts.max_fragment_size(max_size);
+        fragments = fragments.max_fragment_size(max_size);
     }
-    counts
+    fragments
         .into_fragment_groups(|x| keys[x])
         .progress_with_style(style)
         .for_each(|vals| {
@@ -556,11 +556,11 @@ fn _call_peaks_bulk<'py, D: SnapData>(
     let style = ProgressStyle::with_template(
         "[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})",
     )?;
-    let mut counts = data.get_count_iter(1000)?;
+    let mut fragments = data.get_fragment_iter(1000)?;
     if let Some(max_size) = max_frag_size {
-        counts = counts.max_fragment_size(max_size);
+        fragments = fragments.max_fragment_size(max_size);
     }
-    counts
+    fragments
         .into_fragments()
         .progress_with_style(style)
         .try_for_each(|vals| {

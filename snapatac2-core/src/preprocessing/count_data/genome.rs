@@ -25,7 +25,7 @@ use indexmap::map::IndexMap;
 use bed_utils::bed::map::GIntervalIndexSet;
 use bed_utils::{bed::{GenomicRange, BEDLike}, coverage::SparseCoverage};
 use itertools::Itertools;
-use num::traits::{ToPrimitive, NumCast};
+use num::{traits::{NumAssignOps, NumCast, ToPrimitive}, Num};
 use anndata::data::utils::to_csr_data;
 use bed_utils::bed::BedGraph;
 use indexmap::IndexSet;
@@ -250,35 +250,35 @@ pub trait FeatureCounter {
 
 /// Implementation of `FeatureCounter` trait for `SparseCoverage` struct.
 /// `SparseCoverage` represents a sparse coverage map for genomic data.
-impl FeatureCounter for SparseCoverage<'_, u32> {
-    type Value = u32;
+impl<T: Num + NumCast + NumAssignOps + Copy> FeatureCounter for SparseCoverage<'_, T> {
+    type Value = T;
 
     fn reset(&mut self) { self.reset(); }
 
     fn insert<B: BEDLike, N: ToPrimitive + Copy>(&mut self, tag: &B, count: N) {
-        self.insert(tag, <u32 as NumCast>::from(count).unwrap());
+        self.insert(tag, <T as NumCast>::from(count).unwrap());
     }
 
     fn insert_fragment(&mut self, tag: &Fragment, strategy: &CountingStrategy) {
         if tag.is_single() {
             tag.to_insertions().iter().for_each(|x| {
-                self.insert(x, 1);
+                self.insert(x, T::one());
             });
         } else {
             match strategy {
                 CountingStrategy::Fragment => {
-                    self.insert(tag, 1);
+                    self.insert(tag, T::one());
                 },
                 CountingStrategy::Insertion => {
                     tag.to_insertions().iter().for_each(|x| {
-                        self.insert(x, 1);
+                        self.insert(x, T::one());
                     });
                 },
                 CountingStrategy::PIC => {
                     tag.to_insertions().into_iter()
                         .flat_map(|x| self.get_index(&x))
                         .unique().collect::<Vec<_>>().into_iter().for_each(|i| {
-                            self.insert_at_index::<u32>(i, 1);
+                            self.insert_at_index::<u32>(i, T::one());
                         });
                 }
             }
