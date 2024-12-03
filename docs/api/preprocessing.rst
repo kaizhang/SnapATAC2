@@ -12,6 +12,7 @@ BAM/Fragment file processing
     pp.make_fragment_file
     pp.import_data
     pp.import_contacts
+    pp.import_values
     pp.call_cells
 
 Matrix operation

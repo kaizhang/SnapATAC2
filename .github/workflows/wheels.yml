@@ -25,6 +25,8 @@ jobs:
        CIBW_TEST_REQUIRES: pytest hypothesis==6.72.4
        CIBW_TEST_COMMAND: "pytest {project}/snapatac2-python/tests"
 
+       MACOSX_DEPLOYMENT_TARGET: 10.7
+
     steps:
       - name: Checkout code
         uses: nschloe/action-cached-lfs-checkout@v1
