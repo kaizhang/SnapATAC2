@@ -1,10 +1,9 @@
-use crate::genome::{ChromSizes, FeatureCounter, GenomeBaseIndex};
-use crate::preprocessing::{
-    Fragment,
-};
+use crate::genome::{ChromSizes, GenomeBaseIndex};
+use crate::preprocessing::Fragment;
+use crate::feature_count::{CountingStrategy, FeatureCounter};
 
 use anndata::{data::{utils::to_csr_data, CsrNonCanonical}, ArrayData};
-use bed_utils::bed::{BEDLike, GenomicRange, Strand};
+use bed_utils::bed::{BEDLike, BedGraph, GenomicRange, Strand};
 use nalgebra_sparse::CsrMatrix;
 use num::traits::{FromPrimitive, One, Zero};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -111,16 +110,6 @@ fn pair_to_fragments(
             .collect();
         (beds, a, b)
     })
-}
-
-/// The `CountingStrategy` enum represents different counting strategies.
-/// It is used to count the number of fragments that overlap for a given list of genomic features.
-/// Three counting strategies are supported: Insertion, Fragment, and Paired-Insertion Counting (PIC).
-#[derive(Clone, Copy, Debug)]
-pub enum CountingStrategy {
-    Insertion, // Insertion based counting
-    Fragment,  // Fragment based counting
-    PIC,       // Paired-Insertion Counting (PIC)
 }
 
 /// The `FragmentData` struct is used to count the number of reads that overlap
@@ -286,7 +275,7 @@ impl FragmentData
                     beds.into_iter().for_each(|fragment| {
                         coverage.insert_fragment(&fragment, &strategy);
                     });
-                    coverage.get_counts()
+                    coverage.get_values()
                 })
                 .collect::<Vec<_>>();
             let (r, c, offset, ind, data) = to_csr_data(vec, n_col);
@@ -520,6 +509,8 @@ where
         self
     }
 
+    /// Output the raw coverage matrix. Note the values belong to the same interval
+    /// will be aggregated by the mean value.
     pub fn into_array_iter(self) -> impl ExactSizeIterator<Item = (ArrayData, usize, usize)>
     {
         let index = self.get_gindex();
@@ -557,6 +548,8 @@ where
         })
     }
 
+    /// Aggregate the coverage by a feature counter. Values belong to the same interval
+    /// will be aggregated by the mean value.
     pub fn into_aggregated_array_iter<C>(self, counter: C) -> impl ExactSizeIterator<Item = (ArrayData, usize, usize)>
     where
         C: FeatureCounter<Value=f32> + Clone + Sync,
@@ -574,7 +567,9 @@ where
                             coverage.insert(&GenomicRange::new(chrom, pos, pos+1), *val);
                         }
                     });
-                    coverage.get_counts()
+                    coverage.get_values_and_counts().map(|(idx, (val, count))| {
+                        (idx, val / count as f32)
+                    }).collect::<Vec<_>>()
                 })
                 .collect::<Vec<_>>();
             let (r, c, offset, ind, data) = to_csr_data(vec, n_col);
@@ -586,3 +581,90 @@ where
         })
     }
 }
+
+/// `ChromValues` is a type alias for a vector of `BedGraph<N>` objects.
+/// Each `BedGraph` instance represents a genomic region along with a
+/// numerical value (like coverage or score).
+pub type ChromValues<N> = Vec<BedGraph<N>>;
+
+/// `ChromValueIter` represents an iterator over the chromosome values.
+/// Each item in the iterator is a tuple of a vector of `ChromValues<N>` objects,
+/// a start index, and an end index.
+pub struct ChromValueIter<I> {
+    pub(crate) iter: I,
+    pub(crate) regions: Vec<GenomicRange>,
+    pub(crate) length: usize,
+}
+
+impl<'a, I, T> ChromValueIter<I>
+where
+    I: ExactSizeIterator<Item = (CsrMatrix<T>, usize, usize)> + 'a,
+    T: Copy,
+{
+    /// Aggregate the values in the iterator by the given `FeatureCounter`.
+    pub fn aggregate_by<C>(
+        self,
+        mut counter: C,
+    ) -> impl ExactSizeIterator<Item = (CsrMatrix<T>, usize, usize)>
+    where
+        C: FeatureCounter<Value = T> + Clone + Sync,
+        T: Sync + Send + num::ToPrimitive,
+    {
+        let n_col = counter.num_features();
+        counter.reset();
+        self.iter.map(move |(mat, i, j)| {
+            let n = j - i;
+            let vec = (0..n)
+                .into_par_iter()
+                .map(|k| {
+                    let row = mat.get_row(k).unwrap();
+                    let mut coverage = counter.clone();
+                    row.col_indices()
+                        .into_iter()
+                        .zip(row.values())
+                        .for_each(|(idx, val)| {
+                            coverage.insert(&self.regions[*idx], *val);
+                        });
+                    coverage.get_values()
+                })
+                .collect::<Vec<_>>();
+            let (r, c, offset, ind, data) = to_csr_data(vec, n_col);
+            (CsrMatrix::try_from_csr_data(r,c,offset,ind, data).unwrap(), i, j)
+        })
+    }
+}
+
+impl<I, T> Iterator for ChromValueIter<I>
+where
+    I: Iterator<Item = (CsrMatrix<T>, usize, usize)>,
+    T: Copy,
+{
+    type Item = (Vec<ChromValues<T>>, usize, usize);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|(x, start, end)| {
+            let values = x
+                .row_iter()
+                .map(|row| {
+                    row.col_indices()
+                        .iter()
+                        .zip(row.values())
+                        .map(|(i, v)| BedGraph::from_bed(&self.regions[*i], *v))
+                        .collect()
+                })
+                .collect();
+            (values, start, end)
+        })
+    }
+}
+
+impl<I, T> ExactSizeIterator for ChromValueIter<I>
+where
+    I: Iterator<Item = (CsrMatrix<T>, usize, usize)>,
+    T: Copy,
+{
+    fn len(&self) -> usize {
+        self.length
+    }
+}
+

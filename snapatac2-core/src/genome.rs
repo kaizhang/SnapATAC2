@@ -1,42 +1,33 @@
 //! # Genomic Feature Counter Module
 //!
-//! This module provides the functionality to count genomic features (such as genes or transcripts) 
-//! in genomic data. The primary structures in this module are `TranscriptCount` and `GeneCount`, 
-//! both of which implement the `FeatureCounter` trait. The `FeatureCounter` trait provides a 
-//! common interface for handling feature counts, including methods for resetting counts, 
+//! This module provides the functionality to count genomic features (such as genes or transcripts)
+//! in genomic data. The primary structures in this module are `TranscriptCount` and `GeneCount`,
+//! both of which implement the `FeatureCounter` trait. The `FeatureCounter` trait provides a
+//! common interface for handling feature counts, including methods for resetting counts,
 //! updating counts, and retrieving feature IDs, names, and counts.
 //!
-//! `SparseCoverage`, from the bed_utils crate, is used for maintaining counts of genomic features, 
+//! `SparseCoverage`, from the bed_utils crate, is used for maintaining counts of genomic features,
 //! and this structure also implements the `FeatureCounter` trait in this module.
 //!
-//! `TranscriptCount` and `GeneCount` structures also hold a reference to `Promoters`, which 
+//! `TranscriptCount` and `GeneCount` structures also hold a reference to `Promoters`, which
 //! provides additional information about the genomic features being counted.
 //!
-//! To handle the mapping of gene names to indices, an `IndexMap` is used in the `GeneCount` structure. 
-//! This allows for efficient look-up of gene indices by name, which is useful when summarizing counts 
+//! To handle the mapping of gene names to indices, an `IndexMap` is used in the `GeneCount` structure.
+//! This allows for efficient look-up of gene indices by name, which is useful when summarizing counts
 //! at the gene level.
 //!
-//! The module aims to provide a comprehensive, efficient, and flexible way to handle and manipulate 
+//! The module aims to provide a comprehensive, efficient, and flexible way to handle and manipulate
 //! genomic feature counts in Rust.
-use noodles::{core::Position, gff, gff::record::Strand, gtf};
 use anyhow::{bail, Context, Result};
-use std::{collections::{BTreeMap, HashMap}, fmt::Debug, io::BufRead, str::FromStr};
-use indexmap::map::IndexMap;
 use bed_utils::bed::map::GIntervalIndexSet;
-use bed_utils::{bed::{GenomicRange, BEDLike}, coverage::SparseCoverage};
-use itertools::Itertools;
-use num::{traits::{NumAssignOps, NumCast, ToPrimitive}, Num};
-use anndata::data::utils::to_csr_data;
-use bed_utils::bed::BedGraph;
+use bed_utils::bed::GenomicRange;
+use indexmap::map::IndexMap;
 use indexmap::IndexSet;
+use noodles::{core::Position, gff, gff::record::Strand, gtf};
 use polars::frame::DataFrame;
-use nalgebra_sparse::CsrMatrix;
 use polars::prelude::{NamedFrom, Series};
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::ops::Range;
-
-use crate::preprocessing::Fragment;
-use crate::feature_count::CountingStrategy;
+use std::{collections::HashMap, fmt::Debug, io::BufRead, str::FromStr};
 
 /// Position is 1-based.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -82,12 +73,17 @@ fn from_gtf(record: &gtf::Record, options: &TranscriptParserOptions) -> Result<T
         .iter()
         .map(|x| (x.key(), x.value()))
         .collect();
-    let get_attr = |key: &str| -> String { 
-        attributes.get(key).expect(&format!("failed to find '{}' in record: {}", key, record)) .to_string()
+    let get_attr = |key: &str| -> String {
+        attributes
+            .get(key)
+            .expect(&format!("failed to find '{}' in record: {}", key, record))
+            .to_string()
     };
 
     Ok(Transcript {
-        transcript_name: attributes.get(options.transcript_name_key.as_str()).map(|x| x.to_string()),
+        transcript_name: attributes
+            .get(options.transcript_name_key.as_str())
+            .map(|x| x.to_string()),
         transcript_id: get_attr(options.transcript_id_key.as_str()),
         gene_name: get_attr(options.gene_name_key.as_str()),
         gene_id: get_attr(options.gene_id_key.as_str()),
@@ -113,12 +109,17 @@ fn from_gff(record: &gff::Record, options: &TranscriptParserOptions) -> Result<T
     let left = record.start();
     let right = record.end();
     let attributes = record.attributes();
-    let get_attr = |key: &str| -> String { 
-        attributes.get(key).expect(&format!("failed to find '{}' in record: {}", key, record)) .to_string()
+    let get_attr = |key: &str| -> String {
+        attributes
+            .get(key)
+            .expect(&format!("failed to find '{}' in record: {}", key, record))
+            .to_string()
     };
 
     Ok(Transcript {
-        transcript_name: attributes.get(options.transcript_name_key.as_str()).map(|x| x.to_string()),
+        transcript_name: attributes
+            .get(options.transcript_name_key.as_str())
+            .map(|x| x.to_string()),
         transcript_id: get_attr(options.transcript_id_key.as_str()),
         gene_name: get_attr(options.gene_name_key.as_str()),
         gene_id: get_attr(options.gene_id_key.as_str()),
@@ -144,14 +145,18 @@ impl Transcript {
     }
 }
 
-pub fn read_transcripts_from_gtf<R>(input: R, options: &TranscriptParserOptions) -> Result<Vec<Transcript>>
+pub fn read_transcripts_from_gtf<R>(
+    input: R,
+    options: &TranscriptParserOptions,
+) -> Result<Vec<Transcript>>
 where
     R: BufRead,
 {
     let mut results = Vec::new();
     input.lines().try_for_each(|line| {
         let line = line?;
-        let line = gtf::Line::from_str(&line).with_context(|| format!("failed to parse GTF line: {}", line))?;
+        let line = gtf::Line::from_str(&line)
+            .with_context(|| format!("failed to parse GTF line: {}", line))?;
         if let gtf::line::Line::Record(rec) = line {
             if rec.ty() == "transcript" {
                 results.push(from_gtf(&rec, options)?);
@@ -162,14 +167,18 @@ where
     Ok(results)
 }
 
-pub fn read_transcripts_from_gff<R>(input: R, options: &TranscriptParserOptions) -> Result<Vec<Transcript>>
+pub fn read_transcripts_from_gff<R>(
+    input: R,
+    options: &TranscriptParserOptions,
+) -> Result<Vec<Transcript>>
 where
     R: BufRead,
 {
     let mut results = Vec::new();
     input.lines().try_for_each(|line| {
         let line = line?;
-        let line = gff::Line::from_str(&line).with_context(|| format!("failed to parse GFF line: {}", line))?;
+        let line = gff::Line::from_str(&line)
+            .with_context(|| format!("failed to parse GFF line: {}", line))?;
         if let gff::line::Line::Record(rec) = line {
             if rec.ty() == "transcript" {
                 results.push(from_gff(&rec, options)?);
@@ -217,186 +226,6 @@ impl Promoters {
             regions,
             transcripts,
         }
-    }
-}
-
-
-/// `FeatureCounter` is a trait that provides an interface for counting genomic features.
-/// Types implementing `FeatureCounter` can store feature counts and provide several 
-/// methods for manipulating and retrieving those counts.
-pub trait FeatureCounter {
-    type Value;
-
-    /// Returns the total number of distinct features counted.
-    fn num_features(&self) -> usize { self.get_feature_ids().len() }
-
-    /// Resets the counter for all features.
-    fn reset(&mut self);
-
-    /// Updates the counter according to the given region and count.
-    fn insert<B: BEDLike, N: ToPrimitive + Copy>(&mut self, tag: &B, count: N);
-
-    /// Updates the counter according to the given fragment
-    fn insert_fragment(&mut self, tag: &Fragment, strategy: &CountingStrategy);
-
-    /// Returns a vector of feature ids.
-    fn get_feature_ids(&self) -> Vec<String>;
-
-    /// Returns a vector of feature names if available.
-    fn get_feature_names(&self) -> Option<Vec<String>> { None }
-
-    /// Returns a vector of tuples, each containing a feature's index and its count.
-    fn get_counts(&self) -> Vec<(usize, Self::Value)>;
-}
-
-/// Implementation of `FeatureCounter` trait for `SparseCoverage` struct.
-/// `SparseCoverage` represents a sparse coverage map for genomic data.
-impl<T: Num + NumCast + NumAssignOps + Copy> FeatureCounter for SparseCoverage<'_, T> {
-    type Value = T;
-
-    fn reset(&mut self) { self.reset(); }
-
-    fn insert<B: BEDLike, N: ToPrimitive + Copy>(&mut self, tag: &B, count: N) {
-        self.insert(tag, <T as NumCast>::from(count).unwrap());
-    }
-
-    fn insert_fragment(&mut self, tag: &Fragment, strategy: &CountingStrategy) {
-        if tag.is_single() {
-            tag.to_insertions().iter().for_each(|x| {
-                self.insert(x, T::one());
-            });
-        } else {
-            match strategy {
-                CountingStrategy::Fragment => {
-                    self.insert(tag, T::one());
-                },
-                CountingStrategy::Insertion => {
-                    tag.to_insertions().iter().for_each(|x| {
-                        self.insert(x, T::one());
-                    });
-                },
-                CountingStrategy::PIC => {
-                    tag.to_insertions().into_iter()
-                        .flat_map(|x| self.get_index(&x))
-                        .unique().collect::<Vec<_>>().into_iter().for_each(|i| {
-                            self.insert_at_index::<u32>(i, T::one());
-                        });
-                }
-            }
-        }
-    }
-
-    fn get_feature_ids(&self) -> Vec<String> {
-        self.regions().map(|x| x.to_genomic_range().pretty_show()).collect()
-    }
-
-    fn get_counts(&self) -> Vec<(usize, Self::Value)> {
-        self.get_coverage().iter().map(|(k, v)| (*k, *v)).collect()
-    }
-}
-
-/// `TranscriptCount` is a struct that represents the count of genomic features at the transcript level.
-/// It holds a `SparseCoverage` counter and a reference to `Promoters`.
-#[derive(Clone)]
-pub struct TranscriptCount<'a> {
-    counter: SparseCoverage<'a, u32>,
-    promoters: &'a Promoters,
-}
-
-impl<'a> TranscriptCount<'a> {
-    pub fn new(promoters: &'a Promoters) -> Self {
-        Self {
-            counter: SparseCoverage::new(&promoters.regions),
-            promoters,
-        }
-    }
-
-    pub fn gene_names(&self) -> Vec<String> {
-        self.promoters
-            .transcripts
-            .iter()
-            .map(|x| x.gene_name.clone())
-            .collect()
-    }
-}
-
-/// `GeneCount` is a struct that represents the count of genomic features at the gene level.
-/// It holds a `TranscriptCount` counter and a map from gene names to their indices.
-#[derive(Clone)]
-pub struct GeneCount<'a> {
-    counter: TranscriptCount<'a>,
-    gene_name_to_idx: IndexMap<&'a str, usize>,
-}
-
-/// Implementation of `GeneCount`
-impl<'a> GeneCount<'a> {
-    pub fn new(counter: TranscriptCount<'a>) -> Self {
-        let gene_name_to_idx: IndexMap<_, _> = counter
-            .promoters
-            .transcripts
-            .iter()
-            .map(|x| x.gene_name.as_str())
-            .unique()
-            .enumerate()
-            .map(|(a, b)| (b, a))
-            .collect();
-        Self {
-            counter,
-            gene_name_to_idx,
-        }
-    }
-}
-
-/// Implementations of `FeatureCounter` trait for `TranscriptCount` and `GeneCount` structs.
-impl FeatureCounter for TranscriptCount<'_> {
-    type Value = u32;
-
-    fn reset(&mut self) { self.counter.reset(); }
-
-    fn insert<B: BEDLike, N: ToPrimitive + Copy>(&mut self, tag: &B, count: N) {
-        self.counter.insert(tag, <u32 as NumCast>::from(count).unwrap());
-    }
-
-    fn insert_fragment(&mut self, tag: &Fragment, strategy: &CountingStrategy) {
-        self.counter.insert_fragment(tag, strategy);
-    }
-
-    fn get_feature_ids(&self) -> Vec<String> {
-        self.promoters.transcripts.iter().map(|x| x.transcript_id.clone()).collect()
-    }
-
-    fn get_counts(&self) -> Vec<(usize, Self::Value)> {
-        self.counter.get_counts()
-    }
-}
-
-impl FeatureCounter for GeneCount<'_> {
-    type Value = u32;
-
-    fn reset(&mut self) { self.counter.reset(); }
-
-    fn insert<B: BEDLike, N: ToPrimitive + Copy>(&mut self, tag: &B, count: N) {
-        self.counter.insert(tag, <u32 as NumCast>::from(count).unwrap());
-    }
-
-    fn insert_fragment(&mut self, tag: &Fragment, strategy: &CountingStrategy) {
-        self.counter.insert_fragment(tag, strategy);
-    }
-
-    fn get_feature_ids(&self) -> Vec<String> {
-        self.gene_name_to_idx.keys().map(|x| x.to_string()).collect()
-    }
-
-    fn get_counts(&self) -> Vec<(usize, Self::Value)> {
-        let mut counts = BTreeMap::new();
-        self.counter.get_counts().into_iter().for_each(|(k, v)| {
-            let idx = *self.gene_name_to_idx.get(
-                self.counter.promoters.transcripts[k].gene_name.as_str()
-            ).unwrap();
-            let current_v = counts.entry(idx).or_insert(v);
-            if *current_v < v { *current_v = v }
-        });
-        counts.into_iter().collect()
     }
 }
 
@@ -536,12 +365,16 @@ impl GenomeBaseIndex {
     pub fn with_step(&self, s: usize) -> Self {
         let mut prev = 0;
         let mut acc_low_res = 0;
-        let binned_accum_len = self.base_accum_len.iter().map(|acc| {
-            let length = acc - prev;
-            prev = *acc;
-            acc_low_res += num::Integer::div_ceil(&length, &(s as u64));
-            acc_low_res
-        }).collect();
+        let binned_accum_len = self
+            .base_accum_len
+            .iter()
+            .map(|acc| {
+                let length = acc - prev;
+                prev = *acc;
+                acc_low_res += num::Integer::div_ceil(&length, &(s as u64));
+                acc_low_res
+            })
+            .collect();
         Self {
             chroms: self.chroms.clone(),
             base_accum_len: self.base_accum_len.clone(),
@@ -552,7 +385,10 @@ impl GenomeBaseIndex {
 
     /// Given a genomic position, return the corresponding index.
     pub fn get_position_rev(&self, chrom: &str, pos: u64) -> usize {
-        let i = self.chroms.get_index_of(chrom).expect(format!("Chromosome {} not found", chrom).as_str());
+        let i = self
+            .chroms
+            .get_index_of(chrom)
+            .expect(format!("Chromosome {} not found", chrom).as_str());
         let size = if i == 0 {
             self.base_accum_len[i]
         } else {
@@ -650,92 +486,6 @@ impl GenomeBaseIndex {
     }
 }
 
-/// `ChromValues` is a type alias for a vector of `BedGraph<N>` objects.
-/// Each `BedGraph` instance represents a genomic region along with a
-/// numerical value (like coverage or score).
-pub type ChromValues<N> = Vec<BedGraph<N>>;
-
-/// `ChromValueIter` represents an iterator over the chromosome values.
-/// Each item in the iterator is a tuple of a vector of `ChromValues<N>` objects,
-/// a start index, and an end index.
-pub struct ChromValueIter<I> {
-    pub(crate) iter: I,
-    pub(crate) regions: Vec<GenomicRange>,
-    pub(crate) length: usize,
-}
-
-impl<'a, I, T> ChromValueIter<I>
-where
-    I: ExactSizeIterator<Item = (CsrMatrix<T>, usize, usize)> + 'a,
-    T: Copy,
-{
-    /// Aggregate the values in the iterator by the given `FeatureCounter`.
-    pub fn aggregate_by<C>(
-        self,
-        mut counter: C,
-    ) -> impl ExactSizeIterator<Item = (CsrMatrix<T>, usize, usize)>
-    where
-        C: FeatureCounter<Value = T> + Clone + Sync,
-        T: Sync + Send + num::ToPrimitive,
-    {
-        let n_col = counter.num_features();
-        counter.reset();
-        self.iter.map(move |(mat, i, j)| {
-            let n = j - i;
-            let vec = (0..n)
-                .into_par_iter()
-                .map(|k| {
-                    let row = mat.get_row(k).unwrap();
-                    let mut coverage = counter.clone();
-                    row.col_indices()
-                        .into_iter()
-                        .zip(row.values())
-                        .for_each(|(idx, val)| {
-                            coverage.insert(&self.regions[*idx], *val);
-                        });
-                    coverage.get_counts()
-                })
-                .collect::<Vec<_>>();
-            let (r, c, offset, ind, data) = to_csr_data(vec, n_col);
-            (CsrMatrix::try_from_csr_data(r,c,offset,ind, data).unwrap(), i, j)
-        })
-    }
-}
-
-impl<I, T> Iterator for ChromValueIter<I>
-where
-    I: Iterator<Item = (CsrMatrix<T>, usize, usize)>,
-    T: Copy,
-{
-    type Item = (Vec<ChromValues<T>>, usize, usize);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|(x, start, end)| {
-            let values = x
-                .row_iter()
-                .map(|row| {
-                    row.col_indices()
-                        .iter()
-                        .zip(row.values())
-                        .map(|(i, v)| BedGraph::from_bed(&self.regions[*i], *v))
-                        .collect()
-                })
-                .collect();
-            (values, start, end)
-        })
-    }
-}
-
-impl<I, T> ExactSizeIterator for ChromValueIter<I>
-where
-    I: Iterator<Item = (CsrMatrix<T>, usize, usize)>,
-    T: Copy,
-{
-    fn len(&self) -> usize {
-        self.length
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -748,7 +498,9 @@ mod tests {
             ("1".to_owned(), 13),
             ("2".to_owned(), 71),
             ("3".to_owned(), 100),
-        ].into_iter().collect();
+        ]
+        .into_iter()
+        .collect();
         let mut index = GenomeBaseIndex::new(&chrom_sizes);
 
         assert_eq!(index.get_range("1").unwrap(), 0..13);
@@ -808,7 +560,9 @@ mod tests {
             ("1".to_owned(), 13),
             ("2".to_owned(), 71),
             ("3".to_owned(), 100),
-        ].into_iter().collect();
+        ]
+        .into_iter()
+        .collect();
 
         let index = GenomeBaseIndex::new(&chrom_sizes);
         [(0, 0), (12, 12), (13, 13), (100, 100)]
@@ -875,7 +629,6 @@ mod tests {
             read_transcripts_from_gtf(gtf.as_bytes(), &Default::default()).unwrap()[0],
             expected
         );
-
 
         //let failed_line = "NC_051341.1\tGnomon\ttranscript\t26923605\t26924789\t.\t+\t.\tgene_id \"RGD1565766\"; transcript_id \"XM_039113095.1\"; db_xref \"GeneID:500622\"; gbkey \"mRNA\"; gene_name \"RGD1565766\"; model_evidence \"Supporting evidence includes similarity to: 1 EST, 4 Proteins, and 100% coverage of the annotated genomic feature by RNAseq alignments\"; product \"hypothetical gene supported by BC088468; NM_001009712\"; transcript_biotype \"mRNA\";";
         let worked = "chr1\tG\ttranscript\t26\t92\t.\t+\t.\tgene_id \"RGD\"; transcript_id \"XM_5\"; gene_name \"RGD\"; note \"note1;note2\";";

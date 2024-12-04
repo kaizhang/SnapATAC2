@@ -410,7 +410,8 @@ def import_values(
     chunk_size: int = 200,
     backend: Literal['hdf5'] = 'hdf5',
 ) -> internal.AnnData:
-    """Import chromatin contacts.
+    """Import values associated with base pairs, typically from experiments like
+    whole-genome bisulfite sequencing (WGBS).
 
     Parameters
     ----------

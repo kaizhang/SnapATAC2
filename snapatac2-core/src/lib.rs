@@ -7,8 +7,8 @@ pub mod network;
 pub mod embedding;
 pub mod utils;
 
-use feature_count::{BaseData, FragmentData, FragmentDataIter};
-use genome::{ChromSizes, ChromValueIter};
+use feature_count::{ChromValueIter, BaseData, FragmentData, FragmentDataIter};
+use genome::ChromSizes;
 
 use anndata::{
     container::{ChunkedArrayElem, StackedChunkedArrayElem},

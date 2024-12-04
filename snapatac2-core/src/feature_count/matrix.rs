@@ -1,15 +1,10 @@
-use super::coverage::CountingStrategy;
+use super::counter::{CountingStrategy, FeatureCounter, GeneCount, RegionCounter, TranscriptCount};
+use crate::genome::{Promoters, Transcript};
 use crate::SnapData;
-use crate::genome::{
-    FeatureCounter, GeneCount, Promoters, Transcript, TranscriptCount,
-};
 
 use anndata::{data::DataFrameIndex, AnnDataOp, ArrayData};
 use anyhow::{bail, Result};
-use bed_utils::{
-    bed::{map::GIntervalIndexSet, BEDLike},
-    coverage::SparseCoverage,
-};
+use bed_utils::bed::{map::GIntervalIndexSet, BEDLike};
 use indicatif::{ProgressIterator, ProgressStyle};
 use polars::prelude::{DataFrame, NamedFrom, Series};
 
@@ -115,17 +110,18 @@ where
     let regions: GIntervalIndexSet = peaks.collect();
 
     let data_iter: Box<dyn ExactSizeIterator<Item = ArrayData>>;
-    let feature_names: Vec<String>; 
+    let feature_names: Vec<String>;
 
     if use_x {
-        let counter = SparseCoverage::new(&regions);
+        let counter = RegionCounter::new(&regions);
         feature_names = counter.get_feature_ids();
-        let data = adata.read_chrom_values(chunk_size)?
+        let data = adata
+            .read_chrom_values(chunk_size)?
             .aggregate_by(counter)
             .map(|x| x.0.into());
         data_iter = Box::new(data);
     } else if let Ok(mut fragments) = adata.get_fragment_iter(chunk_size) {
-        let counter = SparseCoverage::new(&regions);
+        let counter = RegionCounter::new(&regions);
         feature_names = counter.get_feature_ids();
         fragments = fragments.set_counting_strategy(counting_strategy);
         if let Some(min_fragment_size) = min_fragment_size {
@@ -134,11 +130,19 @@ where
         if let Some(max_fragment_size) = max_fragment_size {
             fragments = fragments.max_fragment_size(max_fragment_size);
         }
-        data_iter = Box::new(fragments.into_aggregated_array_iter(counter).map(|x| x.0.into()));
+        data_iter = Box::new(
+            fragments
+                .into_aggregated_array_iter(counter)
+                .map(|x| x.0.into()),
+        );
     } else if let Ok(values) = adata.get_base_iter(chunk_size) {
-        let counter = SparseCoverage::new(&regions);
+        let counter = RegionCounter::new(&regions);
         feature_names = counter.get_feature_ids();
-        data_iter = Box::new(values.into_aggregated_array_iter(counter).map(|x| x.0.into()));
+        data_iter = Box::new(
+            values
+                .into_aggregated_array_iter(counter)
+                .map(|x| x.0.into()),
+        );
     } else {
         bail!("No fragment data found in the anndata object");
     }
