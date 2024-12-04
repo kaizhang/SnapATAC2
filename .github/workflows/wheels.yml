@@ -20,7 +20,7 @@ jobs:
 
        CIBW_ARCHS_LINUX: "auto64"
        CIBW_ENVIRONMENT: 'PATH="$PATH:$HOME/.cargo/bin"'
-       CIBW_ENVIRONMENT_MACOS: 'MACOSX_DEPLOYMENT_TARGET="10.9"'
+       CIBW_ENVIRONMENT_MACOS: 'MACOSX_DEPLOYMENT_TARGET="10.12"'
        CIBW_SKIP: "pp* *-win32 *-musllinux*"
        CIBW_BUILD: ${{ matrix.python_version }}
        CIBW_TEST_REQUIRES: pytest hypothesis==6.72.4

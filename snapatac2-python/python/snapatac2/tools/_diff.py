@@ -208,7 +208,7 @@ def _diff_test_helper(mat, z, peaks=None, covariate=None) -> list[float]:
         z = z.reshape((-1, 1))
     
     if covariate is None:
-        X = np.log(np.sum(mat, axis=1))
+        X = np.log1p(np.sum(mat, axis=1))
     else:
         X = covariate
 
@@ -275,13 +275,13 @@ def _likelihood_ratio_test(
     from sklearn.metrics import log_loss
 
     model = LogisticRegression(penalty=None, random_state=0, n_jobs=1,
-        solver="lbfgs", multi_class='ovr', warm_start=False,
+        solver="lbfgs", warm_start=False,
         max_iter = 1000,
         ).fit(X0, y)
     reduced = -log_loss(y, model.predict_proba(X0), normalize=False)
 
     model = LogisticRegression(penalty=None, random_state=0, n_jobs=1,
-        solver="lbfgs", multi_class='ovr', warm_start=False,
+        solver="lbfgs", warm_start=False,
         max_iter = 1000,
         ).fit(X1, y)
     full = -log_loss(y, model.predict_proba(X1), normalize=False)
