@@ -9,9 +9,8 @@ use numpy::{
     Element, IntoPyArray, Ix1, Ix2, PyArray, PyArrayMethods, PyReadonlyArray, PyReadonlyArrayDyn,
 };
 use pyo3::{prelude::*, types::PyIterator, PyResult, Python};
-use snapatac2_core::preprocessing::count_data::TranscriptParserOptions;
-use snapatac2_core::preprocessing::{
-    read_transcripts_from_gff, read_transcripts_from_gtf, Transcript,
+use snapatac2_core::genome::{
+    read_transcripts_from_gff, read_transcripts_from_gtf, Transcript, TranscriptParserOptions,
 };
 use snapatac2_core::utils;
 

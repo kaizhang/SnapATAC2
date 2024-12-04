@@ -35,7 +35,8 @@ use polars::prelude::{NamedFrom, Series};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::ops::Range;
 
-use super::{qc::Fragment, CountingStrategy};
+use crate::preprocessing::Fragment;
+use crate::feature_count::CountingStrategy;
 
 /// Position is 1-based.
 #[derive(Clone, Debug, Eq, PartialEq)]

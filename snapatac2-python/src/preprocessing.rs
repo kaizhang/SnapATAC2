@@ -4,9 +4,6 @@ use itertools::Itertools;
 use pyo3::{prelude::*, pybacked::PyBackedStr};
 use anndata::Backend;
 use anndata_hdf5::H5;
-use snapatac2_core::preprocessing::count_data::TranscriptParserOptions;
-use snapatac2_core::preprocessing::count_data::CountingStrategy;
-use snapatac2_core::preprocessing::ChromValue;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
@@ -17,8 +14,12 @@ use pyanndata::PyAnnData;
 use anyhow::Result;
 
 use snapatac2_core::{
-    preprocessing::{Fragment, Contact, SnapData},
-    preprocessing, utils,
+    SnapData,
+    genome::TranscriptParserOptions,
+    feature_count::{create_gene_matrix, create_tile_matrix, create_peak_matrix, CountingStrategy},
+    preprocessing::{Fragment, Contact, ChromValue},
+    preprocessing,
+    utils,
 };
 
 #[pyfunction]
@@ -93,7 +94,7 @@ pub(crate) fn import_fragments(
     };
     let chrom_sizes = chrom_size.into_iter().collect();
     let fragments = bed::io::Reader::new(utils::open_file_for_read(&fragment_file), Some("#".to_string()))
-        .into_records::<Fragment>().map(|f| {
+        .into_records().map(|f| {
             let mut f = f.unwrap();
             shift_fragment(&mut f, shift_left, shift_right);
             f
@@ -253,7 +254,7 @@ pub(crate) fn mk_tile_matrix(
             if let Some(out) = out {
                 macro_rules! run2 {
                     ($out_data:expr) => {
-                        preprocessing::create_tile_matrix(
+                        create_tile_matrix(
                             $data,
                             bin_size,
                             chunk_size,
@@ -267,7 +268,7 @@ pub(crate) fn mk_tile_matrix(
                 }
                 crate::with_anndata!(&out, run2);
             } else {
-                preprocessing::create_tile_matrix(
+                create_tile_matrix(
                     $data,
                     bin_size,
                     chunk_size,
@@ -306,13 +307,13 @@ pub(crate) fn mk_peak_matrix(
             if let Some(out) = out {
                 macro_rules! run2 {
                     ($out_data:expr) => {
-                        preprocessing::create_peak_matrix($data, peaks, chunk_size, strategy,
+                        create_peak_matrix($data, peaks, chunk_size, strategy,
                             min_fragment_size, max_fragment_size, Some($out_data), use_x)?
                     };
                 }
                 crate::with_anndata!(&out, run2);
             } else {
-                preprocessing::create_peak_matrix($data, peaks, chunk_size, strategy,
+                create_peak_matrix($data, peaks, chunk_size, strategy,
                     min_fragment_size, max_fragment_size, None::<&PyAnnData>, use_x)?;
             }
         }
@@ -354,14 +355,14 @@ pub(crate) fn mk_gene_matrix(
             if let Some(out) = out {
                 macro_rules! run2 {
                     ($out_data:expr) => {
-                        preprocessing::create_gene_matrix($data, transcripts, id_type,
+                        create_gene_matrix($data, transcripts, id_type,
                             upstream, downstream, include_gene_body, chunk_size, strategy,
                             min_fragment_size, max_fragment_size, Some($out_data), use_x)?
                     };
                 }
                 crate::with_anndata!(&out, run2);
             } else {
-                preprocessing::create_gene_matrix($data, transcripts, id_type,
+                create_gene_matrix($data, transcripts, id_type,
                     upstream, downstream, include_gene_body, chunk_size, strategy,
                     min_fragment_size, max_fragment_size, None::<&PyAnnData>, use_x)?;
             }

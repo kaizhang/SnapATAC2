@@ -1,7 +1,6 @@
-use crate::preprocessing::{
-    count_data::{ChromSizes, GenomeBaseIndex},
-    qc::{Contact, Fragment, FragmentSummary, QualityControl},
-};
+use crate::feature_count::ContactData;
+use crate::genome::{ChromSizes, GenomeBaseIndex};
+use crate::preprocessing::qc::{Contact, Fragment, FragmentSummary, QualityControl};
 
 use anndata::{
     data::array::utils::{from_csr_data, to_csr_data},
@@ -290,7 +289,7 @@ where
         let (r, c, offset, ind, data) = to_csr_data(counts, genome_size * genome_size);
         CsrMatrix::try_from_csr_data(r, c, offset, ind, data).unwrap()
     });
-    let contact_map = super::ContactDataCounter::new(chrom_sizes, binding3).with_resolution(bin_size);
+    let contact_map = ContactData::new(chrom_sizes, binding3).with_resolution(bin_size);
 
     anndata.set_x_from_iter(contact_map.into_values::<u32>())?;
     anndata.set_var_names(anndata.n_vars().into())?;
@@ -350,25 +349,30 @@ where
         .chunks(chunk_size);
     let arrays = chunked_values.into_iter().map(|chunk| {
         // Collect into vector for parallel processing
-        let chunk: Vec<Vec<_>> = chunk.map(|(barcode, x)| {
-            if !scanned_barcodes.insert(barcode.clone()) {
-                panic!("Please sort fragment file by barcodes");
-            }
-            x.collect()
-        }).collect();
+        let chunk: Vec<Vec<_>> = chunk
+            .map(|(barcode, x)| {
+                if !scanned_barcodes.insert(barcode.clone()) {
+                    panic!("Please sort fragment file by barcodes");
+                }
+                x.collect()
+            })
+            .collect();
 
         let counts = chunk
             .into_par_iter()
             .map(|data| {
-                let mut count = data.into_iter().flat_map(|value| {
-                    let chrom = &value.chrom;
-                    if genome_index.contain_chrom(chrom) {
-                        let pos = genome_index.get_position_rev(chrom, value.pos);
-                        Some((pos, value.value))
-                    } else {
-                        None
-                    }
-                }).collect::<Vec<_>>();
+                let mut count = data
+                    .into_iter()
+                    .flat_map(|value| {
+                        let chrom = &value.chrom;
+                        if genome_index.contain_chrom(chrom) {
+                            let pos = genome_index.get_position_rev(chrom, value.pos);
+                            Some((pos, value.value))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>();
                 count.sort_by(|x, y| x.0.cmp(&y.0));
                 count
             })
@@ -378,7 +382,9 @@ where
     });
 
     anndata.obsm().add_iter(obsm_key, arrays)?;
-    anndata.uns().add("reference_sequences", chrom_sizes.to_dataframe())?;
+    anndata
+        .uns()
+        .add("reference_sequences", chrom_sizes.to_dataframe())?;
     anndata.set_obs_names(scanned_barcodes.into_iter().collect())?;
     Ok(())
 }

@@ -1,8 +1,7 @@
+use crate::genome::ChromSizes;
+use crate::SnapData;
 use crate::{
-    preprocessing::{
-        count_data::{ChromSizes, SnapData},
-        Fragment,
-    },
+    preprocessing::Fragment,
     utils::{self, Compression},
 };
 
@@ -571,7 +570,13 @@ mod tests {
             None,
             None,
         );
-        assert_eq!(output, expected, "Left: {:?}\n\n{:?}", &output[..10], &expected[..10]);
+        assert_eq!(
+            output,
+            expected,
+            "Left: {:?}\n\n{:?}",
+            &output[..10],
+            &expected[..10]
+        );
 
         let output = create_bedgraph_from_sorted_fragments(
             fragments.into_iter(),
@@ -585,11 +590,7 @@ mod tests {
             None,
             None,
         );
-        let scale_factor: f32 = expected
-            .iter()
-            .map(|x| x.value)
-            .sum::<f32>()
-            / 1e6;
+        let scale_factor: f32 = expected.iter().map(|x| x.value).sum::<f32>() / 1e6;
         expected = expected
             .into_iter()
             .map(|mut x| {
@@ -597,7 +598,13 @@ mod tests {
                 x
             })
             .collect::<Vec<_>>();
-        assert_eq!(output, expected, "Left: {:?}\n\n{:?}", &output[..10], &expected[..10]);
+        assert_eq!(
+            output,
+            expected,
+            "Left: {:?}\n\n{:?}",
+            &output[..10],
+            &expected[..10]
+        );
     }
 
     #[test]

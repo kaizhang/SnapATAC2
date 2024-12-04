@@ -4,7 +4,7 @@ use pyo3::prelude::*;
 
 use snapatac2_core::{
     network::link_region_to_promoter,
-    preprocessing::Promoters,
+    genome::Promoters,
 };
 use bed_utils::bed::GenomicRange;
 use std::{

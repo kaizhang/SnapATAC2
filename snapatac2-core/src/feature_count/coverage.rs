@@ -1,5 +1,5 @@
+use crate::genome::{ChromSizes, FeatureCounter, GenomeBaseIndex};
 use crate::preprocessing::{
-    count_data::genome::{ChromSizes, FeatureCounter, GenomeBaseIndex},
     Fragment,
 };
 
@@ -404,13 +404,13 @@ where
     CsrMatrix::try_from_csr_data(r, c, offset, ind, data).unwrap()
 }
 
-pub struct ContactDataCounter<I> {
+pub struct ContactData<I> {
     index: GenomeBaseIndex,
     coverage: I,
     resolution: usize,
 }
 
-impl<I> ContactDataCounter<I>
+impl<I> ContactData<I>
 where
     I: Iterator<Item = CsrMatrix<u32>>,
 {

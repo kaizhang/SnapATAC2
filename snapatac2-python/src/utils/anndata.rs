@@ -10,7 +10,8 @@ use pyanndata::anndata::memory;
 use pyanndata::{AnnData, AnnDataSet};
 use pyo3::prelude::*;
 
-use snapatac2_core::preprocessing::{count_data::{BaseData, FragmentData, FragmentDataIter}, qc, SnapData};
+use snapatac2_core::SnapData;
+use snapatac2_core::feature_count::{BaseData, FragmentData, FragmentDataIter};
 
 pub struct PyAnnData<'py>(memory::PyAnnData<'py>);
 
@@ -166,7 +167,7 @@ impl<'py> SnapData for PyAnnData<'py> {
 
     fn fragment_size_distribution(&self, max_size: usize) -> Result<Vec<usize>> {
         if let Some(fragment) = self.obsm().get_item_iter("fragment_paired", 500) {
-            Ok(qc::fragment_size_distribution(fragment.map(|x| x.0), max_size))
+            Ok(snapatac2_core::preprocessing::fragment_size_distribution(fragment.map(|x| x.0), max_size))
         } else {
             bail!("key 'fragment_paired' is not present in the '.obsm'")
         }

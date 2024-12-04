@@ -1,4 +1,5 @@
 pub mod similarity;
+pub mod knn;
 
 use std::path::Path;
 use std::fs::File;
@@ -40,7 +41,7 @@ where
     merge_sorted_bed_with(input, iterative_merge)
 }
 
-pub fn clip_peak(mut peak: NarrowPeak, chrom_sizes: &crate::preprocessing::count_data::ChromSizes) -> NarrowPeak {
+pub fn clip_peak(mut peak: NarrowPeak, chrom_sizes: &crate::genome::ChromSizes) -> NarrowPeak {
     let chr = peak.chrom();
     let max_len = chrom_sizes.get(chr).expect(&format!("Size missing for chromosome: {}", chr));
     let new_start = peak.start().max(0).min(max_len);

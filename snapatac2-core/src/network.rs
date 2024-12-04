@@ -1,4 +1,4 @@
-use crate::preprocessing::Promoters;
+use crate::genome::Promoters;
 
 use bed_utils::bed::BEDLike;
 use std::collections::HashMap;

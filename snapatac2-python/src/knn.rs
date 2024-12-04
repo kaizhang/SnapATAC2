@@ -2,7 +2,7 @@ use anndata::ArrayData;
 use pyanndata::data::PyArrayData;
 use pyo3::{prelude::*, PyResult};
 use numpy::{PyReadonlyArray, Ix2};
-use snapatac2_core::knn;
+use snapatac2_core::utils::knn;
 
 #[pyfunction]
 pub(crate) fn nearest_neighbour_graph(

@@ -6,7 +6,8 @@ use indicatif::{ProgressIterator, ProgressStyle};
 use itertools::Itertools;
 use snapatac2_core::utils::{self, Compression};
 use snapatac2_core::{
-    preprocessing::{Fragment, SnapData},
+    SnapData,
+    preprocessing::Fragment,
     utils::{clip_peak, merge_peaks, open_file_for_write},
 };
 

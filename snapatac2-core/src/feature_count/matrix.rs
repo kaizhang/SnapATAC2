@@ -1,6 +1,7 @@
 use super::coverage::CountingStrategy;
-use crate::preprocessing::count_data::{
-    FeatureCounter, GeneCount, Promoters, SnapData, Transcript, TranscriptCount,
+use crate::SnapData;
+use crate::genome::{
+    FeatureCounter, GeneCount, Promoters, Transcript, TranscriptCount,
 };
 
 use anndata::{data::DataFrameIndex, AnnDataOp, ArrayData};
