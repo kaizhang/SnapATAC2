@@ -1,15 +1,23 @@
-use std::{io::{Read, BufRead, BufReader}, collections::{HashMap, HashSet}};
 use anndata::data::CsrNonCanonical;
-use bed_utils::bed::{GenomicRange, BEDLike, map::GIntervalMap, ParseError, Strand};
-use anyhow::Result;
-use serde::{Serialize, Deserialize};
-use smallvec::{SmallVec, smallvec};
+use anyhow::{bail, Result};
+use bed_utils::bed::{map::GIntervalMap, BEDLike, GenomicRange, ParseError, Strand};
+use ndarray::Array2;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use serde::{Deserialize, Serialize};
+use smallvec::{smallvec, SmallVec};
+use std::{
+    collections::{HashMap, HashSet},
+    io::{BufRead, BufReader, Read},
+    sync::{Arc, Mutex},
+};
+
+use crate::feature_count::{FragmentDataIter, SnapData};
 
 pub type CellBarcode = String;
 
 /// Fragments from single-cell ATAC-seq experiment. Each fragment is represented
 /// by a genomic coordinate, cell barcode and a integer value.
-#[derive(Serialize, Deserialize, Debug, Clone)] 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Fragment {
     pub chrom: String,
     pub start: u64,
@@ -37,12 +45,16 @@ impl Fragment {
                 GenomicRange::new(self.chrom.clone(), self.start, self.start + 1),
                 GenomicRange::new(self.chrom.clone(), self.end - 1, self.end),
             ],
-            Some(Strand::Forward) => smallvec![
-                GenomicRange::new(self.chrom.clone(), self.start, self.start + 1)
-            ],
-            Some(Strand::Reverse) => smallvec![
-                GenomicRange::new(self.chrom.clone(), self.end - 1, self.end)
-            ],
+            Some(Strand::Forward) => smallvec![GenomicRange::new(
+                self.chrom.clone(),
+                self.start,
+                self.start + 1
+            )],
+            Some(Strand::Reverse) => smallvec![GenomicRange::new(
+                self.chrom.clone(),
+                self.end - 1,
+                self.end
+            )],
         }
     }
 
@@ -52,17 +64,23 @@ impl Fragment {
 }
 
 impl BEDLike for Fragment {
-    fn chrom(&self) -> &str { &self.chrom }
+    fn chrom(&self) -> &str {
+        &self.chrom
+    }
     fn set_chrom(&mut self, chrom: &str) -> &mut Self {
         self.chrom = chrom.to_string();
         self
     }
-    fn start(&self) -> u64 { self.start }
+    fn start(&self) -> u64 {
+        self.start
+    }
     fn set_start(&mut self, start: u64) -> &mut Self {
         self.start = start;
         self
     }
-    fn end(&self) -> u64 { self.end }
+    fn end(&self) -> u64 {
+        self.end
+    }
     fn set_end(&mut self, end: u64) -> &mut Self {
         self.end = end;
         self
@@ -101,10 +119,17 @@ impl std::str::FromStr for Fragment {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut fields = s.split('\t');
-        let chrom = fields.next().ok_or(ParseError::MissingReferenceSequenceName)?.to_string();
-        let start = fields.next().ok_or(ParseError::MissingStartPosition)
+        let chrom = fields
+            .next()
+            .ok_or(ParseError::MissingReferenceSequenceName)?
+            .to_string();
+        let start = fields
+            .next()
+            .ok_or(ParseError::MissingStartPosition)
             .and_then(|s| lexical::parse(s).map_err(ParseError::InvalidStartPosition))?;
-        let end = fields.next().ok_or(ParseError::MissingEndPosition)
+        let end = fields
+            .next()
+            .ok_or(ParseError::MissingEndPosition)
             .and_then(|s| lexical::parse(s).map_err(ParseError::InvalidEndPosition))?;
         let barcode = fields
             .next()
@@ -113,22 +138,33 @@ impl std::str::FromStr for Fragment {
                 "." => None,
                 _ => Some(s.into()),
             })?;
-        let count = fields.next().map_or(Ok(1), |s| if s == "." {
-            Ok(1)
-        } else {
-            lexical::parse(s).map_err(ParseError::InvalidStartPosition)
+        let count = fields.next().map_or(Ok(1), |s| {
+            if s == "." {
+                Ok(1)
+            } else {
+                lexical::parse(s).map_err(ParseError::InvalidStartPosition)
+            }
         })?;
-        let strand = fields.next().map_or(Ok(None), |s| if s == "." {
-            Ok(None)
-        } else {
-            s.parse().map(Some).map_err(ParseError::InvalidStrand)
+        let strand = fields.next().map_or(Ok(None), |s| {
+            if s == "." {
+                Ok(None)
+            } else {
+                s.parse().map(Some).map_err(ParseError::InvalidStrand)
+            }
         })?;
-        Ok(Fragment { chrom, start, end, barcode, count, strand })
+        Ok(Fragment {
+            chrom,
+            start,
+            end,
+            barcode,
+            count,
+            strand,
+        })
     }
 }
 
-/// Chromatin interactions from single-cell Hi-C experiment. 
-#[derive(Serialize, Deserialize, Debug)] 
+/// Chromatin interactions from single-cell Hi-C experiment.
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Contact {
     pub chrom1: String,
     pub start1: u64,
@@ -143,26 +179,46 @@ impl std::str::FromStr for Contact {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut fields = s.split('\t');
-        let barcode = fields.next().ok_or(ParseError::MissingName)
+        let barcode = fields
+            .next()
+            .ok_or(ParseError::MissingName)
             .map(|s| s.into())?;
-        let chrom1 = fields.next().ok_or(ParseError::MissingReferenceSequenceName)?.to_string();
-        let start1 = fields.next().ok_or(ParseError::MissingStartPosition)
+        let chrom1 = fields
+            .next()
+            .ok_or(ParseError::MissingReferenceSequenceName)?
+            .to_string();
+        let start1 = fields
+            .next()
+            .ok_or(ParseError::MissingStartPosition)
             .and_then(|s| lexical::parse(s).map_err(ParseError::InvalidStartPosition))?;
-        let chrom2 = fields.next().ok_or(ParseError::MissingReferenceSequenceName)?.to_string();
-        let start2 = fields.next().ok_or(ParseError::MissingStartPosition)
+        let chrom2 = fields
+            .next()
+            .ok_or(ParseError::MissingReferenceSequenceName)?
+            .to_string();
+        let start2 = fields
+            .next()
+            .ok_or(ParseError::MissingStartPosition)
             .and_then(|s| lexical::parse(s).map_err(ParseError::InvalidStartPosition))?;
-        let count = fields.next().map_or(Ok(1), |s| if s == "." {
-            Ok(1)
-        } else {
-            lexical::parse(s).map_err(ParseError::InvalidStartPosition)
+        let count = fields.next().map_or(Ok(1), |s| {
+            if s == "." {
+                Ok(1)
+            } else {
+                lexical::parse(s).map_err(ParseError::InvalidStartPosition)
+            }
         })?;
-        Ok(Contact { barcode, chrom1, start1, chrom2, start2, count })
+        Ok(Contact {
+            barcode,
+            chrom1,
+            start1,
+            chrom2,
+            start2,
+            count,
+        })
     }
 }
 
-
 #[derive(Clone, Debug, PartialEq)]
-pub struct QualityControl {
+pub struct FragmentQC {
     pub num_unique_fragment: u64,
     pub frac_mitochondrial: f64,
     pub frac_duplicated: f64,
@@ -170,8 +226,8 @@ pub struct QualityControl {
 
 pub(crate) struct FragmentSummary<'a> {
     pub(crate) num_unique_fragment: u64,
-    num_total_fragment: u64, 
-    num_mitochondrial : u64,
+    num_total_fragment: u64,
+    num_mitochondrial: u64,
     mitochondrial_dna: &'a HashSet<String>,
 }
 
@@ -194,13 +250,13 @@ impl<'a> FragmentSummary<'a> {
         }
     }
 
-    pub(crate) fn get_qc(self) -> QualityControl {
-        let frac_duplicated = 1.0 -
-            (self.num_unique_fragment + self.num_mitochondrial) as f64 /
-            self.num_total_fragment as f64;
-        let frac_mitochondrial = self.num_mitochondrial as f64 /
-            (self.num_unique_fragment + self.num_mitochondrial) as f64;
-        QualityControl {
+    pub(crate) fn get_qc(self) -> FragmentQC {
+        let frac_duplicated = 1.0
+            - (self.num_unique_fragment + self.num_mitochondrial) as f64
+                / self.num_total_fragment as f64;
+        let frac_mitochondrial = self.num_mitochondrial as f64
+            / (self.num_unique_fragment + self.num_mitochondrial) as f64;
+        FragmentQC {
             num_unique_fragment: self.num_unique_fragment,
             frac_mitochondrial,
             frac_duplicated,
@@ -210,8 +266,8 @@ impl<'a> FragmentSummary<'a> {
 
 fn moving_average(half_window: usize, arr: &[u64]) -> impl Iterator<Item = f64> + '_ {
     let n = arr.len();
-    (0 .. n).map(move |i| {
-        let r = i.saturating_sub(half_window) .. std::cmp::min(i + half_window + 1, n);
+    (0..n).map(move |i| {
+        let r = i.saturating_sub(half_window)..std::cmp::min(i + half_window + 1, n);
         let l = r.len() as f64;
         arr[r].iter().sum::<u64>() as f64 / l
     })
@@ -236,12 +292,11 @@ pub fn read_tss<R: Read>(file: R) -> impl Iterator<Item = (String, u64, bool)> {
         if elements[type_idx] == "transcript" {
             let chr = elements[chr_idx].to_string();
             let is_fwd = elements[strand_idx] != "-";
-            let tss: u64 = 
-                if is_fwd {
-                    elements[start_idx].parse::<u64>().unwrap() - 1
-                } else {
-                    elements[end_idx].parse::<u64>().unwrap() - 1
-                };
+            let tss: u64 = if is_fwd {
+                elements[start_idx].parse::<u64>().unwrap() - 1
+            } else {
+                elements[end_idx].parse::<u64>().unwrap() - 1
+            };
             Some((chr, tss, is_fwd))
         } else {
             None
@@ -260,11 +315,18 @@ impl TssRegions {
     /// The promoter region is defined as |--- window_size --- TSS --- window_size ---|,
     /// a total of 2 * window_size + 1 bp.
     pub fn new<I: IntoIterator<Item = (String, u64, bool)>>(iter: I, window_size: u64) -> Self {
-        let promoters = iter.into_iter().map( |(chr, tss, is_fwd)| {
-            let b = GenomicRange::new(chr, tss.saturating_sub(window_size), tss + window_size + 1);
-            (b, is_fwd)
-        }).collect();
-        Self { promoters, window_size }
+        let promoters = iter
+            .into_iter()
+            .map(|(chr, tss, is_fwd)| {
+                let b =
+                    GenomicRange::new(chr, tss.saturating_sub(window_size), tss + window_size + 1);
+                (b, is_fwd)
+            })
+            .collect();
+        Self {
+            promoters,
+            window_size,
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -272,12 +334,19 @@ impl TssRegions {
     }
 }
 
-pub fn make_promoter_map<I: Iterator<Item = (String, u64, bool)>>(iter: I, half_window_size: u64) -> GIntervalMap<bool> {
-    iter
-        .map( |(chr, tss, is_fwd)| {
-            let b = GenomicRange::new(chr, tss.saturating_sub(half_window_size), tss + half_window_size + 1);
-            (b, is_fwd)
-        }).collect()
+pub fn make_promoter_map<I: Iterator<Item = (String, u64, bool)>>(
+    iter: I,
+    half_window_size: u64,
+) -> GIntervalMap<bool> {
+    iter.map(|(chr, tss, is_fwd)| {
+        let b = GenomicRange::new(
+            chr,
+            tss.saturating_sub(half_window_size),
+            tss + half_window_size + 1,
+        );
+        (b, is_fwd)
+    })
+    .collect()
 }
 
 /// barcode counting.
@@ -302,7 +371,12 @@ pub struct TSSe<'a> {
 
 impl<'a> TSSe<'a> {
     pub fn new(promoters: &'a TssRegions) -> Self {
-        Self { counts: vec![0; promoters.len()], n_overlapping: 0, n_total: 0, promoters }
+        Self {
+            counts: vec![0; promoters.len()],
+            n_overlapping: 0,
+            n_total: 0,
+            promoters,
+        }
     }
 
     pub fn get_counts(&self) -> &[u64] {
@@ -313,15 +387,18 @@ impl<'a> TSSe<'a> {
         frag.to_insertions().into_iter().for_each(|ins| {
             self.n_total += 1;
             let mut overlapped = false;
-            self.promoters.promoters.find(&ins).for_each(|(promoter, is_fwd)| {
-                overlapped = true;
-                let pos = if *is_fwd {
+            self.promoters
+                .promoters
+                .find(&ins)
+                .for_each(|(promoter, is_fwd)| {
+                    overlapped = true;
+                    let pos = if *is_fwd {
                         ins.start() - promoter.start()
                     } else {
                         promoter.end() - 1 - ins.start()
                     };
-                self.counts[pos as usize] += 1;
-            });
+                    self.counts[pos as usize] += 1;
+                });
             if overlapped {
                 self.n_overlapping += 1;
             }
@@ -331,7 +408,10 @@ impl<'a> TSSe<'a> {
     pub fn add_from(&mut self, tsse: &TSSe) {
         self.n_overlapping += tsse.n_overlapping;
         self.n_total += tsse.n_total;
-        self.counts.iter_mut().zip(tsse.counts.iter()).for_each(|(a, b)| *a += b);
+        self.counts
+            .iter_mut()
+            .zip(tsse.counts.iter())
+            .for_each(|(a, b)| *a += b);
     }
 
     pub fn result(&self) -> (f64, f64) {
@@ -339,8 +419,13 @@ impl<'a> TSSe<'a> {
         let left_end_sum = counts.iter().take(100).sum::<u64>();
         let right_end_sum = counts.iter().rev().take(100).sum::<u64>();
         let background: f64 = (left_end_sum + right_end_sum) as f64 / 200.0 + 0.1;
-        let tss_count = moving_average(5, &counts).nth(self.promoters.window_size as usize).unwrap();
-        (tss_count / background, self.n_overlapping as f64 / self.n_total as f64)
+        let tss_count = moving_average(5, &counts)
+            .nth(self.promoters.window_size as usize)
+            .unwrap();
+        (
+            tss_count / background,
+            self.n_overlapping as f64 / self.n_total as f64,
+        )
     }
 }
 
@@ -349,10 +434,10 @@ impl<'a> TSSe<'a> {
 /// and the index represents the fragment length. The first posision of the vector is
 /// reserved for fragments with length larger than the maximum length.
 pub fn fragment_size_distribution<I>(data: I, max_size: usize) -> Vec<usize>
-  where
+where
     I: Iterator<Item = CsrNonCanonical<u32>>,
 {
-    let mut size_dist = vec![0; max_size+1];
+    let mut size_dist = vec![0; max_size + 1];
     data.for_each(|csr| {
         let values = csr.values();
         values.iter().for_each(|&v| {
@@ -369,42 +454,110 @@ pub fn fragment_size_distribution<I>(data: I, max_size: usize) -> Vec<usize>
 
 /// Count the fraction of the reads or read pairs in the given regions.
 pub fn fraction_of_reads_in_region<'a, I, D>(
-    iter: I, regions: &'a Vec<GIntervalMap<D>>, normalized: bool, count_as_insertion: bool,
+    iter: I,
+    regions: &'a Vec<GIntervalMap<D>>,
+    normalized: bool,
+    count_as_insertion: bool,
 ) -> impl Iterator<Item = (Vec<Vec<f64>>, usize, usize)> + 'a
 where
     I: Iterator<Item = (Vec<Vec<Fragment>>, usize, usize)> + 'a,
 {
     let k = regions.len();
     iter.map(move |(data, start, end)| {
-        let frac = data.into_iter().map(|fragments| {
-            let mut sum = 0.0;
-            let mut counts = vec![0.0; k];
+        let frac = data
+            .into_iter()
+            .map(|fragments| {
+                let mut sum = 0.0;
+                let mut counts = vec![0.0; k];
 
-            if count_as_insertion {
-                fragments.into_iter().flat_map(|x| x.to_insertions()).for_each(|ins| {
-                    sum += 1.0;
-                    regions.iter().enumerate().for_each(|(i, r)|
-                        if r.is_overlapped(&ins) {
-                            counts[i] += 1.0;
-                        }
-                    )
-                });
-            } else {
-                fragments.into_iter().for_each(|read| {
-                    sum += 1.0;
-                    regions.iter().enumerate().for_each(|(i, r)|
-                        if r.is_overlapped(&read) {
-                            counts[i] += 1.0;
-                        }
-                    )
-                });
-            }
+                if count_as_insertion {
+                    fragments
+                        .into_iter()
+                        .flat_map(|x| x.to_insertions())
+                        .for_each(|ins| {
+                            sum += 1.0;
+                            regions.iter().enumerate().for_each(|(i, r)| {
+                                if r.is_overlapped(&ins) {
+                                    counts[i] += 1.0;
+                                }
+                            })
+                        });
+                } else {
+                    fragments.into_iter().for_each(|read| {
+                        sum += 1.0;
+                        regions.iter().enumerate().for_each(|(i, r)| {
+                            if r.is_overlapped(&read) {
+                                counts[i] += 1.0;
+                            }
+                        })
+                    });
+                }
 
-            if normalized {
-                counts.iter_mut().for_each(|x| *x /= sum);
-            }
-            counts
-        }).collect::<Vec<_>>();
+                if normalized {
+                    counts.iter_mut().for_each(|x| *x /= sum);
+                }
+                counts
+            })
+            .collect::<Vec<_>>();
         (frac, start, end)
     })
 }
+
+pub trait QualityControl: SnapData {
+    /// Compute TSS enrichment.
+    fn tss_enrichment<'a>(&self, promoter: &'a TssRegions) -> Result<(Vec<f64>, TSSe<'a>)> {
+        let library_tsse = Arc::new(Mutex::new(TSSe::new(promoter)));
+        let scores = self
+            .get_fragment_iter(2000)?
+            .into_fragments()
+            .flat_map(|(list_of_fragments, _, _)| {
+                list_of_fragments
+                    .into_par_iter()
+                    .map(|fragments| {
+                        let mut tsse = TSSe::new(promoter);
+                        fragments.into_iter().for_each(|x| tsse.add(&x));
+                        library_tsse.lock().unwrap().add_from(&tsse);
+                        tsse.result().0
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        Ok((
+            scores,
+            Arc::into_inner(library_tsse).unwrap().into_inner().unwrap(),
+        ))
+    }
+
+    /// Compute the fragment size distribution.
+    fn fragment_size_distribution(&self, max_size: usize) -> Result<Vec<usize>> {
+        if let FragmentDataIter::FragmentPaired(fragments) =
+            self.get_fragment_iter(500)?.into_inner()
+        {
+            Ok(fragment_size_distribution(fragments.map(|x| x.0), max_size))
+        } else {
+            bail!("key 'fragment_paired' is not present in the '.obsm'")
+        }
+    }
+
+    /// Compute the fraction of reads in each region.
+    fn frip<D>(
+        &self,
+        regions: &Vec<GIntervalMap<D>>,
+        normalized: bool,
+        count_as_insertion: bool,
+    ) -> Result<Array2<f64>> {
+        let vec = fraction_of_reads_in_region(
+            self.get_fragment_iter(2000)?.into_fragments(),
+            regions,
+            normalized,
+            count_as_insertion,
+        )
+        .map(|x| x.0)
+        .flatten()
+        .flatten()
+        .collect::<Vec<_>>();
+        Array2::from_shape_vec((self.n_obs(), regions.len()), vec).map_err(Into::into)
+    }
+}
+
+impl<T: SnapData> QualityControl for T {}

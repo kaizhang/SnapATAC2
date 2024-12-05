@@ -142,6 +142,14 @@ impl FragmentData
         }
     }
 
+    pub fn into_inner(self) -> FragmentDataIter {
+        self.data_iter
+    }
+
+    pub fn is_paired(&self) -> bool {
+        matches!(self.data_iter, FragmentDataIter::FragmentPaired(_))
+    }
+
     pub fn get_gindex(&self) -> GenomeBaseIndex {
         if !self.exclude_chroms.is_empty() {
             let chr_sizes: ChromSizes = self

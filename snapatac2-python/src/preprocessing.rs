@@ -14,7 +14,7 @@ use pyanndata::PyAnnData;
 use anyhow::Result;
 
 use snapatac2_core::{
-    SnapData,
+    QualityControl,
     genome::TranscriptParserOptions,
     feature_count::{create_gene_matrix, create_tile_matrix, create_peak_matrix, CountingStrategy},
     preprocessing::{Fragment, Contact, ChromValue},

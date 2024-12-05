@@ -1,6 +1,6 @@
 use crate::feature_count::ContactData;
 use crate::genome::{ChromSizes, GenomeBaseIndex};
-use crate::preprocessing::qc::{Contact, Fragment, FragmentSummary, QualityControl};
+use crate::preprocessing::qc::{Contact, Fragment, FragmentSummary, FragmentQC};
 
 use anndata::{
     data::array::utils::{from_csr_data, to_csr_data},
@@ -119,7 +119,7 @@ fn make_arraydata<V>(
     min_num_fragment: u64,
     scanned_barcodes: &mut HashSet<String>,
     saved_barcodes: &mut Vec<String>,
-    qc: &mut Vec<QualityControl>,
+    qc: &mut Vec<FragmentQC>,
 ) -> ArrayData
 where
     V: TryFrom<i64> + Ord + std::marker::Send,
@@ -160,7 +160,7 @@ fn count_fragments<V>(
     mitochrondrial_dna: &HashSet<String>,
     genome_index: &GenomeBaseIndex,
     fragments: Vec<Fragment>,
-) -> (QualityControl, Vec<(usize, V)>)
+) -> (FragmentQC, Vec<(usize, V)>)
 where
     V: TryFrom<i64> + Ord,
     <V as TryFrom<i64>>::Error: std::fmt::Debug,
@@ -207,7 +207,7 @@ where
     (qc.get_qc(), values)
 }
 
-fn qc_to_df(qc: Vec<QualityControl>) -> DataFrame {
+fn qc_to_df(qc: Vec<FragmentQC>) -> DataFrame {
     DataFrame::new(vec![
         Series::new(
             "n_fragment",

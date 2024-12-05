@@ -141,8 +141,6 @@ impl<'py> AnnDataOp for PyAnnData<'py> {
 }
 
 impl<'py> SnapData for PyAnnData<'py> {
-    type CountIter = memory::PyArrayIterator<CsrMatrix<u8>>;
-
     fn get_fragment_iter(&self, chunk_size: usize) -> Result<FragmentData> {
         let obsm = self.obsm();
         let matrices: FragmentDataIter =
@@ -164,16 +162,7 @@ impl<'py> SnapData for PyAnnData<'py> {
             bail!("key '_values' is not present in the '.obsm'")
         }
     }
-
-    fn fragment_size_distribution(&self, max_size: usize) -> Result<Vec<usize>> {
-        if let Some(fragment) = self.obsm().get_item_iter("fragment_paired", 500) {
-            Ok(snapatac2_core::preprocessing::fragment_size_distribution(fragment.map(|x| x.0), max_size))
-        } else {
-            bail!("key 'fragment_paired' is not present in the '.obsm'")
-        }
-    }
 }
-
 
 #[derive(FromPyObject)]
 pub enum AnnDataLike<'py> {

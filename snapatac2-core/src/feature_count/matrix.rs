@@ -1,6 +1,6 @@
 use super::counter::{CountingStrategy, FeatureCounter, GeneCount, RegionCounter, TranscriptCount};
 use crate::genome::{Promoters, Transcript};
-use crate::SnapData;
+use crate::feature_count::SnapData;
 
 use anndata::{data::DataFrameIndex, AnnDataOp, ArrayData};
 use anyhow::{bail, Result};

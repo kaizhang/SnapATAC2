@@ -1,5 +1,5 @@
 use crate::genome::ChromSizes;
-use crate::SnapData;
+use crate::feature_count::SnapData;
 use crate::{
     preprocessing::Fragment,
     utils::{self, Compression},
