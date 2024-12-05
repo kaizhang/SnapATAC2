@@ -12,3 +12,4 @@ Quality Control
     metrics.frag_size_distr
     metrics.tsse
     metrics.frip
+    metrics.summary_by_chrom

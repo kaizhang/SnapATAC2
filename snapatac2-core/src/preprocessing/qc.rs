@@ -1,4 +1,3 @@
-use anndata::data::CsrNonCanonical;
 use anyhow::{bail, Result};
 use bed_utils::bed::{map::GIntervalMap, BEDLike, GenomicRange, ParseError, Strand};
 use ndarray::Array2;
@@ -15,7 +14,84 @@ use crate::feature_count::{FragmentDataIter, SnapData};
 
 pub type CellBarcode = String;
 
+pub enum SummaryType {
+    Sum,
+    Count,
+    Mean,
+}
+
 pub trait QualityControl: SnapData {
+    fn summary_by_chrom(&self, mode: SummaryType) -> Result<HashMap<String, Vec<f32>>> {
+        fn count(data: impl Iterator<Item = (String, f32)>) -> HashMap<String, f32> {
+            let mut counts = HashMap::new();
+            data.for_each(|(k, _)| *counts.entry(k).or_insert(0.0) += 1.0);
+            counts
+        }
+
+        fn sum(data: impl Iterator<Item = (String, f32)>) -> HashMap<String, f32> {
+            let mut counts = HashMap::new();
+            data.for_each(|(k, v)| *counts.entry(k).or_insert(0.0) += v);
+            counts
+        }
+        
+        fn mean(data: impl Iterator<Item = (String, f32)>) -> HashMap<String, f32> {
+            let mut counts = HashMap::new();
+            let mut n = HashMap::new();
+            data.for_each(|(k, v)| {
+                *counts.entry(k.clone()).or_insert(0.0) += v;
+                *n.entry(k).or_insert(0.0) += 1.0;
+            });
+            counts.iter_mut().for_each(|(k, v)| {
+                let x = n.get(k).unwrap();
+                *v /= x;
+            });
+            counts
+        }
+
+        let n = self.n_obs();
+        let mut result: HashMap<String, Vec<f32>> = self
+            .read_chrom_sizes()?
+            .into_iter()
+            .map(|(k, _)| (k, vec![0.0; n]))
+            .collect();
+        if let Ok(fragments) = self.get_fragment_iter(2000) {
+            fragments.into_fragments().for_each(|(data, s, _)| {
+                data.into_iter().enumerate().for_each(|(i, fragments)| {
+                    let fragments = fragments.into_iter().map(|x| (x.chrom().to_string(), 1.0));
+                    let stat = match mode {
+                        SummaryType::Sum => sum(fragments),
+                        SummaryType::Count => count(fragments),
+                        SummaryType::Mean => mean(fragments),
+                    };
+                    stat.into_iter().for_each(|(k, v)| {
+                        if let Some(x) = result.get_mut(&k) {
+                            x[s + i] = v;
+                        }
+                    });
+                })
+            });
+        } else if let Ok(values) = self.get_base_iter(2000) {
+            values.into_values().for_each(|(data, s, _)| {
+                data.into_iter().enumerate().for_each(|(i, values)| {
+                    let values = values.into_iter().map(|x| (x.chrom.to_string(), x.value));
+                    let stat = match mode {
+                        SummaryType::Sum => sum(values),
+                        SummaryType::Count => count(values),
+                        SummaryType::Mean => mean(values),
+                    };
+                    stat.into_iter().for_each(|(k, v)| {
+                        if let Some(x) = result.get_mut(&k) {
+                            x[s + i] = v;
+                        }
+                    });
+                })
+            });
+        } else {
+            bail!("No data found")
+        }
+        Ok(result)
+    }
+
     /// [ATAC QC] Compute TSS enrichment.
     fn tss_enrichment<'a>(&self, promoter: &'a TssRegions) -> Result<(Vec<f64>, TSSe<'a>)> {
         let library_tsse = Arc::new(Mutex::new(TSSe::new(promoter)));
@@ -41,33 +117,83 @@ pub trait QualityControl: SnapData {
     }
 
     /// [ATAC QC] Compute the fragment size distribution.
+    /// The result is stored in a vector where each element represents the number of fragments
+    /// and the index represents the fragment length. The first posision of the vector is
+    /// reserved for fragments with length larger than the maximum length.
     fn fragment_size_distribution(&self, max_size: usize) -> Result<Vec<usize>> {
         if let FragmentDataIter::FragmentPaired(fragments) =
             self.get_fragment_iter(500)?.into_inner()
         {
-            Ok(fragment_size_distribution(fragments.map(|x| x.0), max_size))
+            let mut size_distr = vec![0; max_size + 1];
+            fragments.for_each(|(csr, _, _)| {
+                let values = csr.values();
+                values.iter().for_each(|&v| {
+                    let v = v as usize;
+                    if v <= max_size {
+                        size_distr[v] += 1;
+                    } else {
+                        size_distr[0] += 1;
+                    }
+                });
+            });
+            Ok(size_distr)
         } else {
             bail!("key 'fragment_paired' is not present in the '.obsm'")
         }
     }
 
     /// [ATAC QC] Compute the fraction of reads in each region.
-    fn frip<D>(
+    fn frac_read_in_region<D>(
         &self,
         regions: &Vec<GIntervalMap<D>>,
         normalized: bool,
         count_as_insertion: bool,
     ) -> Result<Array2<f64>> {
-        let vec = fraction_of_reads_in_region(
-            self.get_fragment_iter(2000)?.into_fragments(),
-            regions,
-            normalized,
-            count_as_insertion,
-        )
-        .map(|x| x.0)
-        .flatten()
-        .flatten()
-        .collect::<Vec<_>>();
+        let k = regions.len();
+        let fragments = self.get_fragment_iter(2000)?.into_fragments();
+        let vec = fragments
+            .map(move |(data, start, end)| {
+                let frac = data
+                    .into_iter()
+                    .map(|fragments| {
+                        let mut sum = 0.0;
+                        let mut counts = vec![0.0; k];
+
+                        if count_as_insertion {
+                            fragments
+                                .into_iter()
+                                .flat_map(|x| x.to_insertions())
+                                .for_each(|ins| {
+                                    sum += 1.0;
+                                    regions.iter().enumerate().for_each(|(i, r)| {
+                                        if r.is_overlapped(&ins) {
+                                            counts[i] += 1.0;
+                                        }
+                                    })
+                                });
+                        } else {
+                            fragments.into_iter().for_each(|read| {
+                                sum += 1.0;
+                                regions.iter().enumerate().for_each(|(i, r)| {
+                                    if r.is_overlapped(&read) {
+                                        counts[i] += 1.0;
+                                    }
+                                })
+                            });
+                        }
+
+                        if normalized {
+                            counts.iter_mut().for_each(|x| *x /= sum);
+                        }
+                        counts
+                    })
+                    .collect::<Vec<_>>();
+                (frac, start, end)
+            })
+            .map(|x| x.0)
+            .flatten()
+            .flatten()
+            .collect::<Vec<_>>();
         Array2::from_shape_vec((self.n_obs(), regions.len()), vec).map_err(Into::into)
     }
 }
@@ -277,22 +403,37 @@ impl std::str::FromStr for Contact {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub(crate) struct BaseValueQC {
+    pub num_values: u64,
+}
+
+impl BaseValueQC {
+    pub(crate) fn new() -> Self {
+        Self { num_values: 0 }
+    }
+
+    pub(crate) fn add(&mut self) {
+        self.num_values += 1;
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct FragmentQC {
     pub num_unique_fragment: u64,
     pub frac_mitochondrial: f64,
     pub frac_duplicated: f64,
 }
 
-pub(crate) struct FragmentSummary<'a> {
+pub(crate) struct FragmentQCBuilder<'a> {
     pub(crate) num_unique_fragment: u64,
     num_total_fragment: u64,
     num_mitochondrial: u64,
     mitochondrial_dna: &'a HashSet<String>,
 }
 
-impl<'a> FragmentSummary<'a> {
+impl<'a> FragmentQCBuilder<'a> {
     pub(crate) fn new(mitochondrial_dna: &'a HashSet<String>) -> Self {
-        FragmentSummary {
+        Self {
             num_unique_fragment: 0,
             num_total_fragment: 0,
             num_mitochondrial: 0,
@@ -309,7 +450,7 @@ impl<'a> FragmentSummary<'a> {
         }
     }
 
-    pub(crate) fn get_qc(self) -> FragmentQC {
+    pub(crate) fn finish(self) -> FragmentQC {
         let frac_duplicated = 1.0
             - (self.num_unique_fragment + self.num_mitochondrial) as f64
                 / self.num_total_fragment as f64;
@@ -486,78 +627,4 @@ impl<'a> TSSe<'a> {
             self.n_overlapping as f64 / self.n_total as f64,
         )
     }
-}
-
-/// Compute the fragment size distribution.
-/// The result is stored in a vector where each element represents the number of fragments
-/// and the index represents the fragment length. The first posision of the vector is
-/// reserved for fragments with length larger than the maximum length.
-pub fn fragment_size_distribution<I>(data: I, max_size: usize) -> Vec<usize>
-where
-    I: Iterator<Item = CsrNonCanonical<u32>>,
-{
-    let mut size_dist = vec![0; max_size + 1];
-    data.for_each(|csr| {
-        let values = csr.values();
-        values.iter().for_each(|&v| {
-            let v = v as usize;
-            if v <= max_size {
-                size_dist[v] += 1;
-            } else {
-                size_dist[0] += 1;
-            }
-        });
-    });
-    size_dist
-}
-
-/// Count the fraction of the reads or read pairs in the given regions.
-pub fn fraction_of_reads_in_region<'a, I, D>(
-    iter: I,
-    regions: &'a Vec<GIntervalMap<D>>,
-    normalized: bool,
-    count_as_insertion: bool,
-) -> impl Iterator<Item = (Vec<Vec<f64>>, usize, usize)> + 'a
-where
-    I: Iterator<Item = (Vec<Vec<Fragment>>, usize, usize)> + 'a,
-{
-    let k = regions.len();
-    iter.map(move |(data, start, end)| {
-        let frac = data
-            .into_iter()
-            .map(|fragments| {
-                let mut sum = 0.0;
-                let mut counts = vec![0.0; k];
-
-                if count_as_insertion {
-                    fragments
-                        .into_iter()
-                        .flat_map(|x| x.to_insertions())
-                        .for_each(|ins| {
-                            sum += 1.0;
-                            regions.iter().enumerate().for_each(|(i, r)| {
-                                if r.is_overlapped(&ins) {
-                                    counts[i] += 1.0;
-                                }
-                            })
-                        });
-                } else {
-                    fragments.into_iter().for_each(|read| {
-                        sum += 1.0;
-                        regions.iter().enumerate().for_each(|(i, r)| {
-                            if r.is_overlapped(&read) {
-                                counts[i] += 1.0;
-                            }
-                        })
-                    });
-                }
-
-                if normalized {
-                    counts.iter_mut().for_each(|x| *x /= sum);
-                }
-                counts
-            })
-            .collect::<Vec<_>>();
-        (frac, start, end)
-    })
 }

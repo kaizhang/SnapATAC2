@@ -9,6 +9,7 @@
   - BedGraph generation in `ex.export_coverage` is 10x faster.
   - Implement broad peak calling in `tl.macs3`.
   - Add `pp.import_values` for importing single base pair values.
+  - Add `metrics.summary_by_chrom`.
 
 ### Bugs fixed:
 

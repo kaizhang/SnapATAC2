@@ -1,7 +1,8 @@
 use crate::feature_count::{ContactData, BASE_VALUE, FRAGMENT_PAIRED, FRAGMENT_SINGLE};
 use crate::genome::{ChromSizes, GenomeBaseIndex};
-use crate::preprocessing::qc::{Contact, Fragment, FragmentSummary, FragmentQC};
+use crate::preprocessing::qc::{Contact, Fragment, FragmentQC, FragmentQCBuilder};
 
+use super::qc::BaseValueQC;
 use anndata::{
     data::array::utils::{from_csr_data, to_csr_data},
     AnnDataOp, ArrayData, AxisArraysOp, ElemCollectionOp,
@@ -165,7 +166,7 @@ where
     V: TryFrom<i64> + Ord,
     <V as TryFrom<i64>>::Error: std::fmt::Debug,
 {
-    let mut qc = FragmentSummary::new(mitochrondrial_dna);
+    let mut qc = FragmentQCBuilder::new(mitochrondrial_dna);
     let mut values = Vec::new();
     fragments.into_iter().for_each(|f| {
         let chrom = &f.chrom;
@@ -204,7 +205,7 @@ where
         }
     });
     values.sort();
-    (qc.get_qc(), values)
+    (qc.finish(), values)
 }
 
 fn qc_to_df(qc: Vec<FragmentQC>) -> DataFrame {
@@ -341,6 +342,7 @@ where
     let genome_size = genome_index.len();
     let mut scanned_barcodes = IndexSet::new();
 
+    let mut qc_metrics = Vec::new();
     let chunked_values = values.chunk_by(|x| x.barcode.clone());
     let chunked_values = chunked_values
         .into_iter()
@@ -357,14 +359,16 @@ where
             })
             .collect();
 
-        let counts = chunk
+        let (qc, counts): (Vec<_>, Vec<_>) = chunk
             .into_par_iter()
-            .map(|data| {
-                let mut count = data
+            .map(|cell_data| {
+                let mut qc = BaseValueQC::new();
+                let mut count = cell_data
                     .into_iter()
                     .flat_map(|value| {
                         let chrom = &value.chrom;
                         if genome_index.contain_chrom(chrom) {
+                            qc.add();
                             let pos = genome_index.get_position_rev(chrom, value.pos);
                             Some((pos, value.value))
                         } else {
@@ -373,9 +377,10 @@ where
                     })
                     .collect::<Vec<_>>();
                 count.sort_by(|x, y| x.0.cmp(&y.0));
-                count
+                (qc, count)
             })
-            .collect::<Vec<_>>();
+            .unzip();
+        qc_metrics.extend(qc);
         let (r, c, offset, ind, csr_data) = to_csr_data(counts, genome_size);
         CsrMatrix::try_from_csr_data(r, c, offset, ind, csr_data).unwrap()
     });
@@ -385,5 +390,9 @@ where
         .uns()
         .add("reference_sequences", chrom_sizes.to_dataframe())?;
     anndata.set_obs_names(scanned_barcodes.into_iter().collect())?;
+    anndata.set_obs(DataFrame::new(vec![Series::new(
+        "num_values",
+        qc_metrics.iter().map(|x| x.num_values).collect::<Series>(),
+    )])?)?;
     Ok(())
 }

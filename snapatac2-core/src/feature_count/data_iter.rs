@@ -477,6 +477,13 @@ where
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct BaseValue {
+    pub chrom: String,
+    pub pos: u64,
+    pub value: f32,
+}
+
 pub struct BaseData<I> {
     index: GenomeBaseIndex,
     data_iter: I,
@@ -515,6 +522,40 @@ where
             .map(|x| x.to_string())
             .collect();
         self
+    }
+
+    /// Return an iterator of raw values.
+    pub fn into_values(
+        self,
+    ) -> impl ExactSizeIterator<Item = (Vec<Vec<BaseValue>>, usize, usize)> {
+        self.data_iter.map(move |(mat, a, b)| {
+            let row_offsets = mat.row_offsets();
+            let col_indices = mat.col_indices();
+            let values = mat.values();
+            let values = (0..(row_offsets.len() - 1))
+                .into_par_iter()
+                .map(|i| {
+                    let row_start = row_offsets[i];
+                    let row_end = row_offsets[i + 1];
+                    (row_start..row_end)
+                        .flat_map(|j| {
+                            let (chrom, start) = self.index.get_position(col_indices[j]);
+                            if self.exclude_chroms.contains(chrom) {
+                                None
+                            } else {
+                                let v = values[j];
+                                Some(BaseValue {
+                                    chrom: chrom.to_string(),
+                                    pos: start,
+                                    value: v,
+                                })
+                            }
+                        })
+                        .collect()
+                })
+                .collect();
+            (values, a, b)
+        })
     }
 
     /// Output the raw coverage matrix. Note the values belong to the same interval

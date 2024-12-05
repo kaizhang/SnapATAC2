@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 import numpy as np
 
 import snapatac2
@@ -212,3 +213,44 @@ def frag_size_distr(
             adata.uns[add_key] = result
         else:
             return result
+
+def summary_by_chrom(
+    adata: internal.AnnData | list[internal.AnnData],
+    *,
+    mode: Literal['sum', 'mean', 'count'] = 'count',
+    n_jobs: int = 8,
+) -> dict[str, np.ndarray]:
+    """ Compute the cell level summary statistics by chromosome.
+
+    :func:`~snapatac2.pp.import_data` must be ran first in order to use this function.
+
+    Parameters
+    ----------
+    adata
+        The (annotated) data matrix of shape `n_obs` x `n_vars`.
+        Rows correspond to cells and columns to regions.
+        `adata` could also be a list of AnnData objects.
+        In this case, the function will be applied to each AnnData object in parallel.
+    mode
+        The summary statistics to compute. It can be one of the following:
+        - 'sum': Sum of the values.
+        - 'mean': Mean of the values.
+        - 'count': Count of the values.
+    n_jobs
+        Number of jobs to run in parallel when `adata` is a list.
+        If `n_jobs=-1`, all CPUs will be used.
+
+    Returns
+    -------
+    dict[str, np.ndarray]
+        A dictionary containing the summary statistics for each chromosome.
+        The keys are chromosome names and the values are the summary statistics.
+    """
+    if isinstance(adata, list):
+        return snapatac2._utils.anndata_par(
+            adata,
+            lambda x: summary_by_chrom(x, mode=mode),
+            n_jobs=n_jobs,
+        )
+    else:
+        return internal.summary_by_chrom(adata, mode)

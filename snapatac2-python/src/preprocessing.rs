@@ -420,7 +420,7 @@ pub(crate) fn add_frip(
 
     macro_rules! run {
         ($data:expr) => {
-            $data.frip(&trees, normalized, count_as_insertion)
+            $data.frac_read_in_region(&trees, normalized, count_as_insertion)
         }
     }
 
@@ -441,6 +441,27 @@ pub(crate) fn fragment_size_distribution(
     macro_rules! run {
         ($data:expr) => {
             $data.fragment_size_distribution(max_recorded_size)
+        }
+    }
+
+    crate::with_anndata!(&anndata, run)
+}
+
+#[pyfunction]
+pub(crate) fn summary_by_chrom(
+    anndata: AnnDataLike,
+    mode: &str,
+) -> Result<HashMap<String, Vec<f32>>>
+{
+    let mode = match mode {
+        "sum" => preprocessing::SummaryType::Sum,
+        "mean" => preprocessing::SummaryType::Mean,
+        "count" => preprocessing::SummaryType::Count,
+        _ => panic!("Mode must be one of 'sum', 'mean', or 'count'"),
+    };
+    macro_rules! run {
+        ($data:expr) => {
+            $data.summary_by_chrom(mode)
         }
     }
 
