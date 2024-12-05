@@ -1,4 +1,4 @@
-use crate::feature_count::ContactData;
+use crate::feature_count::{ContactData, BASE_VALUE, FRAGMENT_PAIRED, FRAGMENT_SINGLE};
 use crate::genome::{ChromSizes, GenomeBaseIndex};
 use crate::preprocessing::qc::{Contact, Fragment, FragmentSummary, FragmentQC};
 
@@ -53,9 +53,9 @@ where
         false
     };
     let obsm_key = if is_paired {
-        "fragment_paired"
+        FRAGMENT_PAIRED
     } else {
-        "fragment_single"
+        FRAGMENT_SINGLE
     };
 
     let genome_index = GenomeBaseIndex::new(chrom_sizes);
@@ -336,7 +336,6 @@ where
             )
             .unwrap(),
         );
-    let obsm_key = "_values";
 
     let genome_index = GenomeBaseIndex::new(chrom_sizes);
     let genome_size = genome_index.len();
@@ -381,7 +380,7 @@ where
         CsrMatrix::try_from_csr_data(r, c, offset, ind, csr_data).unwrap()
     });
 
-    anndata.obsm().add_iter(obsm_key, arrays)?;
+    anndata.obsm().add_iter(BASE_VALUE, arrays)?;
     anndata
         .uns()
         .add("reference_sequences", chrom_sizes.to_dataframe())?;

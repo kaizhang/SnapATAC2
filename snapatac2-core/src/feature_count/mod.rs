@@ -16,6 +16,10 @@ use polars::frame::DataFrame;
 
 use crate::genome::ChromSizes;
 
+pub const FRAGMENT_SINGLE: &str = "fragment_single";
+pub const FRAGMENT_PAIRED: &str = "fragment_paired";
+pub const BASE_VALUE: &str = "_values";
+
 /// The `SnapData` trait represents an interface for reading and
 /// manipulating single-cell assay data. It extends the `AnnDataOp` trait,
 /// adding methods for reading chromosome sizes and genome-wide base-resolution coverage.
@@ -70,20 +74,20 @@ impl<B: Backend> SnapData for AnnData<B> {
     fn get_fragment_iter(&self, chunk_size: usize) -> Result<FragmentData> {
         let obsm = self.obsm();
         let matrices: FragmentDataIter = if let Some(insertion) =
-            obsm.get_item_iter("fragment_single", chunk_size)
+            obsm.get_item_iter(FRAGMENT_SINGLE, chunk_size)
         {
             FragmentDataIter::FragmentSingle(Box::new(insertion))
         } else if let Some(fragment) = obsm.get_item_iter("fragment_paired", chunk_size) {
             FragmentDataIter::FragmentPaired(Box::new(fragment))
         } else {
-            bail!("one of the following keys must be present in the '.obsm': 'fragment_single', 'fragment_paired'")
+            bail!("one of the following keys must be present in the '.obsm': '{}', '{}'", FRAGMENT_SINGLE, FRAGMENT_PAIRED)
         };
         Ok(FragmentData::new(self.read_chrom_sizes()?, matrices))
     }
 
     fn get_base_iter(&self, chunk_size: usize) -> Result<BaseData<impl ExactSizeIterator<Item = (CsrMatrix<f32>, usize, usize)>>> {
         let obsm = self.obsm();
-        if let Some(data) = obsm.get_item_iter::<CsrMatrix<f32>>("_values", chunk_size) {
+        if let Some(data) = obsm.get_item_iter::<CsrMatrix<f32>>(BASE_VALUE, chunk_size) {
             Ok(BaseData::new(self.read_chrom_sizes()?, data))
         } else {
             bail!("key '_values' is not present in the '.obsm'")
@@ -96,13 +100,13 @@ impl<B: Backend> SnapData for AnnDataSet<B> {
         let adatas = self.adatas().inner();
         let obsm = adatas.get_obsm();
         let matrices: FragmentDataIter = if let Some(insertion) =
-            obsm.get_item_iter("fragment_single", chunk_size)
+            obsm.get_item_iter(FRAGMENT_SINGLE, chunk_size)
         {
             FragmentDataIter::FragmentSingle(Box::new(insertion))
         } else if let Some(fragment) = obsm.get_item_iter("fragment_paired", chunk_size) {
             FragmentDataIter::FragmentPaired(Box::new(fragment))
         } else {
-            bail!("one of the following keys must be present in the '.obsm': 'fragment_single', 'fragment_paired'")
+            bail!("one of the following keys must be present in the '.obsm': '{}', '{}'", FRAGMENT_SINGLE, FRAGMENT_PAIRED)
         };
         Ok(FragmentData::new(self.read_chrom_sizes()?, matrices))
     }
@@ -110,7 +114,7 @@ impl<B: Backend> SnapData for AnnDataSet<B> {
     fn get_base_iter(&self, chunk_size: usize) -> Result<BaseData<impl ExactSizeIterator<Item = (CsrMatrix<f32>, usize, usize)>>>
     {
         let obsm = self.obsm();
-        if let Some(data) = obsm.get_item_iter::<CsrMatrix<f32>>("_values", chunk_size) {
+        if let Some(data) = obsm.get_item_iter::<CsrMatrix<f32>>(BASE_VALUE, chunk_size) {
             Ok(BaseData::new(self.read_chrom_sizes()?, data))
         } else {
             bail!("key '_values' is not present in the '.obsm'")

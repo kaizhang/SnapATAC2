@@ -15,6 +15,65 @@ use crate::feature_count::{FragmentDataIter, SnapData};
 
 pub type CellBarcode = String;
 
+pub trait QualityControl: SnapData {
+    /// [ATAC QC] Compute TSS enrichment.
+    fn tss_enrichment<'a>(&self, promoter: &'a TssRegions) -> Result<(Vec<f64>, TSSe<'a>)> {
+        let library_tsse = Arc::new(Mutex::new(TSSe::new(promoter)));
+        let scores = self
+            .get_fragment_iter(2000)?
+            .into_fragments()
+            .flat_map(|(list_of_fragments, _, _)| {
+                list_of_fragments
+                    .into_par_iter()
+                    .map(|fragments| {
+                        let mut tsse = TSSe::new(promoter);
+                        fragments.into_iter().for_each(|x| tsse.add(&x));
+                        library_tsse.lock().unwrap().add_from(&tsse);
+                        tsse.result().0
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect();
+        Ok((
+            scores,
+            Arc::into_inner(library_tsse).unwrap().into_inner().unwrap(),
+        ))
+    }
+
+    /// [ATAC QC] Compute the fragment size distribution.
+    fn fragment_size_distribution(&self, max_size: usize) -> Result<Vec<usize>> {
+        if let FragmentDataIter::FragmentPaired(fragments) =
+            self.get_fragment_iter(500)?.into_inner()
+        {
+            Ok(fragment_size_distribution(fragments.map(|x| x.0), max_size))
+        } else {
+            bail!("key 'fragment_paired' is not present in the '.obsm'")
+        }
+    }
+
+    /// [ATAC QC] Compute the fraction of reads in each region.
+    fn frip<D>(
+        &self,
+        regions: &Vec<GIntervalMap<D>>,
+        normalized: bool,
+        count_as_insertion: bool,
+    ) -> Result<Array2<f64>> {
+        let vec = fraction_of_reads_in_region(
+            self.get_fragment_iter(2000)?.into_fragments(),
+            regions,
+            normalized,
+            count_as_insertion,
+        )
+        .map(|x| x.0)
+        .flatten()
+        .flatten()
+        .collect::<Vec<_>>();
+        Array2::from_shape_vec((self.n_obs(), regions.len()), vec).map_err(Into::into)
+    }
+}
+
+impl<T: SnapData> QualityControl for T {}
+
 /// Fragments from single-cell ATAC-seq experiment. Each fragment is represented
 /// by a genomic coordinate, cell barcode and a integer value.
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -502,62 +561,3 @@ where
         (frac, start, end)
     })
 }
-
-pub trait QualityControl: SnapData {
-    /// Compute TSS enrichment.
-    fn tss_enrichment<'a>(&self, promoter: &'a TssRegions) -> Result<(Vec<f64>, TSSe<'a>)> {
-        let library_tsse = Arc::new(Mutex::new(TSSe::new(promoter)));
-        let scores = self
-            .get_fragment_iter(2000)?
-            .into_fragments()
-            .flat_map(|(list_of_fragments, _, _)| {
-                list_of_fragments
-                    .into_par_iter()
-                    .map(|fragments| {
-                        let mut tsse = TSSe::new(promoter);
-                        fragments.into_iter().for_each(|x| tsse.add(&x));
-                        library_tsse.lock().unwrap().add_from(&tsse);
-                        tsse.result().0
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect();
-        Ok((
-            scores,
-            Arc::into_inner(library_tsse).unwrap().into_inner().unwrap(),
-        ))
-    }
-
-    /// Compute the fragment size distribution.
-    fn fragment_size_distribution(&self, max_size: usize) -> Result<Vec<usize>> {
-        if let FragmentDataIter::FragmentPaired(fragments) =
-            self.get_fragment_iter(500)?.into_inner()
-        {
-            Ok(fragment_size_distribution(fragments.map(|x| x.0), max_size))
-        } else {
-            bail!("key 'fragment_paired' is not present in the '.obsm'")
-        }
-    }
-
-    /// Compute the fraction of reads in each region.
-    fn frip<D>(
-        &self,
-        regions: &Vec<GIntervalMap<D>>,
-        normalized: bool,
-        count_as_insertion: bool,
-    ) -> Result<Array2<f64>> {
-        let vec = fraction_of_reads_in_region(
-            self.get_fragment_iter(2000)?.into_fragments(),
-            regions,
-            normalized,
-            count_as_insertion,
-        )
-        .map(|x| x.0)
-        .flatten()
-        .flatten()
-        .collect::<Vec<_>>();
-        Array2::from_shape_vec((self.n_obs(), regions.len()), vec).map_err(Into::into)
-    }
-}
-
-impl<T: SnapData> QualityControl for T {}

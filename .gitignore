@@ -27,3 +27,6 @@ _autosummary
 # h5ad
 *.h5ad
 *.h5ads
+*.bdg
+*.bam
+*.bai
