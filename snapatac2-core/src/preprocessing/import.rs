@@ -377,7 +377,7 @@ where
                 count
             })
             .collect::<Vec<_>>();
-        let (r, c, offset, ind, csr_data) = to_csr_data(counts, genome_size * genome_size);
+        let (r, c, offset, ind, csr_data) = to_csr_data(counts, genome_size);
         CsrMatrix::try_from_csr_data(r, c, offset, ind, csr_data).unwrap()
     });
 
