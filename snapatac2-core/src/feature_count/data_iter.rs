@@ -1,10 +1,17 @@
+use crate::feature_count::{CountingStrategy, FeatureCounter};
 use crate::genome::{ChromSizes, GenomeBaseIndex};
 use crate::preprocessing::Fragment;
-use crate::feature_count::{CountingStrategy, FeatureCounter};
 
-use anndata::{data::{utils::to_csr_data, CsrNonCanonical}, ArrayData};
+use anndata::backend::{DataType, ScalarType};
+use anndata::data::DynCsrMatrix;
+use anndata::WriteData;
+use anndata::{
+    data::{utils::to_csr_data, CsrNonCanonical},
+    ArrayData,
+};
 use bed_utils::bed::{BEDLike, BedGraph, GenomicRange, Strand};
 use nalgebra_sparse::CsrMatrix;
+use num::rational::Ratio;
 use num::traits::{FromPrimitive, One, Zero};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
@@ -21,9 +28,8 @@ pub enum FragmentDataIter {
 fn single_to_fragments(
     index: GenomeBaseIndex,
     exclude_chroms: HashSet<String>,
-    data_iter: impl ExactSizeIterator<Item = (CsrNonCanonical<i32>, usize, usize)>
-) -> impl ExactSizeIterator<Item = (Vec<Vec<Fragment>>, usize, usize)>
-{
+    data_iter: impl ExactSizeIterator<Item = (CsrNonCanonical<i32>, usize, usize)>,
+) -> impl ExactSizeIterator<Item = (Vec<Vec<Fragment>>, usize, usize)> {
     data_iter.map(move |(mat, a, b)| {
         let row_offsets = mat.row_offsets();
         let col_indices = mat.col_indices();
@@ -73,9 +79,8 @@ fn pair_to_fragments(
     exclude_chroms: HashSet<String>,
     min_fragment_size: Option<u64>,
     max_fragment_size: Option<u64>,
-    data_iter: impl ExactSizeIterator<Item = (CsrNonCanonical<u32>, usize, usize)>
-) -> impl ExactSizeIterator<Item = (Vec<Vec<Fragment>>, usize, usize)>
-{
+    data_iter: impl ExactSizeIterator<Item = (CsrNonCanonical<u32>, usize, usize)>,
+) -> impl ExactSizeIterator<Item = (Vec<Vec<Fragment>>, usize, usize)> {
     data_iter.map(move |(mat, a, b)| {
         let row_offsets = mat.row_offsets();
         let col_indices = mat.col_indices();
@@ -128,8 +133,7 @@ pub struct FragmentData {
     counting_strategy: CountingStrategy,
 }
 
-impl FragmentData
-{
+impl FragmentData {
     pub fn new(chrom_sizes: ChromSizes, data_iter: FragmentDataIter) -> Self {
         Self {
             index: GenomeBaseIndex::new(&chrom_sizes),
@@ -207,8 +211,16 @@ impl FragmentData
         self,
     ) -> Box<dyn ExactSizeIterator<Item = (Vec<Vec<Fragment>>, usize, usize)>> {
         match self.data_iter {
-            FragmentDataIter::FragmentSingle(iter) => Box::new(single_to_fragments(self.index, self.exclude_chroms, iter)),
-            FragmentDataIter::FragmentPaired(iter) => Box::new(pair_to_fragments(self.index, self.exclude_chroms, self.min_fragment_size, self.max_fragment_size, iter)),
+            FragmentDataIter::FragmentSingle(iter) => {
+                Box::new(single_to_fragments(self.index, self.exclude_chroms, iter))
+            }
+            FragmentDataIter::FragmentPaired(iter) => Box::new(pair_to_fragments(
+                self.index,
+                self.exclude_chroms,
+                self.min_fragment_size,
+                self.max_fragment_size,
+                iter,
+            )),
         }
     }
 
@@ -237,8 +249,9 @@ impl FragmentData
     }
 
     /// Output the raw coverage matrix.
-    pub fn into_array_iter(self) -> Box<dyn ExactSizeIterator<Item = (CsrMatrix<u32>, usize, usize)>>
-    {
+    pub fn into_array_iter(
+        self,
+    ) -> Box<dyn ExactSizeIterator<Item = (CsrMatrix<u32>, usize, usize)>> {
         let index = self.get_gindex();
         let ori_index = self.index;
         match self.data_iter {
@@ -258,7 +271,8 @@ impl FragmentData
             }
             FragmentDataIter::FragmentSingle(mat_iter) => {
                 Box::new(mat_iter.map(move |(mat, i, j)| {
-                    let new_mat = gen_mat_single::<u32>(&ori_index, &index, &self.exclude_chroms, mat);
+                    let new_mat =
+                        gen_mat_single::<u32>(&ori_index, &index, &self.exclude_chroms, mat);
                     (new_mat, i, j)
                 }))
             }
@@ -481,7 +495,65 @@ where
 pub struct BaseValue {
     pub chrom: String,
     pub pos: u64,
-    pub value: f32,
+    ratio: Option<Ratio<u16>>,
+    float: f32,
+}
+
+impl From<(&str, u64, f32)> for BaseValue {
+    fn from(x: (&str, u64, f32)) -> Self {
+        Self::from_float(x.0, x.1, x.2)
+    }
+}
+
+impl From<(&str, u64, i32)> for BaseValue {
+    fn from(x: (&str, u64, i32)) -> Self {
+        Self::from_ratio_raw(x.0, x.1, x.2)
+    }
+}
+
+impl BaseValue {
+    pub fn from_ratio(chrom: impl Into<String>, pos: u64, ratio: Ratio<u16>) -> Self {
+        let (numer, denom) = ratio.into_raw();
+        let float = if numer == 0 {
+            0.0
+        } else if denom == 0 {
+            1.0
+        } else {
+            numer as f32 / denom as f32
+        };
+        Self {
+            chrom: chrom.into(),
+            pos,
+            ratio: Some(ratio),
+            float,
+        }
+    }
+
+    pub fn from_float(chrom: impl Into<String>, pos: u64, float: f32) -> Self {
+        Self {
+            chrom: chrom.into(),
+            pos,
+            ratio: None,
+            float,
+        }
+    }
+
+    pub fn from_ratio_raw(chrom: impl Into<String>, pos: u64, ratio: i32) -> Self {
+        let ratio = i32_to_ratio(ratio);
+        Self::from_ratio(chrom, pos, ratio)
+    }
+
+    pub fn numerator(&self) -> Option<u16> {
+        self.ratio.as_ref().map(|x| *x.numer())
+    }
+
+    pub fn denominator(&self) -> Option<u16> {
+        self.ratio.as_ref().map(|x| *x.denom())
+    }
+
+    pub fn value(&self) -> f32 {
+        self.float
+    }
 }
 
 pub struct BaseData<I> {
@@ -493,7 +565,7 @@ pub struct BaseData<I> {
 
 impl<I> BaseData<I>
 where
-    I: ExactSizeIterator<Item = (CsrMatrix<f32>, usize, usize)>,
+    I: ExactSizeIterator<Item = (DynCsrMatrix, usize, usize)>,
 {
     pub fn new(chrom_sizes: ChromSizes, data_iter: I) -> Self {
         Self {
@@ -525,47 +597,71 @@ where
     }
 
     /// Return an iterator of raw values.
-    pub fn into_values(
-        self,
-    ) -> impl ExactSizeIterator<Item = (Vec<Vec<BaseValue>>, usize, usize)> {
-        self.data_iter.map(move |(mat, a, b)| {
+    pub fn into_values(self) -> impl ExactSizeIterator<Item = (Vec<Vec<BaseValue>>, usize, usize)> {
+        fn helper<'a, T>(
+            mat: CsrMatrix<T>,
+            exclude_chroms: &'a HashSet<String>,
+            index: &'a GenomeBaseIndex,
+        ) -> Vec<Vec<BaseValue>>
+        where
+            T: Copy + Send + Sync,
+            BaseValue: From<(&'a str, u64, T)>,
+        {
             let row_offsets = mat.row_offsets();
             let col_indices = mat.col_indices();
             let values = mat.values();
-            let values = (0..(row_offsets.len() - 1))
+            (0..(row_offsets.len() - 1))
                 .into_par_iter()
                 .map(|i| {
                     let row_start = row_offsets[i];
                     let row_end = row_offsets[i + 1];
                     (row_start..row_end)
                         .flat_map(|j| {
-                            let (chrom, start) = self.index.get_position(col_indices[j]);
-                            if self.exclude_chroms.contains(chrom) {
+                            let (chrom, start) = index.get_position(col_indices[j]);
+                            if exclude_chroms.contains(chrom) {
                                 None
                             } else {
                                 let v = values[j];
-                                Some(BaseValue {
-                                    chrom: chrom.to_string(),
-                                    pos: start,
-                                    value: v,
-                                })
+                                Some(BaseValue::from((chrom, start, v)))
                             }
                         })
                         .collect()
                 })
-                .collect();
+                .collect()
+        }
+
+        let exclude_chroms = self.exclude_chroms;
+        let index = self.index;
+        self.data_iter.map(move |(mat, a, b)| {
+            let values = match mat.data_type() {
+                DataType::CsrMatrix(ScalarType::I32) => helper(
+                    CsrMatrix::<i32>::try_from(mat).unwrap(),
+                    &exclude_chroms,
+                    &index,
+                ),
+                DataType::CsrMatrix(ScalarType::F32) => helper(
+                    CsrMatrix::<f32>::try_from(mat).unwrap(),
+                    &exclude_chroms,
+                    &index,
+                ),
+                _ => panic!("Unsupported data type"),
+            };
             (values, a, b)
         })
     }
 
     /// Output the raw coverage matrix. Note the values belong to the same interval
     /// will be aggregated by the mean value.
-    pub fn into_array_iter(self) -> impl ExactSizeIterator<Item = (ArrayData, usize, usize)>
-    {
-        let index = self.get_gindex();
-        let ori_index = self.index;
-
-        self.data_iter.map(move |(mat, i, j)| {
+    pub fn into_array_iter(self) -> impl ExactSizeIterator<Item = (ArrayData, usize, usize)> {
+        fn helper<'a, T>(
+            mat: CsrMatrix<T>,
+            exclude_chroms: &'a HashSet<String>,
+            ori_index: &'a GenomeBaseIndex,
+            index: &'a GenomeBaseIndex,
+        ) -> CsrMatrix<f32>
+        where
+            T: Copy + Send + Sync + ToFloat,
+        {
             let row_offsets = mat.row_offsets();
             let col_indices = mat.col_indices();
             let values = mat.values();
@@ -578,52 +674,123 @@ where
 
                     for k in row_start..row_end {
                         let (chrom, pos) = ori_index.get_position(col_indices[k]);
-                        if self.exclude_chroms.is_empty() || !self.exclude_chroms.contains(chrom) {
+                        if exclude_chroms.is_empty() || !exclude_chroms.contains(chrom) {
                             let i = index.get_position_rev(chrom, pos);
                             let entry = count.entry(i).or_insert(Vec::new());
-                            entry.push(values[k]);
+                            entry.push(values[k].to_float());
                         }
                     }
-                    count.into_iter().map(|(k, v)| {
-                        let len = v.len();
-                        let sum: f32 = v.into_iter().sum();
-                        (k, sum / len as f32)
-                    }).collect::<Vec<_>>()
+                    count
+                        .into_iter()
+                        .map(|(k, v)| {
+                            let len = v.len();
+                            let sum: f32 = v.into_iter().sum();
+                            (k, sum / len as f32)
+                        })
+                        .collect::<Vec<_>>()
                 })
                 .collect::<Vec<_>>();
             let (r, c, offset, ind, data) = to_csr_data(vec, index.len());
-            let new_mat = CsrMatrix::try_from_csr_data(r, c, offset, ind, data).unwrap();
+            CsrMatrix::try_from_csr_data(r, c, offset, ind, data).unwrap()
+        }
+
+        let index = self.get_gindex();
+        let ori_index = self.index;
+
+        self.data_iter.map(move |(mat, i, j)| {
+            let new_mat = match mat.data_type() {
+                DataType::CsrMatrix(ScalarType::I32) => {
+                    helper(
+                        CsrMatrix::<i32>::try_from(mat).unwrap(),
+                        &self.exclude_chroms,
+                        &ori_index,
+                        &index,
+                    )
+                }
+                DataType::CsrMatrix(ScalarType::F32) => {
+                    helper(
+                        CsrMatrix::<f32>::try_from(mat).unwrap(),
+                        &self.exclude_chroms,
+                        &ori_index,
+                        &index,
+                    )
+                }
+                _ => panic!("Unsupported data type"),
+            };
             (new_mat.into(), i, j)
         })
     }
 
     /// Aggregate the coverage by a feature counter. Values belong to the same interval
     /// will be aggregated by the mean value.
-    pub fn into_aggregated_array_iter<C>(self, counter: C) -> impl ExactSizeIterator<Item = (ArrayData, usize, usize)>
+    pub fn into_aggregated_array_iter<C>(
+        self,
+        counter: C,
+    ) -> impl ExactSizeIterator<Item = (ArrayData, usize, usize)>
     where
-        C: FeatureCounter<Value=f32> + Clone + Sync,
+        C: FeatureCounter<Value = f32> + Clone + Sync,
     {
-        let n_col = counter.num_features();
-        self.data_iter.map(move |(data, i, j)| {
-            let vec = (0..data.nrows())
+        fn helper<'a, T, C>(
+            data: CsrMatrix<T>,
+            counter: C,
+            exclude_chroms: &'a HashSet<String>,
+            index: &'a GenomeBaseIndex,
+        ) -> Vec<Vec<(usize, f32)>>
+        where
+            T: Copy + Send + Sync + ToFloat,
+            C: FeatureCounter<Value = f32> + Clone + Sync,
+        {
+            (0..data.nrows())
                 .into_par_iter()
                 .map(|i| {
                     let mut coverage = counter.clone();
                     let row = data.get_row(i).unwrap();
-                    row.col_indices().into_iter().zip(row.values()).for_each(|(idx, val)| {
-                        let (chrom, pos) = self.index.get_position(*idx);
-                        if self.exclude_chroms.is_empty() || !self.exclude_chroms.contains(chrom) {
-                            coverage.insert(&GenomicRange::new(chrom, pos, pos+1), *val);
-                        }
-                    });
-                    coverage.get_values_and_counts().map(|(idx, (val, count))| {
-                        (idx, val / count as f32)
-                    }).collect::<Vec<_>>()
+                    row.col_indices()
+                        .into_iter()
+                        .zip(row.values())
+                        .for_each(|(idx, val)| {
+                            let (chrom, pos) = index.get_position(*idx);
+                            if exclude_chroms.is_empty()
+                                || !exclude_chroms.contains(chrom)
+                            {
+                                coverage.insert(&GenomicRange::new(chrom, pos, pos + 1), val.to_float());
+                            }
+                        });
+                    coverage
+                        .get_values_and_counts()
+                        .map(|(idx, (val, count))| (idx, val / count as f32))
+                        .collect::<Vec<_>>()
                 })
-                .collect::<Vec<_>>();
+                .collect::<Vec<_>>()
+        }
+ 
+        let n_col = counter.num_features();
+        self.data_iter.map(move |(data, i, j)| {
+            let vec = match data.data_type() {
+                DataType::CsrMatrix(ScalarType::I32) => {
+                    helper(
+                        CsrMatrix::<i32>::try_from(data).unwrap(),
+                        counter.clone(),
+                        &self.exclude_chroms,
+                        &self.index,
+                    )
+                }
+                DataType::CsrMatrix(ScalarType::F32) => {
+                    helper(
+                        CsrMatrix::<f32>::try_from(data).unwrap(),
+                        counter.clone(),
+                        &self.exclude_chroms,
+                        &self.index,
+                    )
+                }
+                _ => panic!("Unsupported data type"),
+            };
+
             let (r, c, offset, ind, data) = to_csr_data(vec, n_col);
             (
-                CsrMatrix::try_from_csr_data(r, c, offset, ind, data).unwrap().into(),
+                CsrMatrix::try_from_csr_data(r, c, offset, ind, data)
+                    .unwrap()
+                    .into(),
                 i,
                 j,
             )
@@ -678,7 +845,11 @@ where
                 })
                 .collect::<Vec<_>>();
             let (r, c, offset, ind, data) = to_csr_data(vec, n_col);
-            (CsrMatrix::try_from_csr_data(r,c,offset,ind, data).unwrap(), i, j)
+            (
+                CsrMatrix::try_from_csr_data(r, c, offset, ind, data).unwrap(),
+                i,
+                j,
+            )
         })
     }
 }
@@ -717,3 +888,61 @@ where
     }
 }
 
+/*
+//  Helper functions for converting between Ratio<u16> and i32
+ */
+
+fn ratio_to_i32(x: Ratio<u16>) -> i32 {
+    let (numer, denom) = x.into_raw();
+    ((numer as i32) << 16) | (denom as i32)
+}
+
+fn i32_to_ratio(x: i32) -> Ratio<u16> {
+    let numer = (x >> 16) as u16;
+    let denom = (x & 0xffff) as u16;
+    Ratio::new_raw(numer, denom)
+}
+
+trait ToFloat {
+    fn to_float(self) -> f32;
+}
+
+impl ToFloat for f32 {
+    fn to_float(self) -> f32 {
+        self
+    }
+}
+
+impl ToFloat for i32 {
+    fn to_float(self) -> f32 {
+        let numer = (self >> 16) as u16;
+        let denom = (self & 0xffff) as u16;
+        if numer == 0 {
+            0.0
+        } else if denom == 0 {
+            1.0
+        } else {
+            numer as f32 / denom as f32
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ratio_conversion() {
+        fn test(numer: u16, denom: u16) {
+            let x = Ratio::new_raw(numer, denom);
+            let y = ratio_to_i32(x);
+            let z = i32_to_ratio(y);
+            assert_eq!(x, z);
+        }
+
+        test(3, 4);
+        test(3, 0);
+        test(0, 0);
+        test(0, 4);
+    }
+}

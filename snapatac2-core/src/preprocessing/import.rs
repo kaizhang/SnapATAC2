@@ -1,4 +1,4 @@
-use crate::feature_count::{ContactData, BASE_VALUE, FRAGMENT_PAIRED, FRAGMENT_SINGLE};
+use crate::feature_count::{BaseValue, ContactData, BASE_VALUE, FRAGMENT_PAIRED, FRAGMENT_SINGLE};
 use crate::genome::{ChromSizes, GenomeBaseIndex};
 use crate::preprocessing::qc::{Contact, Fragment, FragmentQC, FragmentQCBuilder};
 
@@ -312,13 +312,6 @@ where
     Ok(())
 }
 
-pub struct ChromValue {
-    pub chrom: String,
-    pub pos: u64,
-    pub value: f32,
-    pub barcode: String,
-}
-
 /// Import values
 pub fn import_values<A, I>(
     anndata: &A,
@@ -328,7 +321,7 @@ pub fn import_values<A, I>(
 ) -> Result<()>
 where
     A: AnnDataOp,
-    I: Iterator<Item = ChromValue>,
+    I: Iterator<Item = (String, BaseValue)>,
 {
     let spinner = ProgressBar::with_draw_target(None, ProgressDrawTarget::stderr_with_hz(1))
         .with_style(
@@ -343,7 +336,7 @@ where
     let mut scanned_barcodes = IndexSet::new();
 
     let mut qc_metrics = Vec::new();
-    let chunked_values = values.chunk_by(|x| x.barcode.clone());
+    let chunked_values = values.chunk_by(|x| x.0.clone());
     let chunked_values = chunked_values
         .into_iter()
         .progress_with(spinner)
@@ -365,12 +358,12 @@ where
                 let mut qc = BaseValueQC::new();
                 let mut count = cell_data
                     .into_iter()
-                    .flat_map(|value| {
+                    .flat_map(|(_, value)| {
                         let chrom = &value.chrom;
                         if genome_index.contain_chrom(chrom) {
                             qc.add();
                             let pos = genome_index.get_position_rev(chrom, value.pos);
-                            Some((pos, value.value))
+                            Some((pos, value.value()))
                         } else {
                             None
                         }

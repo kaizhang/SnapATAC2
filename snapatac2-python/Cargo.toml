@@ -26,6 +26,7 @@ linfa = "0.6"
 linfa-clustering = "0.6"
 noodles = { version = "0.84", features = ["bam", "sam"] }
 numpy = "0.21.0"
+num = "0.4"
 nalgebra-sparse = "0.9"
 nalgebra = "0.32"
 ndarray = "0.15"

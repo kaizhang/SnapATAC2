@@ -5,9 +5,9 @@ mod data_iter;
 use std::str::FromStr;
 
 use anyhow::{bail, Context, Result};
-use anndata::{AnnData, AnnDataOp, AnnDataSet, ArrayElemOp, AxisArraysOp, Backend, ElemCollectionOp};
+use anndata::{data::DynCsrMatrix, AnnData, AnnDataOp, AnnDataSet, ArrayElemOp, AxisArraysOp, Backend, ElemCollectionOp};
 use bed_utils::bed::GenomicRange;
-pub use data_iter::{ChromValueIter, BaseData, FragmentData, ContactData, FragmentDataIter};
+pub use data_iter::{BaseValue, ChromValueIter, BaseData, FragmentData, ContactData, FragmentDataIter};
 pub use counter::{FeatureCounter, CountingStrategy};
 pub use matrix::{create_gene_matrix, create_tile_matrix, create_peak_matrix};
 use nalgebra_sparse::CsrMatrix;
@@ -28,7 +28,7 @@ pub trait SnapData: AnnDataOp {
     fn get_fragment_iter(&self, chunk_size: usize) -> Result<FragmentData>;
 
     /// Read base values stored in the `.obsm` matrix.
-    fn get_base_iter(&self, chunk_size: usize) -> Result<BaseData<impl ExactSizeIterator<Item = (CsrMatrix<f32>, usize, usize)>>>;
+    fn get_base_iter(&self, chunk_size: usize) -> Result<BaseData<impl ExactSizeIterator<Item = (DynCsrMatrix, usize, usize)>>>;
 
     /// Read counts stored in the `X` matrix.
     fn read_chrom_values(
@@ -85,9 +85,9 @@ impl<B: Backend> SnapData for AnnData<B> {
         Ok(FragmentData::new(self.read_chrom_sizes()?, matrices))
     }
 
-    fn get_base_iter(&self, chunk_size: usize) -> Result<BaseData<impl ExactSizeIterator<Item = (CsrMatrix<f32>, usize, usize)>>> {
+    fn get_base_iter(&self, chunk_size: usize) -> Result<BaseData<impl ExactSizeIterator<Item = (DynCsrMatrix, usize, usize)>>> {
         let obsm = self.obsm();
-        if let Some(data) = obsm.get_item_iter::<CsrMatrix<f32>>(BASE_VALUE, chunk_size) {
+        if let Some(data) = obsm.get_item_iter(BASE_VALUE, chunk_size) {
             Ok(BaseData::new(self.read_chrom_sizes()?, data))
         } else {
             bail!("key '_values' is not present in the '.obsm'")
@@ -111,10 +111,10 @@ impl<B: Backend> SnapData for AnnDataSet<B> {
         Ok(FragmentData::new(self.read_chrom_sizes()?, matrices))
     }
 
-    fn get_base_iter(&self, chunk_size: usize) -> Result<BaseData<impl ExactSizeIterator<Item = (CsrMatrix<f32>, usize, usize)>>>
+    fn get_base_iter(&self, chunk_size: usize) -> Result<BaseData<impl ExactSizeIterator<Item = (DynCsrMatrix, usize, usize)>>>
     {
         let obsm = self.obsm();
-        if let Some(data) = obsm.get_item_iter::<CsrMatrix<f32>>(BASE_VALUE, chunk_size) {
+        if let Some(data) = obsm.get_item_iter(BASE_VALUE, chunk_size) {
             Ok(BaseData::new(self.read_chrom_sizes()?, data))
         } else {
             bail!("key '_values' is not present in the '.obsm'")

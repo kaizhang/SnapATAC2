@@ -73,7 +73,7 @@ pub trait QualityControl: SnapData {
         } else if let Ok(values) = self.get_base_iter(2000) {
             values.into_values().for_each(|(data, s, _)| {
                 data.into_iter().enumerate().for_each(|(i, values)| {
-                    let values = values.into_iter().map(|x| (x.chrom.to_string(), x.value));
+                    let values = values.into_iter().map(|x| (x.chrom.to_string(), x.value()));
                     let stat = match mode {
                         SummaryType::Sum => sum(values),
                         SummaryType::Count => count(values),

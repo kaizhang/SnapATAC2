@@ -1,9 +1,6 @@
 use anndata::{
-    data::{ArrayChunk, DataFrameIndex},
-    AnnDataOp, ArrayData, HasShape,
-    WriteArrayData, AxisArraysOp,
+    data::{ArrayChunk, DataFrameIndex, DynCsrMatrix}, AnnDataOp, ArrayData, AxisArraysOp, HasShape, WriteArrayData
 };
-use nalgebra_sparse::CsrMatrix;
 use anyhow::{Result, bail};
 use polars::prelude::DataFrame;
 use pyanndata::anndata::memory;
@@ -154,9 +151,9 @@ impl<'py> SnapData for PyAnnData<'py> {
         Ok(FragmentData::new(self.read_chrom_sizes()?, matrices))
     }
 
-    fn get_base_iter(&self, chunk_size: usize) -> Result<BaseData<impl ExactSizeIterator<Item = (CsrMatrix<f32>, usize, usize)>>> {
+    fn get_base_iter(&self, chunk_size: usize) -> Result<BaseData<impl ExactSizeIterator<Item = (DynCsrMatrix, usize, usize)>>> {
         let obsm = self.obsm();
-        if let Some(data) = obsm.get_item_iter::<CsrMatrix<f32>>(BASE_VALUE, chunk_size) {
+        if let Some(data) = obsm.get_item_iter(BASE_VALUE, chunk_size) {
             Ok(BaseData::new(self.read_chrom_sizes()?, data))
         } else {
             bail!("key '_values' is not present in the '.obsm'")

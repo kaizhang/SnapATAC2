@@ -4,6 +4,7 @@ use itertools::Itertools;
 use pyo3::{prelude::*, pybacked::PyBackedStr};
 use anndata::Backend;
 use anndata_hdf5::H5;
+use num::rational::Ratio;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
@@ -16,8 +17,8 @@ use anyhow::Result;
 use snapatac2_core::{
     QualityControl,
     genome::TranscriptParserOptions,
-    feature_count::{create_gene_matrix, create_tile_matrix, create_peak_matrix, CountingStrategy},
-    preprocessing::{Fragment, Contact, ChromValue},
+    feature_count::{BaseValue, create_gene_matrix, create_tile_matrix, create_peak_matrix, CountingStrategy},
+    preprocessing::{Fragment, Contact},
     preprocessing,
     utils,
 };
@@ -191,7 +192,7 @@ pub(crate) fn import_values(
     chunk_size: usize,
 ) -> Result<()>
 {
-    fn read_chrom_values(path: PathBuf) -> impl Iterator<Item = ChromValue> {
+    fn read_chrom_values(path: PathBuf) -> impl Iterator<Item = (String, BaseValue)> {
         let barcode = path.file_stem().unwrap().to_str().unwrap().to_string();
         let reader = BufReader::new(utils::open_file_for_read(&path));
         reader.lines().skip(1).map(move |line| {
@@ -199,15 +200,10 @@ pub(crate) fn import_values(
             let mut parts = line.split_whitespace();
             let chrom = parts.next().unwrap();
             let pos = parts.next().unwrap().parse().unwrap();
-            parts.next();
-            parts.next();
-            let value = parts.next().unwrap().parse().unwrap();
-            ChromValue {
-                chrom: chrom.to_string(),
-                pos,
-                value,
-                barcode: barcode.clone(),
-            }
+            let methyl = parts.next().unwrap().parse().unwrap();
+            let unmethyl: u16 = parts.next().unwrap().parse().unwrap();
+            let value = BaseValue::from_ratio(chrom, pos, Ratio::new_raw(methyl, unmethyl + methyl));
+            (barcode.clone(), value)
         })
     }
 
