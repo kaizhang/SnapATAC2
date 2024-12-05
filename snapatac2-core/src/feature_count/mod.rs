@@ -77,7 +77,7 @@ impl<B: Backend> SnapData for AnnData<B> {
             obsm.get_item_iter(FRAGMENT_SINGLE, chunk_size)
         {
             FragmentDataIter::FragmentSingle(Box::new(insertion))
-        } else if let Some(fragment) = obsm.get_item_iter("fragment_paired", chunk_size) {
+        } else if let Some(fragment) = obsm.get_item_iter(FRAGMENT_PAIRED, chunk_size) {
             FragmentDataIter::FragmentPaired(Box::new(fragment))
         } else {
             bail!("one of the following keys must be present in the '.obsm': '{}', '{}'", FRAGMENT_SINGLE, FRAGMENT_PAIRED)
@@ -103,7 +103,7 @@ impl<B: Backend> SnapData for AnnDataSet<B> {
             obsm.get_item_iter(FRAGMENT_SINGLE, chunk_size)
         {
             FragmentDataIter::FragmentSingle(Box::new(insertion))
-        } else if let Some(fragment) = obsm.get_item_iter("fragment_paired", chunk_size) {
+        } else if let Some(fragment) = obsm.get_item_iter(FRAGMENT_PAIRED, chunk_size) {
             FragmentDataIter::FragmentPaired(Box::new(fragment))
         } else {
             bail!("one of the following keys must be present in the '.obsm': '{}', '{}'", FRAGMENT_SINGLE, FRAGMENT_PAIRED)

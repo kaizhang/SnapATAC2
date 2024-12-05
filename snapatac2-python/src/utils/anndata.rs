@@ -146,7 +146,7 @@ impl<'py> SnapData for PyAnnData<'py> {
         let matrices: FragmentDataIter =
             if let Some(insertion) = obsm.get_item_iter(FRAGMENT_SINGLE, chunk_size) {
                 FragmentDataIter::FragmentSingle(Box::new(insertion))
-            } else if let Some(fragment) = obsm.get_item_iter(FRAGMENT_SINGLE, chunk_size) {
+            } else if let Some(fragment) = obsm.get_item_iter(FRAGMENT_PAIRED, chunk_size) {
                 FragmentDataIter::FragmentPaired(Box::new(fragment))
             } else {
                 bail!("one of the following keys must be present in the '.obsm': '{}', '{}'", FRAGMENT_SINGLE, FRAGMENT_PAIRED)
