@@ -7,7 +7,7 @@ use std::str::FromStr;
 use anyhow::{bail, Context, Result};
 use anndata::{data::DynCsrMatrix, AnnData, AnnDataOp, AnnDataSet, ArrayElemOp, AxisArraysOp, Backend, ElemCollectionOp};
 use bed_utils::bed::GenomicRange;
-pub use data_iter::{BaseValue, ChromValueIter, BaseData, FragmentData, ContactData, FragmentDataIter};
+pub use data_iter::{ValueType, BaseValue, ChromValueIter, BaseData, FragmentData, ContactData, FragmentDataIter};
 pub use counter::{FeatureCounter, CountingStrategy};
 pub use matrix::{create_gene_matrix, create_tile_matrix, create_peak_matrix};
 use nalgebra_sparse::CsrMatrix;

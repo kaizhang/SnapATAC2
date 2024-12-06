@@ -3,6 +3,7 @@ use crate::genome::{ChromSizes, GenomeBaseIndex};
 use crate::preprocessing::qc::{Contact, Fragment, FragmentQC, FragmentQCBuilder};
 
 use super::qc::BaseValueQC;
+use anndata::data::DynCsrMatrix;
 use anndata::{
     data::array::utils::{from_csr_data, to_csr_data},
     AnnDataOp, ArrayData, AxisArraysOp, ElemCollectionOp,
@@ -323,6 +324,40 @@ where
     A: AnnDataOp,
     I: Iterator<Item = (String, BaseValue)>,
 {
+    fn helper<T: TryFrom<BaseValue, Error = anyhow::Error> + Send>(
+        chunk: Vec<Vec<BaseValue>>,
+        genome_index: &GenomeBaseIndex,
+        genome_size: usize,
+    ) -> (Vec<BaseValueQC>, CsrMatrix<T>) {
+        let (qc, counts): (Vec<_>, Vec<_>) = chunk
+            .into_par_iter()
+            .map(|cell_data| {
+                let mut qc = BaseValueQC::new();
+                let mut count = cell_data
+                    .into_iter()
+                    .flat_map(|value| {
+                        let chrom = &value.chrom;
+                        if genome_index.contain_chrom(chrom) {
+                            qc.add();
+                            let pos = genome_index.get_position_rev(chrom, value.pos);
+                            Some((pos, T::try_from(value).unwrap()))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                count.sort_by(|x, y| x.0.cmp(&y.0));
+                (qc, count)
+            })
+            .unzip();
+        let (r, c, offset, ind, csr_data) = to_csr_data(counts, genome_size);
+        (
+            qc,
+            CsrMatrix::try_from_csr_data(r, c, offset, ind, csr_data)
+                .unwrap()
+        )
+    }
+
     let spinner = ProgressBar::with_draw_target(None, ProgressDrawTarget::stderr_with_hz(1))
         .with_style(
             ProgressStyle::with_template(
@@ -344,38 +379,23 @@ where
     let arrays = chunked_values.into_iter().map(|chunk| {
         // Collect into vector for parallel processing
         let chunk: Vec<Vec<_>> = chunk
-            .map(|(barcode, x)| {
+            .map(|(barcode, data)| {
                 if !scanned_barcodes.insert(barcode.clone()) {
                     panic!("Please sort fragment file by barcodes");
                 }
-                x.collect()
+                data.map(|x| x.1).collect()
             })
             .collect();
-
-        let (qc, counts): (Vec<_>, Vec<_>) = chunk
-            .into_par_iter()
-            .map(|cell_data| {
-                let mut qc = BaseValueQC::new();
-                let mut count = cell_data
-                    .into_iter()
-                    .flat_map(|(_, value)| {
-                        let chrom = &value.chrom;
-                        if genome_index.contain_chrom(chrom) {
-                            qc.add();
-                            let pos = genome_index.get_position_rev(chrom, value.pos);
-                            Some((pos, value.value()))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Vec<_>>();
-                count.sort_by(|x, y| x.0.cmp(&y.0));
-                (qc, count)
-            })
-            .unzip();
-        qc_metrics.extend(qc);
-        let (r, c, offset, ind, csr_data) = to_csr_data(counts, genome_size);
-        CsrMatrix::try_from_csr_data(r, c, offset, ind, csr_data).unwrap()
+        let mat: DynCsrMatrix = if chunk[0][0].to_i32().is_some() {
+            let (qc, mat) = helper::<i32>(chunk, &genome_index, genome_size);
+            qc_metrics.extend(qc);
+            mat.into()
+        } else {
+            let (qc, mat) = helper::<f32>(chunk, &genome_index, genome_size);
+            qc_metrics.extend(qc);
+            mat.into()
+        };
+        mat
     });
 
     anndata.obsm().add_iter(BASE_VALUE, arrays)?;

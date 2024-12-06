@@ -1,6 +1,6 @@
 use crate::feature_count::{CountingStrategy, FeatureCounter};
 use crate::genome::{ChromSizes, GenomeBaseIndex};
-use crate::preprocessing::Fragment;
+use crate::preprocessing::{Fragment, SummaryType};
 
 use anndata::backend::{DataType, ScalarType};
 use anndata::data::DynCsrMatrix;
@@ -499,6 +499,29 @@ pub struct BaseValue {
     float: f32,
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum ValueType {
+    Numerator,
+    Denominator,
+    Ratio,
+}
+
+impl TryFrom<BaseValue> for f32 {
+    type Error = anyhow::Error;
+
+    fn try_from(x: BaseValue) -> Result<Self, Self::Error> {
+        Ok(x.value())
+    }
+}
+
+impl TryFrom<BaseValue> for i32 {
+    type Error = anyhow::Error;
+
+    fn try_from(x: BaseValue) -> Result<Self, Self::Error> {
+        x.to_i32().ok_or_else(|| anyhow::anyhow!("Cannot convert to i32"))
+    }
+}
+
 impl From<(&str, u64, f32)> for BaseValue {
     fn from(x: (&str, u64, f32)) -> Self {
         Self::from_float(x.0, x.1, x.2)
@@ -553,6 +576,10 @@ impl BaseValue {
 
     pub fn value(&self) -> f32 {
         self.float
+    }
+
+    pub fn to_i32(&self) -> Option<i32> {
+        self.ratio.map(|x| ratio_to_i32(x))
     }
 }
 
@@ -652,15 +679,17 @@ where
 
     /// Output the raw coverage matrix. Note the values belong to the same interval
     /// will be aggregated by the mean value.
-    pub fn into_array_iter(self) -> impl ExactSizeIterator<Item = (ArrayData, usize, usize)> {
+    pub fn into_array_iter(self, val_ty: ValueType, summary_ty: SummaryType) -> impl ExactSizeIterator<Item = (ArrayData, usize, usize)> {
         fn helper<'a, T>(
             mat: CsrMatrix<T>,
+            val_ty: ValueType,
+            summary_ty: SummaryType,
             exclude_chroms: &'a HashSet<String>,
             ori_index: &'a GenomeBaseIndex,
             index: &'a GenomeBaseIndex,
         ) -> CsrMatrix<f32>
         where
-            T: Copy + Send + Sync + ToFloat,
+            T: Copy + Send + Sync + ValueGetter,
         {
             let row_offsets = mat.row_offsets();
             let col_indices = mat.col_indices();
@@ -677,15 +706,18 @@ where
                         if exclude_chroms.is_empty() || !exclude_chroms.contains(chrom) {
                             let i = index.get_position_rev(chrom, pos);
                             let entry = count.entry(i).or_insert(Vec::new());
-                            entry.push(values[k].to_float());
+                            entry.push(values[k].get_value(val_ty).unwrap());
                         }
                     }
                     count
                         .into_iter()
                         .map(|(k, v)| {
-                            let len = v.len();
-                            let sum: f32 = v.into_iter().sum();
-                            (k, sum / len as f32)
+                            let r = match summary_ty {
+                                SummaryType::Mean => v.iter().sum::<f32>() / v.len() as f32,
+                                SummaryType::Sum => v.iter().sum(),
+                                SummaryType::Count => v.len() as f32,
+                            };
+                            (k, r)
                         })
                         .collect::<Vec<_>>()
                 })
@@ -702,6 +734,8 @@ where
                 DataType::CsrMatrix(ScalarType::I32) => {
                     helper(
                         CsrMatrix::<i32>::try_from(mat).unwrap(),
+                        val_ty,
+                        summary_ty,
                         &self.exclude_chroms,
                         &ori_index,
                         &index,
@@ -710,6 +744,8 @@ where
                 DataType::CsrMatrix(ScalarType::F32) => {
                     helper(
                         CsrMatrix::<f32>::try_from(mat).unwrap(),
+                        val_ty,
+                        summary_ty,
                         &self.exclude_chroms,
                         &ori_index,
                         &index,
@@ -726,6 +762,8 @@ where
     pub fn into_aggregated_array_iter<C>(
         self,
         counter: C,
+        val_ty: ValueType,
+        summary_ty: SummaryType,
     ) -> impl ExactSizeIterator<Item = (ArrayData, usize, usize)>
     where
         C: FeatureCounter<Value = f32> + Clone + Sync,
@@ -733,11 +771,13 @@ where
         fn helper<'a, T, C>(
             data: CsrMatrix<T>,
             counter: C,
+            val_ty: ValueType,
+            summary_ty: SummaryType,
             exclude_chroms: &'a HashSet<String>,
             index: &'a GenomeBaseIndex,
         ) -> Vec<Vec<(usize, f32)>>
         where
-            T: Copy + Send + Sync + ToFloat,
+            T: Copy + Send + Sync + ValueGetter,
             C: FeatureCounter<Value = f32> + Clone + Sync,
         {
             (0..data.nrows())
@@ -753,13 +793,18 @@ where
                             if exclude_chroms.is_empty()
                                 || !exclude_chroms.contains(chrom)
                             {
-                                coverage.insert(&GenomicRange::new(chrom, pos, pos + 1), val.to_float());
+                                coverage.insert(&GenomicRange::new(chrom, pos, pos + 1), val.get_value(val_ty).unwrap());
                             }
                         });
-                    coverage
-                        .get_values_and_counts()
-                        .map(|(idx, (val, count))| (idx, val / count as f32))
-                        .collect::<Vec<_>>()
+                    match summary_ty {
+                        SummaryType::Mean => coverage
+                            .get_values_and_counts()
+                            .map(|(idx, (val, count))| (idx, val / count as f32))
+                            .collect::<Vec<_>>(),
+                        SummaryType::Sum => coverage
+                            .get_values(),
+                        _ => unimplemented!("Unsupported summary type"),
+                    }
                 })
                 .collect::<Vec<_>>()
         }
@@ -771,6 +816,8 @@ where
                     helper(
                         CsrMatrix::<i32>::try_from(data).unwrap(),
                         counter.clone(),
+                        val_ty,
+                        summary_ty,
                         &self.exclude_chroms,
                         &self.index,
                     )
@@ -779,6 +826,8 @@ where
                     helper(
                         CsrMatrix::<f32>::try_from(data).unwrap(),
                         counter.clone(),
+                        val_ty,
+                        summary_ty,
                         &self.exclude_chroms,
                         &self.index,
                     )
@@ -903,27 +952,38 @@ fn i32_to_ratio(x: i32) -> Ratio<u16> {
     Ratio::new_raw(numer, denom)
 }
 
-trait ToFloat {
-    fn to_float(self) -> f32;
+trait ValueGetter {
+    fn get_value(self, ty: ValueType) -> Option<f32>;
 }
 
-impl ToFloat for f32 {
-    fn to_float(self) -> f32 {
-        self
+impl ValueGetter for f32 {
+    fn get_value(self, ty: ValueType) -> Option<f32> {
+        match ty {
+            ValueType::Denominator => None,
+            ValueType::Numerator => None,
+            ValueType::Ratio => Some(self),
+        }
     }
 }
 
-impl ToFloat for i32 {
-    fn to_float(self) -> f32 {
+impl ValueGetter for i32 {
+    fn get_value(self, ty: ValueType) -> Option<f32> {
         let numer = (self >> 16) as u16;
         let denom = (self & 0xffff) as u16;
-        if numer == 0 {
-            0.0
-        } else if denom == 0 {
-            1.0
-        } else {
-            numer as f32 / denom as f32
-        }
+        let r = match ty {
+            ValueType::Denominator => denom as f32,
+            ValueType::Numerator => numer as f32,
+            ValueType::Ratio => {
+                if numer == 0 {
+                    0.0
+                } else if denom == 0 {
+                    1.0
+                } else {
+                    numer as f32 / denom as f32
+                }
+            },
+        };
+        Some(r)
     }
 }
 

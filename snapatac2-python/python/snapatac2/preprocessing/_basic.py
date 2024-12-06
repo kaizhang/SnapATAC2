@@ -448,6 +448,8 @@ def add_tile_matrix(
     min_frag_size: int | None = None,
     max_frag_size: int | None = None,
     counting_strategy: Literal['fragment', 'insertion', 'paired-insertion'] = 'paired-insertion',
+    value_type: Literal['target', 'total', 'fraction'] = 'target',
+    summary_type: Literal['sum', 'mean'] = 'sum',
     file: Path | None = None,
     backend: Literal['hdf5'] = 'hdf5',
     n_jobs: int = 8,
@@ -488,6 +490,18 @@ def add_tile_matrix(
         once if the pair of insertions of a fragment are both within the same region
         of interest [Miao24]_.
         Note that this parameter has no effect if input are single-end reads.
+    value_type
+        The type of value to use from `.obsm['_values']`, only available when 
+        data is imported using :func:`~snapatac2.pp.import_values`. It must be one of the following:
+        "target", "total", or "fraction". "target" means the value is the number
+        of recrods that are with postive measurements, e.g., number of methylated bases.
+        "total" means the value is the total number of measurements, e.g., methylated bases plus
+        unmethylated bases. "fraction" means the value is the fraction of the
+        records that are positive, e.g., the fraction of methylated bases.
+    summary_type
+        The type of summary to use when multiple values are found in a bin. This parameter
+        is only used when `.obsm['_values']` exists, which is created by :func:`~snapatac2.pp.import_values`. 
+        It must be one of the following: "sum" or "mean".
     file
         File name of the output file used to store the result. If provided, result will
         be saved to a backed AnnData, otherwise an in-memory AnnData is used.
@@ -521,6 +535,9 @@ def add_tile_matrix(
         uns: 'reference_sequences'
         obsm: 'fragment_paired'
     """
+    def fun(data, out):
+        internal.mk_tile_matrix(data, bin_size, chunk_size, counting_strategy, value_type, summary_type, exclude_chroms, min_frag_size, max_frag_size, out)
+
     if isinstance(exclude_chroms, str):
         exclude_chroms = [exclude_chroms]
 
@@ -528,11 +545,11 @@ def add_tile_matrix(
         if isinstance(adata, list):
             snapatac2._utils.anndata_par(
                 adata,
-                lambda x: internal.mk_tile_matrix(x, bin_size, chunk_size, counting_strategy, exclude_chroms, None),
+                lambda x: fun(x, None),
                 n_jobs=n_jobs,
             )
         else:
-            internal.mk_tile_matrix(adata, bin_size, chunk_size, counting_strategy, exclude_chroms, min_frag_size, max_frag_size, None)
+            fun(adata, None)
     else:
         if file is None:
             if adata.isbacked:
@@ -541,7 +558,7 @@ def add_tile_matrix(
                 out = AnnData(obs=adata.obs[:])
         else:
             out = internal.AnnData(filename=file, backend=backend, obs=adata.obs[:])
-        internal.mk_tile_matrix(adata, bin_size, chunk_size, counting_strategy, exclude_chroms, min_frag_size, max_frag_size, out)
+        fun(adata, out)
         return out
 
 def make_peak_matrix(
@@ -557,6 +574,8 @@ def make_peak_matrix(
     min_frag_size: int | None = None,
     max_frag_size: int | None = None,
     counting_strategy: Literal['fragment', 'insertion', 'paired-insertion'] = 'paired-insertion',
+    value_type: Literal['target', 'total', 'fraction'] = 'target',
+    summary_type: Literal['sum', 'mean'] = 'sum',
 ) -> internal.AnnData:
     """Generate cell by peak count matrix.
 
@@ -604,6 +623,18 @@ def make_peak_matrix(
         once if the pair of insertions of a fragment are both within the same region
         of interest [Miao24]_.
         Note that this parameter has no effect if input are single-end reads.
+    value_type
+        The type of value to use from `.obsm['_values']`, only available when 
+        data is imported using :func:`~snapatac2.pp.import_values`. It must be one of the following:
+        "target", "total", or "fraction". "target" means the value is the number
+        of recrods that are with postive measurements, e.g., number of methylated bases.
+        "total" means the value is the total number of measurements, e.g., methylated bases plus
+        unmethylated bases. "fraction" means the value is the fraction of the
+        records that are positive, e.g., the fraction of methylated bases.
+    summary_type
+        The type of summary to use when multiple values are found in a bin. This parameter
+        is only used when `.obsm['_values']` exists, which is created by :func:`~snapatac2.pp.import_values`. 
+        It must be one of the following: "sum" or "mean".
 
     Returns
     -------
@@ -657,7 +688,7 @@ def make_peak_matrix(
             out = AnnData(obs=adata.obs[:])
     else:
         out = internal.AnnData(filename=file, backend=backend, obs=adata.obs[:])
-    internal.mk_peak_matrix(adata, peaks, chunk_size, use_x, counting_strategy, min_frag_size, max_frag_size, out)
+    internal.mk_peak_matrix(adata, peaks, chunk_size, use_x, counting_strategy, value_type, summary_type, min_frag_size, max_frag_size, out)
     return out
 
 def make_gene_matrix(

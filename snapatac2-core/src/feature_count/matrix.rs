@@ -1,6 +1,8 @@
 use super::counter::{CountingStrategy, FeatureCounter, GeneCount, RegionCounter, TranscriptCount};
+use super::ValueType;
 use crate::genome::{Promoters, Transcript};
 use crate::feature_count::SnapData;
+use crate::preprocessing::SummaryType;
 
 use anndata::{data::DataFrameIndex, AnnDataOp, ArrayData};
 use anyhow::{bail, Result};
@@ -19,6 +21,7 @@ use polars::prelude::{DataFrame, NamedFrom, Series};
 /// * `min_fragment_size` - The minimum fragment size.
 /// * `max_fragment_size` - The maximum fragment size.
 /// * `count_frag_as_reads` - Whether to treat fragments as reads during counting.
+/// * `val_type` - Which kind of value to use: numerator, denominator or ratio. Only used for base data.
 /// * `out` - The output anndata object.
 pub fn create_tile_matrix<A, B>(
     adata: &A,
@@ -28,6 +31,8 @@ pub fn create_tile_matrix<A, B>(
     min_fragment_size: Option<u64>,
     max_fragment_size: Option<u64>,
     counting_strategy: CountingStrategy,
+    val_type: ValueType,
+    summary_type: SummaryType,
     out: Option<&B>,
 ) -> Result<()>
 where
@@ -67,7 +72,7 @@ where
         }
 
         feature_names = values.get_gindex().to_index().into();
-        data_iter = Box::new(values.into_array_iter().map(|x| ArrayData::from(x.0)));
+        data_iter = Box::new(values.into_array_iter(val_type, summary_type).map(|x| ArrayData::from(x.0)));
     } else {
         bail!("No fragment or base data found in the anndata object");
     };
@@ -92,6 +97,8 @@ pub fn create_peak_matrix<A, I, D, B>(
     peaks: I,
     chunk_size: usize,
     counting_strategy: CountingStrategy,
+    val_type: ValueType,
+    summary_type: SummaryType,
     min_fragment_size: Option<u64>,
     max_fragment_size: Option<u64>,
     out: Option<&B>,
@@ -140,7 +147,7 @@ where
         feature_names = counter.get_feature_ids();
         data_iter = Box::new(
             values
-                .into_aggregated_array_iter(counter)
+                .into_aggregated_array_iter(counter, val_type, summary_type)
                 .map(|x| x.0.into()),
         );
     } else {

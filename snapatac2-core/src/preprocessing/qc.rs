@@ -14,6 +14,7 @@ use crate::feature_count::{FragmentDataIter, SnapData};
 
 pub type CellBarcode = String;
 
+#[derive(Debug, Copy, Clone)]
 pub enum SummaryType {
     Sum,
     Count,
