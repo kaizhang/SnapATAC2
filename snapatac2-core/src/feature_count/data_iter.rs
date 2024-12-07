@@ -21,8 +21,8 @@ use std::{
 };
 
 pub enum FragmentDataIter {
-    FragmentSingle(Box<dyn ExactSizeIterator<Item = (CsrNonCanonical<i32>, usize, usize)>>),
-    FragmentPaired(Box<dyn ExactSizeIterator<Item = (CsrNonCanonical<u32>, usize, usize)>>),
+    FragmentSingle(Box<dyn Sync + ExactSizeIterator<Item = (CsrNonCanonical<i32>, usize, usize)>>),
+    FragmentPaired(Box<dyn Sync + ExactSizeIterator<Item = (CsrNonCanonical<u32>, usize, usize)>>),
 }
 
 fn single_to_fragments(
@@ -230,7 +230,7 @@ impl FragmentData {
     pub fn into_fragment_groups<F, K>(
         self,
         key: F,
-    ) -> impl ExactSizeIterator<Item = HashMap<K, Vec<Fragment>>>
+    ) -> impl ExactSizeIterator<Item = HashMap<K, Vec<(usize, Fragment)>>>
     where
         F: Fn(usize) -> K,
         K: Eq + PartialEq + std::hash::Hash,
@@ -238,11 +238,11 @@ impl FragmentData {
         self.into_fragments().map(move |(vals, start, _)| {
             let mut ordered = HashMap::new();
             vals.into_iter().enumerate().for_each(|(i, xs)| {
-                let k = key(start + i);
+                let idx = start + i;
                 ordered
-                    .entry(k)
+                    .entry(key(idx))
                     .or_insert_with(Vec::new)
-                    .extend(xs.into_iter());
+                    .extend(xs.into_iter().map(|x| (idx, x)));
             });
             ordered
         })
@@ -518,7 +518,8 @@ impl TryFrom<BaseValue> for i32 {
     type Error = anyhow::Error;
 
     fn try_from(x: BaseValue) -> Result<Self, Self::Error> {
-        x.to_i32().ok_or_else(|| anyhow::anyhow!("Cannot convert to i32"))
+        x.to_i32()
+            .ok_or_else(|| anyhow::anyhow!("Cannot convert to i32"))
     }
 }
 
@@ -679,7 +680,11 @@ where
 
     /// Output the raw coverage matrix. Note the values belong to the same interval
     /// will be aggregated by the mean value.
-    pub fn into_array_iter(self, val_ty: ValueType, summary_ty: SummaryType) -> impl ExactSizeIterator<Item = (ArrayData, usize, usize)> {
+    pub fn into_array_iter(
+        self,
+        val_ty: ValueType,
+        summary_ty: SummaryType,
+    ) -> impl ExactSizeIterator<Item = (ArrayData, usize, usize)> {
         fn helper<'a, T>(
             mat: CsrMatrix<T>,
             val_ty: ValueType,
@@ -731,26 +736,22 @@ where
 
         self.data_iter.map(move |(mat, i, j)| {
             let new_mat = match mat.data_type() {
-                DataType::CsrMatrix(ScalarType::I32) => {
-                    helper(
-                        CsrMatrix::<i32>::try_from(mat).unwrap(),
-                        val_ty,
-                        summary_ty,
-                        &self.exclude_chroms,
-                        &ori_index,
-                        &index,
-                    )
-                }
-                DataType::CsrMatrix(ScalarType::F32) => {
-                    helper(
-                        CsrMatrix::<f32>::try_from(mat).unwrap(),
-                        val_ty,
-                        summary_ty,
-                        &self.exclude_chroms,
-                        &ori_index,
-                        &index,
-                    )
-                }
+                DataType::CsrMatrix(ScalarType::I32) => helper(
+                    CsrMatrix::<i32>::try_from(mat).unwrap(),
+                    val_ty,
+                    summary_ty,
+                    &self.exclude_chroms,
+                    &ori_index,
+                    &index,
+                ),
+                DataType::CsrMatrix(ScalarType::F32) => helper(
+                    CsrMatrix::<f32>::try_from(mat).unwrap(),
+                    val_ty,
+                    summary_ty,
+                    &self.exclude_chroms,
+                    &ori_index,
+                    &index,
+                ),
                 _ => panic!("Unsupported data type"),
             };
             (new_mat.into(), i, j)
@@ -790,10 +791,11 @@ where
                         .zip(row.values())
                         .for_each(|(idx, val)| {
                             let (chrom, pos) = index.get_position(*idx);
-                            if exclude_chroms.is_empty()
-                                || !exclude_chroms.contains(chrom)
-                            {
-                                coverage.insert(&GenomicRange::new(chrom, pos, pos + 1), val.get_value(val_ty).unwrap());
+                            if exclude_chroms.is_empty() || !exclude_chroms.contains(chrom) {
+                                coverage.insert(
+                                    &GenomicRange::new(chrom, pos, pos + 1),
+                                    val.get_value(val_ty).unwrap(),
+                                );
                             }
                         });
                     match summary_ty {
@@ -801,37 +803,32 @@ where
                             .get_values_and_counts()
                             .map(|(idx, (val, count))| (idx, val / count as f32))
                             .collect::<Vec<_>>(),
-                        SummaryType::Sum => coverage
-                            .get_values(),
+                        SummaryType::Sum => coverage.get_values(),
                         _ => unimplemented!("Unsupported summary type"),
                     }
                 })
                 .collect::<Vec<_>>()
         }
- 
+
         let n_col = counter.num_features();
         self.data_iter.map(move |(data, i, j)| {
             let vec = match data.data_type() {
-                DataType::CsrMatrix(ScalarType::I32) => {
-                    helper(
-                        CsrMatrix::<i32>::try_from(data).unwrap(),
-                        counter.clone(),
-                        val_ty,
-                        summary_ty,
-                        &self.exclude_chroms,
-                        &self.index,
-                    )
-                }
-                DataType::CsrMatrix(ScalarType::F32) => {
-                    helper(
-                        CsrMatrix::<f32>::try_from(data).unwrap(),
-                        counter.clone(),
-                        val_ty,
-                        summary_ty,
-                        &self.exclude_chroms,
-                        &self.index,
-                    )
-                }
+                DataType::CsrMatrix(ScalarType::I32) => helper(
+                    CsrMatrix::<i32>::try_from(data).unwrap(),
+                    counter.clone(),
+                    val_ty,
+                    summary_ty,
+                    &self.exclude_chroms,
+                    &self.index,
+                ),
+                DataType::CsrMatrix(ScalarType::F32) => helper(
+                    CsrMatrix::<f32>::try_from(data).unwrap(),
+                    counter.clone(),
+                    val_ty,
+                    summary_ty,
+                    &self.exclude_chroms,
+                    &self.index,
+                ),
                 _ => panic!("Unsupported data type"),
             };
 
@@ -981,7 +978,7 @@ impl ValueGetter for i32 {
                 } else {
                     numer as f32 / denom as f32
                 }
-            },
+            }
         };
         Some(r)
     }

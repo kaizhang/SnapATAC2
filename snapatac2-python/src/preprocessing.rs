@@ -18,7 +18,7 @@ use std::{collections::BTreeMap, collections::HashSet, ops::Deref, str::FromStr}
 
 use snapatac2_core::{
     feature_count::{
-        create_gene_matrix, create_peak_matrix, create_tile_matrix, BaseValue, CountingStrategy,
+        create_gene_matrix, create_peak_matrix, create_tile_matrix, BaseValue,
     },
     genome::TranscriptParserOptions,
     preprocessing,
@@ -264,17 +264,6 @@ pub(crate) fn import_values(
     Ok(())
 }
 
-fn parse_strategy(strategy: &str) -> CountingStrategy {
-    match strategy {
-        "insertion" => CountingStrategy::Insertion,
-        "fragment" => CountingStrategy::Fragment,
-        "paired-insertion" => CountingStrategy::PIC,
-        _ => panic!(
-            "Counting strategy must be one of 'insertion', 'fragment', or 'paired-insertion'"
-        ),
-    }
-}
-
 #[pyfunction]
 pub(crate) fn mk_tile_matrix(
     anndata: AnnDataLike,
@@ -303,7 +292,7 @@ pub(crate) fn mk_tile_matrix(
                             exclude_chroms.as_ref().map(|x| x.as_slice()),
                             min_fragment_size,
                             max_fragment_size,
-                            parse_strategy(strategy),
+                            strategy.try_into()?,
                             str_to_value_type(val_type),
                             str_to_summary_type(summuary_type),
                             Some($out_data),
@@ -319,7 +308,7 @@ pub(crate) fn mk_tile_matrix(
                     exclude_chroms.as_ref().map(|x| x.as_slice()),
                     min_fragment_size,
                     max_fragment_size,
-                    parse_strategy(strategy),
+                    strategy.try_into()?,
                     str_to_value_type(val_type),
                     str_to_summary_type(summuary_type),
                     None::<&PyAnnData>,
@@ -366,7 +355,6 @@ pub(crate) fn mk_peak_matrix(
     let peaks = peaks
         .iter()?
         .map(|x| GenomicRange::from_str(x.unwrap().extract().unwrap()).unwrap());
-    let strategy = parse_strategy(strategy);
 
     macro_rules! run {
         ($data:expr) => {
@@ -377,7 +365,7 @@ pub(crate) fn mk_peak_matrix(
                             $data,
                             peaks,
                             chunk_size,
-                            strategy,
+                            strategy.try_into()?,
                             str_to_value_type(val_type),
                             str_to_summary_type(summuary_type),
                             min_fragment_size,
@@ -393,7 +381,7 @@ pub(crate) fn mk_peak_matrix(
                     $data,
                     peaks,
                     chunk_size,
-                    strategy,
+                    strategy.try_into()?,
                     str_to_value_type(val_type),
                     str_to_summary_type(summuary_type),
                     min_fragment_size,
@@ -434,7 +422,6 @@ pub(crate) fn mk_gene_matrix(
         gene_id_key,
     };
     let transcripts = read_transcripts(gff_file, &options);
-    let strategy = parse_strategy(strategy);
     macro_rules! run {
         ($data:expr) => {
             if let Some(out) = out {
@@ -448,7 +435,7 @@ pub(crate) fn mk_gene_matrix(
                             downstream,
                             include_gene_body,
                             chunk_size,
-                            strategy,
+                            strategy.try_into()?,
                             min_fragment_size,
                             max_fragment_size,
                             Some($out_data),
@@ -466,7 +453,7 @@ pub(crate) fn mk_gene_matrix(
                     downstream,
                     include_gene_body,
                     chunk_size,
-                    strategy,
+                    strategy.try_into()?,
                     min_fragment_size,
                     max_fragment_size,
                     None::<&PyAnnData>,

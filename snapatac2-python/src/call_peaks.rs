@@ -25,7 +25,7 @@ use polars::{
 };
 use pyo3::{prelude::*, pybacked::PyBackedStr};
 use pyo3_polars::PyDataFrame;
-use rayon::iter::{ParallelBridge, ParallelIterator};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashSet;
 use std::io::Write;
 use std::sync::{Arc, Mutex};
@@ -508,11 +508,11 @@ fn _export_tags<D: SnapData, P: AsRef<std::path::Path>>(
         .into_fragment_groups(|x| keys[x])
         .progress_with_style(style)
         .for_each(|vals| {
-            vals.into_iter().par_bridge().for_each(|(i, beds)| {
+            vals.into_par_iter().for_each(|(i, beds)| {
                 if let Some((_, fl)) = files.get(&i) {
                     let mut fl = fl.lock().unwrap();
                     beds.into_iter()
-                        .for_each(|bed| writeln!(fl, "{}", bed).unwrap());
+                        .for_each(|bed| writeln!(fl, "{}", bed.1).unwrap());
                 }
             })
         });

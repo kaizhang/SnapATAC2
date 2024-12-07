@@ -88,7 +88,8 @@ def export_coverage(
     exclude_for_norm: list[str] | Path = None,
     min_frag_length: int | None = None,
     max_frag_length: int | None = 2000,
-    smooth_length: int | None = None,
+    counting_strategy: Literal['fragment', 'insertion', 'paired-insertion'] = 'fragment',
+    smooth_base: int | None = None,
     out_dir: Path = "./",
     prefix: str = "",
     suffix: str = ".bw",
@@ -146,11 +147,18 @@ def export_coverage(
         Minimum fragment length to be included in the computation.
     max_frag_length
         Maximum fragment length to be included in the computation.
-    smooth_length
-        Length of the smoothing window for the output of the bigwig/bedgraph file.
-        For example, if the bin_size is set to 20 and the smooth_length is set to 3,
-        then, for each bin, the average of the bin and its left and right neighbors
-        is considered (the total of 60 bp).
+    counting_strategy
+        The strategy to compute feature counts. It must be one of the following:
+        "fragment", "insertion", or "paired-insertion". "fragment" means the
+        feature counts are assigned based on the number of fragments that overlap
+        with a region of interest. "insertion" means the feature counts are assigned
+        based on the number of insertions that overlap with a region of interest.
+        "paired-insertion" is similar to "insertion", but it only counts the insertions
+        once if the pair of insertions of a fragment are both within the same region
+        of interest [Miao24]_.
+        Note that this parameter has no effect if input are single-end reads.
+    smooth_base
+        Length of the smoothing window in bases for the output of the bigwig/bedgraph file.
     out_dir
         Directory for saving the outputs.
     prefix
@@ -222,7 +230,7 @@ def export_coverage(
 
     n_jobs = None if n_jobs <= 0 else n_jobs
     return internal.export_coverage(
-        adata, list(groupby), bin_size, out_dir, prefix, suffix, output_format, selections,
-        blacklist, normalization, include_for_norm, exclude_for_norm, min_frag_length,
-        max_frag_length, smooth_length, compression, compression_level, tempdir, n_jobs,
+        adata, list(groupby), bin_size, out_dir, prefix, suffix, output_format, counting_strategy,
+        selections, blacklist, normalization, include_for_norm, exclude_for_norm, min_frag_length,
+        max_frag_length, smooth_base, compression, compression_level, tempdir, n_jobs,
     )

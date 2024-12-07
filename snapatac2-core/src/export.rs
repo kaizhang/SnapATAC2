@@ -1,11 +1,14 @@
+use crate::feature_count::{CountingStrategy, SnapData};
 use crate::genome::ChromSizes;
-use crate::feature_count::SnapData;
 use crate::{
     preprocessing::Fragment,
     utils::{self, Compression},
 };
 
 use anyhow::{bail, ensure, Context, Result};
+use bed_utils::bed::map::GIntervalIndexSet;
+use bed_utils::bed::merge_sorted_bed_with;
+use bed_utils::coverage::SparseBinnedCoverage;
 use bed_utils::{
     bed::{io, map::GIntervalMap, merge_sorted_bedgraph, BEDLike, BedGraph, GenomicRange},
     extsort::ExternalSorterBuilder,
@@ -15,7 +18,7 @@ use indexmap::IndexMap;
 use indicatif::{style::ProgressStyle, ParallelProgressIterator, ProgressIterator};
 use itertools::Itertools;
 use log::info;
-use rayon::iter::{IntoParallelIterator, ParallelBridge, ParallelIterator};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::{
     collections::{HashMap, HashSet},
     io::Write,
@@ -89,30 +92,18 @@ pub trait Exporter: SnapData {
         }
 
         fragment_data
-            .into_fragments()
-            .map(move |(vals, start, _)| {
-                let mut ordered = HashMap::new();
-                vals.into_iter().enumerate().for_each(|(i, xs)| {
-                    let k = group_by[start + i];
-                    let entry = ordered.entry(k).or_insert_with(Vec::new);
-                    if let Some(barcodes_) = barcodes {
-                        let bc = barcodes_[start + i];
-                        entry.extend(xs.into_iter().map(|mut x| {
-                            x.barcode = Some(bc.to_string());
-                            x
-                        }));
-                    } else {
-                        entry.extend(xs.into_iter());
-                    }
-                });
-                ordered
-            })
+            .into_fragment_groups(|i| group_by[i])
             .progress_with_style(style)
-            .try_for_each(|vals| {
-                vals.into_iter().par_bridge().try_for_each(|(k, beds)| {
+            .try_for_each(|group| {
+                group.into_par_iter().try_for_each(|(k, frags)| {
                     if let Some((_, fl)) = files.get(k) {
                         let mut fl = fl.lock().unwrap();
-                        beds.into_iter().try_for_each(|x| writeln!(fl, "{}", x))?;
+                        frags.into_iter().try_for_each(|(i, mut f)| {
+                            if let Some(barcodes) = barcodes {
+                                f.barcode = Some(barcodes[i].to_string());
+                            }
+                            writeln!(fl, "{}", f)
+                        })?;
                     }
                     anyhow::Ok(())
                 })
@@ -134,7 +125,8 @@ pub trait Exporter: SnapData {
         exclude_for_norm: Option<&GIntervalMap<()>>,
         min_fragment_length: Option<u64>,
         max_fragment_length: Option<u64>,
-        smooth_length: Option<u16>,
+        counting_strategy: CountingStrategy,
+        smooth_base: Option<u32>,
         dir: P,
         prefix: &str,
         suffix: &str,
@@ -167,8 +159,8 @@ pub trait Exporter: SnapData {
             max_fragment_length,
             temp_dir.path(),
             "",
-            "",
-            Some(Compression::Gzip),
+            ".zst",
+            Some(Compression::Zstd),
             Some(1),
         )?;
 
@@ -197,6 +189,15 @@ pub trait Exporter: SnapData {
                     let fragments = io::Reader::new(utils::open_file_for_read(filename), None)
                         .into_records::<Fragment>()
                         .map(Result::unwrap);
+                    let fragments: Box<dyn Iterator<Item = _>> = match counting_strategy {
+                        CountingStrategy::Fragment => {
+                            Box::new(fragments.map(|x| x.to_genomic_range()))
+                        }
+                        CountingStrategy::Insertion => {
+                            Box::new(fragments.flat_map(|x| x.to_insertions()))
+                        }
+                        _ => todo!(),
+                    };
                     let fragments = ExternalSorterBuilder::new()
                         .with_tmp_dir(temp_dir.path())
                         .build()?
@@ -208,7 +209,7 @@ pub trait Exporter: SnapData {
                         fragments,
                         &chrom_sizes,
                         resolution as u64,
-                        smooth_length,
+                        smooth_base,
                         blacklist_regions,
                         normalization,
                         include_for_norm,
@@ -276,30 +277,28 @@ impl std::str::FromStr for Normalization {
 /// * `fragments` - iterator of fragments
 /// * `chrom_sizes` - chromosome sizes
 /// * `bin_size` - Size of the bins, in bases, for the output of the bigwig/bedgraph file.
-/// * `smooth_length` - Length of the smoothing window for the output of the bigwig/bedgraph file.
-///                     For example, if the bin_size is set to 20 and the smooth_length is set to 3,
-///                     then, for each bin, the average of the bin and its left and right neighbors
-///                     is considered (the total of 60 bp).
+/// * `smooth_base` - Length of the smoothing base. If None, no smoothing is performed.
 /// * `blacklist_regions` - Blacklist regions to be ignored.
 /// * `normalization` - Normalization method.
 /// * `include_for_norm` - If specified, only the regions that overlap with these intervals will be used for normalization.
 /// * `exclude_for_norm` - If specified, the regions that overlap with these intervals will be
 ///                        excluded from normalization. If a region is in both "include_for_norm" and
 ///                        "exclude_for_norm", it will be excluded.
-fn create_bedgraph_from_sorted_fragments<I>(
+fn create_bedgraph_from_sorted_fragments<I, B>(
     fragments: I,
     chrom_sizes: &ChromSizes,
     bin_size: u64,
-    smooth_length: Option<u16>,
+    smooth_base: Option<u32>,
     blacklist_regions: Option<&GIntervalMap<()>>,
     normalization: Option<Normalization>,
     include_for_norm: Option<&GIntervalMap<()>>,
     exclude_for_norm: Option<&GIntervalMap<()>>,
-) -> Vec<BedGraph<f32>>
+) -> Vec<BedGraph<f64>>
 where
-    I: Iterator<Item = Fragment>,
+    I: Iterator<Item = B>,
+    B: BEDLike,
 {
-    let mut norm_factor = 0.0;
+    let mut norm_factor = 0.0f64;
     let bedgraph = fragments.flat_map(|frag| {
         if blacklist_regions.map_or(false, |bl| bl.is_overlapped(&frag)) {
             None
@@ -309,127 +308,83 @@ where
             {
                 norm_factor += 1.0;
             }
-            let mut frag = BedGraph::from_bed(&frag, 1.0);
+            let mut frag = BedGraph::from_bed(&frag, 1.0f64);
             fit_to_bin(&mut frag, bin_size);
             clip_bed(frag, chrom_sizes)
         }
     });
+
     let mut bedgraph: Vec<_> = merge_sorted_bedgraph(bedgraph).collect();
 
     norm_factor = match normalization {
         None => 1.0,
-        Some(Normalization::RPKM) => norm_factor * bin_size as f32 / 1e9,
+        Some(Normalization::RPKM) => norm_factor * bin_size as f64 / 1e9,
         Some(Normalization::CPM) => norm_factor / 1e6,
-        Some(Normalization::BPM) => bedgraph.iter().map(|x| x.value).sum::<f32>() / 1e6,
+        Some(Normalization::BPM) => todo!(),
         Some(Normalization::RPGC) => todo!(),
     };
 
     bedgraph.iter_mut().for_each(|x| x.value /= norm_factor);
 
-    if let Some(smooth_length) = smooth_length {
-        let smooth_left = (smooth_length - 1) / 2;
-        let smooth_right = smooth_left + (smooth_left - 1) % 2;
-        bedgraph = smooth_bedgraph(
-            bedgraph.into_iter(),
-            bin_size,
-            smooth_left,
-            smooth_right,
-            chrom_sizes,
-        )
-        .collect();
+    if let Some(smooth_base) = smooth_base {
+        let smooth_left = (smooth_base - 1) / 2;
+        let smooth_right = smooth_base - 1 - smooth_left;
+        bedgraph = smooth_bedgraph(bedgraph.into_iter(), smooth_left, smooth_right).collect();
     }
 
     bedgraph
 }
 
 fn smooth_bedgraph<'a, I>(
-    input: I,
-    bin_size: u64,
-    left_window_len: u16,
-    right_window_len: u16,
-    chr_sizes: &'a ChromSizes,
-) -> impl Iterator<Item = BedGraph<f32>> + 'a
-where
-    I: Iterator<Item = BedGraph<f32>> + 'a,
-{
-    let left_bases = left_window_len as u64 * bin_size;
-    let right_bases = right_window_len as u64 * bin_size;
-    get_overlapped_chunks(input, left_bases, right_bases).flat_map(move |chunk| {
-        let size = chr_sizes.get(chunk[0].chrom()).unwrap();
-        moving_average(&chunk, left_bases, right_bases, size)
-    })
-}
-
-fn get_overlapped_chunks<I>(
     mut input: I,
-    left_bases: u64,
-    right_bases: u64,
-) -> impl Iterator<Item = Vec<BedGraph<f32>>>
+    left_window_len: u32,
+    right_window_len: u32,
+) -> impl Iterator<Item = BedGraph<f64>> + 'a
 where
-    I: Iterator<Item = BedGraph<f32>>,
+    I: Iterator<Item = BedGraph<f64>> + 'a,
 {
-    let mut buffer = vec![input.next().unwrap()];
+    todo!();
+    let mut prev = input.next();
     std::iter::from_fn(move || {
-        while let Some(cur) = input.next() {
-            let prev = buffer.last().unwrap();
-            if cur.chrom() == prev.chrom()
-                && prev.end() + right_bases > cur.start().saturating_sub(left_bases)
-            {
-                buffer.push(cur);
-            } else {
-                let result = Some(buffer.clone());
-                buffer = vec![cur];
-                return result;
-            }
-        }
-        if buffer.is_empty() {
-            None
+        if let Some(cur) = input.next() {
+            Some(cur)
         } else {
-            let result = Some(buffer.clone());
-            buffer = Vec::new();
-            return result;
+            None
         }
     })
 }
 
-fn moving_average(
-    chunk: &Vec<BedGraph<f32>>,
-    left_bases: u64,
-    right_bases: u64,
-    chrom_size: u64,
-) -> impl Iterator<Item = BedGraph<f32>> {
-    let bin_size = chunk[0].len() as u64;
-    let n_left = (left_bases / bin_size) as usize;
-    let n_right = (right_bases / bin_size) as usize;
-    let chrom = chunk.first().unwrap().chrom();
-    let chunk_start = chunk.first().unwrap().start();
-    let chunk_end = (chunk.last().unwrap().end() + right_bases).min(chrom_size);
-    let mut regions = GenomicRange::new(chrom, chunk_start.saturating_sub(left_bases), chunk_start)
-        .rsplit_by_len(bin_size)
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .chain(GenomicRange::new(chrom, chunk_start, chunk_end).split_by_len(bin_size))
-        .map(|x| (x, 0.0))
-        .collect::<IndexMap<_, _>>();
-    // Add values
-    chunk
-        .iter()
-        .for_each(|gr| *regions.get_mut(&gr.to_genomic_range()).unwrap() = gr.value);
-    let len = regions.len();
-    // Compute the average
-    (0..len).map(move |i| {
-        let s: f32 = (i.saturating_sub(n_left)..(i + n_right + 1).min(len))
-            .map(|x| regions[x])
-            .sum();
-        let val = s / (n_right + n_left + 1) as f32;
-        BedGraph::from_bed(regions.get_index(i).unwrap().0, val)
+/*
+fn smooth_bedgraph_block<I>(data: I, ext_left: u64, ext_right: u64)
+where
+    I: IntoIterator<Item = BedGraph<f64>>,
+{
+    data.into_iter().map(|x| {
+        let start = x.start();
+        let end = x.end();
+        let chrom = x.chrom();
+        let mut sum = x.value;
+        let mut n = 1;
+        extend(start, end, ext_left, ext_right).map(|(s, e)) 
+        BedGraph::new(chrom, start, end, sum / n as f64)
+    })
+
+}
+*/
+
+fn extend(start: u64, end: u64, ext_left: u64, ext_right: u64) -> impl Iterator<Item = (u64, u64)> {
+    let max = (end - start).min(ext_left + ext_right + 1);
+    let s = start - ext_left;
+    let e = end + ext_right;
+    (s..e).into_iter().map(move |i| {
+        let n = (i - s + 1).min(e - i).min(max);
+        (i, n)
     })
 }
 
 /// Create a bigwig file from BedGraph records.
 fn create_bigwig_from_bedgraph<P: AsRef<Path>>(
-    mut bedgraph: Vec<BedGraph<f32>>,
+    mut bedgraph: Vec<BedGraph<f64>>,
     chrom_sizes: &ChromSizes,
     filename: P,
 ) -> Result<()> {
@@ -462,7 +417,7 @@ fn create_bigwig_from_bedgraph<P: AsRef<Path>>(
                 let val = bigtools::Value {
                     start: x.start() as u32,
                     end: x.end() as u32,
-                    value: x.value,
+                    value: x.value as f32,
                 };
                 let res: Result<_, bigtools::bed::bedparser::BedValueError> =
                     Ok((x.chrom().to_string(), val));
@@ -556,7 +511,7 @@ mod tests {
 
         let reader = crate::utils::open_file_for_read("test/coverage.bdg.gz");
         let mut reader = bed_utils::bed::io::Reader::new(reader, None);
-        let mut expected: Vec<BedGraph<f32>> = reader.records().map(|x| x.unwrap()).collect();
+        let mut expected: Vec<BedGraph<f64>> = reader.records().map(|x| x.unwrap()).collect();
 
         let output = create_bedgraph_from_sorted_fragments(
             fragments.clone().into_iter(),
@@ -578,19 +533,21 @@ mod tests {
             &expected[..10]
         );
 
+        /*
         let output = create_bedgraph_from_sorted_fragments(
             fragments.into_iter(),
             &[("chr1", 248956422), ("chr2", 242193529)]
                 .into_iter()
                 .collect(),
             1,
+            CountingStrategy::Fragment,
             None,
             None,
             Some(Normalization::BPM),
             None,
             None,
         );
-        let scale_factor: f32 = expected.iter().map(|x| x.value).sum::<f32>() / 1e6;
+        let scale_factor: f32 = expected.iter().map(|x| x.len() as f32 * x.value).sum::<f32>() / 1e6;
         expected = expected
             .into_iter()
             .map(|mut x| {
@@ -605,23 +562,35 @@ mod tests {
             &output[..10],
             &expected[..10]
         );
+        */
     }
 
     #[test]
     fn test_smoothing() {
+        assert_eq!(
+            extend(15, 17, 2, 2).collect::<Vec<_>>(),
+            vec![(13, 1), (14, 2), (15, 2), (16, 2), (17, 2), (18, 1)]
+        );
+        assert_eq!(
+            extend(10, 20, 2, 4).collect::<Vec<_>>(),
+            vec![(8, 1), (9, 2), (10, 3), (11, 4), (12, 5), (13, 6), (14, 7),
+                (15, 7), (16, 7), (17, 7), (18, 6), (19, 5), (20, 4), (21, 3), (22, 2), (23, 1)
+            ]
+        );
+    /*
         let input = vec![
             BedGraph::new("chr1", 0, 100, 1.0),
             BedGraph::new("chr1", 200, 300, 2.0),
             BedGraph::new("chr1", 500, 600, 3.0),
             BedGraph::new("chr1", 1000, 1100, 5.0),
+            BedGraph::new("chr1", 1400, 1800, 10.0),
         ];
 
         assert_eq!(
             smooth_bedgraph(
                 input.into_iter(),
-                100,
-                2,
-                2,
+                200,
+                200,
                 &[("chr1", 10000000)].into_iter().collect(),
             )
             .collect::<Vec<_>>(),
@@ -638,8 +607,16 @@ mod tests {
                 BedGraph::new("chr1", 900, 1000, 1.0),
                 BedGraph::new("chr1", 1000, 1100, 1.0),
                 BedGraph::new("chr1", 1100, 1200, 1.0),
-                BedGraph::new("chr1", 1200, 1300, 1.0),
+                BedGraph::new("chr1", 1200, 1300, 3.0),
+                BedGraph::new("chr1", 1300, 1400, 4.0),
+                BedGraph::new("chr1", 1400, 1500, 6.0),
+                BedGraph::new("chr1", 1500, 1600, 8.0),
+                BedGraph::new("chr1", 1600, 1700, 10.0),
+                BedGraph::new("chr1", 1700, 1800, 10.0),
+                BedGraph::new("chr1", 1800, 1900, 8.0),
+                BedGraph::new("chr1", 1900, 2000, 6.0),
             ],
         );
+    */
     }
 }

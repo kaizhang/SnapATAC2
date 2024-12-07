@@ -1,3 +1,4 @@
+use anyhow::bail;
 use bed_utils::bed::map::GIntervalIndexSet;
 use bed_utils::bed::BEDLike;
 use indexmap::map::IndexMap;
@@ -19,6 +20,19 @@ pub enum CountingStrategy {
     Insertion, // Insertion based counting
     Fragment,  // Fragment based counting
     PIC,       // Paired-Insertion Counting (PIC)
+}
+
+impl TryFrom<&str> for CountingStrategy {
+    type Error = anyhow::Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "insertion" => Ok(CountingStrategy::Insertion),
+            "fragment" => Ok(CountingStrategy::Fragment),
+            "paired-insertion" => Ok(CountingStrategy::PIC),
+            _ => bail!("Counting strategy must be one of 'insertion', 'fragment', or 'paired-insertion'"),
+        }
+    }
 }
 
 /// `FeatureCounter` is a trait that provides an interface for counting genomic features.
