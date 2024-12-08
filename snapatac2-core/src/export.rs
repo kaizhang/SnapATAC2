@@ -160,8 +160,8 @@ pub trait Exporter: SnapData {
             Some(1),
         )?;
 
+        info!("Computing coverage...");
         let chrom_sizes = self.read_chrom_sizes()?;
-        info!("Creating coverage files...");
         let style = ProgressStyle::with_template(
             "[{elapsed}] {bar:40.cyan/blue} {pos:>7}/{len:7} (eta: {eta})",
         )
@@ -294,7 +294,7 @@ where
     I: Iterator<Item = B>,
     B: BEDLike,
 {
-    let mut norm_factor = 0.0f64;
+    let mut norm_factor = 0u64;
     let bedgraph = fragments.flat_map(|frag| {
         if blacklist_regions.map_or(false, |bl| bl.is_overlapped(&frag)) {
             None
@@ -302,21 +302,29 @@ where
             if include_for_norm.map_or(true, |x| x.is_overlapped(&frag))
                 && !exclude_for_norm.map_or(false, |x| x.is_overlapped(&frag))
             {
-                norm_factor += 1.0;
+                norm_factor += frag.len();
             }
             let mut frag = BedGraph::from_bed(&frag, 1.0f64);
             fit_to_bin(&mut frag, bin_size);
-            clip_bed(frag, chrom_sizes)
+            Some(frag)
         }
     });
 
-    let mut bedgraph: Vec<_> = merge_sorted_bedgraph(bedgraph).collect();
+    let mut bedgraph: Vec<_> = merge_sorted_bedgraph(bedgraph)
+        .flat_map(|x| clip_bed(x, chrom_sizes))
+        .collect();
 
-    norm_factor = match normalization {
+    let norm_factor = match normalization {
         None => 1.0,
-        Some(Normalization::RPKM) => norm_factor * bin_size as f64 / 1e9,
-        Some(Normalization::CPM) => norm_factor / 1e6,
-        Some(Normalization::BPM) => todo!(),
+        Some(Normalization::RPKM) => (norm_factor * bin_size) as f64 / 1e9,
+        Some(Normalization::CPM) => norm_factor as f64 / 1e6,
+        Some(Normalization::BPM) => {
+            bedgraph
+                .iter()
+                .map(|x| x.value * (x.len() / bin_size) as f64)
+                .sum::<f64>()
+                / 1e6
+        }
         Some(Normalization::RPGC) => todo!(),
     };
 
@@ -409,26 +417,15 @@ fn extend(start: u64, end: u64, ext_left: u64, ext_right: u64) -> Vec<(u64, u64,
 }
 
 /// Create a bigwig file from BedGraph records.
-fn create_bigwig_from_bedgraph<P: AsRef<Path>>(
-    mut bedgraph: Vec<BedGraph<f64>>,
+fn create_bigwig_from_bedgraph<P, I>(
+    bedgraph: I,
     chrom_sizes: &ChromSizes,
     filename: P,
-) -> Result<()> {
-    // perform clipping to make sure the end of each region is within the range.
-    bedgraph
-        .iter_mut()
-        .chunk_by(|x| x.chrom().to_string())
-        .into_iter()
-        .for_each(|(chr, groups)| {
-            let size = chrom_sizes
-                .get(&chr)
-                .expect(&format!("chromosome not found: {}", chr));
-            let bed = groups.last().unwrap();
-            if bed.end() > size {
-                bed.set_end(size);
-            }
-        });
-
+) -> Result<()>
+where
+    P: AsRef<Path>,
+    I: IntoIterator<Item = BedGraph<f64>>,
+{
     // write to bigwig file
     BigWigWrite::create_file(
         filename.as_ref().to_str().unwrap().to_string(),
@@ -561,21 +558,23 @@ mod tests {
             &expected[..10]
         );
 
-        /*
         let output = create_bedgraph_from_sorted_fragments(
             fragments.into_iter(),
             &[("chr1", 248956422), ("chr2", 242193529)]
                 .into_iter()
                 .collect(),
             1,
-            CountingStrategy::Fragment,
             None,
             None,
             Some(Normalization::BPM),
             None,
             None,
         );
-        let scale_factor: f32 = expected.iter().map(|x| x.len() as f32 * x.value).sum::<f32>() / 1e6;
+        let scale_factor: f64 = expected
+            .iter()
+            .map(|x| x.len() as f64 * x.value)
+            .sum::<f64>()
+            / 1e6;
         expected = expected
             .into_iter()
             .map(|mut x| {
@@ -590,7 +589,6 @@ mod tests {
             &output[..10],
             &expected[..10]
         );
-        */
     }
 
     #[test]
