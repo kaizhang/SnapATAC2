@@ -6,7 +6,8 @@
 
   - Implement `BPM` normalization in `ex.export_coverage`.
   - Add `include_for_norm` and `exclude_for_norm` to `ex.export_coverage`.
-  - BedGraph generation in `ex.export_coverage` is 10x faster.
+  - `ex.export_coverage` is much faster.
+  - Add `counting_strategy` to `ex.export_coverage`.
   - Implement broad peak calling in `tl.macs3`.
   - Add `pp.import_values` for importing single base pair values.
   - Add `metrics.summary_by_chrom`.
@@ -14,6 +15,7 @@
 ### Bugs fixed:
 
   - Fix #364: logarithm of zero in `tl.diff_test`.
+  - Fix #366: float32 cannot hold large values in `ex.export_coverage`.
 
 ## Release 2.7.1 (released October 29, 2024)
 

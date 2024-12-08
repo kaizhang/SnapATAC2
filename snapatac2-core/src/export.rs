@@ -6,15 +6,11 @@ use crate::{
 };
 
 use anyhow::{bail, ensure, Context, Result};
-use bed_utils::bed::map::GIntervalIndexSet;
-use bed_utils::bed::merge_sorted_bed_with;
-use bed_utils::coverage::SparseBinnedCoverage;
 use bed_utils::{
-    bed::{io, map::GIntervalMap, merge_sorted_bedgraph, BEDLike, BedGraph, GenomicRange},
+    bed::{io, map::GIntervalMap, merge_sorted_bedgraph, BEDLike, BedGraph},
     extsort::ExternalSorterBuilder,
 };
 use bigtools::BigWigWrite;
-use indexmap::IndexMap;
 use indicatif::{style::ProgressStyle, ParallelProgressIterator, ProgressIterator};
 use itertools::Itertools;
 use log::info;
@@ -126,7 +122,7 @@ pub trait Exporter: SnapData {
         min_fragment_length: Option<u64>,
         max_fragment_length: Option<u64>,
         counting_strategy: CountingStrategy,
-        smooth_base: Option<u32>,
+        smooth_base: Option<u64>,
         dir: P,
         prefix: &str,
         suffix: &str,
@@ -288,7 +284,7 @@ fn create_bedgraph_from_sorted_fragments<I, B>(
     fragments: I,
     chrom_sizes: &ChromSizes,
     bin_size: u64,
-    smooth_base: Option<u32>,
+    smooth_base: Option<u64>,
     blacklist_regions: Option<&GIntervalMap<()>>,
     normalization: Option<Normalization>,
     include_for_norm: Option<&GIntervalMap<()>>,
@@ -329,57 +325,87 @@ where
     if let Some(smooth_base) = smooth_base {
         let smooth_left = (smooth_base - 1) / 2;
         let smooth_right = smooth_base - 1 - smooth_left;
-        bedgraph = smooth_bedgraph(bedgraph.into_iter(), smooth_left, smooth_right).collect();
+        bedgraph = smooth_bedgraph(bedgraph.into_iter(), smooth_left, smooth_right, chrom_sizes);
     }
 
     bedgraph
 }
 
-fn smooth_bedgraph<'a, I>(
-    mut input: I,
-    left_window_len: u32,
-    right_window_len: u32,
-) -> impl Iterator<Item = BedGraph<f64>> + 'a
+fn smooth_bedgraph<I>(
+    input: I,
+    left_window_len: u64,
+    right_window_len: u64,
+    chrom_sizes: &ChromSizes,
+) -> Vec<BedGraph<f64>>
 where
-    I: Iterator<Item = BedGraph<f64>> + 'a,
+    I: Iterator<Item = BedGraph<f64>>,
 {
-    todo!();
-    let mut prev = input.next();
-    std::iter::from_fn(move || {
-        if let Some(cur) = input.next() {
-            Some(cur)
-        } else {
-            None
-        }
-    })
+    let mut key = 0;
+    let mut prev = 0;
+    input
+        .chunk_by(|bed| {
+            let k = if prev > bed.start().saturating_sub(left_window_len) {
+                key
+            } else {
+                key += 1;
+                key
+            };
+            prev = bed.end() + right_window_len;
+            k
+        })
+        .into_iter()
+        .flat_map(|(_, group)| smooth_bedgraph_block(group, left_window_len, right_window_len))
+        .flat_map(|bed| clip_bed(bed, chrom_sizes))
+        .collect()
 }
 
-/*
-fn smooth_bedgraph_block<I>(data: I, ext_left: u64, ext_right: u64)
+/// Smooth the values in BedGraph. The input is expected to be overlapping blocks.
+fn smooth_bedgraph_block<I>(
+    data: I,
+    ext_left: u64,
+    ext_right: u64,
+) -> impl Iterator<Item = BedGraph<f64>>
 where
     I: IntoIterator<Item = BedGraph<f64>>,
 {
-    data.into_iter().map(|x| {
-        let start = x.start();
-        let end = x.end();
-        let chrom = x.chrom();
-        let mut sum = x.value;
-        let mut n = 1;
-        extend(start, end, ext_left, ext_right).map(|(s, e)) 
-        BedGraph::new(chrom, start, end, sum / n as f64)
-    })
-
+    let n_bases = (ext_left + ext_right + 1) as f64;
+    let mut data: Vec<_> = data
+        .into_iter()
+        .flat_map(|bed| {
+            extend(bed.start(), bed.end(), ext_left, ext_right)
+                .into_iter()
+                .map(move |(s, e, n)| {
+                    BedGraph::new(bed.chrom(), s, e, bed.value * n as f64 / n_bases)
+                })
+        })
+        .collect();
+    data.sort_unstable_by(|a, b| a.compare(b));
+    merge_sorted_bedgraph(data)
 }
-*/
 
-fn extend(start: u64, end: u64, ext_left: u64, ext_right: u64) -> impl Iterator<Item = (u64, u64)> {
+fn extend(start: u64, end: u64, ext_left: u64, ext_right: u64) -> Vec<(u64, u64, u64)> {
     let max = (end - start).min(ext_left + ext_right + 1);
-    let s = start - ext_left;
-    let e = end + ext_right;
-    (s..e).into_iter().map(move |i| {
-        let n = (i - s + 1).min(e - i).min(max);
-        (i, n)
-    })
+    let s = start as i64 - ext_left as i64;
+    let e = end as i64 + ext_right as i64;
+    (s..e)
+        .into_iter()
+        .flat_map(move |i| {
+            if i < 0 {
+                None
+            } else {
+                let n = (i - s + 1).min(e - i).min(max as i64);
+                Some((i as u64, n as u64))
+            }
+        })
+        .chunk_by(|x| x.1)
+        .into_iter()
+        .map(|(k, group)| {
+            let mut group = group.into_iter();
+            let i = group.next().unwrap().0;
+            let j = group.last().map_or(i, |x| x.0) + 1;
+            (i, j, k)
+        })
+        .collect()
 }
 
 /// Create a bigwig file from BedGraph records.
@@ -454,6 +480,8 @@ fn fit_to_bin<B: BEDLike>(x: &mut B, bin_size: u64) {
 
 #[cfg(test)]
 mod tests {
+    use bed_utils::bed::merge_sorted_bed_with;
+
     use super::*;
 
     #[test]
@@ -566,57 +594,110 @@ mod tests {
     }
 
     #[test]
-    fn test_smoothing() {
+    fn test_extend() {
         assert_eq!(
-            extend(15, 17, 2, 2).collect::<Vec<_>>(),
-            vec![(13, 1), (14, 2), (15, 2), (16, 2), (17, 2), (18, 1)]
+            extend(15, 17, 2, 2),
+            vec![(13, 14, 1), (14, 18, 2), (18, 19, 1)]
         );
         assert_eq!(
-            extend(10, 20, 2, 4).collect::<Vec<_>>(),
-            vec![(8, 1), (9, 2), (10, 3), (11, 4), (12, 5), (13, 6), (14, 7),
-                (15, 7), (16, 7), (17, 7), (18, 6), (19, 5), (20, 4), (21, 3), (22, 2), (23, 1)
+            extend(10, 20, 2, 4),
+            vec![
+                (8, 9, 1),
+                (9, 10, 2),
+                (10, 11, 3),
+                (11, 12, 4),
+                (12, 13, 5),
+                (13, 14, 6),
+                (14, 18, 7),
+                (18, 19, 6),
+                (19, 20, 5),
+                (20, 21, 4),
+                (21, 22, 3),
+                (22, 23, 2),
+                (23, 24, 1)
             ]
         );
-    /*
-        let input = vec![
-            BedGraph::new("chr1", 0, 100, 1.0),
-            BedGraph::new("chr1", 200, 300, 2.0),
-            BedGraph::new("chr1", 500, 600, 3.0),
-            BedGraph::new("chr1", 1000, 1100, 5.0),
-            BedGraph::new("chr1", 1400, 1800, 10.0),
-        ];
+    }
 
-        assert_eq!(
-            smooth_bedgraph(
+    #[test]
+    fn test_smoothing() {
+        fn test_eq(this: &Vec<BedGraph<f64>>, other: &Vec<BedGraph<f64>>) -> bool {
+            this.iter().zip(other.iter()).all(|(a, b)| {
+                a.chrom() == b.chrom()
+                    && a.start() == b.start()
+                    && a.end() == b.end()
+                    && (a.value - b.value).abs() < 1e-6
+            })
+        }
+
+        fn moving_average(half_window: u64, arr: &[f64]) -> impl Iterator<Item = f64> + '_ {
+            let n = arr.len();
+            (0..n).map(move |i| {
+                let r = i.saturating_sub(half_window as usize)
+                    ..std::cmp::min(i + half_window as usize + 1, n);
+                arr[r].iter().sum::<f64>() / (half_window * 2 + 1) as f64
+            })
+        }
+
+        fn test(input: Vec<BedGraph<f64>>, bin_size: u64) {
+            let mut expected = [0.0f64; 10000];
+            input
+                .iter()
+                .for_each(|bed| expected[bed.start() as usize..bed.end() as usize].fill(bed.value));
+            let expected: Vec<_> = moving_average(bin_size, &expected)
+                .enumerate()
+                .flat_map(|(i, v)| {
+                    if v == 0.0 {
+                        None
+                    } else {
+                        Some(BedGraph::new("chr1", i as u64, i as u64 + 1, v))
+                    }
+                })
+                .chunk_by(|x| x.value)
+                .into_iter()
+                .flat_map(|(_, groups)| {
+                    merge_sorted_bed_with(groups, |beds| {
+                        let mut iter = beds.into_iter();
+                        let mut first = iter.next().unwrap();
+                        if let Some(last) = iter.last() {
+                            first.set_end(last.end());
+                        }
+                        first
+                    })
+                })
+                .collect();
+            let actual = smooth_bedgraph(
                 input.into_iter(),
-                200,
-                200,
-                &[("chr1", 10000000)].into_iter().collect(),
-            )
-            .collect::<Vec<_>>(),
+                bin_size,
+                bin_size,
+                &[("chr1", 10000)].into_iter().collect(),
+            );
+            assert!(
+                test_eq(&actual, &expected),
+                "Expected: {:?}\n\nActual: {:?}",
+                &expected[..10],
+                &actual[..10]
+            );
+        }
+
+        test(
             vec![
-                BedGraph::new("chr1", 0, 100, 0.6),
-                BedGraph::new("chr1", 100, 200, 0.6),
-                BedGraph::new("chr1", 200, 300, 0.6),
-                BedGraph::new("chr1", 300, 400, 1.0),
-                BedGraph::new("chr1", 400, 500, 1.0),
-                BedGraph::new("chr1", 500, 600, 0.6),
-                BedGraph::new("chr1", 600, 700, 0.6),
-                BedGraph::new("chr1", 700, 800, 0.6),
-                BedGraph::new("chr1", 800, 900, 1.0),
-                BedGraph::new("chr1", 900, 1000, 1.0),
-                BedGraph::new("chr1", 1000, 1100, 1.0),
-                BedGraph::new("chr1", 1100, 1200, 1.0),
-                BedGraph::new("chr1", 1200, 1300, 3.0),
-                BedGraph::new("chr1", 1300, 1400, 4.0),
-                BedGraph::new("chr1", 1400, 1500, 6.0),
-                BedGraph::new("chr1", 1500, 1600, 8.0),
-                BedGraph::new("chr1", 1600, 1700, 10.0),
-                BedGraph::new("chr1", 1700, 1800, 10.0),
-                BedGraph::new("chr1", 1800, 1900, 8.0),
-                BedGraph::new("chr1", 1900, 2000, 6.0),
+                BedGraph::new("chr1", 0, 5, 1.0),
+                BedGraph::new("chr1", 5, 8, 2.0),
             ],
+            2,
         );
-    */
+
+        test(
+            vec![
+                BedGraph::new("chr1", 0, 100, 1.0),
+                BedGraph::new("chr1", 200, 300, 2.0),
+                BedGraph::new("chr1", 500, 600, 3.0),
+                BedGraph::new("chr1", 1000, 1100, 5.0),
+                BedGraph::new("chr1", 1400, 1800, 10.0),
+                BedGraph::new("chr1", 5444, 5844, 100.0),
+            ],
+            200,
+        );
     }
 }

@@ -56,7 +56,7 @@ pub fn export_coverage(
     exclude_for_norm: Option<&Bound<'_, PyAny>>,
     min_frag_length: Option<u64>,
     max_frag_length: Option<u64>,
-    smooth_base: Option<u32>,
+    smooth_base: Option<u64>,
     compression: Option<&str>,
     compression_level: Option<u32>,
     temp_dir: Option<PathBuf>,

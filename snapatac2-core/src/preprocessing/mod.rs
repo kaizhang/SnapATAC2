@@ -1,5 +1,4 @@
 mod bam;
-mod barcode;
 mod import;
 mod qc;
 
