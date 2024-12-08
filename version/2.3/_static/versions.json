@@ -1,0 +1,17 @@
+[
+    {
+        "name": "dev",
+        "version": "dev",
+        "url": "https://kzhang.org/SnapATAC2/"
+    },
+    {
+        "name": "2.3.0 (stable)",
+        "version": "2.3.0",
+        "url": "https://kzhang.org/SnapATAC2/version/2.3.0/"
+    },
+    {
+        "name": "2.2.0",
+        "version": "2.2.0",
+        "url": "https://kzhang.org/SnapATAC2/version/2.2.0/"
+    }
+]

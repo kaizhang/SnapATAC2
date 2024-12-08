@@ -1,0 +1,6 @@
+snapatac2.AnnData.uns
+=====================
+
+.. currentmodule:: snapatac2
+
+.. autoattribute:: AnnData.uns

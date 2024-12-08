@@ -1,0 +1,6 @@
+snapatac2.AnnData.to\_memory
+============================
+
+.. currentmodule:: snapatac2
+
+.. automethod:: AnnData.to_memory
