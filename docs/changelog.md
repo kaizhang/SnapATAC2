@@ -17,6 +17,11 @@
   - Fix #364: logarithm of zero in `tl.diff_test`.
   - Fix #366: float32 cannot hold large values in `ex.export_coverage`.
 
+### Other Changes:
+
+  - Rename `pp.import_data` to `pp.import_fragments`. Deprecated `pp.import_data`
+    will be removed in v2.9.0.
+
 ## Release 2.7.1 (released October 29, 2024)
 
 ### Features:

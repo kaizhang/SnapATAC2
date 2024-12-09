@@ -1,6 +1,6 @@
-============
-Input/Output
-============
+================================
+AnnData(Set) object manipulation
+================================
 .. currentmodule:: snapatac2
 
 Backed AnnData objects

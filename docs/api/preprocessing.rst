@@ -10,9 +10,9 @@ BAM/Fragment file processing
     :toctree: _autosummary
 
     pp.make_fragment_file
-    pp.import_data
-    pp.import_contacts
+    pp.import_fragments
     pp.import_values
+    pp.import_contacts
     pp.call_cells
 
 Matrix operation

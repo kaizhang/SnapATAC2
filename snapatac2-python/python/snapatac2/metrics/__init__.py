@@ -18,7 +18,7 @@ def tsse(
 ) -> np.ndarray | list[np.ndarray] | None:
     """ Compute the TSS enrichment score (TSSe) for each cell.
 
-    :func:`~snapatac2.pp.import_data` must be ran first in order to use this function.
+    :func:`~snapatac2.pp.import_fragments` must be ran first in order to use this function.
 
     Parameters
     ----------
@@ -48,7 +48,7 @@ def tsse(
     Examples
     --------
     >>> import snapatac2 as snap
-    >>> data = snap.pp.import_data(snap.datasets.pbmc500(downsample=True), chrom_sizes=snap.genome.hg38, sorted_by_barcode=False)
+    >>> data = snap.pp.import_fragments(snap.datasets.pbmc500(downsample=True), chrom_sizes=snap.genome.hg38, sorted_by_barcode=False)
     >>> snap.metrics.tsse(data, snap.genome.hg38)
     >>> print(data.obs['tsse'].head())
     AAACTGCAGACTCGGA-1    32.129514
@@ -91,7 +91,7 @@ def frip(
 ) -> dict[str, list[float]] | list[dict[str, list[float]]] | None:
     """ Add fraction of reads in peaks (FRiP) to the AnnData object.
 
-    :func:`~snapatac2.pp.import_data` must be ran first in order to use this function.
+    :func:`~snapatac2.pp.import_fragments` must be ran first in order to use this function.
 
     Parameters
     ----------
@@ -126,7 +126,7 @@ def frip(
     Examples
     --------
     >>> import snapatac2 as snap
-    >>> data = snap.pp.import_data(snap.datasets.pbmc500(downsample=True), chrom_sizes=snap.genome.hg38, sorted_by_barcode=False)
+    >>> data = snap.pp.import_fragments(snap.datasets.pbmc500(downsample=True), chrom_sizes=snap.genome.hg38, sorted_by_barcode=False)
     >>> snap.metrics.frip(data, {"peaks_frac": snap.datasets.cre_HEA()})
     >>> print(data.obs['peaks_frac'].head())
     AAACTGCAGACTCGGA-1    0.715930
@@ -174,7 +174,7 @@ def frag_size_distr(
     The result is stored in a vector where each element represents the number of fragments
     and the index represents the fragment length. The first posision of the vector is
     reserved for fragments with size larger than the `max_recorded_size` parameter.
-    :func:`~snapatac2.pp.import_data` must be ran first in order to use this function.
+    :func:`~snapatac2.pp.import_fragments` must be ran first in order to use this function.
 
     Parameters
     ----------
@@ -222,7 +222,7 @@ def summary_by_chrom(
 ) -> dict[str, np.ndarray]:
     """ Compute the cell level summary statistics by chromosome.
 
-    :func:`~snapatac2.pp.import_data` must be ran first in order to use this function.
+    :func:`~snapatac2.pp.import_fragments` must be ran first in order to use this function.
 
     Parameters
     ----------

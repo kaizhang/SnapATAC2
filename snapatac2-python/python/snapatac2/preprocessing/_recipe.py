@@ -75,11 +75,11 @@ def recipe_10x_metrics(
     qc["Mapping"]["Fraction_fragment_flanking_single_nucleosome"] = bam_qc["frac_fragment_flanking_single_nucleosome"]
     qc["Library Complexity"]["Fraction_duplicates"] = bam_qc["frac_duplicates"]
 
-    adata = snapatac2.pp.import_data(
+    adata = snapatac2.pp.import_fragments(
         output_fragment_file,
         min_num_fragments=0,
         file=output_h5ad_file,
-        **filter_kwargs(snapatac2.pp.import_data, kwargs),
+        **filter_kwargs(snapatac2.pp.import_fragments, kwargs),
     )
     snapatac2.metrics.tsse(adata, **filter_kwargs(snapatac2.metrics.tsse, kwargs))
     qc["Targeting"]["TSS_enrichment_score"] = adata.uns['library_tsse']

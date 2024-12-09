@@ -11,8 +11,9 @@ import snapatac2._snapatac2 as internal
 from snapatac2.genome import Genome
 from snapatac2.preprocessing._cell_calling import filter_cellular_barcodes_ordmag
 
-__all__ = ['make_fragment_file', 'import_data', 'import_contacts', 'import_values', 'add_tile_matrix',
-           'make_peak_matrix', 'call_cells', 'filter_cells', 'select_features', 'make_gene_matrix',
+__all__ = ['make_fragment_file', 'import_data', 'import_fragments', 'import_contacts', 'import_values',
+           'add_tile_matrix', 'make_peak_matrix', 'make_gene_matrix',
+           'call_cells', 'filter_cells', 'select_features',
 ]
 
 def make_fragment_file(
@@ -136,7 +137,7 @@ def make_fragment_file(
 
     See Also
     --------
-    import_data
+    import_fragments
     """
     if barcode_tag is None and barcode_regex is None:
         raise ValueError("Either barcode_tag or barcode_regex must be set.")
@@ -153,6 +154,31 @@ def make_fragment_file(
     )
 
 def import_data(
+    fragment_file: Path | list[Path],
+    chrom_sizes: Genome | dict[str, int],
+    *,
+    file: Path | list[Path] | None = None,
+    min_num_fragments: int = 200,
+    sorted_by_barcode: bool = True,
+    whitelist: Path | list[str] | None = None,
+    chrM: list[str] = ["chrM", "M"],
+    shift_left: int = 0,
+    shift_right: int = 0,
+    chunk_size: int = 2000,
+    tempdir: Path | None = None,
+    backend: Literal['hdf5'] = 'hdf5',
+    n_jobs: int = 8,
+) -> internal.AnnData:
+    from warnings import warn
+    warn("import_data is deprecated and will be removed in v2.9.0. Use import_fragments instead.", DeprecationWarning, stacklevel=2)
+    return import_fragments(
+        fragment_file, chrom_sizes, file=file, min_num_fragments=min_num_fragments,
+        sorted_by_barcode=sorted_by_barcode, whitelist=whitelist, chrM=chrM,
+        shift_left=shift_left, shift_right=shift_right, chunk_size=chunk_size,
+        tempdir=tempdir, backend=backend, n_jobs=n_jobs,
+    )
+
+def import_fragments(
     fragment_file: Path | list[Path],
     chrom_sizes: Genome | dict[str, int],
     *,
@@ -294,7 +320,7 @@ def import_data(
     Examples
     --------
     >>> import snapatac2 as snap
-    >>> data = snap.pp.import_data(snap.datasets.pbmc500(downsample=True), chrom_sizes=snap.genome.hg38, sorted_by_barcode=False)
+    >>> data = snap.pp.import_fragments(snap.datasets.pbmc500(downsample=True), chrom_sizes=snap.genome.hg38, sorted_by_barcode=False)
     >>> print(data)
     AnnData object with n_obs × n_vars = 585 × 0
         obs: 'n_fragment', 'frac_dup', 'frac_mito'
@@ -459,7 +485,7 @@ def add_tile_matrix(
     This function is used to generate and add a cell by bin count matrix to the AnnData
     object.
 
-    :func:`~snapatac2.pp.import_data` must be ran first in order to use this function.
+    :func:`~snapatac2.pp.import_fragments` must be ran first in order to use this function.
 
     Parameters
     ----------
@@ -527,7 +553,7 @@ def add_tile_matrix(
     Examples
     --------
     >>> import snapatac2 as snap
-    >>> data = snap.pp.import_data(snap.datasets.pbmc500(downsample=True), chrom_sizes=snap.genome.hg38, sorted_by_barcode=False)
+    >>> data = snap.pp.import_fragments(snap.datasets.pbmc500(downsample=True), chrom_sizes=snap.genome.hg38, sorted_by_barcode=False)
     >>> snap.pp.add_tile_matrix(data, bin_size=500)
     >>> print(data)
     AnnData object with n_obs × n_vars = 585 × 6062095
@@ -582,7 +608,7 @@ def make_peak_matrix(
     This function will generate a cell by peak count matrix and store it in a 
     new .h5ad file.
 
-    :func:`~snapatac2.pp.import_data` must be ran first in order to use this function.
+    :func:`~snapatac2.pp.import_fragments` must be ran first in order to use this function.
 
     Parameters
     ----------
@@ -651,7 +677,7 @@ def make_peak_matrix(
     Examples
     --------
     >>> import snapatac2 as snap
-    >>> data = snap.pp.import_data(snap.datasets.pbmc500(downsample=True), chrom_sizes=snap.genome.hg38, sorted_by_barcode=False)
+    >>> data = snap.pp.import_fragments(snap.datasets.pbmc500(downsample=True), chrom_sizes=snap.genome.hg38, sorted_by_barcode=False)
     >>> peak_mat = snap.pp.make_peak_matrix(data, peak_file=snap.datasets.cre_HEA())
     >>> print(peak_mat)
     AnnData object with n_obs × n_vars = 585 × 1154611
@@ -721,7 +747,7 @@ def make_gene_matrix(
       
     The result will be stored in a new file and a new AnnData object
     will be created.
-    :func:`~snapatac2.pp.import_data` must be ran first in order to use this function.
+    :func:`~snapatac2.pp.import_fragments` must be ran first in order to use this function.
 
     Parameters
     ----------
@@ -788,7 +814,7 @@ def make_gene_matrix(
     Examples
     --------
     >>> import snapatac2 as snap
-    >>> data = snap.pp.import_data(snap.datasets.pbmc500(downsample=True), chrom_sizes=snap.genome.hg38, sorted_by_barcode=False)
+    >>> data = snap.pp.import_fragments(snap.datasets.pbmc500(downsample=True), chrom_sizes=snap.genome.hg38, sorted_by_barcode=False)
     >>> gene_mat = snap.pp.make_gene_matrix(data, gene_anno=snap.genome.hg38)
     >>> print(gene_mat)
     AnnData object with n_obs × n_vars = 585 × 60606
