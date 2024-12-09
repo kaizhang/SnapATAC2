@@ -4,11 +4,12 @@ use anyhow::{bail, Context};
 use bed_utils::bed::{BroadPeak, NarrowPeak, Strand};
 use indicatif::{ProgressIterator, ProgressStyle};
 use itertools::Itertools;
+use polars::prelude::Column;
 use snapatac2_core::utils::{self, Compression};
 use snapatac2_core::{
-    SnapData,
     preprocessing::Fragment,
     utils::{clip_peak, merge_peaks, open_file_for_write},
+    SnapData,
 };
 
 use anndata::Backend;
@@ -19,10 +20,7 @@ use bed_utils::bed::{
     map::{GIntervalIndexSet, GIntervalMap},
     BEDLike, GenomicRange,
 };
-use polars::{
-    prelude::{DataFrame, NamedFrom},
-    series::Series,
-};
+use polars::prelude::DataFrame;
 use pyo3::{prelude::*, pybacked::PyBackedStr};
 use pyo3_polars::PyDataFrame;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -52,8 +50,8 @@ pub fn py_merge_peaks<'py>(
         .collect();
 
     let n = peaks.len();
-    let peaks_str = Series::new(
-        "Peaks",
+    let peaks_str = Column::new(
+        "Peaks".into(),
         peaks
             .iter()
             .map(|x| x.to_genomic_range().pretty_show())
@@ -67,7 +65,7 @@ pub fn py_merge_peaks<'py>(
                 .find_index_of(bed)
                 .for_each(|i| values[i] = true);
         });
-        Series::new(key.as_str(), values)
+        Column::new(key.into(), values)
     });
     Ok(PyDataFrame(DataFrame::new(
         std::iter::once(peaks_str).chain(iter).collect(),
@@ -75,6 +73,7 @@ pub fn py_merge_peaks<'py>(
 }
 
 #[pyfunction]
+#[pyo3(signature = (peaks, replicates, blacklist=None))]
 pub fn find_reproducible_peaks<'py>(
     peaks: &Bound<'py, PyAny>,
     replicates: Vec<Bound<'py, PyAny>>,
@@ -118,6 +117,7 @@ pub fn find_reproducible_peaks<'py>(
 }
 
 #[pyfunction]
+#[pyo3(signature = (peaks, blacklist=None))]
 pub fn fetch_peaks<'py>(
     peaks: HashMap<String, Bound<'py, PyAny>>,
     blacklist: Option<PathBuf>,
@@ -216,24 +216,22 @@ fn narrow_peak_to_dataframe<I: IntoIterator<Item = NarrowPeak>>(
 
     // Create a DataFrame from the collected Vecs
     let df = DataFrame::new(vec![
-        Series::new("chrom", chroms),
-        Series::new("start", starts),
-        Series::new("end", ends),
-        Series::new("name", names),
-        Series::new("score", scores),
-        Series::new("strand", strands),
-        Series::new("signal_value", signal_values),
-        Series::new("p_value", p_values),
-        Series::new("q_value", q_values),
-        Series::new("peak", peaks),
+        Column::new("chrom".into(), chroms),
+        Column::new("start".into(), starts),
+        Column::new("end".into(), ends),
+        Column::new("name".into(), names),
+        Column::new("score".into(), scores),
+        Column::new("strand".into(), strands),
+        Column::new("signal_value".into(), signal_values),
+        Column::new("p_value".into(), p_values),
+        Column::new("q_value".into(), q_values),
+        Column::new("peak".into(), peaks),
     ])?;
 
     Ok(df)
 }
 
-fn broad_peak_to_dataframe<I: IntoIterator<Item = BroadPeak>>(
-    peaks: I,
-) -> Result<DataFrame> {
+fn broad_peak_to_dataframe<I: IntoIterator<Item = BroadPeak>>(peaks: I) -> Result<DataFrame> {
     // Separate Vec collections for each column
     let mut chroms = Vec::new();
     let mut starts = Vec::new();
@@ -251,11 +249,7 @@ fn broad_peak_to_dataframe<I: IntoIterator<Item = BroadPeak>>(
         ends.push(peak.end);
         names.push(peak.name.unwrap_or(".".to_string()));
         scores.push(peak.score.map(|x| u16::from(x)));
-        strands.push(
-            peak
-                .strand
-                .map_or(".".to_string(), |x| x.to_string()),
-        );
+        strands.push(peak.strand.map_or(".".to_string(), |x| x.to_string()));
         signal_values.push(peak.signal_value);
         p_values.push(peak.p_value);
         q_values.push(peak.q_value);
@@ -263,21 +257,19 @@ fn broad_peak_to_dataframe<I: IntoIterator<Item = BroadPeak>>(
 
     // Create a DataFrame from the collected Vecs
     let df = DataFrame::new(vec![
-        Series::new("chrom", chroms),
-        Series::new("start", starts),
-        Series::new("end", ends),
-        Series::new("name", names),
-        Series::new("score", scores),
-        Series::new("strand", strands),
-        Series::new("signal_value", signal_values),
-        Series::new("p_value", p_values),
-        Series::new("q_value", q_values),
+        Column::new("chrom".into(), chroms),
+        Column::new("start".into(), starts),
+        Column::new("end".into(), ends),
+        Column::new("name".into(), names),
+        Column::new("score".into(), scores),
+        Column::new("strand".into(), strands),
+        Column::new("signal_value".into(), signal_values),
+        Column::new("p_value".into(), p_values),
+        Column::new("q_value".into(), q_values),
     ])?;
 
     Ok(df)
 }
-
-
 
 fn get_genomic_ranges<'py>(peak_io_obj: &Bound<'py, PyAny>) -> Result<Vec<GenomicRange>> {
     peak_io_obj
@@ -432,6 +424,7 @@ pub fn create_fwtrack_obj<'py>(
 }
 
 #[pyfunction]
+#[pyo3(signature = (anndata, dir, group_by, replicates=None, max_frag_size=None, selections=None))]
 pub fn export_tags(
     anndata: AnnDataLike,
     dir: PathBuf,
@@ -527,6 +520,7 @@ fn _export_tags<D: SnapData, P: AsRef<std::path::Path>>(
 }
 
 #[pyfunction]
+#[pyo3(signature = (anndata, macs3_options, max_frag_size=None))]
 pub fn call_peaks_bulk<'py>(
     py: Python<'py>,
     anndata: AnnDataLike,

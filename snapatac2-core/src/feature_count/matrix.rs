@@ -8,7 +8,7 @@ use anndata::{data::DataFrameIndex, AnnDataOp, ArrayData};
 use anyhow::{bail, Result};
 use bed_utils::bed::{map::GIntervalIndexSet, BEDLike};
 use indicatif::{ProgressIterator, ProgressStyle};
-use polars::prelude::{DataFrame, NamedFrom, Series};
+use polars::prelude::{Column, DataFrame};
 
 /// Create cell by bin matrix.
 ///
@@ -225,11 +225,11 @@ where
                 adata_out.set_x_from_iter(data)?;
                 adata_out.set_obs_names(adata.obs_names())?;
                 adata_out.set_var_names(ids.into())?;
-                adata_out.set_var(DataFrame::new(vec![Series::new("gene_name", gene_names)])?)?;
+                adata_out.set_var(DataFrame::new(vec![Column::new("gene_name".into(), gene_names)])?)?;
             } else {
                 adata.set_x_from_iter(data)?;
                 adata.set_var_names(ids.into())?;
-                adata.set_var(DataFrame::new(vec![Series::new("gene_name", gene_names)])?)?;
+                adata.set_var(DataFrame::new(vec![Column::new("gene_name".into(), gene_names)])?)?;
             }
         }
         "gene" => {

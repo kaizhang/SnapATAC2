@@ -15,7 +15,7 @@ use indicatif::{style::ProgressStyle, ProgressBar, ProgressDrawTarget, ProgressI
 use itertools::Itertools;
 use log::warn;
 use nalgebra_sparse::CsrMatrix;
-use polars::prelude::{DataFrame, NamedFrom, Series};
+use polars::prelude::{Column, DataFrame, Series};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::collections::{BTreeMap, HashSet};
 
@@ -211,16 +211,16 @@ where
 
 fn qc_to_df(qc: Vec<FragmentQC>) -> DataFrame {
     DataFrame::new(vec![
-        Series::new(
-            "n_fragment",
+        Column::new(
+            "n_fragment".into(),
             qc.iter().map(|x| x.num_unique_fragment).collect::<Series>(),
         ),
-        Series::new(
-            "frac_dup",
+        Column::new(
+            "frac_dup".into(),
             qc.iter().map(|x| x.frac_duplicated).collect::<Series>(),
         ),
-        Series::new(
-            "frac_mito",
+        Column::new(
+            "frac_mito".into(),
             qc.iter().map(|x| x.frac_mitochondrial).collect::<Series>(),
         ),
     ])
@@ -299,12 +299,12 @@ where
     anndata.uns().add(
         "reference_sequences",
         DataFrame::new(vec![
-            Series::new(
-                "reference_seq_name",
+            Column::new(
+                "reference_seq_name".into(),
                 regions.iter().map(|x| x.chrom()).collect::<Series>(),
             ),
-            Series::new(
-                "reference_seq_length",
+            Column::new(
+                "reference_seq_length".into(),
                 regions.iter().map(|x| x.end()).collect::<Series>(),
             ),
         ])?,
@@ -353,8 +353,7 @@ where
         let (r, c, offset, ind, csr_data) = to_csr_data(counts, genome_size);
         (
             qc,
-            CsrMatrix::try_from_csr_data(r, c, offset, ind, csr_data)
-                .unwrap()
+            CsrMatrix::try_from_csr_data(r, c, offset, ind, csr_data).unwrap(),
         )
     }
 
@@ -403,8 +402,8 @@ where
         .uns()
         .add("reference_sequences", chrom_sizes.to_dataframe())?;
     anndata.set_obs_names(scanned_barcodes.into_iter().collect())?;
-    anndata.set_obs(DataFrame::new(vec![Series::new(
-        "num_values",
+    anndata.set_obs(DataFrame::new(vec![Column::new(
+        "num_values".into(),
         qc_metrics.iter().map(|x| x.num_values).collect::<Series>(),
     )])?)?;
     Ok(())

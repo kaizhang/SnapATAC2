@@ -25,7 +25,7 @@ use indexmap::map::IndexMap;
 use indexmap::IndexSet;
 use noodles::{core::Position, gff, gff::record::Strand, gtf};
 use polars::frame::DataFrame;
-use polars::prelude::{NamedFrom, Series};
+use polars::prelude::{Column, Series};
 use std::ops::Range;
 use std::{collections::HashMap, fmt::Debug, io::BufRead, str::FromStr};
 
@@ -243,12 +243,12 @@ impl ChromSizes {
 
     pub fn to_dataframe(&self) -> DataFrame {
         DataFrame::new(vec![
-            Series::new(
-                "reference_seq_name",
+            Column::new(
+                "reference_seq_name".into(),
                 self.0.iter().map(|x| x.0.clone()).collect::<Series>(),
             ),
-            Series::new(
-                "reference_seq_length",
+            Column::new(
+                "reference_seq_length".into(),
                 self.0.iter().map(|x| x.1).collect::<Series>(),
             ),
         ])

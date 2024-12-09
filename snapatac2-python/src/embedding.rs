@@ -1,8 +1,8 @@
 use crate::utils::AnnDataLike;
 
 use anndata::{
-    data::{array::utils::to_csr_data, BoundedSelectInfoElem, SelectInfoElem},
-    AnnDataOp, ArrayData, ArrayElemOp, ArrayOp, Backend,
+    data::{array::utils::to_csr_data, SelectInfoElem, SelectInfoElemBounds},
+    AnnDataOp, ArrayData, ArrayElemOp, Backend, Selectable,
 };
 use anndata_hdf5::H5;
 use anyhow::Result;
@@ -12,7 +12,7 @@ use log::info;
 use nalgebra::DVector;
 use nalgebra_sparse::CsrMatrix;
 use ndarray::{Array1, Array2, Axis};
-use numpy::{PyArray1, PyArray2};
+use numpy::{array::PyArrayMethods, PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2};
 use pyanndata::data::PyArrayData;
 use pyo3::prelude::*;
 use rand::SeedableRng;
@@ -20,6 +20,7 @@ use rayon::prelude::{ParallelBridge, ParallelIterator};
 use std::ops::Deref;
 
 #[pyfunction]
+#[pyo3(signature = (anndata, selected_features, n_components, random_state, feature_weights=None))]
 pub(crate) fn spectral_embedding<'py>(
     py: Python<'py>,
     anndata: AnnDataLike,
@@ -52,6 +53,7 @@ pub(crate) fn spectral_embedding<'py>(
 }
 
 #[pyfunction]
+#[pyo3(signature = (anndata, selected_features, n_components, sample_size, weighted_by_degree, chunk_size, feature_weights=None))]
 pub(crate) fn spectral_embedding_nystrom<'py>(
     py: Python<'py>,
     anndata: AnnDataLike,
@@ -173,7 +175,7 @@ fn spectral_mf(
             random_state,
         );
         let result = fun.call1(py, args)?;
-        let (evals, evecs): (&PyArray1<f64>, &PyArray2<f64>) = result.extract(py)?;
+        let (evals, evecs): (PyReadonlyArray1<'_, f64>, PyReadonlyArray2<'_, f64>) = result.extract(py)?;
 
         anyhow::Ok((evals.to_owned_array(), evecs.to_owned_array()))
     })?;
@@ -240,7 +242,7 @@ where
             nystrom_py
                 .call1(py, args)
                 .unwrap()
-                .extract::<&PyArray2<_>>(py)
+                .extract::<PyReadonlyArray2<'_, _>>(py)
                 .unwrap()
                 .to_vec()
                 .unwrap()
@@ -321,7 +323,7 @@ fn compute_degrees<A: AnnDataOp>(
     selected_features: &SelectInfoElem,
     feature_weights: &[f64],
 ) -> Vec<f64> {
-    let n = BoundedSelectInfoElem::new(selected_features, adata.n_vars()).len();
+    let n = SelectInfoElemBounds::new(selected_features, adata.n_vars()).len();
     let mut col_sum = vec![0.0; n];
 
     // First pass to compute the sum of each column.
