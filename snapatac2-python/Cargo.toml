@@ -14,6 +14,7 @@ keywords = ["single-cell", "biology"]
 snapatac2-core = { workspace = true }
 anndata = "0.6.1"
 anndata-hdf5 = "0.5"
+anndata-zarr = "0.1"
 pyanndata = "0.5.1"
 anyhow = "1.0"
 bed-utils = "0.7.1"
