@@ -1,0 +1,6 @@
+snapatac2.AnnData.isbacked
+==========================
+
+.. currentmodule:: snapatac2
+
+.. autoattribute:: AnnData.isbacked

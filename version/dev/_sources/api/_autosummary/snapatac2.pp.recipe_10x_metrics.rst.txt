@@ -1,0 +1,6 @@
+﻿snapatac2.pp.recipe\_10x\_metrics
+=================================
+
+.. currentmodule:: snapatac2.pp
+
+.. autofunction:: recipe_10x_metrics

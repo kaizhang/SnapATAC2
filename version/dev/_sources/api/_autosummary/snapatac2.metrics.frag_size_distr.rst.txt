@@ -1,0 +1,6 @@
+﻿snapatac2.metrics.frag\_size\_distr
+===================================
+
+.. currentmodule:: snapatac2.metrics
+
+.. autofunction:: frag_size_distr

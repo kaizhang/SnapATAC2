@@ -1,0 +1,6 @@
+snapatac2.genome.Genome.annotation
+==================================
+
+.. currentmodule:: snapatac2.genome
+
+.. autoproperty:: Genome.annotation
