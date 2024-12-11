@@ -29,6 +29,7 @@ fn _snapatac2(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(pyanndata::read_mtx, m)?)?;
     //m.add_function(wrap_pyfunction!(pyanndata::read_csv, m)?)?;
     m.add_function(wrap_pyfunction!(pyanndata::read_dataset, m)?)?;
+    m.add_function(wrap_pyfunction!(pyanndata::concat, m)?)?;
 
     // Motif analysis related functions
     m.add_class::<motif::PyDNAMotif>().unwrap();
