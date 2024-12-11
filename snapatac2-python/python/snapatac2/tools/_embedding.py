@@ -191,8 +191,8 @@ def spectral(
         Approximate the embedding using the Nystrom algorithm by selecting
         a subset of cells. It could be either an integer
         indicating the number of cells to sample or a real value from 0 to 1
-        indicating the fraction of cells to sample.
-        Using this only when the number of cells is too large, e.g. > 10,000,000, or
+        indicating the fraction of cells to sample. When `sample_size` is None,
+        the full matrix is used. Using this only when the number of cells is too large, e.g. > 10,000,000, or
         the `distance_metric` is "jaccard".
     chunk_size
         Chunk size used in the Nystrom method
