@@ -1,0 +1,6 @@
+snapatac2.AnnData.open
+======================
+
+.. currentmodule:: snapatac2
+
+.. automethod:: AnnData.open

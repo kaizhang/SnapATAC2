@@ -1,0 +1,6 @@
+﻿snapatac2.genome.hg19
+=====================
+
+.. currentmodule:: snapatac2.genome
+
+.. autodata:: hg19

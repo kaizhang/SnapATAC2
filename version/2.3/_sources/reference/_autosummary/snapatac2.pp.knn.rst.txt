@@ -1,0 +1,6 @@
+﻿snapatac2.pp.knn
+================
+
+.. currentmodule:: snapatac2.pp
+
+.. autofunction:: knn
