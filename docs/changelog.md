@@ -1,6 +1,6 @@
 # Release Notes
 
-## Nightly (unreleased)
+## Release 2.8.0 (released December 13, 2024)
 
 ### Features:
 

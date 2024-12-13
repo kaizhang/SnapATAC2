@@ -16,9 +16,14 @@ use polars::frame::DataFrame;
 
 use crate::genome::ChromSizes;
 
+/// Key for storing single-end fragment data in the `.obsm` matrix.
 pub const FRAGMENT_SINGLE: &str = "fragment_single";
+
+/// Key for storing paired-end fragment data in the `.obsm` matrix.
 pub const FRAGMENT_PAIRED: &str = "fragment_paired";
-pub const BASE_VALUE: &str = "_values";
+
+/// Key for storing base values in the `.obsm` matrix.
+pub const BASE_VALUE: &str = "__values__";
 
 /// The `SnapData` trait represents an interface for reading and
 /// manipulating single-cell assay data. It extends the `AnnDataOp` trait,
