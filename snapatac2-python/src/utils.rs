@@ -15,15 +15,8 @@ use snapatac2_core::genome::{
 use snapatac2_core::utils;
 
 use bed_utils::{bed, bed::GenomicRange, bed::BED};
-use linfa::{
-    traits::{Fit, Predict},
-    DatasetBase,
-};
-use linfa_clustering::KMeans;
 use linreg::lin_reg_imprecise;
 use nalgebra_sparse::CsrMatrix;
-use rand_core::SeedableRng;
-use rand_isaac::Isaac64Rng;
 use std::io::BufReader;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -47,6 +40,7 @@ macro_rules! with_sparsity_pattern {
 }
 
 #[pyfunction]
+#[pyo3(signature = (mat, other=None, weights=None))]
 pub(crate) fn jaccard_similarity<'py>(
     py: Python<'py>,
     mat: &Bound<'py, PyAny>,
@@ -114,6 +108,7 @@ where
 }
 
 #[pyfunction]
+#[pyo3(signature = (mat, other=None, weights=None))]
 pub(crate) fn cosine_similarity<'py>(
     py: Python<'py>,
     mat: &Bound<'py, PyAny>,
@@ -346,13 +341,16 @@ pub(crate) fn kmeans<'py>(
     n_clusters: usize,
     observations_: PyReadonlyArray<'_, f64, Ix2>,
 ) -> PyResult<Bound<'py, PyArray<usize, Ix1>>> {
+    todo!()
+    /*
     let seed = 42;
     let rng: Isaac64Rng = SeedableRng::seed_from_u64(seed);
-    let observations = DatasetBase::from(observations_.as_array());
+    let observations = DatasetBase::from(observations_.to_owned_array());
     let model = KMeans::params_with_rng(n_clusters, rng)
         .fit(&observations)
         .expect("KMeans fitted");
     Ok(model.predict(observations).targets.into_pyarray_bound(py))
+    */
 }
 
 /*

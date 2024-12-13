@@ -11,7 +11,7 @@ import snapatac2._snapatac2 as internal
 from snapatac2.genome import Genome
 from snapatac2.preprocessing._cell_calling import filter_cellular_barcodes_ordmag
 
-__all__ = ['make_fragment_file', 'import_data', 'import_fragments', 'import_contacts', 'import_values',
+__all__ = ['make_fragment_file', 'import_fragments', 'import_contacts', 'import_values',
            'add_tile_matrix', 'make_peak_matrix', 'make_gene_matrix',
            'call_cells', 'filter_cells', 'select_features',
 ]
@@ -151,31 +151,6 @@ def make_fragment_file(
         bam_file, output_file, is_paired, shift_left, shift_right, chunk_size,
         barcode_tag, barcode_regex, umi_tag, umi_regex, min_mapq, chrM, source,
         compression, compression_level, tempdir,
-    )
-
-def import_data(
-    fragment_file: Path | list[Path],
-    chrom_sizes: Genome | dict[str, int],
-    *,
-    file: Path | list[Path] | None = None,
-    min_num_fragments: int = 200,
-    sorted_by_barcode: bool = True,
-    whitelist: Path | list[str] | None = None,
-    chrM: list[str] = ["chrM", "M"],
-    shift_left: int = 0,
-    shift_right: int = 0,
-    chunk_size: int = 2000,
-    tempdir: Path | None = None,
-    backend: Literal['hdf5'] = 'hdf5',
-    n_jobs: int = 8,
-) -> internal.AnnData:
-    from warnings import warn
-    warn("import_data is deprecated and will be removed in v2.9.0. Use import_fragments instead.", DeprecationWarning, stacklevel=2)
-    return import_fragments(
-        fragment_file, chrom_sizes, file=file, min_num_fragments=min_num_fragments,
-        sorted_by_barcode=sorted_by_barcode, whitelist=whitelist, chrM=chrM,
-        shift_left=shift_left, shift_right=shift_right, chunk_size=chunk_size,
-        tempdir=tempdir, backend=backend, n_jobs=n_jobs,
     )
 
 def import_fragments(

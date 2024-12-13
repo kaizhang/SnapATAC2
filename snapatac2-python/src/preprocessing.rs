@@ -27,6 +27,11 @@ use snapatac2_core::{
 };
 
 #[pyfunction]
+#[pyo3(signature = (
+    bam_file, output_file, is_paired, shift_left, shift_right, chunk_size,
+    barcode_tag=None, barcode_regex=None, umi_tag=None, umi_regex=None, mapq=None,
+    mitochondrial_dna=None, source=None, compression=None, compression_level=None, temp_dir=None
+))]
 pub(crate) fn make_fragment_file(
     bam_file: PathBuf,
     output_file: PathBuf,
@@ -79,6 +84,10 @@ pub(crate) fn make_fragment_file(
 }
 
 #[pyfunction]
+#[pyo3(signature = (
+    anndata, fragment_file, chrom_size, mitochondrial_dna, min_num_fragment,
+    fragment_is_sorted_by_name, shift_left, shift_right, chunk_size, white_list=None, tempdir=None
+))]
 pub(crate) fn import_fragments(
     anndata: AnnDataLike,
     fragment_file: PathBuf,
@@ -174,6 +183,9 @@ fn shift_fragment(fragment: &mut Fragment, shift_left: i64, shift_right: i64) {
 }
 
 #[pyfunction]
+#[pyo3(signature = (
+    anndata, contact_file, chrom_size, fragment_is_sorted_by_name, bin_size, chunk_size, tempdir=None
+))]
 pub(crate) fn import_contacts(
     anndata: AnnDataLike,
     contact_file: PathBuf,
@@ -265,6 +277,10 @@ pub(crate) fn import_values(
 }
 
 #[pyfunction]
+#[pyo3(signature = (
+    anndata, bin_size, chunk_size, strategy, val_type, summuary_type, exclude_chroms=None,
+    min_fragment_size=None, max_fragment_size=None, out=None
+))]
 pub(crate) fn mk_tile_matrix(
     anndata: AnnDataLike,
     bin_size: usize,
@@ -340,6 +356,10 @@ fn str_to_summary_type(ty: &str) -> SummaryType {
 }
 
 #[pyfunction]
+#[pyo3(signature = (
+    anndata, peaks, chunk_size, use_x, strategy, val_type, summuary_type,
+    min_fragment_size=None, max_fragment_size=None, out=None
+))]
 pub(crate) fn mk_peak_matrix(
     anndata: AnnDataLike,
     peaks: Bound<'_, PyAny>,
@@ -397,6 +417,11 @@ pub(crate) fn mk_peak_matrix(
 }
 
 #[pyfunction]
+#[pyo3(signature = (
+    anndata, gff_file, chunk_size, use_x, id_type, upstream, downstream, include_gene_body,
+    transcript_name_key, transcript_id_key, gene_name_key, gene_id_key, strategy,
+    min_fragment_size=None, max_fragment_size=None, out=None
+))]
 pub(crate) fn mk_gene_matrix(
     anndata: AnnDataLike,
     gff_file: PathBuf,
@@ -469,6 +494,7 @@ pub(crate) fn mk_gene_matrix(
 /// QC metrics
 
 #[pyfunction]
+#[pyo3(signature = (anndata, gtf_file, exclude_chroms=None))]
 pub(crate) fn tss_enrichment<'py>(
     py: Python<'py>,
     anndata: AnnDataLike,

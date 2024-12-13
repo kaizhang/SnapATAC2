@@ -1,20 +1,24 @@
 use anndata::{
-    data::{ArrayChunk, DataFrameIndex, DynCsrMatrix}, AnnDataOp, ArrayData, AxisArraysOp, HasShape, WriteArrayData
+    data::{ArrayChunk, DataFrameIndex, DynCsrMatrix},
+    AnnDataOp, ArrayData, AxisArraysOp,
 };
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 use polars::prelude::DataFrame;
 use pyanndata::anndata::memory;
 use pyanndata::{AnnData, AnnDataSet};
 use pyo3::prelude::*;
 
-use snapatac2_core::{feature_count::{BASE_VALUE, FRAGMENT_PAIRED, FRAGMENT_SINGLE}, SnapData};
 use snapatac2_core::feature_count::{BaseData, FragmentData, FragmentDataIter};
+use snapatac2_core::{
+    feature_count::{BASE_VALUE, FRAGMENT_PAIRED, FRAGMENT_SINGLE},
+    SnapData,
+};
 
 pub struct PyAnnData<'py>(memory::PyAnnData<'py>);
 
 impl<'py> FromPyObject<'py> for PyAnnData<'py> {
-    fn extract(obj: &'py PyAny) -> PyResult<Self> {
-        obj.extract().map(PyAnnData)
+    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+        ob.extract().map(PyAnnData)
     }
 }
 
@@ -23,7 +27,6 @@ impl ToPyObject for PyAnnData<'_> {
         self.0.to_object(py)
     }
 }
-
 
 impl IntoPy<PyObject> for PyAnnData<'_> {
     fn into_py(self, py: Python<'_>) -> PyObject {
@@ -45,7 +48,7 @@ impl<'py> AnnDataOp for PyAnnData<'py> {
     {
         self.0.set_x_from_iter(iter)
     }
-    fn set_x<D: WriteArrayData + Into<ArrayData> + HasShape>(&self, data: D) -> Result<()> {
+    fn set_x<D: Into<ArrayData>>(&self, data: D) -> Result<()> {
         self.0.set_x(data)
     }
     fn del_x(&self) -> Result<()> {
@@ -146,12 +149,19 @@ impl<'py> SnapData for PyAnnData<'py> {
             } else if let Some(fragment) = obsm.get_item_iter(FRAGMENT_PAIRED, chunk_size) {
                 FragmentDataIter::FragmentPaired(Box::new(fragment))
             } else {
-                bail!("one of the following keys must be present in the '.obsm': '{}', '{}'", FRAGMENT_SINGLE, FRAGMENT_PAIRED)
+                bail!(
+                    "one of the following keys must be present in the '.obsm': '{}', '{}'",
+                    FRAGMENT_SINGLE,
+                    FRAGMENT_PAIRED
+                )
             };
         Ok(FragmentData::new(self.read_chrom_sizes()?, matrices))
     }
 
-    fn get_base_iter(&self, chunk_size: usize) -> Result<BaseData<impl ExactSizeIterator<Item = (DynCsrMatrix, usize, usize)>>> {
+    fn get_base_iter(
+        &self,
+        chunk_size: usize,
+    ) -> Result<BaseData<impl ExactSizeIterator<Item = (DynCsrMatrix, usize, usize)>>> {
         let obsm = self.obsm();
         if let Some(data) = obsm.get_item_iter(BASE_VALUE, chunk_size) {
             Ok(BaseData::new(self.read_chrom_sizes()?, data))
@@ -204,11 +214,17 @@ macro_rules! with_anndata {
                 H5::NAME => {
                     $fun!(x.inner_ref::<H5>().deref())
                 }
+                anndata_zarr::Zarr::NAME => {
+                    $fun!(x.inner_ref::<anndata_zarr::Zarr>().deref())
+                }
                 x => panic!("Unsupported backend: {}", x),
             },
             AnnDataLike::AnnDataSet(x) => match x.backend().as_str() {
                 H5::NAME => {
                     $fun!(x.inner_ref::<H5>().deref())
+                }
+                anndata_zarr::Zarr::NAME => {
+                    $fun!(x.inner_ref::<anndata_zarr::Zarr>().deref())
                 }
                 x => panic!("Unsupported backend: {}", x),
             },
@@ -218,7 +234,6 @@ macro_rules! with_anndata {
         }
     };
 }
-
 
 #[derive(FromPyObject)]
 pub enum RustAnnDataLike {
@@ -255,11 +270,17 @@ macro_rules! with_rs_anndata {
                 H5::NAME => {
                     $fun!(x.inner_ref::<H5>().deref())
                 }
+                anndata_zarr::Zarr::NAME => {
+                    $fun!(x.inner_ref::<anndata_zarr::Zarr>().deref())
+                }
                 x => panic!("Unsupported backend: {}", x),
             },
             RustAnnDataLike::AnnDataSet(x) => match x.backend().as_str() {
                 H5::NAME => {
                     $fun!(x.inner_ref::<H5>().deref())
+                }
+                anndata_zarr::Zarr::NAME => {
+                    $fun!(x.inner_ref::<anndata_zarr::Zarr>().deref())
                 }
                 x => panic!("Unsupported backend: {}", x),
             },

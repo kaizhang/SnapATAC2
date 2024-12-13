@@ -3,8 +3,7 @@ use crate::genome::{ChromSizes, GenomeBaseIndex};
 use crate::preprocessing::{Fragment, SummaryType};
 
 use anndata::backend::{DataType, ScalarType};
-use anndata::data::DynCsrMatrix;
-use anndata::WriteData;
+use anndata::data::{DynCsrMatrix, Element};
 use anndata::{
     data::{utils::to_csr_data, CsrNonCanonical},
     ArrayData,

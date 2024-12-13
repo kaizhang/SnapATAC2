@@ -22,7 +22,4 @@ AnnData IO
     read_mtx
     read_10x_mtx
     read_dataset
-    AnnData.write
-    AnnData.subset
-    AnnData.copy
-    AnnDataSet.subset
+    concat
