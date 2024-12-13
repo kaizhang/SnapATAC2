@@ -363,7 +363,7 @@ where
             }
         }).collect::<Vec<_>>()
     }).collect();
-    ArrayBase::from_vec(cor).into_shape((n1, n2)).unwrap()
+    ArrayBase::from_vec(cor).into_shape_with_order((n1, n2)).unwrap()
 }
 
 pub fn spearman2<T1, T2>(
@@ -381,7 +381,7 @@ where
         let vec: Vec<_> = mat.rows().into_iter().flat_map(|row|
             Data::new(row.into_iter().map(|x| x.to_f64().unwrap()).collect::<Vec<_>>()).ranks(RankTieBreaker::Average)
         ).collect();
-        ArrayBase::from_vec(vec).into_shape((mat.shape()[0], mat.shape()[1])).unwrap()
+        ArrayBase::from_vec(vec).into_shape_with_order((mat.shape()[0], mat.shape()[1])).unwrap()
     }
     let mat1_ = rank(mat1);
     let mat2_ = rank(mat2);
@@ -406,5 +406,5 @@ where
     let n2 = mat_y.nrows();
     let dists = (0..n1).cartesian_product(0..n2).collect::<Vec<_>>().into_par_iter()
         .map(|(i, j)| dist_fn(mat_x.get_row(i).unwrap(), mat_y.get_row(j).unwrap())).collect();
-    ArrayBase::from_vec(dists).into_shape((n1, n2)).unwrap()
+    ArrayBase::from_vec(dists).into_shape_with_order((n1, n2)).unwrap()
 }

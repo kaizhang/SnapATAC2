@@ -1,5 +1,12 @@
 # Release Notes
 
+## Nightly (unreleased)
+
+### Features:
+
+  - Support python 3.13.
+  - Add Zarr backend support for AnnData.
+
 ## Release 2.8.0 (released December 13, 2024)
 
 ### Features:

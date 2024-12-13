@@ -129,7 +129,7 @@ def test_import(datadir):
     test_files = [snap.datasets.pbmc500(downsample=True), str(datadir.join('test_clean.tsv.gz'))]
 
     for fl in test_files:
-        data = snap.pp.import_data(
+        data = snap.pp.import_fragments(
             fl,
             chrom_sizes=snap.genome.hg38,
             min_num_fragments=0,
@@ -150,7 +150,7 @@ def test_tile_matrix(datadir):
             counting_strategy='insertion',
             ).X.sum()
 
-    data = snap.pp.import_data(
+    data = snap.pp.import_fragments(
         snap.datasets.pbmc500(downsample=True),
         chrom_sizes=snap.genome.hg38,
         min_num_fragments=0,

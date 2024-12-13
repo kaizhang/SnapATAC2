@@ -10,7 +10,7 @@ def h5ad(dir=Path("./")):
 def test_exclude():
     fragment_file = snap.datasets.pbmc500(downsample=True)
 
-    data1 = snap.pp.import_data(
+    data1 = snap.pp.import_fragments(
         fragment_file,
         chrom_sizes={chr: size for chr, size in snap.genome.hg38.chrom_sizes.items() if chr not in ["chr1", "chr10"]},
         sorted_by_barcode=False,
@@ -18,7 +18,7 @@ def test_exclude():
     )
     snap.pp.add_tile_matrix(data1, exclude_chroms=None)
 
-    data2 = snap.pp.import_data(
+    data2 = snap.pp.import_fragments(
         fragment_file,
         chrom_sizes=snap.genome.hg38,
         sorted_by_barcode=False,
@@ -57,7 +57,7 @@ def pipeline(data):
 def test_backed(tmp_path):
     fragment_file = snap.datasets.pbmc500(downsample=True)
 
-    data = snap.pp.import_data(
+    data = snap.pp.import_fragments(
         fragment_file,
         chrom_sizes=snap.genome.hg38,
         file=h5ad(tmp_path),
@@ -68,7 +68,7 @@ def test_backed(tmp_path):
 def test_in_memory():
     fragment_file = snap.datasets.pbmc500(downsample=True)
 
-    data = snap.pp.import_data(
+    data = snap.pp.import_fragments(
         fragment_file,
         chrom_sizes=snap.genome.hg38,
         sorted_by_barcode=False,
