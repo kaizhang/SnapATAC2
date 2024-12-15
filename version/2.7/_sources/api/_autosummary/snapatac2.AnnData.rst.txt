@@ -1,0 +1,53 @@
+﻿snapatac2.AnnData
+=================
+
+.. currentmodule:: snapatac2
+
+.. autoclass:: AnnData
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: .
+   
+      ~snapatac2.AnnData.X
+      ~snapatac2.AnnData.backend
+      ~snapatac2.AnnData.filename
+      ~snapatac2.AnnData.isbacked
+      ~snapatac2.AnnData.layers
+      ~snapatac2.AnnData.n_obs
+      ~snapatac2.AnnData.n_vars
+      ~snapatac2.AnnData.obs
+      ~snapatac2.AnnData.obs_names
+      ~snapatac2.AnnData.obsm
+      ~snapatac2.AnnData.obsp
+      ~snapatac2.AnnData.shape
+      ~snapatac2.AnnData.uns
+      ~snapatac2.AnnData.var
+      ~snapatac2.AnnData.var_names
+      ~snapatac2.AnnData.varm
+      ~snapatac2.AnnData.varp
+   
+   
+
+   
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: .
+   
+      ~snapatac2.AnnData.chunked_X
+      ~snapatac2.AnnData.close
+      ~snapatac2.AnnData.copy
+      ~snapatac2.AnnData.is_closed
+      ~snapatac2.AnnData.obs_ix
+      ~snapatac2.AnnData.open
+      ~snapatac2.AnnData.subset
+      ~snapatac2.AnnData.to_memory
+      ~snapatac2.AnnData.var_ix
+      ~snapatac2.AnnData.write
+   
+   

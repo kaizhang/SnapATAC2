@@ -1,0 +1,6 @@
+snapatac2.AnnData.filename
+==========================
+
+.. currentmodule:: snapatac2
+
+.. autoattribute:: AnnData.filename

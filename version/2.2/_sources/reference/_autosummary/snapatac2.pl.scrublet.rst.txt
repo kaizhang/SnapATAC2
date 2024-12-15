@@ -1,0 +1,6 @@
+﻿snapatac2.pl.scrublet
+=====================
+
+.. currentmodule:: snapatac2.pl
+
+.. autofunction:: scrublet

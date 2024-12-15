@@ -1,0 +1,6 @@
+snapatac2.AnnData.copy
+======================
+
+.. currentmodule:: snapatac2
+
+.. automethod:: AnnData.copy

@@ -1,0 +1,6 @@
+﻿snapatac2.read\_dataset
+=======================
+
+.. currentmodule:: snapatac2
+
+.. autofunction:: read_dataset
