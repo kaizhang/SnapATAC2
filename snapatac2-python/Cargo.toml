@@ -12,10 +12,14 @@ keywords = ["single-cell", "biology"]
 
 [dependencies]
 snapatac2-core = { workspace = true }
-anndata = "0.6.1"
-anndata-hdf5 = "0.5"
-anndata-zarr = "0.1"
-pyanndata = "0.5.1"
+#anndata = "0.6.1"
+anndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "0d27ac475634ed7703ab1a23e01e6a3031a28541"}
+#anndata-hdf5 = "0.5"
+anndata-hdf5 = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "0d27ac475634ed7703ab1a23e01e6a3031a28541"}
+#anndata-zarr = "0.1"
+anndata-zarr = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "0d27ac475634ed7703ab1a23e01e6a3031a28541"}
+#pyanndata = "0.5.1"
+pyanndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "0d27ac475634ed7703ab1a23e01e6a3031a28541"}
 anyhow = "1.0"
 bed-utils = "0.7.1"
 flate2 = "1.0"

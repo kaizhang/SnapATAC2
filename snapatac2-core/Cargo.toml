@@ -10,7 +10,8 @@ homepage = "https://github.com/"
 keywords = ["single-cell", "biology"]
 
 [dependencies]
-anndata = "0.6.1"
+#anndata = "0.6.1"
+anndata = { git = "https://github.com/kaizhang/anndata-rs.git", rev = "0d27ac475634ed7703ab1a23e01e6a3031a28541"}
 anyhow = "1.0"
 bstr = "1.0"
 byteorder = "1.0"

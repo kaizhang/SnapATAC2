@@ -27,7 +27,7 @@ def anndata_ipar(inputs, func, n_jobs=4):
         from multiprocess import get_context
 
         def _func(x):
-            adata = internal.read(x[1])
+            adata = internal.read(x[1], backend=x[2])
             result = func((x[0], adata))
             adata.close() 
             return result
@@ -35,7 +35,7 @@ def anndata_ipar(inputs, func, n_jobs=4):
         # Close the AnnData objects and return the filenames
         files = []
         for i, adata in inputs:
-            files.append((i, adata.filename))
+            files.append((i, adata.filename, adata.backend))
             adata.close()
 
         with get_context("spawn").Pool(n_jobs) as p:
@@ -43,7 +43,7 @@ def anndata_ipar(inputs, func, n_jobs=4):
         
         # Reopen the files if they were closed
         for _, adata in inputs:
-            adata.open()
+            adata.open(mode='r+')
         
         return result
 
