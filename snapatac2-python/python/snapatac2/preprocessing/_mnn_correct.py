@@ -29,7 +29,9 @@ def mnc_correct(
     data
         Matrice or AnnData object. Matrices should be shaped like n_obs x n_vars.
     batch
-        Batch labels for cells. If a string, labels will be obtained from `obs`.
+        Batch labels for cells, stored as a list of strings, where each string
+        corresponds to the batch label for a cell. Alternatively, `batch` can be
+        a string, and in this case labels will be obtained from `.obs[`batch`]`.
     n_neighbors
         Number of mutual nearest neighbors.
     n_clusters
@@ -70,6 +72,10 @@ def mnc_correct(
 
     if isinstance(batch, str):
         batch = adata.obs[batch]
+    elif isinstance(batch, list):
+        assert len(batch) == mat.shape[0], "When `batch` is a list of strings,  \
+            it is interpreted as the batch labels of cells and it must \
+            have the same length as the number of cells."
 
     if groupby is None:
         mat = _mnc_correct_main(mat, batch, n_iter, n_neighbors, n_clusters)

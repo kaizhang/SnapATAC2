@@ -7,6 +7,10 @@
   - Support python 3.13.
   - Add Zarr backend support for AnnData.
 
+### Breaking Changes:
+
+  - `pp.import_data` is removed in favor of `pp.import_fragments`.
+
 ## Release 2.8.0 (released December 13, 2024)
 
 ### Features:

@@ -88,7 +88,7 @@ def export_coverage(
     exclude_for_norm: list[str] | Path = None,
     min_frag_length: int | None = None,
     max_frag_length: int | None = 2000,
-    counting_strategy: Literal['fragment', 'insertion', 'paired-insertion'] = 'fragment',
+    counting_strategy: Literal['fragment', 'insertion'] = 'fragment',
     smooth_base: int | None = None,
     out_dir: Path = "./",
     prefix: str = "",
@@ -149,14 +149,10 @@ def export_coverage(
         Maximum fragment length to be included in the computation.
     counting_strategy
         The strategy to compute feature counts. It must be one of the following:
-        "fragment", "insertion", or "paired-insertion". "fragment" means the
+        "fragment" or "insertion". "fragment" means the
         feature counts are assigned based on the number of fragments that overlap
         with a region of interest. "insertion" means the feature counts are assigned
         based on the number of insertions that overlap with a region of interest.
-        "paired-insertion" is similar to "insertion", but it only counts the insertions
-        once if the pair of insertions of a fragment are both within the same region
-        of interest [Miao24]_.
-        Note that this parameter has no effect if input are single-end reads.
     smooth_base
         Length of the smoothing window in bases for the output of the bigwig/bedgraph file.
     out_dir
