@@ -119,7 +119,7 @@ def leiden(
     new_cl_id = dict([(cl, i) if count >= min_cluster_size else (cl, -1) for (i, (cl, count)) in enumerate(Counter(groups).most_common())])
     for i in range(len(groups)): groups[i] = new_cl_id[groups[i]]
 
-    groups = np.array(groups, dtype=np.compat.unicode)
+    groups = np.array(groups, dtype=np.str_)
     if inplace:
         adata.obs[key_added] = polars.Series(
             groups,
@@ -182,7 +182,7 @@ def kmeans(
     else:
         data = adata
     groups = internal.kmeans(n_clusters, data)
-    groups = np.array(groups, dtype=np.compat.unicode)
+    groups = np.array(groups, dtype=np.str_)
     if inplace:
         adata.obs[key_added] = polars.Series(
             groups,
