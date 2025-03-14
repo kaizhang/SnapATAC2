@@ -1,0 +1,6 @@
+﻿snapatac2.tl.dbscan
+===================
+
+.. currentmodule:: snapatac2.tl
+
+.. autofunction:: dbscan

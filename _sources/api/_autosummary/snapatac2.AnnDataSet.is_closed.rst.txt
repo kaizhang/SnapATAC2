@@ -1,0 +1,6 @@
+snapatac2.AnnDataSet.is\_closed
+===============================
+
+.. currentmodule:: snapatac2
+
+.. automethod:: AnnDataSet.is_closed

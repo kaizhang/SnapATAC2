@@ -1,0 +1,6 @@
+﻿snapatac2.metrics.summary\_by\_chrom
+====================================
+
+.. currentmodule:: snapatac2.metrics
+
+.. autofunction:: summary_by_chrom

@@ -1,0 +1,6 @@
+﻿snapatac2.tl.motif\_enrichment
+==============================
+
+.. currentmodule:: snapatac2.tl
+
+.. autofunction:: motif_enrichment

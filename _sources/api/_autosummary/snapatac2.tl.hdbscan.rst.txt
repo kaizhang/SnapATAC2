@@ -1,0 +1,6 @@
+﻿snapatac2.tl.hdbscan
+====================
+
+.. currentmodule:: snapatac2.tl
+
+.. autofunction:: hdbscan

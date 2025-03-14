@@ -1,0 +1,6 @@
+﻿snapatac2.tl.add\_tf\_binding
+=============================
+
+.. currentmodule:: snapatac2.tl
+
+.. autofunction:: add_tf_binding

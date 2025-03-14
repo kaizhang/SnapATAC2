@@ -1,0 +1,6 @@
+﻿snapatac2.read\_csv
+===================
+
+.. currentmodule:: snapatac2
+
+.. autofunction:: read_csv
