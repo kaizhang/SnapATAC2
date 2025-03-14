@@ -91,7 +91,7 @@ def scrublet(
 
     if isinstance(features, str):
         if features in adata.var:
-            features = adata.var[features]
+            features = adata.var[features].to_numpy()
         else:
             raise NameError("Please call `select_features` first or explicitly set `features = None`")
 

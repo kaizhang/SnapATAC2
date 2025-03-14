@@ -224,7 +224,7 @@ def spectral(
 
     if isinstance(features, str):
         if features in adata.var:
-            features = adata.var[features]
+            features = adata.var[features].to_numpy()
         else:
             raise NameError("Please call `select_features` first or explicitly set `features = None`")
 
@@ -525,7 +525,7 @@ def multi_spectral(
     if features is None or isinstance(features, str):
         features = [features] * len(adatas)
     if all(isinstance(f, str) for f in features):
-        features = [adata.var[feature] for adata, feature in zip(adatas, features)]
+        features = [adata.var[feature].to_numpy() for adata, feature in zip(adatas, features)]
 
     if weights is None:
         weights = [1.0 for _ in adatas]
