@@ -310,7 +310,7 @@ pub(crate) fn read_genomic_ranges(input: &Bound<'_, PyAny>) -> Result<Vec<Genomi
 /// Returns a list of strings
 #[pyfunction]
 pub(crate) fn read_regions(file: PathBuf) -> Vec<String> {
-    let mut reader = bed::io::Reader::new(utils::open_file_for_read(file), None);
+    let mut reader = bed::io::Reader::new(utils::open_file_for_read(file), Some("#".to_string()));
     reader
         .records::<GenomicRange>()
         .map(|x| x.unwrap().pretty_show())
