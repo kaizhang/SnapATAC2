@@ -94,8 +94,8 @@ def tsse(
         raise ValueError("TSS enrichment score is not computed, please run `metrics.tsse` first.")
 
     selected_cells = np.where(adata.obs["n_fragment"] >= min_fragment)[0]
-    x = adata.obs["n_fragment"][selected_cells]
-    y = adata.obs["tsse"][selected_cells]
+    x = adata.obs["n_fragment"].to_numpy()[selected_cells]
+    y = adata.obs["tsse"].to_numpy()[selected_cells]
 
     fig = kde2d(x, y, log_x=True, log_y=False)
     fig.update_layout(

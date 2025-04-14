@@ -400,6 +400,7 @@ def import_values(
     chrom_sizes: Genome | dict[str, int],
     *,
     file: Path | None = None,
+    whitelist: Path | list[str] | None = None,
     chunk_size: int = 200,
     backend: Literal['hdf5'] = 'hdf5',
 ) -> internal.AnnData:
@@ -410,13 +411,17 @@ def import_values(
     ----------
     input_dir
         Directory containing the input files. Each file corresponds to a single cell.
+    chrom_sizes
+        A Genome object or a dictionary containing chromosome sizes, for example,
+        `{"chr1": 2393, "chr2": 2344, ...}`.
     file
         File name of the output h5ad file used to store the result. If provided,
         result will be saved to a backed AnnData, otherwise an in-memory AnnData
         is used.
-    chrom_sizes
-        A Genome object or a dictionary containing chromosome sizes, for example,
-        `{"chr1": 2393, "chr2": 2344, ...}`.
+    whitelist
+        File name or a list of barcodes. If it is a file name, each line
+        must contain a valid barcode. When provided, only barcodes in the whitelist
+        will be retained.
     chunk_size
         Increasing the chunk_size speeds up I/O but uses more memory.
     backend
@@ -433,9 +438,16 @@ def import_values(
     if len(chrom_sizes) == 0:
         raise ValueError("chrom_size cannot be empty")
 
+    if whitelist is not None:
+        if isinstance(whitelist, str) or isinstance(whitelist, Path):
+            with open(whitelist, "r") as fl:
+                whitelist = set([line.strip() for line in fl])
+        else:
+            whitelist = set(whitelist)
+
     adata = AnnData() if file is None else internal.AnnData(filename=file, backend=backend)
     internal.import_values(
-        adata, input_dir, chrom_sizes, chunk_size
+        adata, input_dir, chrom_sizes, whitelist, chunk_size
     )
     return adata
 

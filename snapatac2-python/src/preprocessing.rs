@@ -12,6 +12,7 @@ use pyo3::{prelude::*, pybacked::PyBackedStr};
 use snapatac2_core::feature_count::ValueType;
 use snapatac2_core::preprocessing::SummaryType;
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::{collections::BTreeMap, collections::HashSet, ops::Deref, str::FromStr};
@@ -239,14 +240,20 @@ pub(crate) fn import_contacts(
 }
 
 #[pyfunction]
+#[pyo3(signature = (anndata, input_dir, chrom_size, chunk_size, white_list=None))]
 pub(crate) fn import_values(
     anndata: AnnDataLike,
     input_dir: PathBuf,
     chrom_size: BTreeMap<String, u64>,
     chunk_size: usize,
+    white_list: Option<HashSet<String>>,
 ) -> Result<()> {
     fn read_chrom_values(path: PathBuf) -> impl Iterator<Item = (String, BaseValue)> {
-        let barcode = path.file_stem().unwrap().to_str().unwrap().to_string();
+        let barcode = if path.ends_with(".gz") {
+            <OsStr as AsRef<std::path::Path>>::as_ref(path.file_stem().unwrap()).file_stem()
+        } else {
+            path.file_stem()
+        }.unwrap().to_str().unwrap().to_string();
         let reader = BufReader::new(utils::open_file_for_read(&path));
         reader.lines().skip(1).map(move |line| {
             let line = line.unwrap();
@@ -268,7 +275,7 @@ pub(crate) fn import_values(
 
     macro_rules! run {
         ($data:expr) => {
-            preprocessing::import_values($data, sorted_values, &chrom_sizes, chunk_size)?
+            preprocessing::import_values($data, sorted_values, &chrom_sizes, white_list.as_ref(), chunk_size)?
         };
     }
 

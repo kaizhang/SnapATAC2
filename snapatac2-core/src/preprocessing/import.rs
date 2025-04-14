@@ -318,6 +318,7 @@ pub fn import_values<A, I>(
     anndata: &A,
     values: I,
     chrom_sizes: &ChromSizes,
+    white_list: Option<&HashSet<String>>,
     chunk_size: usize,
 ) -> Result<()>
 where
@@ -373,6 +374,7 @@ where
     let chunked_values = values.chunk_by(|x| x.0.clone());
     let chunked_values = chunked_values
         .into_iter()
+        .filter(|(key, _)| white_list.map_or(true, |x| x.contains(key)))
         .progress_with(spinner)
         .chunks(chunk_size);
     let arrays = chunked_values.into_iter().map(|chunk| {
