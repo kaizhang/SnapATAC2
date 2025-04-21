@@ -142,7 +142,7 @@ impl PyDNAMotifTest {
         let log_fc = ((occurrence as f64 / n as f64) / p).log2();
         let bion = Binomial::new(p, n).unwrap();
         let pval = if log_fc >= 0.0 {
-            1.0 - bion.cdf(occurrence)
+            bion.sf(occurrence)
         } else {
             bion.cdf(occurrence)
         };

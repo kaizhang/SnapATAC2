@@ -40,7 +40,7 @@ rand_isaac = "0.3"
 rand_core = "0.6"
 rand = "0.8"
 rayon = "1.10"
-statrs = "0.17"
+statrs = "0.18"
 sanitize-filename = "0.5"
 tempfile = "3.3"
 zstd = { version = "0.13", features = ["zstdmt"] }
