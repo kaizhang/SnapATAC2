@@ -102,25 +102,35 @@ def motif_enrichment(
             N_fg.append(total_fg)
             n_bg.append(bound_bg)
             N_bg.append(total_bg)
+
           
+    fold_change = np.array(fold_change)
+    pval = np.zeros(len(fold_change))
+    n_fg = np.array(n_fg)
+    N_fg = np.array(N_fg)
+    n_bg = np.array(n_bg)
+    N_bg = np.array(N_bg)
+    up_idx = fold_change >= 0
+    down_idx = fold_change < 0
     if method == "binomial":
-        pval = binom.cdf(n_fg, N_fg, np.array(n_bg) / np.array(N_bg))
+        pval[up_idx] = binom.sf(n_fg[up_idx] - 1, N_fg[up_idx], n_bg[up_idx] / N_bg[up_idx])
+        pval[down_idx] = binom.cdf(n_fg[down_idx], N_fg[down_idx], n_bg[down_idx] / N_bg[down_idx])
     elif method == "hypergeometric":
-        pval = hypergeom.cdf(n_fg, N_bg, n_bg, N_fg)
+        pval[up_idx] = hypergeom.sf(n_fg[up_idx] - 1, N_bg[up_idx], n_bg[up_idx], N_fg[up_idx])
+        pval[down_idx] = hypergeom.cdf(n_fg[down_idx], N_bg[down_idx], n_bg[down_idx], N_fg[down_idx])
     else:
         raise NameError("'method' needs to be 'binomial' or 'hypergeometric'")
+    pval = np.clip(pval, 1e-300, 1)
 
     result = dict(
         (key, {'id': [], 'name': [], 'family': [], 'log2(fold change)': [], 'p-value': []}) for key in regions.keys()
     )
     for i, key in enumerate(group_name):
-        log_fc = fold_change[i]
-        p = (1 - pval[i]) if log_fc >= 0 else pval[i]
         result[key]['id'].append(motif_id[i])
         result[key]['name'].append(motif_name[i])
         result[key]['family'].append(motif_family[i])
-        result[key]['log2(fold change)'].append(log_fc)
-        result[key]['p-value'].append(float(p))
+        result[key]['log2(fold change)'].append(fold_change[i])
+        result[key]['p-value'].append(float(pval[i]))
 
     for key in result.keys():
         result[key]['adjusted p-value'] = _p_adjust_bh(result[key]['p-value'])
