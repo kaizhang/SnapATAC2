@@ -1,0 +1,6 @@
+﻿snapatac2.tl.init\_network\_from\_annotation
+============================================
+
+.. currentmodule:: snapatac2.tl
+
+.. autofunction:: init_network_from_annotation

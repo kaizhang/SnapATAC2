@@ -1,0 +1,6 @@
+﻿snapatac2.pp.filter\_doublets
+=============================
+
+.. currentmodule:: snapatac2.pp
+
+.. autofunction:: filter_doublets

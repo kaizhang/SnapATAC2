@@ -1,0 +1,6 @@
+snapatac2.AnnData.obsm
+======================
+
+.. currentmodule:: snapatac2
+
+.. autoattribute:: AnnData.obsm

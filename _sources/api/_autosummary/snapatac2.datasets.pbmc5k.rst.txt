@@ -1,0 +1,6 @@
+﻿snapatac2.datasets.pbmc5k
+=========================
+
+.. currentmodule:: snapatac2.datasets
+
+.. autofunction:: pbmc5k

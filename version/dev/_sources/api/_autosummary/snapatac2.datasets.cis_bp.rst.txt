@@ -1,0 +1,6 @@
+﻿snapatac2.datasets.cis\_bp
+==========================
+
+.. currentmodule:: snapatac2.datasets
+
+.. autofunction:: cis_bp
