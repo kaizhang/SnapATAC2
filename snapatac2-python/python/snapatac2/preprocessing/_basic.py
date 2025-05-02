@@ -447,7 +447,7 @@ def import_values(
 
     adata = AnnData() if file is None else internal.AnnData(filename=file, backend=backend)
     internal.import_values(
-        adata, input_dir, chrom_sizes, whitelist, chunk_size
+        adata, input_dir, chrom_sizes, chunk_size, whitelist
     )
     return adata
 

@@ -6,6 +6,7 @@
 
   - Support python 3.13.
   - Add Zarr backend support for AnnData.
+  - Improve the precision of p values in `tl.motif_enrichment`.
 
 ### Breaking Changes:
 
