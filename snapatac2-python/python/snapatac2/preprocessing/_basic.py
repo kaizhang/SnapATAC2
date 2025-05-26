@@ -1053,7 +1053,8 @@ def select_features(
     count = np.zeros(adata.shape[1])
     for batch, _, _ in adata.chunked_X(2000):
         count += np.ravel(batch.sum(axis = 0))
-    adata.var['count'] = count
+    if inplace:
+        adata.var['count'] = count
 
     selected_features = _find_most_accessible_features(
         count, filter_lower_quantile, filter_upper_quantile, n_features)
