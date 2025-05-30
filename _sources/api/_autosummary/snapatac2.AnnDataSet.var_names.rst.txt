@@ -1,0 +1,6 @@
+snapatac2.AnnDataSet.var\_names
+===============================
+
+.. currentmodule:: snapatac2
+
+.. autoattribute:: AnnDataSet.var_names

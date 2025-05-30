@@ -1,0 +1,6 @@
+﻿snapatac2.ex.export\_fragments
+==============================
+
+.. currentmodule:: snapatac2.ex
+
+.. autofunction:: export_fragments

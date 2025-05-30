@@ -1,0 +1,22 @@
+﻿snapatac2.genome.Genome
+=======================
+
+.. currentmodule:: snapatac2.genome
+
+.. autoclass:: Genome
+
+   
+   
+   
+
+   
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: .
+   
+      ~snapatac2.genome.Genome.fetch_annotations
+      ~snapatac2.genome.Genome.fetch_fasta
+   
+   

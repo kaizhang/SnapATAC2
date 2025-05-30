@@ -1,0 +1,6 @@
+﻿snapatac2.tl.leiden
+===================
+
+.. currentmodule:: snapatac2.tl
+
+.. autofunction:: leiden

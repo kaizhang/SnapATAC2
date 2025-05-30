@@ -1,0 +1,720 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.19: https://docutils.sourceforge.io/" />
+
+    <title>snapatac2.pp.make_peak_matrix &#8212; SnapATAC2 2.3.1 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../_static/styles/theme.css?digest=e353d410970836974a52" rel="stylesheet" />
+<link href="../../_static/styles/bootstrap.css?digest=e353d410970836974a52" rel="stylesheet" />
+<link href="../../_static/styles/pydata-sphinx-theme.css?digest=e353d410970836974a52" rel="stylesheet" />
+
+  
+  <link href="../../_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=e353d410970836974a52" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=e353d410970836974a52" />
+<link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=e353d410970836974a52" />
+
+    <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/sphinx_highlight.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'reference/_autosummary/snapatac2.pp.make_peak_matrix';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://raw.githubusercontent.com/kaizhang/SnapATAC2/main/docs/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '2.3';
+        </script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="snapatac2.pp.make_gene_matrix" href="snapatac2.pp.make_gene_matrix.html" />
+    <link rel="prev" title="snapatac2.pp.add_tile_matrix" href="snapatac2.pp.add_tile_matrix.html" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ZX9JB19KRP"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-ZX9JB19KRP');
+</script>
+
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__primary"
+          id="__primary"/>
+  <label class="overlay overlay-primary" for="__primary"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          name="__secondary"
+          id="__secondary"/>
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+  
+    <nav class="bd-header navbar navbar-expand-lg bd-navbar">
+<div class="bd-header__inner bd-page-width">
+  <label class="sidebar-toggle primary-toggle" for="__primary">
+    <span class="fa-solid fa-bars"></span>
+  </label>
+  
+  <div class="navbar-header-items__start">
+    
+      <div class="navbar-item">
+  
+
+<a class="navbar-brand logo" href="../../index.html">
+  
+  
+  
+  
+  
+    <p class="title logo__title">SnapATAC2 2.3.1 documentation</p>
+  
+</a></div>
+    
+  </div>
+  
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item"><nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../install.html">
+                        Installation
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../tutorials/index.html">
+                        Tutorials
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="../index.html">
+                        API reference
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../develop.html">
+                        Development
+                      </a>
+                    </li>
+                
+
+                <li class="nav-item">
+                  <a class="nav-link nav-external" href="https://kzhang.org/epigenomics-analysis/">
+                    Learn
+                  </a>
+                </li>
+                
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+  </button>
+`);
+</script>
+        </div>
+      
+      
+        <div class="navbar-item">
+<script>
+document.write(`
+  <div class="version-switcher__container dropdown">
+    <button type="button" class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle" data-bs-toggle="dropdown">
+      2.3  <!-- this text may get changed later by javascript -->
+      <span class="caret"></span>
+    </button>
+    <div class="version-switcher__menu dropdown-menu list-group-flush py-0">
+    <!-- dropdown will be populated by javascript on page load -->
+    </div>
+  </div>
+`);
+</script></div>
+      
+        <div class="navbar-item">
+<script>
+document.write(`
+  <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+  </button>
+`);
+</script></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links navbar-nav"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/kaizhang/SnapATAC2" title="GitHub" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github"></i></span>
+            <label class="sr-only">GitHub</label></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+<script>
+document.write(`
+  <button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass"></i>
+  </button>
+`);
+</script>
+    </div>
+  
+
+  
+    <label class="sidebar-toggle secondary-toggle" for="__secondary">
+      <span class="fa-solid fa-outdent"></span>
+    </label>
+  
+</div>
+
+    </nav>
+  
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          <div class="navbar-item"><nav class="navbar-nav">
+  <p class="sidebar-header-items__title"
+     role="heading"
+     aria-level="1"
+     aria-label="Site Navigation">
+    Site Navigation
+  </p>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../install.html">
+                        Installation
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../tutorials/index.html">
+                        Tutorials
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="../index.html">
+                        API reference
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../../develop.html">
+                        Development
+                      </a>
+                    </li>
+                
+
+                <li class="nav-item">
+                  <a class="nav-link nav-external" href="https://kzhang.org/epigenomics-analysis/">
+                    Learn
+                  </a>
+                </li>
+                
+  </ul>
+</nav></div>
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+<script>
+document.write(`
+  <div class="version-switcher__container dropdown">
+    <button type="button" class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle" data-bs-toggle="dropdown">
+      2.3  <!-- this text may get changed later by javascript -->
+      <span class="caret"></span>
+    </button>
+    <div class="version-switcher__menu dropdown-menu list-group-flush py-0">
+    <!-- dropdown will be populated by javascript on page load -->
+    </div>
+  </div>
+`);
+</script></div>
+        
+          <div class="navbar-item">
+<script>
+document.write(`
+  <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+  </button>
+`);
+</script></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links navbar-nav"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/kaizhang/SnapATAC2" title="GitHub" class="nav-link" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><span><i class="fa-brands fa-square-github"></i></span>
+            <label class="sr-only">GitHub</label></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item"><nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="../io.html">Input/Output</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-1"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="snapatac2.AnnData.html">snapatac2.AnnData</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-2"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.X.html">snapatac2.AnnData.X</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.backend.html">snapatac2.AnnData.backend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.filename.html">snapatac2.AnnData.filename</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.isbacked.html">snapatac2.AnnData.isbacked</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.layers.html">snapatac2.AnnData.layers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.n_obs.html">snapatac2.AnnData.n_obs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.n_vars.html">snapatac2.AnnData.n_vars</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.obs.html">snapatac2.AnnData.obs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.obs_names.html">snapatac2.AnnData.obs_names</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.obsm.html">snapatac2.AnnData.obsm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.obsp.html">snapatac2.AnnData.obsp</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.shape.html">snapatac2.AnnData.shape</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.uns.html">snapatac2.AnnData.uns</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.var.html">snapatac2.AnnData.var</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.var_names.html">snapatac2.AnnData.var_names</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.varm.html">snapatac2.AnnData.varm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.varp.html">snapatac2.AnnData.varp</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.chunked_X.html">snapatac2.AnnData.chunked_X</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.close.html">snapatac2.AnnData.close</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.copy.html">snapatac2.AnnData.copy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.is_closed.html">snapatac2.AnnData.is_closed</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.obs_ix.html">snapatac2.AnnData.obs_ix</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.open.html">snapatac2.AnnData.open</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.subset.html">snapatac2.AnnData.subset</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.to_memory.html">snapatac2.AnnData.to_memory</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.var_ix.html">snapatac2.AnnData.var_ix</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnData.write.html">snapatac2.AnnData.write</a></li>
+</ul>
+</li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="snapatac2.AnnDataSet.html">snapatac2.AnnDataSet</a><input class="toctree-checkbox" id="toctree-checkbox-3" name="toctree-checkbox-3" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-3"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnDataSet.X.html">snapatac2.AnnDataSet.X</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnDataSet.adatas.html">snapatac2.AnnDataSet.adatas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnDataSet.backend.html">snapatac2.AnnDataSet.backend</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnDataSet.isbacked.html">snapatac2.AnnDataSet.isbacked</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnDataSet.n_obs.html">snapatac2.AnnDataSet.n_obs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnDataSet.n_vars.html">snapatac2.AnnDataSet.n_vars</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnDataSet.obs.html">snapatac2.AnnDataSet.obs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnDataSet.obs_names.html">snapatac2.AnnDataSet.obs_names</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnDataSet.obsm.html">snapatac2.AnnDataSet.obsm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnDataSet.obsp.html">snapatac2.AnnDataSet.obsp</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnDataSet.shape.html">snapatac2.AnnDataSet.shape</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnDataSet.uns.html">snapatac2.AnnDataSet.uns</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnDataSet.var.html">snapatac2.AnnDataSet.var</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnDataSet.var_names.html">snapatac2.AnnDataSet.var_names</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnDataSet.varm.html">snapatac2.AnnDataSet.varm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnDataSet.varp.html">snapatac2.AnnDataSet.varp</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnDataSet.chunked_X.html">snapatac2.AnnDataSet.chunked_X</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnDataSet.close.html">snapatac2.AnnDataSet.close</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnDataSet.is_closed.html">snapatac2.AnnDataSet.is_closed</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnDataSet.obs_ix.html">snapatac2.AnnDataSet.obs_ix</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnDataSet.subset.html">snapatac2.AnnDataSet.subset</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnDataSet.to_adata.html">snapatac2.AnnDataSet.to_adata</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.AnnDataSet.var_ix.html">snapatac2.AnnDataSet.var_ix</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.read.html">snapatac2.read</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.read_mtx.html">snapatac2.read_mtx</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.read_dataset.html">snapatac2.read_dataset</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.AnnData.write.html">snapatac2.AnnData.write</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.AnnData.subset.html">snapatac2.AnnData.subset</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.AnnData.copy.html">snapatac2.AnnData.copy</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.AnnDataSet.subset.html">snapatac2.AnnDataSet.subset</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../preprocessing.html">Preprocessing: <code class="code docutils literal notranslate"><span class="pre">pp</span></code></a><input checked="" class="toctree-checkbox" id="toctree-checkbox-4" name="toctree-checkbox-4" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-4"><i class="fa-solid fa-chevron-down"></i></label><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.pp.make_fragment_file.html">snapatac2.pp.make_fragment_file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.pp.import_data.html">snapatac2.pp.import_data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.pp.add_frip.html">snapatac2.pp.add_frip</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.pp.add_tile_matrix.html">snapatac2.pp.add_tile_matrix</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">snapatac2.pp.make_peak_matrix</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.pp.make_gene_matrix.html">snapatac2.pp.make_gene_matrix</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.pp.filter_cells.html">snapatac2.pp.filter_cells</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.pp.select_features.html">snapatac2.pp.select_features</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.pp.knn.html">snapatac2.pp.knn</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.pp.scrublet.html">snapatac2.pp.scrublet</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.pp.filter_doublets.html">snapatac2.pp.filter_doublets</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.pp.mnc_correct.html">snapatac2.pp.mnc_correct</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.pp.harmony.html">snapatac2.pp.harmony</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../tools.html">Tools: <code class="code docutils literal notranslate"><span class="pre">tl</span></code></a><input class="toctree-checkbox" id="toctree-checkbox-5" name="toctree-checkbox-5" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-5"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.tl.spectral.html">snapatac2.tl.spectral</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.tl.multi_spectral.html">snapatac2.tl.multi_spectral</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.tl.umap.html">snapatac2.tl.umap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.tl.leiden.html">snapatac2.tl.leiden</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.tl.kmeans.html">snapatac2.tl.kmeans</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.tl.dbscan.html">snapatac2.tl.dbscan</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.tl.hdbscan.html">snapatac2.tl.hdbscan</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.tl.marker_regions.html">snapatac2.tl.marker_regions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.tl.diff_test.html">snapatac2.tl.diff_test</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.tl.motif_enrichment.html">snapatac2.tl.motif_enrichment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.tl.init_network_from_annotation.html">snapatac2.tl.init_network_from_annotation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.tl.add_cor_scores.html">snapatac2.tl.add_cor_scores</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.tl.add_regr_scores.html">snapatac2.tl.add_regr_scores</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.tl.add_tf_binding.html">snapatac2.tl.add_tf_binding</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.tl.link_tf_to_gene.html">snapatac2.tl.link_tf_to_gene</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.tl.prune_network.html">snapatac2.tl.prune_network</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.tl.call_peaks.html">snapatac2.tl.call_peaks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.tl.aggregate_X.html">snapatac2.tl.aggregate_X</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.tl.aggregate_cells.html">snapatac2.tl.aggregate_cells</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../plotting.html">Plotting: <code class="code docutils literal notranslate"><span class="pre">pl</span></code></a><input class="toctree-checkbox" id="toctree-checkbox-6" name="toctree-checkbox-6" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-6"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.pl.tsse.html">snapatac2.pl.tsse</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.pl.spectral_eigenvalues.html">snapatac2.pl.spectral_eigenvalues</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.pl.umap.html">snapatac2.pl.umap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.pl.motif_enrichment.html">snapatac2.pl.motif_enrichment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.pl.regions.html">snapatac2.pl.regions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.pl.network_edge_stat.html">snapatac2.pl.network_edge_stat</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.pl.render_plot.html">snapatac2.pl.render_plot</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../export.html">Exporting: <code class="code docutils literal notranslate"><span class="pre">ex</span></code></a><input class="toctree-checkbox" id="toctree-checkbox-7" name="toctree-checkbox-7" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-7"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.ex.export_bed.html">snapatac2.ex.export_bed</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.ex.export_bigwig.html">snapatac2.ex.export_bigwig</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../datasets.html">Datasets</a><input class="toctree-checkbox" id="toctree-checkbox-8" name="toctree-checkbox-8" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-8"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l2 has-children"><a class="reference internal" href="snapatac2.genome.Genome.html">snapatac2.genome.Genome</a><input class="toctree-checkbox" id="toctree-checkbox-9" name="toctree-checkbox-9" type="checkbox"/><label class="toctree-toggle" for="toctree-checkbox-9"><i class="fa-solid fa-chevron-down"></i></label><ul>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.genome.Genome.fetch_annotations.html">snapatac2.genome.Genome.fetch_annotations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="snapatac2.genome.Genome.fetch_fasta.html">snapatac2.genome.Genome.fetch_fasta</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.genome.GRCh37.html">snapatac2.genome.GRCh37</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.genome.GRCh38.html">snapatac2.genome.GRCh38</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.genome.GRCm38.html">snapatac2.genome.GRCm38</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.genome.GRCm39.html">snapatac2.genome.GRCm39</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.genome.hg19.html">snapatac2.genome.hg19</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.genome.hg38.html">snapatac2.genome.hg38</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.genome.mm10.html">snapatac2.genome.mm10</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.genome.mm39.html">snapatac2.genome.mm39</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.datasets.cis_bp.html">snapatac2.datasets.cis_bp</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.datasets.Meuleman_2020.html">snapatac2.datasets.Meuleman_2020</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.datasets.pbmc500.html">snapatac2.datasets.pbmc500</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.datasets.pbmc5k.html">snapatac2.datasets.pbmc5k</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.datasets.pbmc10k_multiome.html">snapatac2.datasets.pbmc10k_multiome</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.datasets.colon.html">snapatac2.datasets.colon</a></li>
+<li class="toctree-l2"><a class="reference internal" href="snapatac2.datasets.cre_HEA.html">snapatac2.datasets.cre_HEA</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumbs">
+  <ul class="bd-breadcrumbs" role="navigation" aria-label="Breadcrumb">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">API reference</a></li>
+    
+    
+    <li class="breadcrumb-item"><a href="../preprocessing.html" class="nav-link">Preprocessing: <code class="code docutils literal notranslate"><span class="pre">pp</span></code></a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page">snapatac2.pp.make_peak_matrix</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article" role="main">
+                  
+  <section id="snapatac2-pp-make-peak-matrix">
+<h1>snapatac2.pp.make_peak_matrix<a class="headerlink" href="#snapatac2-pp-make-peak-matrix" title="Permalink to this heading">#</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="snapatac2.pp.make_peak_matrix">
+<span class="sig-prename descclassname"><span class="pre">snapatac2.pp.</span></span><span class="sig-name descname"><span class="pre">make_peak_matrix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adata</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_rep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inplace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">backend</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'hdf5'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">peak_file</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference external" href="https://github.com/kaizhang/SnapATAC2/blob/e2cdbf407d2b78d0a375e717711a4dfee989973a/snapatac2-python/snapatac2/preprocessing/_basic.py#L318-L402"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#snapatac2.pp.make_peak_matrix" title="Permalink to this definition">#</a></dt>
+<dd><p>Generate cell by peak count matrix.</p>
+<p>This function will generate a cell by peak count matrix and store it in a
+new .h5ad file.</p>
+<p><a class="reference internal" href="snapatac2.pp.import_data.html#snapatac2.pp.import_data" title="snapatac2.pp.import_data"><code class="xref py py-func docutils literal notranslate"><span class="pre">import_data()</span></code></a> must be ran first in order to use this function.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>adata</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">AnnData</span></code> | <code class="xref py py-class docutils literal notranslate"><span class="pre">AnnDataSet</span></code>) – The (annotated) data matrix of shape <code class="code docutils literal notranslate"><span class="pre">n_obs</span></code> x <code class="code docutils literal notranslate"><span class="pre">n_vars</span></code>.
+Rows correspond to cells and columns to regions.</p></li>
+<li><p><strong>use_rep</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">list</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code>], <code class="xref py py-obj docutils literal notranslate"><span class="pre">None</span></code>]) – This is used to read peak information from <code class="code docutils literal notranslate"><span class="pre">.uns[use_rep]</span></code>.
+The peaks can also be provided by a list of strings:
+[“chr1:1-100”, “chr2:2-200”].</p></li>
+<li><p><strong>inplace</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code>) – Whether to add the tile matrix to the AnnData object or return a new AnnData object.</p></li>
+<li><p><strong>file</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Path</span></code>]) – File name of the output h5ad file used to store the result. If provided,
+result will be saved to a backed AnnData, otherwise an in-memory AnnData
+is used. This has no effect when <code class="code docutils literal notranslate"><span class="pre">inplace=True</span></code>.</p></li>
+<li><p><strong>backend</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Literal</span></code>[<code class="docutils literal notranslate"><span class="pre">'hdf5'</span></code>]) – The backend to use for storing the result. If <code class="code docutils literal notranslate"><span class="pre">None</span></code>, the default backend will be used.</p></li>
+<li><p><strong>peak_file</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Path</span></code>]) – Bed file containing the peaks. If provided, peak information will be read
+from this file.</p></li>
+<li><p><strong>chunk_size</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code>) – Chunk size</p></li>
+<li><p><strong>use_x</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code>) – If True, use the matrix stored in <code class="code docutils literal notranslate"><span class="pre">.X</span></code> as raw counts.
+Otherwise the <code class="code docutils literal notranslate"><span class="pre">.obsm['insertion']</span></code> is used.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An annotated data matrix of shape <code class="code docutils literal notranslate"><span class="pre">n_obs</span></code> x <code class="code docutils literal notranslate"><span class="pre">n_vars</span></code>. Rows correspond to
+cells and columns to peaks. If <code class="code docutils literal notranslate"><span class="pre">file=None</span></code>, an in-memory AnnData will be
+returned, otherwise a backed AnnData is returned.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="snapatac2.AnnData.html#snapatac2.AnnData" title="snapatac2.AnnData">AnnData</a> | ad.AnnData | None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+                </article>
+              
+              
+              
+                <footer class="bd-footer-article">
+                  
+<div class="footer-article-items footer-article__inner">
+  
+    <div class="footer-article-item"><!-- Previous / next buttons -->
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="snapatac2.pp.add_tile_matrix.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">snapatac2.pp.add_tile_matrix</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="snapatac2.pp.make_gene_matrix.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">snapatac2.pp.make_gene_matrix</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div></div>
+  
+</div>
+
+                </footer>
+              
+            </div>
+            
+            
+              
+                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+  <div class="sidebar-secondary-item">
+  <div class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#snapatac2.pp.make_peak_matrix"><code class="docutils literal notranslate"><span class="pre">make_peak_matrix()</span></code></a></li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../_static/scripts/bootstrap.js?digest=e353d410970836974a52"></script>
+<script src="../../_static/scripts/pydata-sphinx-theme.js?digest=e353d410970836974a52"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+  <p class="copyright">
+    
+      © Copyright 2022-2023, Kai Zhang.
+      <br/>
+    
+  </p>
+</div>
+      
+    </div>
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item"><p class="theme-version">
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.13.3.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

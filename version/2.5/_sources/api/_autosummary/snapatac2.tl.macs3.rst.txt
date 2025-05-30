@@ -1,0 +1,6 @@
+﻿snapatac2.tl.macs3
+==================
+
+.. currentmodule:: snapatac2.tl
+
+.. autofunction:: macs3

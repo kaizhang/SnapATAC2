@@ -1,0 +1,6 @@
+﻿snapatac2.tl.marker\_regions
+============================
+
+.. currentmodule:: snapatac2.tl
+
+.. autofunction:: marker_regions

@@ -1,0 +1,6 @@
+snapatac2.AnnData.varp
+======================
+
+.. currentmodule:: snapatac2
+
+.. autoattribute:: AnnData.varp

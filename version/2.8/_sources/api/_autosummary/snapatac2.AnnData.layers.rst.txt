@@ -1,0 +1,6 @@
+snapatac2.AnnData.layers
+========================
+
+.. currentmodule:: snapatac2
+
+.. autoattribute:: AnnData.layers

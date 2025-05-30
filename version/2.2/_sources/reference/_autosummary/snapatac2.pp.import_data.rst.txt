@@ -1,0 +1,6 @@
+﻿snapatac2.pp.import\_data
+=========================
+
+.. currentmodule:: snapatac2.pp
+
+.. autofunction:: import_data

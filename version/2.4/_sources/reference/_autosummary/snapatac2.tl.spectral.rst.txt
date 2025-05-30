@@ -1,0 +1,6 @@
+﻿snapatac2.tl.spectral
+=====================
+
+.. currentmodule:: snapatac2.tl
+
+.. autofunction:: spectral

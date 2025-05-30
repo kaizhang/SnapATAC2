@@ -1,0 +1,6 @@
+snapatac2.AnnDataSet.adatas
+===========================
+
+.. currentmodule:: snapatac2
+
+.. autoattribute:: AnnDataSet.adatas

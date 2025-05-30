@@ -1,0 +1,6 @@
+﻿snapatac2.datasets.Meuleman\_2020
+=================================
+
+.. currentmodule:: snapatac2.datasets
+
+.. autofunction:: Meuleman_2020

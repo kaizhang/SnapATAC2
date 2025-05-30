@@ -1,0 +1,6 @@
+snapatac2.AnnData.subset
+========================
+
+.. currentmodule:: snapatac2
+
+.. automethod:: AnnData.subset

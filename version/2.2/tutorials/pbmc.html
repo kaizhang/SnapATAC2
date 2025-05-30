@@ -1,0 +1,1456 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+    <title>Standard pipeline: analyzing 5K PBMC dataset from 10X genomics &#8212; SnapATAC2 2.2.0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=796348d33e8b1d947c94" rel="stylesheet">
+<link href="../_static/styles/bootstrap.css?digest=796348d33e8b1d947c94" rel="stylesheet">
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=796348d33e8b1d947c94" rel="stylesheet">
+
+  
+  <link href="../_static/vendor/fontawesome/6.1.2/css/all.min.css?digest=796348d33e8b1d947c94" rel="stylesheet">
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-solid-900.woff2">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-brands-400.woff2">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../_static/vendor/fontawesome/6.1.2/webfonts/fa-regular-400.woff2">
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/nbsphinx-code-cells.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/custom.css" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=796348d33e8b1d947c94">
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=796348d33e8b1d947c94">
+
+    <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'tutorials/pbmc';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://kzhang.org/SnapATAC2/_static/versions.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '2.2';
+        </script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Annotating cell clusters by integrating single-cell RNA-seq data" href="annotation.html" />
+    <link rel="prev" title="Tutorials" href="index.html" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="docsearch:language" content="None">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-ZX9JB19KRP"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-ZX9JB19KRP');
+</script>
+
+  </head>
+  
+  
+  <body data-spy="scroll" data-target="#bd-toc-nav" data-offset="180" data-default-mode="">
+
+  
+  
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  
+  <input type="checkbox" class="sidebar-toggle" name="__primary" id="__primary">
+  <label class="overlay overlay-primary" for="__primary"></label>
+
+  
+  <input type="checkbox" class="sidebar-toggle" name="__secondary" id="__secondary">
+  <label class="overlay overlay-secondary" for="__secondary"></label>
+
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+      
+<form class="bd-search d-flex align-items-center" action="../search.html" method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search" class="form-control" name="q" id="search-input" placeholder="Search the docs ..." aria-label="Search the docs ..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+    </div>
+  </div>
+
+  
+  <nav class="bd-header navbar navbar-expand-lg bd-navbar" id="navbar-main"><div class="bd-header__inner bd-page-width">
+  <label class="sidebar-toggle primary-toggle" for="__primary">
+      <span class="fa-solid fa-bars"></span>
+  </label>
+  <div id="navbar-start">
+    
+    
+  
+
+
+<a class="navbar-brand logo" href="../index.html">
+
+  
+  
+  
+  
+  
+  
+  
+
+  
+  
+    <p class="title logo__title">SnapATAC2 2.2.0 documentation</p>
+  
+</a>
+    
+  </div>
+
+  
+  <div class="col-lg-9 navbar-header-items">
+    <div id="navbar-center" class="mr-auto">
+      
+      <div class="navbar-center-item">
+        <nav class="navbar-nav">
+    <p class="sidebar-header-items__title" role="heading" aria-level="1" aria-label="Site Navigation">
+        Site Navigation
+    </p>
+    <ul id="navbar-main-elements" class="navbar-nav">
+        
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../install.html">
+                        Installation
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="index.html">
+                        Tutorials
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../reference/index.html">
+                        API reference
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../develop.html">
+                        Development
+                      </a>
+                    </li>
+                
+
+                <li class="nav-item">
+                  <a class="nav-link nav-external" href="https://kzhang.org/epigenomics-analysis/">
+                    Learn
+                  </a>
+                </li>
+                
+    </ul>
+</nav>
+      </div>
+      
+    </div>
+
+    <div id="navbar-end">
+      
+        <div class="navbar-end-item navbar-persistent--container">
+          
+<button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-toggle="tooltip">
+  <i class="fa-solid fa-magnifying-glass"></i>
+</button>
+        </div>
+      
+      
+      <div class="navbar-end-item">
+        <div class="version-switcher__container dropdown">
+    <button type="button" class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle" data-toggle="dropdown">
+        2.2  <!-- this text may get changed later by javascript -->
+        <span class="caret"></span>
+    </button>
+    <div class="version-switcher__menu dropdown-menu list-group-flush py-0">
+    <!-- dropdown will be populated by javascript on page load -->
+    </div>
+</div>
+      </div>
+      
+      <div class="navbar-end-item">
+        <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+</button>
+      </div>
+      
+      <div class="navbar-end-item">
+        <ul id="navbar-icon-links" class="navbar-nav" aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/kaizhang/SnapATAC2" title="GitHub" class="nav-link" rel="noopener" target="_blank" data-toggle="tooltip"><span><i class="fa-brands fa-square-github"></i></span>
+            <label class="sr-only">GitHub</label></a>
+        </li>
+      </ul>
+      </div>
+      
+    </div>
+  </div>
+
+
+  
+  
+    <div class="navbar-persistent--mobile">
+<button class="btn btn-sm navbar-btn search-button search-button__button" title="Search" aria-label="Search" data-toggle="tooltip">
+  <i class="fa-solid fa-magnifying-glass"></i>
+</button>
+    </div>
+  
+
+  
+  <label class="sidebar-toggle secondary-toggle" for="__secondary">
+      <span class="fa-solid fa-outdent"></span>
+  </label>
+  
+
+</div>
+  </nav>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      <div class="bd-sidebar-primary bd-sidebar">
+        
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+      
+      <div class="navbar-center-item">
+        <nav class="navbar-nav">
+    <p class="sidebar-header-items__title" role="heading" aria-level="1" aria-label="Site Navigation">
+        Site Navigation
+    </p>
+    <ul id="navbar-main-elements" class="navbar-nav">
+        
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../install.html">
+                        Installation
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item current active">
+                      <a class="nav-link nav-internal" href="index.html">
+                        Tutorials
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../reference/index.html">
+                        API reference
+                      </a>
+                    </li>
+                
+
+                    <li class="nav-item">
+                      <a class="nav-link nav-internal" href="../develop.html">
+                        Development
+                      </a>
+                    </li>
+                
+
+                <li class="nav-item">
+                  <a class="nav-link nav-external" href="https://kzhang.org/epigenomics-analysis/">
+                    Learn
+                  </a>
+                </li>
+                
+    </ul>
+</nav>
+      </div>
+      
+      </div>
+    
+
+    
+    
+    <div class="sidebar-header-items__end">
+      
+      <div class="navbar-end-item">
+        <div class="version-switcher__container dropdown">
+    <button type="button" class="version-switcher__button btn btn-sm navbar-btn dropdown-toggle" data-toggle="dropdown">
+        2.2  <!-- this text may get changed later by javascript -->
+        <span class="caret"></span>
+    </button>
+    <div class="version-switcher__menu dropdown-menu list-group-flush py-0">
+    <!-- dropdown will be populated by javascript on page load -->
+    </div>
+</div>
+      </div>
+      
+      <div class="navbar-end-item">
+        <button class="theme-switch-button btn btn-sm btn-outline-primary navbar-btn rounded-circle" title="light/dark" aria-label="light/dark" data-toggle="tooltip">
+    <span class="theme-switch" data-mode="light"><i class="fa-solid fa-sun"></i></span>
+    <span class="theme-switch" data-mode="dark"><i class="fa-solid fa-moon"></i></span>
+    <span class="theme-switch" data-mode="auto"><i class="fa-solid fa-circle-half-stroke"></i></span>
+</button>
+      </div>
+      
+      <div class="navbar-end-item">
+        <ul id="navbar-icon-links" class="navbar-nav" aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/kaizhang/SnapATAC2" title="GitHub" class="nav-link" rel="noopener" target="_blank" data-toggle="tooltip"><span><i class="fa-brands fa-square-github"></i></span>
+            <label class="sr-only">GitHub</label></a>
+        </li>
+      </ul>
+      </div>
+      
+    </div>
+    
+  </div>
+
+  
+  <div class="sidebar-start-items sidebar-primary__section">
+    <div class="sidebar-start-items__item"><nav class="bd-links" id="bd-docs-nav" aria-label="Section navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">
+    Section Navigation
+  </p>
+  <div class="bd-toc-item navbar-nav">
+    <ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Standard pipeline: analyzing 5K PBMC dataset from 10X genomics</a></li>
+<li class="toctree-l1"><a class="reference internal" href="annotation.html">Annotating cell clusters by integrating single-cell RNA-seq data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="diff.html">Identify differentially accessible regions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="integration.html">Multi-sample Pipeline: analyzing snATAC-seq data of human colon samples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modality.html">Multi-modality pipeline: analyzing single-cell multiome data (ATAC + Gene Expression)</a></li>
+</ul>
+
+  </div>
+</nav>
+    </div>
+  </div>
+  
+
+  
+  <div class="sidebar-end-items sidebar-primary__section">
+    <div class="sidebar-end-items__item">
+    </div>
+  </div>
+
+  
+  <div id="rtd-footer-container"></div>
+
+      </div>
+      <main id="main-content" class="bd-main">
+        
+        
+        <div class="bd-content">
+          <div class="bd-article-container">
+            
+            <div class="bd-header-article">
+                
+            </div>
+            
+            
+            <article class="bd-article" role="main">
+              
+  <section id="Standard-pipeline:-analyzing-5K-PBMC-dataset-from-10X-genomics">
+<h1>Standard pipeline: analyzing 5K PBMC dataset from 10X genomics<a class="headerlink" href="#Standard-pipeline:-analyzing-5K-PBMC-dataset-from-10X-genomics" title="Permalink to this headline">#</a></h1>
+<section id="Introduction">
+<h2>Introduction<a class="headerlink" href="#Introduction" title="Permalink to this headline">#</a></h2>
+<p>In this tutorial we will analyze single-cell ATAC-seq data from Peripheral blood mononuclear cells (PBMCs).</p>
+</section>
+<section id="Import-library-and-environment-setup">
+<h2>Import library and environment setup<a class="headerlink" href="#Import-library-and-environment-setup" title="Permalink to this headline">#</a></h2>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import snapatac2 as snap
+
+snap.__version__
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+&#39;2.1.3.1&#39;
+</pre></div></div>
+</div>
+<p>Download the fragment file.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span># Input files
+fragment_file = snap.datasets.pbmc5k()
+fragment_file
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+PosixPath(&#39;/home/kaizhang/.cache/snapatac2/atac_pbmc_5k.tsv.gz&#39;)
+</pre></div></div>
+</div>
+</section>
+<section id="Preprocessing">
+<h2>Preprocessing<a class="headerlink" href="#Preprocessing" title="Permalink to this headline">#</a></h2>
+<p>We start off on data preprocessing by importing the fragment files and computing QC metric, which is achieved by calling the funciton <code class="docutils literal notranslate"><span class="pre">import_data</span></code>.</p>
+<p>This function generates genome-wide TN5 insertion counts and stored the result in an AnnData object (Click <a class="reference external" href="https://kzhang.org/epigenomics-analysis/anndata.html">here</a> to learn more about SnapATAC2’s <code class="docutils literal notranslate"><span class="pre">anndata</span></code> implementation). During this process, various quality controls, such as TSS enrichment, the number of unique fragments per cell, will also be computed and stored in the anndata.</p>
+<p>By default the AnnData object is created and stored in the computer memory. If the <code class="docutils literal notranslate"><span class="pre">file</span></code> parameter is provided, the AnnData object will be backed by a hdf5 file. In the “backed” mode, <code class="docutils literal notranslate"><span class="pre">import_data</span></code> will process the data by chunks and stream the result to the disk. As a result, only a small fixed amount of memory will be used. So it is advised to specify the <code class="docutils literal notranslate"><span class="pre">file</span></code> parameter when your input is large and memory is scarse. Note that analyzing data in “backed” mode is slightly slower than
+that in “memory” mode.</p>
+<p>In this tutorial we will use the backed mode. To learn more about the differences between these two modes, click <a class="reference external" href="https://kzhang.org/epigenomics-analysis/anndata.html">here</a>.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%time
+data = snap.pp.import_data(
+    fragment_file,
+    genome=snap.genome.hg38,
+    file=&quot;pbmc.h5ad&quot;,
+    sorted_by_barcode=False,
+)
+data
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+CPU times: user 11min 3s, sys: 33.7 s, total: 11min 37s
+Wall time: 3min 13s
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+AnnData object with n_obs x n_vars = 14227 x 0 backed at &#39;pbmc.h5ad&#39;
+    obs: &#39;tsse&#39;, &#39;n_fragment&#39;, &#39;frac_dup&#39;, &#39;frac_mito&#39;
+    uns: &#39;reference_sequences&#39;
+    obsm: &#39;insertion&#39;
+</pre></div></div>
+</div>
+<p>To identify usable/high-quality cells, we can plot TSS enrichment against number of unique fragments for each cell.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>snap.pl.tsse(data, interactive=False)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/tutorials_pbmc_8_0.png" src="../_images/tutorials_pbmc_8_0.png" />
+</div>
+</div>
+<p>The cells on the upper right corresponds to valid/high-quality cells, while the cells on the lower left corresponds to low-quality cells or empty dropblets. According to this plot, we decided to choose minimum TSS enrichment of 10 and minimum number of fragments of 5000 to filter the cells.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%time
+snap.pp.filter_cells(data, min_counts=5000, min_tsse=10, max_counts=50000)
+data
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+CPU times: user 18.8 s, sys: 2.71 s, total: 21.5 s
+Wall time: 21.6 s
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+AnnData object with n_obs x n_vars = 4544 x 0 backed at &#39;pbmc.h5ad&#39;
+    obs: &#39;tsse&#39;, &#39;n_fragment&#39;, &#39;frac_dup&#39;, &#39;frac_mito&#39;
+    uns: &#39;reference_sequences&#39;
+    obsm: &#39;insertion&#39;
+</pre></div></div>
+</div>
+<p>We next create a cell by bin matrix containing insertion counts across genome-wide 500-bp bins.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%time
+snap.pp.add_tile_matrix(data)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+CPU times: user 57.3 s, sys: 8.7 s, total: 1min 6s
+Wall time: 41.8 s
+</pre></div></div>
+</div>
+<p>We next perform feature selection to remove bins with low variability. The result is stored in <code class="docutils literal notranslate"><span class="pre">data.var[&quot;selected&quot;]</span></code> and will be automatically picked up by relavent functions such as <code class="docutils literal notranslate"><span class="pre">snap.pp.scrublet</span></code> and <code class="docutils literal notranslate"><span class="pre">snap.tl.spectral</span></code>.</p>
+<p>The default feature selection algorithm selects variable features. You can pass filter list to the function such as blacklist or whitelist. For example, <code class="docutils literal notranslate"><span class="pre">pp.select_features(data,</span> <span class="pre">blacklist=&quot;blacklist.bed&quot;)</span></code>.</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>snap.pp.select_features(data)
+</pre></div>
+</div>
+</div>
+<section id="Doublet-removal">
+<h3>Doublet removal<a class="headerlink" href="#Doublet-removal" title="Permalink to this headline">#</a></h3>
+<p>Here we apply a customized scrublet algorithm to identify potential doublets. Calling <code class="docutils literal notranslate"><span class="pre">snap.pp.scrublet</span></code> will assign a doublet score to each cell. We can then use <code class="docutils literal notranslate"><span class="pre">snap.pp.call_doublets</span></code> to get the doublet score threshold to identify potential doublets. The result can be plotted by <code class="docutils literal notranslate"><span class="pre">snap.pl.scrublet</span></code>.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%time
+snap.pp.scrublet(data)
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+2022-11-10 20:48:36 - INFO - Simulating doublets...
+2022-11-10 20:48:37 - INFO - Spectral embedding ...
+2022-11-10 20:49:04 - INFO - Calculating doublet scores...
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+CPU times: user 2min 17s, sys: 41.1 s, total: 2min 58s
+Wall time: 1min 8s
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>snap.pp.call_doublets(data)
+snap.pl.scrublet(data, interactive=False)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/tutorials_pbmc_17_0.png" src="../_images/tutorials_pbmc_17_0.png" />
+</div>
+</div>
+<p>This line does the actual filtering. Note the <code class="docutils literal notranslate"><span class="pre">.subset()</span></code> method is available only in backed mode. To subset an in-memory AnnData object, use: <code class="docutils literal notranslate"><span class="pre">data</span> <span class="pre">=</span> <span class="pre">data[~data.obs[&quot;is_doublet&quot;],</span> <span class="pre">:]</span></code> instead.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>data.subset(~data.obs[&quot;is_doublet&quot;])
+data
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+AnnData object with n_obs x n_vars = 4358 x 6176550 backed at &#39;pbmc.h5ad&#39;
+    obs: &#39;tsse&#39;, &#39;n_fragment&#39;, &#39;frac_dup&#39;, &#39;frac_mito&#39;, &#39;doublet_score&#39;, &#39;is_doublet&#39;
+    var: &#39;selected&#39;
+    uns: &#39;reference_sequences&#39;, &#39;scrublet_sim_doublet_score&#39;, &#39;scrublet_threshold&#39;
+    obsm: &#39;insertion&#39;
+</pre></div></div>
+</div>
+</section>
+</section>
+<section id="Dimenstion-reduction">
+<h2>Dimenstion reduction<a class="headerlink" href="#Dimenstion-reduction" title="Permalink to this headline">#</a></h2>
+<p>To compute the lower dimensional representation of single-cell chromatin profiles, we first compute the pairwise read-depth normalized jaccard similarity. We then use the spectral embedding to perform the dimension reduction. All these steps were packed into a single function <code class="docutils literal notranslate"><span class="pre">snap.tl.spectral</span></code>. The result is stored in <code class="docutils literal notranslate"><span class="pre">data.obsm['X_spectral']</span></code>. Note we also provide alternative similarity metric such as the cosine similarity. Full details about the algorithm we used in dimension reduction
+can be found <a class="reference external" href="../algorithms/dimension_reduction.rst">here</a>.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%time
+snap.tl.spectral(data)
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+2022-11-10 20:50:28 - INFO - Compute similarity matrix
+2022-11-10 20:50:29 - INFO - Normalization
+2022-11-10 20:50:30 - INFO - Perform decomposition
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+CPU times: user 51.9 s, sys: 24 s, total: 1min 15s
+Wall time: 34.8 s
+</pre></div></div>
+</div>
+<p>We then plot the top eigenvalues corresponding to the first <code class="docutils literal notranslate"><span class="pre">n</span></code> eigenvectors/components. Using the elbow method, we pick the first 10 components in subsequent analysis. Note that selecting approporiate number of components is critical for getting best clustering accuracy.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>snap.pl.spectral_eigenvalues(data, interactive=False)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/tutorials_pbmc_24_0.png" src="../_images/tutorials_pbmc_24_0.png" />
+</div>
+</div>
+<p>We then use UMAP to embed the cells to 2-dimension space for visualization purpose. This step will have to be run after <code class="docutils literal notranslate"><span class="pre">snap.tl.spectral</span></code> as it uses the lower dimesnional representation created by the spectral embedding.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%time
+snap.tl.umap(data, use_dims=10)
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+/home/kaizhang/data/software/miniconda3/lib/python3.8/site-packages/umap/__init__.py:9: UserWarning:
+
+Tensorflow not installed; ParametricUMAP will be unavailable
+
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+CPU times: user 33.5 s, sys: 5.57 s, total: 39.1 s
+Wall time: 32.4 s
+</pre></div></div>
+</div>
+</section>
+<section id="Clustering-analysis">
+<h2>Clustering analysis<a class="headerlink" href="#Clustering-analysis" title="Permalink to this headline">#</a></h2>
+<p>We next perform graph-based clustering to identify cell clusters. We first build a k-nearest neighbour graph using <code class="docutils literal notranslate"><span class="pre">snap.pp.knn</span></code>, and then use the Leiden community detection algorithm to identify densely-connected subgraphs/clusters in the graph. The graph-based clustering algorithm usually outperform other methods. Here we also run the k-means algorithm as a comparison.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%time
+snap.pp.knn(data, use_dims=10)
+snap.tl.leiden(data)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+CPU times: user 3 s, sys: 159 ms, total: 3.16 s
+Wall time: 1.31 s
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>snap.pl.umap(data, color=&quot;leiden&quot;, interactive=False)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/tutorials_pbmc_30_0.png" src="../_images/tutorials_pbmc_30_0.png" />
+</div>
+</div>
+</section>
+<section id="Cell-cluster-annotation">
+<h2>Cell cluster annotation<a class="headerlink" href="#Cell-cluster-annotation" title="Permalink to this headline">#</a></h2>
+<section id="Create-the-cell-by-gene-activity-matrix">
+<h3>Create the cell by gene activity matrix<a class="headerlink" href="#Create-the-cell-by-gene-activity-matrix" title="Permalink to this headline">#</a></h3>
+<p>Now that we have the cell clusters, we will try to annotate the clusters and assign them to known cell types. To do this, we need to compute the gene activities first for each cell using the <code class="docutils literal notranslate"><span class="pre">pp.make_gene_matrix</span></code> function.</p>
+<p>Just like <code class="docutils literal notranslate"><span class="pre">pp.import_data</span></code>, <code class="docutils literal notranslate"><span class="pre">pp.make_gene_matrix</span></code> allows you to provide an optional file name used to store the AnnData object. To demo the in-memory mode of AnnData, we will not provide the <code class="docutils literal notranslate"><span class="pre">file</span></code> parameter this time.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%time
+gene_matrix = snap.pp.make_gene_matrix(data, snap.genome.hg38)
+gene_matrix
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+CPU times: user 2min 41s, sys: 6.52 s, total: 2min 48s
+Wall time: 31.2 s
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+AnnData object with n_obs × n_vars = 4358 × 60606
+    obs: &#39;tsse&#39;, &#39;n_fragment&#39;, &#39;frac_dup&#39;, &#39;frac_mito&#39;, &#39;doublet_score&#39;, &#39;is_doublet&#39;, &#39;leiden&#39;
+</pre></div></div>
+</div>
+</section>
+<section id="Imputation">
+<h3>Imputation<a class="headerlink" href="#Imputation" title="Permalink to this headline">#</a></h3>
+<p>The cell by gene activity matrix is usually very sparse. To ease the visulization and marker gene identification, we use the MAGIC algorithm to perform imputation and data smoothing. The subsequent steps are similar to those in single-cell RNA-seq analysis, we therefore leverage the <a class="reference external" href="https://scanpy.readthedocs.io/en/stable/">scanpy</a> package to do this.</p>
+<p>Since we have stored the gene matrix in in-memory mode, we can directly pass it to scanpy. If the AnnData object is in backed mode, you need to convert it to an in-memory representation using the <code class="docutils literal notranslate"><span class="pre">.to_memory()</span></code> method.</p>
+<p>We first perform gene filtering, data normalization, data transformation, and then call the <code class="docutils literal notranslate"><span class="pre">sc.external.pp.magic</span></code> function to complete the imputation.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>import scanpy as sc
+
+sc.pp.filter_genes(gene_matrix, min_cells= 5)
+sc.pp.normalize_total(gene_matrix)
+sc.pp.log1p(gene_matrix)
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+/home/kaizhang/.local/lib/python3.8/site-packages/anndata/_core/anndata.py:121: ImplicitModificationWarning:
+
+Transforming to str index.
+
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%time
+sc.external.pp.magic(gene_matrix, solver=&quot;approximate&quot;)
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+/home/kaizhang/.local/lib/python3.8/site-packages/magic/utils.py:145: FutureWarning:
+
+X.dtype being converted to np.float32 from float64. In the next version of anndata (0.9) conversion will not be automatic. Pass dtype explicitly to avoid this warning. Pass `AnnData(X, dtype=X.dtype, ...)` to get the future behavour.
+
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+CPU times: user 52.7 s, sys: 27.3 s, total: 1min 19s
+Wall time: 38.5 s
+</pre></div></div>
+</div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span># Copy over UMAP embedding
+gene_matrix.obsm[&quot;X_umap&quot;] = data.obsm[&quot;X_umap&quot;]
+</pre></div>
+</div>
+</div>
+<p>We can now visualize the gene activity of a few marker genes.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>marker_genes = [&#39;MS4A1&#39;, &#39;CD3D&#39;, &#39;LEF1&#39;, &#39;NKG7&#39;, &#39;TREM1&#39;, &#39;LYZ&#39;, &#39;PPBP&#39;]
+sc.pl.umap(gene_matrix, use_raw=False, color=[&quot;leiden&quot;] + marker_genes)
+sc.pl.violin(gene_matrix, marker_genes, use_raw=False, groupby=&#39;leiden&#39;)
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/tutorials_pbmc_39_0.png" src="../_images/tutorials_pbmc_39_0.png" />
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/tutorials_pbmc_39_1.png" src="../_images/tutorials_pbmc_39_1.png" />
+</div>
+</div>
+</section>
+</section>
+<section id="Peak-calling-at-the-cluster-level">
+<h2>Peak calling at the cluster-level<a class="headerlink" href="#Peak-calling-at-the-cluster-level" title="Permalink to this headline">#</a></h2>
+<p>An important goal of single-cell ATAC-seq analysis is to identify genomic regions that are enriched with TN5 insertions, or “open chromatin” regions. Using <code class="docutils literal notranslate"><span class="pre">snap.tl.call_peaks</span></code>, we can easily identify open chromatin regions in different cell populations stratified by provided group information.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%time
+snap.tl.call_peaks(data, groupby=&quot;leiden&quot;)
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+2022-11-10 20:54:11 - INFO - Exporting data...
+2022-11-10 20:59:14 - INFO - Calling peaks for 10 groups ...
+2022-11-10 21:01:30 - INFO - Merging peaks...
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+CPU times: user 5min 5s, sys: 11 s, total: 5min 16s
+Wall time: 7min 21s
+</pre></div></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">snap.tl.call_peaks</span></code> first calls peaks for individual groups and then merges overlapping peaks to create a list of fix-width non-overlapping peaks. The intermediate results are discarded by default but can be saved using the <code class="docutils literal notranslate"><span class="pre">out_dir</span></code> parameter.</p>
+<p>Results of peak calling are stored in <code class="docutils literal notranslate"><span class="pre">data.uns['peaks']</span></code> as a dataframe. Rows are merged peaks, and columns are cell clusters. Boolean values in the dataframe indicate whether a peak is present in a given cell cluster.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>data.uns[&#39;peaks&#39;].head()
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[22]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+
+    .dataframe td {
+        white-space: pre;
+    }
+
+    .dataframe td {
+        padding-top: 0;
+    }
+
+    .dataframe td {
+        padding-bottom: 0;
+    }
+
+    .dataframe td {
+        line-height: 95%;
+    }
+</style>
+<table border="1" class="dataframe" >
+<small>shape: (5, 11)</small>
+<thead>
+<tr>
+<th>
+Peaks
+</th>
+<th>
+8
+</th>
+<th>
+7
+</th>
+<th>
+4
+</th>
+<th>
+1
+</th>
+<th>
+2
+</th>
+<th>
+9
+</th>
+<th>
+5
+</th>
+<th>
+3
+</th>
+<th>
+0
+</th>
+<th>
+6
+</th>
+</tr>
+<tr>
+<td>
+str
+</td>
+<td>
+bool
+</td>
+<td>
+bool
+</td>
+<td>
+bool
+</td>
+<td>
+bool
+</td>
+<td>
+bool
+</td>
+<td>
+bool
+</td>
+<td>
+bool
+</td>
+<td>
+bool
+</td>
+<td>
+bool
+</td>
+<td>
+bool
+</td>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+&quot;chr1:180649-18...
+</td>
+<td>
+false
+</td>
+<td>
+true
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+true
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+true
+</td>
+<td>
+true
+</td>
+<td>
+false
+</td>
+</tr>
+<tr>
+<td>
+&quot;chr1:181197-18...
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+true
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+</tr>
+<tr>
+<td>
+&quot;chr1:191594-19...
+</td>
+<td>
+false
+</td>
+<td>
+true
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+true
+</td>
+<td>
+true
+</td>
+<td>
+true
+</td>
+<td>
+false
+</td>
+</tr>
+<tr>
+<td>
+&quot;chr1:267750-26...
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+true
+</td>
+<td>
+false
+</td>
+<td>
+true
+</td>
+<td>
+true
+</td>
+<td>
+false
+</td>
+<td>
+true
+</td>
+<td>
+true
+</td>
+<td>
+false
+</td>
+</tr>
+<tr>
+<td>
+&quot;chr1:280496-28...
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+false
+</td>
+<td>
+true
+</td>
+<td>
+false
+</td>
+</tr>
+</tbody>
+</table>
+</div></div>
+</div>
+<p>Now, with the peak list, we can create a cell by peak matrix by <code class="docutils literal notranslate"><span class="pre">snap.pp.make_peak_matrix</span></code>.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[23]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>%%time
+peak_mat = snap.pp.make_peak_matrix(data, file=&quot;peak_matrix.h5ad&quot;)
+peak_mat
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+CPU times: user 1min 31s, sys: 5.75 s, total: 1min 37s
+Wall time: 31 s
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[23]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+AnnData object with n_obs x n_vars = 4358 x 241999 backed at &#39;peak_matrix.h5ad&#39;
+    obs: &#39;tsse&#39;, &#39;n_fragment&#39;, &#39;frac_dup&#39;, &#39;frac_mito&#39;, &#39;doublet_score&#39;, &#39;is_doublet&#39;, &#39;leiden&#39;
+</pre></div></div>
+</div>
+<section id="Close-AnnData-objects">
+<h3>Close AnnData objects<a class="headerlink" href="#Close-AnnData-objects" title="Permalink to this headline">#</a></h3>
+<p>When the AnnData objects are opened in backed mode, they will be synchronized with the underlying HDF5 files, which means there is no need to manually save the results during the analysis and the files are always up to date. As a side effect, <strong>it is important to close every backed AnnData object before shutdown the Python process to avoid HDF5 file corruptions!</strong></p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>peak_mat.close()
+data.close()
+data
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[24]:
+</pre></div>
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Closed AnnData object
+</pre></div></div>
+</div>
+<p>Also, remember to save any in-memory AnnData objects.</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[25]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre><span></span>gene_matrix.write(&quot;gene_matrix.h5ad&quot;)
+</pre></div>
+</div>
+</div>
+<p>Now it is safe to close and shutdown the notebook! Next time you can load the results using <code class="docutils literal notranslate"><span class="pre">data</span> <span class="pre">=</span> <span class="pre">snap.read(&quot;pbmc.h5ad&quot;)</span></code>.</p>
+</section>
+</section>
+<section id="What's-next?">
+<h2>What’s next?<a class="headerlink" href="#What's-next?" title="Permalink to this headline">#</a></h2>
+<ul class="simple">
+<li><p><a class="reference external" href="https://kzhang.org/SnapATAC2/tutorials/annotation.html">Cell type annotation</a></p></li>
+<li><p><a class="reference external" href="https://kzhang.org/SnapATAC2/tutorials/diff.html">Differential peak and motif analysis</a></p></li>
+</ul>
+</section>
+</section>
+
+
+            </article>
+            
+            
+            
+            <footer class="bd-footer-article">
+                <!-- Previous / next buttons -->
+<div class='prev-next-area'>
+  <a class='left-prev' id="prev-link" href="index.html" title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+          <p class="prev-next-subtitle">previous</p>
+          <p class="prev-next-title">Tutorials</p>
+      </div>
+  </a>
+  <a class='right-next' id="next-link" href="annotation.html" title="next page">
+  <div class="prev-next-info">
+      <p class="prev-next-subtitle">next</p>
+      <p class="prev-next-title">Annotating cell clusters by integrating single-cell RNA-seq data</p>
+  </div>
+  <i class="fa-solid fa-angle-right"></i>
+  </a>
+</div>
+            </footer>
+            
+          </div>
+          
+          
+          
+            <div class="bd-sidebar-secondary bd-toc">
+              
+<div class="toc-item">
+  
+<div class="tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+</div>
+<nav id="bd-toc-nav" class="page-toc">
+    <ul class="visible nav section-nav flex-column">
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#Introduction">
+   Introduction
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#Import-library-and-environment-setup">
+   Import library and environment setup
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#Preprocessing">
+   Preprocessing
+  </a>
+  <ul class="nav section-nav flex-column">
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#Doublet-removal">
+     Doublet removal
+    </a>
+   </li>
+  </ul>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#Dimenstion-reduction">
+   Dimenstion reduction
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#Clustering-analysis">
+   Clustering analysis
+  </a>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#Cell-cluster-annotation">
+   Cell cluster annotation
+  </a>
+  <ul class="nav section-nav flex-column">
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#Create-the-cell-by-gene-activity-matrix">
+     Create the cell by gene activity matrix
+    </a>
+   </li>
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#Imputation">
+     Imputation
+    </a>
+   </li>
+  </ul>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#Peak-calling-at-the-cluster-level">
+   Peak calling at the cluster-level
+  </a>
+  <ul class="nav section-nav flex-column">
+   <li class="toc-h3 nav-item toc-entry">
+    <a class="reference internal nav-link" href="#Close-AnnData-objects">
+     Close AnnData objects
+    </a>
+   </li>
+  </ul>
+ </li>
+ <li class="toc-h2 nav-item toc-entry">
+  <a class="reference internal nav-link" href="#What's-next?">
+   What’s next?
+  </a>
+ </li>
+</ul>
+
+</nav>
+</div>
+
+<div class="toc-item">
+  
+<div id="searchbox"></div>
+</div>
+
+<div class="toc-item">
+  
+</div>
+
+<div class="toc-item">
+  
+</div>
+
+            </div>
+          
+          
+        </div>
+        <footer class="bd-footer-content">
+          <div class="bd-footer-content__inner">
+            
+          </div>
+        </footer>
+        
+      </main>
+    </div>
+  </div>
+
+  
+    
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../_static/scripts/bootstrap.js?digest=796348d33e8b1d947c94"></script>
+<script src="../_static/scripts/pydata-sphinx-theme.js?digest=796348d33e8b1d947c94"></script>
+
+  <footer class="bd-footer"><div class="bd-footer__inner container">
+  
+  <div class="footer-item">
+    
+<p class="copyright">
+
+    &copy; Copyright 2022, Kai Zhang.<br>
+
+</p>
+
+  </div>
+  
+  <div class="footer-item">
+    <p class="theme-version">
+    Built with the
+    <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">
+        PyData Sphinx Theme
+    </a>
+    0.12.0.
+</p>
+  </div>
+  
+  <div class="footer-item">
+    
+  </div>
+  
+</div>
+  </footer>
+  </body>
+</html>

@@ -1,0 +1,6 @@
+snapatac2.AnnData.write
+=======================
+
+.. currentmodule:: snapatac2
+
+.. automethod:: AnnData.write

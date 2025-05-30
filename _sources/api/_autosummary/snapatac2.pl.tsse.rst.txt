@@ -1,0 +1,6 @@
+﻿snapatac2.pl.tsse
+=================
+
+.. currentmodule:: snapatac2.pl
+
+.. autofunction:: tsse

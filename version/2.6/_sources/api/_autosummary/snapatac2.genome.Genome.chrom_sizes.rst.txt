@@ -1,0 +1,6 @@
+snapatac2.genome.Genome.chrom\_sizes
+====================================
+
+.. currentmodule:: snapatac2.genome
+
+.. autoproperty:: Genome.chrom_sizes

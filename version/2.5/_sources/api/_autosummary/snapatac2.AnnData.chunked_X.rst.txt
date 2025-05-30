@@ -1,0 +1,6 @@
+snapatac2.AnnData.chunked\_X
+============================
+
+.. currentmodule:: snapatac2
+
+.. automethod:: AnnData.chunked_X

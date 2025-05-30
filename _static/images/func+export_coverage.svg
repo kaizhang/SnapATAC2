@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 285.33 197.32">
+  <defs>
+    <style>
+      .cls-1, .cls-2 {
+        font-family: Helvetica, Helvetica;
+      }
+
+      .cls-1, .cls-3 {
+        font-size: 7px;
+      }
+
+      .cls-2, .cls-4 {
+        font-size: 6px;
+      }
+
+      .cls-5 {
+        stroke: red;
+        stroke-width: .5px;
+      }
+
+      .cls-5, .cls-6, .cls-7 {
+        fill: none;
+      }
+
+      .cls-5, .cls-7 {
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .cls-4, .cls-3 {
+        font-family: MyriadPro-Regular, 'Myriad Pro';
+      }
+
+      .cls-8 {
+        letter-spacing: 0em;
+      }
+
+      .cls-6 {
+        stroke: #000;
+        stroke-miterlimit: 10;
+      }
+
+      .cls-9 {
+        fill: red;
+      }
+
+      .cls-10 {
+        fill: #29abe2;
+        opacity: .21;
+      }
+
+      .cls-11 {
+        letter-spacing: -.01em;
+      }
+
+      .cls-12 {
+        letter-spacing: 0em;
+      }
+
+      .cls-13 {
+        letter-spacing: 0em;
+      }
+
+      .cls-14 {
+        letter-spacing: 0em;
+      }
+
+      .cls-15 {
+        letter-spacing: 0em;
+      }
+
+      .cls-16 {
+        letter-spacing: -.01em;
+      }
+
+      .cls-17 {
+        letter-spacing: 0em;
+      }
+
+      .cls-18 {
+        letter-spacing: 0em;
+      }
+
+      .cls-7 {
+        opacity: .8;
+        stroke: #f15a24;
+        stroke-width: 3px;
+      }
+
+      .cls-19 {
+        letter-spacing: .03em;
+      }
+
+      .cls-20 {
+        letter-spacing: .01em;
+      }
+
+      .cls-21 {
+        letter-spacing: 0em;
+      }
+    </style>
+  </defs>
+  <rect class="cls-10" x="115.88" y="9.03" width="36.78" height="123.48"/>
+  <rect class="cls-10" x="153.13" y="9.03" width="36.78" height="123.48"/>
+  <rect class="cls-10" x="78.63" y="9.03" width="36.78" height="123.48"/>
+  <rect class="cls-10" x="190.38" y="9.03" width="36.78" height="123.48"/>
+  <rect class="cls-10" x="227.63" y="9.03" width="36.78" height="123.48"/>
+  <line class="cls-6" x1="26.33" y1="132.2" x2="285.33" y2="132.2"/>
+  <line class="cls-7" x1="59.9" y1="33.98" x2="204.33" y2="33.98"/>
+  <text class="cls-3" transform="translate(92.68 5.86)"><tspan x="0" y="0">Bin</tspan></text>
+  <g>
+    <line class="cls-5" x1="59.83" y1="26.01" x2="71.67" y2="26.01"/>
+    <polygon class="cls-9" points="70.96 26.94 71.36 26.01 70.96 25.08 73.16 26.01 70.96 26.94"/>
+  </g>
+  <text class="cls-4" transform="translate(24.24 27.79)"><tspan class="cls-11" x="0" y="0">f</tspan><tspan x="1.67" y="0">o</tspan><tspan class="cls-19" x="4.97" y="0">r</tspan><tspan class="cls-15" x="7.08" y="0">w</tspan><tspan x="11.47" y="0">a</tspan><tspan class="cls-17" x="14.36" y="0">r</tspan><tspan x="16.27" y="0">d </tspan><tspan class="cls-16" x="20.92" y="0">r</tspan><tspan x="22.82" y="0">ead</tspan></text>
+  <g>
+    <line class="cls-5" x1="204.41" y1="40" x2="192.57" y2="40"/>
+    <polygon class="cls-9" points="193.28 39.07 192.88 40 193.28 40.93 191.08 40 193.28 39.07"/>
+  </g>
+  <text class="cls-4" transform="translate(208.27 41.76)"><tspan class="cls-16" x="0" y="0">r</tspan><tspan class="cls-8" x="1.9" y="0">e</tspan><tspan class="cls-16" x="4.91" y="0">v</tspan><tspan x="7.73" y="0">erse </tspan><tspan class="cls-17" x="19.36" y="0">r</tspan><tspan x="21.26" y="0">ead</tspan></text>
+  <text class="cls-4" transform="translate(110.77 42.29)"><tspan class="cls-18" x="0" y="0">e</tspan><tspan class="cls-20" x="2.99" y="0">x</tspan><tspan class="cls-13" x="5.84" y="0">t</tspan><tspan x="7.79" y="0">ended f</tspan><tspan class="cls-14" x="26.93" y="0">r</tspan><tspan x="28.86" y="0">a</tspan><tspan class="cls-12" x="31.75" y="0">g</tspan><tspan class="cls-8" x="35.07" y="0">me</tspan><tspan class="cls-15" x="43.08" y="0">n</tspan><tspan class="cls-8" x="46.39" y="0">t</tspan></text>
+  <line class="cls-7" x1="22.54" y1="60.54" x2="75.33" y2="60.54"/>
+  <line class="cls-7" x1="164.36" y1="73.54" x2="217.15" y2="73.54"/>
+  <line class="cls-7" x1="65.36" y1="102.54" x2="118.33" y2="102.54"/>
+  <line class="cls-7" x1="142.36" y1="89.54" x2="195.15" y2="89.54"/>
+  <line class="cls-7" x1="40.36" y1="120.9" x2="93.15" y2="120.9"/>
+  <line class="cls-7" x1="105.36" y1="111.9" x2="158.15" y2="111.9"/>
+  <line class="cls-7" x1="122.36" y1="62.9" x2="147.33" y2="62.9"/>
+  <text class="cls-4" transform="translate(0 133.55)"><tspan class="cls-21" x="0" y="0">G</tspan><tspan class="cls-8" x="3.91" y="0">enome</tspan></text>
+  <text class="cls-2" transform="translate(51.39 141.8)"><tspan x="0" y="0">Counts:</tspan></text>
+  <text class="cls-1" transform="translate(95.82 141.8)"><tspan x="0" y="0">4</tspan></text>
+  <text class="cls-1" transform="translate(131.48 141.8)"><tspan x="0" y="0">5</tspan></text>
+  <text class="cls-1" transform="translate(169.27 141.8)"><tspan x="0" y="0">4</tspan></text>
+  <text class="cls-1" transform="translate(207.4 141.8)"><tspan x="0" y="0">3</tspan></text>
+  <text class="cls-1" transform="translate(243.19 141.8)"><tspan x="0" y="0">0</tspan></text>
+  <text class="cls-2" transform="translate(91.52 178.34)"><tspan x="0" y="0">Scaling factor</tspan></text>
+  <text class="cls-2" transform="translate(138.5 164.63)"><tspan x="0" y="0">CPM = 8 / 1e6</tspan></text>
+  <text class="cls-2" transform="translate(138.5 178.62)"><tspan x="0" y="0">BPM = 16 / 1e6</tspan></text>
+  <text class="cls-2" transform="translate(138.5 194.44)"><tspan x="0" y="0">RPKM = 8 * (bin_size /1000) / 1e6</tspan></text>
+</svg>

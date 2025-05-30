@@ -1,0 +1,6 @@
+﻿snapatac2.pp.call\_doublets
+===========================
+
+.. currentmodule:: snapatac2.pp
+
+.. autofunction:: call_doublets

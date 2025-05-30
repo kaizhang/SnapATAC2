@@ -1,0 +1,6 @@
+﻿snapatac2.ex.export\_coverage
+=============================
+
+.. currentmodule:: snapatac2.ex
+
+.. autofunction:: export_coverage

@@ -1,0 +1,6 @@
+snapatac2.genome.Genome.fetch\_fasta
+====================================
+
+.. currentmodule:: snapatac2.genome
+
+.. automethod:: Genome.fetch_fasta

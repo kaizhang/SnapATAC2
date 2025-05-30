@@ -1,0 +1,6 @@
+﻿snapatac2.pp.add\_tile\_matrix
+==============================
+
+.. currentmodule:: snapatac2.pp
+
+.. autofunction:: add_tile_matrix

@@ -1,0 +1,6 @@
+﻿snapatac2.datasets.pbmc\_multiome
+=================================
+
+.. currentmodule:: snapatac2.datasets
+
+.. autofunction:: pbmc_multiome

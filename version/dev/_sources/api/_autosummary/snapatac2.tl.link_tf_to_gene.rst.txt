@@ -1,0 +1,6 @@
+﻿snapatac2.tl.link\_tf\_to\_gene
+===============================
+
+.. currentmodule:: snapatac2.tl
+
+.. autofunction:: link_tf_to_gene

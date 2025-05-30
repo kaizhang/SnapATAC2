@@ -1,0 +1,6 @@
+﻿snapatac2.pp.select\_features
+=============================
+
+.. currentmodule:: snapatac2.pp
+
+.. autofunction:: select_features

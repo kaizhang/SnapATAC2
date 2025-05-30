@@ -1,0 +1,6 @@
+snapatac2.AnnDataSet.backend
+============================
+
+.. currentmodule:: snapatac2
+
+.. autoattribute:: AnnDataSet.backend

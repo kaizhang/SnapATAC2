@@ -1,0 +1,15 @@
+:root {
+    // Sidebar styles
+    --pst-sidebar-secondary: 15rem;
+}
+
+/* Main page overview cards */
+
+.bd-page-width {
+    max-width: 98rem;
+}
+
+/* Dark theme tweaking */
+html[data-theme=dark] .sd-card img[src*='.svg'] {
+    filter: invert(0.82) brightness(0.8) contrast(1.2);
+}
