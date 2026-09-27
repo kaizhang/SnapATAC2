@@ -70,7 +70,16 @@ def leiden(
     >>> "leiden" in adata.obs
     True
     """
-    from igraph import set_random_number_generator
+    try:
+        from igraph import set_random_number_generator
+    except ImportError:
+        raise ImportError(
+            "tl.leiden requires python-igraph, an optional dependency of SnapATAC2. "
+            "Install it with:  pip install 'snapatac2[clustering]'  (or: pip install igraph). "
+            "It is optional because python-igraph is GPL-licensed while SnapATAC2 is MIT, so "
+            "users who never call tl.leiden, tl.leiden_sweep or tl.pagerank do not have to "
+            "take on a copyleft dependency."
+        ) from None
     from collections import Counter
     import polars
     import random

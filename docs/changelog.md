@@ -2,6 +2,15 @@
 
 ## Nightly (unreleased)
 
+### Breaking Changes:
+
+  - `igraph` is now an **optional** dependency rather than a required one. It is available
+    as the `clustering` extra (`pip install 'snapatac2[clustering]'`) and remains part of
+    `recommend`, so `pip install 'snapatac2[recommend]'` is unaffected. Only `tl.leiden`,
+    `tl.leiden_sweep` and `tl.pagerank` use it, and those now raise an actionable
+    `ImportError` if it is missing. This lets MIT-licensed SnapATAC2 be installed without
+    pulling in a GPL-licensed dependency.
+
 ## Release 2.10.0 (released July 28, 2026)
 
 ### Features:

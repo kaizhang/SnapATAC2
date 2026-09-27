@@ -95,7 +95,16 @@ def get_file_format(suffix):
 
 def get_igraph_from_adjacency(adj):
     """Get igraph graph from adjacency matrix."""
-    import igraph as ig
+    try:
+        import igraph as ig
+    except ImportError:
+        raise ImportError(
+            "tl.leiden requires python-igraph, an optional dependency of SnapATAC2. "
+            "Install it with:  pip install 'snapatac2[clustering]'  (or: pip install igraph). "
+            "It is optional because python-igraph is GPL-licensed while SnapATAC2 is MIT, so "
+            "users who never call tl.leiden, tl.leiden_sweep or tl.pagerank do not have to "
+            "take on a copyleft dependency."
+        ) from None
     vcount = max(adj.shape)
     sources, targets = adj.nonzero()
     edgelist = list(zip(list(sources), list(targets)))

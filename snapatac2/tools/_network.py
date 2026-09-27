@@ -555,7 +555,16 @@ def _to_igraph(
     edge_weights: str | list[float] | None = None,
     reverse_edge: bool = False,
 ):
-    import igraph as ig
+    try:
+        import igraph as ig
+    except ImportError:
+        raise ImportError(
+            "tl.pagerank requires python-igraph, an optional dependency of SnapATAC2. "
+            "Install it with:  pip install 'snapatac2[clustering]'  (or: pip install igraph). "
+            "It is optional because python-igraph is GPL-licensed while SnapATAC2 is MIT, so "
+            "users who never call tl.leiden, tl.leiden_sweep or tl.pagerank do not have to "
+            "take on a copyleft dependency."
+        ) from None
     g = ig.Graph()
 
     nodes = [x.id for x in graph.nodes()]

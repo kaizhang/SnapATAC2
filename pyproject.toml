@@ -30,7 +30,6 @@ dependencies = [
     'polars >= 1.32, < 2.0',
     'pooch >= 1.6.0, < 2.0.0',
     'scverse-misc[datasets] >= 0.1.1, < 0.2',
-    'igraph >= 0.10.3',
     'pyarrow',
     'pyfaidx >= 0.7.0, < 0.9.0',
     'rustworkx',
@@ -62,7 +61,16 @@ Issues = "https://github.com/scverse/SnapATAC2/issues"
 Changelog = "https://scverse.org/SnapATAC2/version/dev/changelog.html"
 
 [project.optional-dependencies]
+# python-igraph is GPL-licensed while SnapATAC2 is MIT. It is imported lazily by exactly three
+# functions -- tl.leiden, tl.leiden_sweep (via tl.leiden) and tl.pagerank -- so users who do not
+# call those never need it, and users who must avoid a copyleft dependency can install SnapATAC2
+# without one. Everything else, including import/QC/peak-calling and tl.kmeans / tl.hdbscan /
+# tl.dbscan, works unchanged.
+clustering = [
+    "igraph>=0.10.3",
+]
 recommend = [
+    "igraph>=0.10.3",
     "harmonypy>=0.0.9",
     "xgboost>=1.4",
     "umap-learn>=0.5.0",
@@ -80,6 +88,9 @@ dev = [
 test = [
   "pytest >=8.1.1,<9",
   "hypothesis >=6.72.4,<7",
+  # The test suite exercises tl.leiden, so it needs the optional `clustering`
+  # dependency even though the library itself no longer requires it.
+  "igraph >=0.10.3",
 ]
 
 docs = [
